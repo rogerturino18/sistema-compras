@@ -1,13 +1,727 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistema de Compras - Gestão Completa</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SL Óleos — Gestão de Compras</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#2e7d32;
+  --green-light:#4caf50;
+  --green-pale:#e8f5e9;
+  --green-dark:#1b5e20;
+  --yellow:#f9a825;
+  --dark:#263238;
+  --gray:#546e7a;
+  --bg:#f5f7f5;
+  --white:#fff;
+  --border:#dce4dc;
+}
+body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--dark);background:var(--bg);min-height:100vh}
+
+/* HEADER */
+.header{background:var(--green);padding:12px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15)}
+.header-logo{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--green);flex-shrink:0}
+.header-text h1{font-size:16px;font-weight:600;color:#fff}
+.header-text p{font-size:11px;color:rgba(255,255,255,0.75)}
+
+/* TABS */
+.tabs{display:flex;background:#fff;border-bottom:2px solid var(--green-pale);overflow-x:auto;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.tab{padding:11px 18px;cursor:pointer;font-size:12px;white-space:nowrap;border-bottom:3px solid transparent;color:var(--gray);transition:all 0.15s;margin-bottom:-2px;font-weight:500}
+.tab.active{color:var(--green);border-bottom-color:var(--green);background:#fff}
+.tab:hover:not(.active){color:var(--dark);background:var(--green-pale)}
+
+/* PANELS */
+.panel{display:none;padding:16px;max-width:1200px;margin:0 auto}
+.panel.active{display:block}
+
+/* STATS */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:#fff;border-radius:10px;padding:12px 14px;border-left:3px solid var(--green);box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.stat-label{font-size:10px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.stat-val{font-size:22px;font-weight:700;color:var(--green)}
+
+/* TOOLBAR */
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select{font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--dark);min-width:120px}
+.toolbar input:focus,.toolbar select:focus{outline:none;border-color:var(--green)}
+
+/* BUTTONS */
+.btn{padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--dark);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s;white-space:nowrap}
+.btn:hover{background:var(--green-pale)}
+.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.primary:hover{background:var(--green-dark)}
+.btn.danger{background:#ffebee;color:#c62828;border-color:#ffcdd2}
+.btn.success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.yellow{background:#fff8e1;color:#795548;border-color:#ffe082}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-sm{padding:4px 10px;font-size:11px}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
+th{background:var(--green-pale);padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--green);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px}
+td{padding:7px 10px;border-bottom:1px solid #f0f4f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f9fbf9}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:var(--green-pale);color:var(--green)}
+.badge-yellow{background:#fff9c4;color:#795548}
+.badge-gray{background:#f5f5f5;color:#757575}
+.badge-blue{background:#e3f2fd;color:#1565c0}
+.badge-red{background:#ffebee;color:#c62828}
+.forn-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--green-pale);color:var(--green);font-weight:500}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:22px;width:540px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(46,125,50,0.18)}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:16px;color:var(--green);border-bottom:2px solid var(--green-pale);padding-bottom:8px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+.form-group input,.form-group select,.form-group textarea{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--dark);background:#fff}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--green)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #f0f4f0}
+
+/* COMPARE */
+.compare-item{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.compare-header{padding:10px 14px;background:#f9fbf9;font-weight:600;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:var(--dark)}
+.compare-header:hover{background:var(--green-pale)}
+.compare-body{padding:12px 14px;display:none}
+.compare-body.open{display:block}
+.price-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f4f0}
+.price-row:last-child{border-bottom:none}
+.best-price{color:var(--green);font-weight:700}
+
+/* LINK BOX */
+.link-box{background:var(--green-pale);border:1px solid #a5d6a7;border-radius:8px;padding:10px 12px;font-size:12px;word-break:break-all;color:var(--green-dark);margin:8px 0;cursor:pointer;transition:background 0.15s}
+.link-box:hover{background:#c8e6c9}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px;color:var(--gray);font-size:13px}
+
+/* LOADING */
+.loading{text-align:center;padding:30px;color:var(--gray)}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--green-pale);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .form-grid{grid-template-columns:1fr}
+  .form-group.full{grid-column:1}
+  .stat-row{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">SL</div>
+  <div class="header-text">
+    <h1>SL Óleos</h1>
+    <p>Gestão de Matéria Prima e Compras</p>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab(0)">📋 Itens de Compra</div>
+  <div class="tab" onclick="showTab(1)">💰 Cotações</div>
+  <div class="tab" onclick="showTab(2)">📊 Comparar Preços</div>
+  <div class="tab" onclick="showTab(3)">✅ Controle de Compras</div>
+  <div class="tab" onclick="showTab(4)">🔗 Enviar para Fornecedor</div>
+</div>
+
+<!-- TAB 0: ITENS -->
+<div class="panel active" id="tab0">
+  <div class="stat-row" id="stats0"></div>
+  <div class="toolbar">
+    <input type="text" id="busca0" placeholder="Buscar item..." oninput="renderItens()" style="flex:1;min-width:150px">
+    <select id="filtroForn0" onchange="renderItens()"><option value="">Todos fornecedores</option></select>
+    <select id="filtroPDV0" onchange="renderItens()"><option value="">Todos PDVs</option></select>
+    <button class="btn primary" onclick="abrirModalItem(null)">+ Novo item</button>
+    <button class="btn" onclick="importarPlanilha()" title="Importar planilha Excel/CSV">📥 Importar</button>
+  </div>
+  <div id="loadingItens" class="loading" style="display:none"><span class="spinner"></span>Carregando...</div>
+  <div class="tbl-wrap">
+    <table><thead><tr>
+      <th>PDV</th><th>Cliente</th><th>Equipamento</th><th>Descritivo</th><th>Material</th><th>Esp.</th><th>Qtd</th><th>Fornecedor</th><th>Valor Unit.</th><th>Status</th><th></th>
+    </tr></thead><tbody id="tbodyItens"></tbody></table>
+  </div>
+</div>
+
+<!-- TAB 1: COTAÇÕES -->
+<div class="panel" id="tab1">
+  <div class="toolbar">
+    <input type="text" id="busca1" placeholder="Buscar item..." oninput="renderCotacoes()" style="flex:1;min-width:150px">
+    <button class="btn primary" onclick="abrirModalCotacao(null)">+ Adicionar cotação</button>
+  </div>
+  <div id="listaCotacoes"></div>
+</div>
+
+<!-- TAB 2: COMPARAR -->
+<div class="panel" id="tab2">
+  <div class="toolbar">
+    <input type="text" id="busca2" placeholder="Buscar item..." oninput="renderComparar()" style="flex:1;min-width:150px">
+    <select id="filtroComp" onchange="renderComparar()">
+      <option value="">Todos</option>
+      <option value="cotado">Com cotação</option>
+      <option value="sem">Sem cotação</option>
+    </select>
+  </div>
+  <div id="listaComparar"></div>
+</div>
+
+<!-- TAB 3: CONTROLE -->
+<div class="panel" id="tab3">
+  <div class="stat-row" id="stats3"></div>
+  <div class="toolbar">
+    <input type="text" id="busca3" placeholder="Buscar..." oninput="renderComprado()" style="flex:1;min-width:150px">
+    <select id="filtroStatus3" onchange="renderComprado()">
+      <option value="">Todos</option>
+      <option value="pendente">Pendente</option>
+      <option value="comprado">Comprado</option>
+    </select>
+    <button class="btn success" onclick="marcarTodosComprado()">✓ Marcar todos</button>
+  </div>
+  <div class="tbl-wrap">
+    <table><thead><tr>
+      <th>Status</th><th>PDV</th><th>Descritivo</th><th>Material</th><th>Qtd</th><th>Fornecedor</th><th>Valor Unit.</th><th>Dt. Compra</th><th></th>
+    </tr></thead><tbody id="tbodyComprado"></tbody></table>
+  </div>
+</div>
+
+<!-- TAB 4: ENVIAR FORNECEDOR -->
+<div class="panel" id="tab4">
+  <div style="background:#fff;border-radius:12px;padding:20px;border:1px solid var(--border);margin-bottom:16px;max-width:600px">
+    <h3 style="color:var(--green);font-size:15px;margin-bottom:8px">🔗 Gerar link de cotação para fornecedor</h3>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Selecione os itens que deseja cotar, informe o nome do fornecedor e gere um link único para ele preencher os preços.</p>
+    <div class="form-group full" style="margin-bottom:12px">
+      <label>Nome do fornecedor</label>
+      <input type="text" id="fornecedorLink" placeholder="Ex: AÇOVISA">
+    </div>
+    <div class="form-group full" style="margin-bottom:12px">
+      <label>Selecionar itens para cotar</label>
+      <div id="listaItensCheck" style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fafafa"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="gerarLink()">🔗 Gerar link</button>
+      <button class="btn" onclick="selecionarTodosItens(true)">Selecionar todos</button>
+      <button class="btn" onclick="selecionarTodosItens(false)">Limpar seleção</button>
+    </div>
+    <div id="linkGerado" style="display:none;margin-top:14px">
+      <p style="font-size:12px;color:var(--gray);margin-bottom:6px;font-weight:600">Link gerado — clique para copiar:</p>
+      <div class="link-box" id="linkTexto" onclick="copiarLink()"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn primary btn-sm" onclick="copiarLink()">📋 Copiar link</button>
+        <button class="btn yellow btn-sm" onclick="abrirWhatsApp()">💬 Enviar por WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#fff;border-radius:12px;padding:20px;border:1px solid var(--border);max-width:600px">
+    <h3 style="color:var(--green);font-size:15px;margin-bottom:12px">📬 Links enviados</h3>
+    <div id="listaLinks"></div>
+  </div>
+</div>
+
+<!-- MODAL ITEM -->
+<div class="modal-bg" id="modalItem">
+<div class="modal">
+  <h3 id="modalItemTitulo">Novo item</h3>
+  <div class="form-grid">
+    <div class="form-group"><label>PDV</label><input id="fi_pdv" placeholder="PDV 69"></div>
+    <div class="form-group"><label>Cliente</label><input id="fi_cliente"></div>
+    <div class="form-group full"><label>Equipamento</label><input id="fi_equipamento"></div>
+    <div class="form-group"><label>Desenho</label><input id="fi_desenho"></div>
+    <div class="form-group"><label>Qtd</label><input id="fi_qtd" type="number" min="1" value="1"></div>
+    <div class="form-group"><label>Und</label><input id="fi_und" placeholder="PC"></div>
+    <div class="form-group full"><label>Descritivo da matéria prima</label><input id="fi_descritivo" placeholder="Ex: BARRA REDONDA LAMINADA"></div>
+    <div class="form-group"><label>Material</label><input id="fi_material"></div>
+    <div class="form-group"><label>Espessura</label><input id="fi_espessura"></div>
+    <div class="form-group"><label>Medida 1</label><input id="fi_medida1"></div>
+    <div class="form-group"><label>Medida 2</label><input id="fi_medida2"></div>
+    <div class="form-group full"><label>Descrição da peça</label><input id="fi_descricao_peca"></div>
+    <div class="form-group"><label>Fornecedor atual</label><input id="fi_fornecedor"></div>
+    <div class="form-group"><label>Valor unitário (R$)</label><input id="fi_valor" type="number" step="0.01" min="0"></div>
+    <div class="form-group"><label>Peso (kg)</label><input id="fi_peso" type="number" step="0.01" min="0"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalItem')">Cancelar</button>
+    <button class="btn primary" onclick="salvarItem()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL COTAÇÃO -->
+<div class="modal-bg" id="modalCotacao">
+<div class="modal">
+  <h3>Adicionar cotação manual</h3>
+  <div class="form-grid">
+    <div class="form-group full"><label>Item</label><select id="fc_item"></select></div>
+    <div class="form-group full"><label>Fornecedor</label><input id="fc_fornecedor" placeholder="Nome do fornecedor"></div>
+    <div class="form-group"><label>Valor unitário (R$)</label><input id="fc_valor" type="number" step="0.01" min="0"></div>
+    <div class="form-group"><label>Prazo (dias)</label><input id="fc_prazo" type="number" min="0"></div>
+    <div class="form-group full"><label>Observação</label><textarea id="fc_obs" rows="2"></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalCotacao')">Cancelar</button>
+    <button class="btn primary" onclick="salvarCotacao()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="processarArquivo(event)">
+
+<script>
+const SUPABASE_URL = 'https://kzkqcwsracvosdhqkmaf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_5Q5yuv9FvOVwNQ8B19Fv3w_vXG0VXqe';
+const BASE_URL = window.location.origin;
+
+let itens = [];
+let cotacoes = [];
+let editId = null;
+
+// API
+async function api(method, table, data=null, filter='') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${filter}`;
+  const opts = {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': method==='POST' ? 'return=representation' : 'return=representation'
+    }
+  };
+  if(data) opts.body = JSON.stringify(data);
+  const res = await fetch(url, opts);
+  if(!res.ok) { const e = await res.text(); throw new Error(e); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+async function loadData() {
+  try {
+    itens = await api('GET','itens','','?order=created_at.asc');
+    cotacoes = await api('GET','cotacoes','','?order=created_at.asc');
+    populaFiltros();
+    renderAll();
+  } catch(e) { console.error(e); showToast('Erro ao carregar dados','err'); }
+}
+
+function renderAll() {
+  renderStats0(); renderItens();
+  renderCotacoes(); renderComparar();
+  renderStats3(); renderComprado();
+  renderListaItensCheck(); renderLinksEnviados();
+}
+
+// FORMAT
+function fmtVal(v) { return v!=null ? 'R$ '+Number(v).toFixed(2) : '—'; }
+function fmtDt(d) { if(!d) return '—'; return d.substring(0,10); }
+
+function populaFiltros() {
+  const forns = [...new Set(itens.map(i=>i.fornecedor).filter(Boolean))].sort();
+  const pdvs = [...new Set(itens.map(i=>i.pdv).filter(Boolean))].sort();
+  document.getElementById('filtroForn0').innerHTML = '<option value="">Todos fornecedores</option>'+forns.map(f=>`<option>${f}</option>`).join('');
+  document.getElementById('filtroPDV0').innerHTML = '<option value="">Todos PDVs</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+}
+
+// TAB 0
+function renderStats0() {
+  const total=itens.length, comp=itens.filter(i=>i.comprado).length;
+  const semForn=itens.filter(i=>!i.fornecedor).length;
+  const comCot=new Set(cotacoes.map(c=>c.item_id)).size;
+  document.getElementById('stats0').innerHTML=`
+    <div class="stat"><div class="stat-label">Total itens</div><div class="stat-val">${total}</div></div>
+    <div class="stat"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div></div>
+    <div class="stat"><div class="stat-label">Sem fornecedor</div><div class="stat-val">${semForn}</div></div>
+    <div class="stat"><div class="stat-label">Com cotação</div><div class="stat-val">${comCot}</div></div>`;
+}
+
+function renderItens() {
+  const b=(document.getElementById('busca0').value||'').toLowerCase();
+  const f=document.getElementById('filtroForn0').value;
+  const p=document.getElementById('filtroPDV0').value;
+  const lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
+    if(f&&it.fornecedor!==f)return false;
+    if(p&&it.pdv!==p)return false;
+    return true;
+  });
+  const tb=document.getElementById('tbodyItens');
+  if(!lista.length){tb.innerHTML='<tr><td colspan="11" class="empty">Nenhum item encontrado</td></tr>';return;}
+  tb.innerHTML=lista.map(it=>{
+    const nCot=cotacoes.filter(c=>c.item_id===it.id).length;
+    const badge=it.comprado?'<span class="badge badge-green">Comprado</span>':
+      (it.fornecedor?'<span class="badge badge-blue">Pendente</span>':'<span class="badge badge-yellow">Sem fornecedor</span>');
+    const forn=it.fornecedor?`<span class="forn-tag">${it.fornecedor}</span>`:'<span style="color:#aaa">—</span>';
+    return `<tr>
+      <td>${it.pdv||'—'}</td>
+      <td>${it.cliente||'—'}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.equipamento||''}">${it.equipamento||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.descritivo||''}">${it.descritivo||'—'}</td>
+      <td>${it.material||'—'}</td>
+      <td>${it.espessura||'—'}</td>
+      <td>${it.qtd||0} ${it.und||''}</td>
+      <td>${forn}</td>
+      <td>${fmtVal(it.valor_unitario)}</td>
+      <td>${badge} ${nCot>0?`<span class="badge badge-blue">${nCot} cot.</span>`:''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarItem('${it.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// MODAL ITEM
+function abrirModalItem(id) {
+  editId = id;
+  const it = id ? itens.find(i=>i.id===id) : null;
+  document.getElementById('modalItemTitulo').textContent = id ? 'Editar item' : 'Novo item';
+  ['pdv','cliente','equipamento','desenho','und','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>{
+    document.getElementById('fi_'+f).value = it?(it[f]||''):'';
+  });
+  document.getElementById('fi_qtd').value = it?it.qtd:1;
+  document.getElementById('fi_valor').value = it&&it.valor_unitario!=null?it.valor_unitario:'';
+  document.getElementById('fi_peso').value = it&&it.peso!=null?it.peso:'';
+  document.getElementById('modalItem').classList.add('open');
+}
+
+async function salvarItem() {
+  const obj={};
+  ['pdv','cliente','equipamento','desenho','und','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>{
+    obj[f]=document.getElementById('fi_'+f).value.trim();
+  });
+  obj.qtd=Number(document.getElementById('fi_qtd').value)||1;
+  const v=document.getElementById('fi_valor').value;
+  obj.valor_unitario=v!==''?Number(v):null;
+  const p=document.getElementById('fi_peso').value;
+  obj.peso=p!==''?Number(p):null;
+  try {
+    if(editId) { await api('PATCH','itens',obj,`?id=eq.${editId}`); showToast('Item atualizado!'); }
+    else { await api('POST','itens',obj); showToast('Item cadastrado!'); }
+    fecharModal('modalItem');
+    await loadData();
+  } catch(e) { showToast('Erro ao salvar','err'); }
+}
+
+async function deletarItem(id) {
+  if(!confirm('Remover este item?')) return;
+  try {
+    await api('DELETE','cotacoes','',`?item_id=eq.${id}`);
+    await api('DELETE','itens','',`?id=eq.${id}`);
+    showToast('Item removido!');
+    await loadData();
+  } catch(e) { showToast('Erro ao remover','err'); }
+}
+
+// TAB 1 - COTAÇÕES
+function renderCotacoes() {
+  const b=(document.getElementById('busca1').value||'').toLowerCase();
+  const div=document.getElementById('listaCotacoes');
+  const grupos={};
+  itens.forEach(it=>{
+    const key=it.id;
+    grupos[key]={it, cots:cotacoes.filter(c=>c.item_id===it.id)};
+  });
+  const entries=Object.values(grupos).filter(g=>{
+    if(b&&!(g.it.descritivo+g.it.material+'').toLowerCase().includes(b))return false;
+    return true;
+  });
+  if(!entries.length){div.innerHTML='<div class="empty">Nenhum item encontrado</div>';return;}
+  div.innerHTML=entries.map(({it,cots})=>`
+    <div class="compare-item">
+      <div class="compare-header" onclick="toggleBody(this)">
+        <span>${it.descritivo||'—'}${it.material?' | '+it.material:''}${it.espessura?' '+it.espessura:''}</span>
+        <span class="badge ${cots.length?'badge-blue':'badge-gray'}">${cots.length} cotação${cots.length!==1?'s':''}</span>
+      </div>
+      <div class="compare-body">
+        <div style="font-size:12px;color:var(--gray);margin-bottom:10px">${it.pdv||''} | ${it.cliente||''} | Qtd: ${it.qtd||0} ${it.und||''}</div>
+        ${cots.length?cots.map(c=>`
+          <div class="price-row">
+            <span class="forn-tag">${c.fornecedor}</span>
+            <span style="font-weight:600">${fmtVal(c.valor)}</span>
+            ${c.prazo?`<span class="badge badge-gray">${c.prazo} dias</span>`:''}
+            ${c.respondido?'<span class="badge badge-green">Via formulário</span>':''}
+            ${c.observacao?`<span style="color:var(--gray);font-size:11px">${c.observacao}</span>`:''}
+            <button class="btn btn-sm danger" style="margin-left:auto" onclick="deletarCotacao('${c.id}')">🗑</button>
+          </div>`).join(''):'<div style="color:var(--gray);font-size:12px">Nenhuma cotação cadastrada</div>'}
+        <button class="btn btn-sm" style="margin-top:8px" onclick="abrirModalCotacao('${it.id}')">+ Adicionar cotação</button>
+      </div>
+    </div>`).join('');
+}
+
+function abrirModalCotacao(itemId) {
+  document.getElementById('fc_item').innerHTML=itens.map(it=>`<option value="${it.id}" ${it.id===itemId?'selected':''}>${it.descritivo||'—'}${it.material?' | '+it.material:''} — ${it.pdv||''}</option>`).join('');
+  document.getElementById('fc_fornecedor').value='';
+  document.getElementById('fc_valor').value='';
+  document.getElementById('fc_prazo').value='';
+  document.getElementById('fc_obs').value='';
+  document.getElementById('modalCotacao').classList.add('open');
+}
+
+async function salvarCotacao() {
+  const itemId=document.getElementById('fc_item').value;
+  const forn=document.getElementById('fc_fornecedor').value.trim();
+  const val=document.getElementById('fc_valor').value;
+  if(!forn||!val){showToast('Informe fornecedor e valor','err');return;}
+  try {
+    await api('POST','cotacoes',{
+      item_id:itemId, fornecedor:forn, valor:Number(val),
+      prazo:Number(document.getElementById('fc_prazo').value)||null,
+      observacao:document.getElementById('fc_obs').value.trim()||null,
+      respondido:false
+    });
+    showToast('Cotação salva!');
+    fecharModal('modalCotacao');
+    await loadData();
+  } catch(e) { showToast('Erro ao salvar','err'); }
+}
+
+async function deletarCotacao(id) {
+  if(!confirm('Remover esta cotação?'))return;
+  try { await api('DELETE','cotacoes','',`?id=eq.${id}`); showToast('Cotação removida!'); await loadData(); }
+  catch(e){ showToast('Erro','err'); }
+}
+
+// TAB 2 - COMPARAR
+function renderComparar() {
+  const b=(document.getElementById('busca2').value||'').toLowerCase();
+  const filtro=document.getElementById('filtroComp').value;
+  const div=document.getElementById('listaComparar');
+  const lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.material+'').toLowerCase().includes(b))return false;
+    const cs=cotacoes.filter(c=>c.item_id===it.id);
+    if(filtro==='cotado'&&!cs.length)return false;
+    if(filtro==='sem'&&cs.length)return false;
+    return true;
+  });
+  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
+  div.innerHTML=lista.map(it=>{
+    const cs=cotacoes.filter(c=>c.item_id===it.id);
+    const all=[...cs.map(c=>({forn:c.fornecedor,val:c.valor,via:c.respondido?'formulário':'manual'}))];
+    if(it.valor_unitario&&it.fornecedor) all.push({forn:it.fornecedor,val:it.valor_unitario,via:'planilha'});
+    all.sort((a,b)=>a.val-b.val);
+    const melhor=all[0];
+    return `<div class="compare-item">
+      <div class="compare-header" onclick="toggleBody(this)">
+        <span>${it.descritivo||'—'}${it.material?' | '+it.material:''}${it.espessura?' '+it.espessura:''}</span>
+        <span>${melhor?`<b style="color:var(--green)">${fmtVal(melhor.val)}</b> <span class="forn-tag">${melhor.forn}</span>`:'<span class="badge badge-yellow">Sem preço</span>'}</span>
+      </div>
+      <div class="compare-body">
+        <div style="font-size:12px;color:var(--gray);margin-bottom:10px">${it.pdv||''} | ${it.cliente||''} | Qtd: ${it.qtd||0} ${it.und||''}</div>
+        ${all.length?all.map((p,i)=>`<div class="price-row">
+          <span style="font-size:16px">${i===0?'⭐':'☆'}</span>
+          <span class="forn-tag">${p.forn}</span>
+          <span class="${i===0?'best-price':''}" style="font-weight:600">${fmtVal(p.val)}</span>
+          <span class="badge badge-gray">${p.via}</span>
+          ${i===0&&all.length>1?`<span style="color:var(--gray);font-size:11px">economia de ${fmtVal(all[all.length-1].val-p.val)} vs mais caro</span>`:''}
+        </div>`).join(''):'<div style="color:var(--gray);font-size:12px">Adicione cotações na aba Cotações</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// TAB 3 - CONTROLE
+function renderStats3() {
+  const total=itens.length, comp=itens.filter(i=>i.comprado).length;
+  const pct=total?Math.round(comp/total*100):0;
+  document.getElementById('stats3').innerHTML=`
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-val">${total}</div></div>
+    <div class="stat"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div></div>
+    <div class="stat"><div class="stat-label">Pendentes</div><div class="stat-val">${total-comp}</div></div>
+    <div class="stat"><div class="stat-label">Progresso</div><div class="stat-val">${pct}%</div></div>`;
+}
+
+function renderComprado() {
+  const b=(document.getElementById('busca3').value||'').toLowerCase();
+  const st=document.getElementById('filtroStatus3').value;
+  const lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.fornecedor+it.pdv+'').toLowerCase().includes(b))return false;
+    if(st==='pendente'&&it.comprado)return false;
+    if(st==='comprado'&&!it.comprado)return false;
+    return true;
+  });
+  const tb=document.getElementById('tbodyComprado');
+  if(!lista.length){tb.innerHTML='<tr><td colspan="9" class="empty">Nenhum item</td></tr>';return;}
+  tb.innerHTML=lista.map(it=>`<tr style="${it.comprado?'opacity:0.6':''}">
+    <td>${it.comprado?'<span class="badge badge-green">Comprado</span>':'<span class="badge badge-yellow">Pendente</span>'}</td>
+    <td>${it.pdv||'—'}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.descritivo||'—'}</td>
+    <td>${it.material||'—'}</td>
+    <td>${it.qtd||0} ${it.und||''}</td>
+    <td>${it.fornecedor||'—'}</td>
+    <td>${fmtVal(it.valor_unitario)}</td>
+    <td>${fmtDt(it.dt_compra)}</td>
+    <td><button class="btn btn-sm ${it.comprado?'':'primary'}" onclick="toggleComprado('${it.id}',${it.comprado})">${it.comprado?'Desmarcar':'✓ Comprado'}</button></td>
+  </tr>`).join('');
+}
+
+async function toggleComprado(id, atual) {
+  try {
+    const hoje=new Date().toISOString().substring(0,10);
+    await api('PATCH','itens',{comprado:!atual, dt_compra:!atual?hoje:null},`?id=eq.${id}`);
+    await loadData();
+  } catch(e){ showToast('Erro','err'); }
+}
+
+async function marcarTodosComprado() {
+  const pend=itens.filter(i=>!i.comprado);
+  if(!pend.length){showToast('Todos já marcados!');return;}
+  if(!confirm(`Marcar ${pend.length} itens como comprado?`))return;
+  const hoje=new Date().toISOString().substring(0,10);
+  try {
+    for(const it of pend) await api('PATCH','itens',{comprado:true,dt_compra:hoje},`?id=eq.${it.id}`);
+    await loadData(); showToast('Itens marcados!');
+  } catch(e){ showToast('Erro','err'); }
+}
+
+// TAB 4 - LINK FORNECEDOR
+function renderListaItensCheck() {
+  const div=document.getElementById('listaItensCheck');
+  if(!itens.length){div.innerHTML='<p style="color:var(--gray);font-size:12px;padding:8px">Nenhum item cadastrado</p>';return;}
+  div.innerHTML=itens.map(it=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f0">
+      <input type="checkbox" class="item-check" value="${it.id}" style="width:16px;height:16px;accent-color:var(--green)">
+      <span><b>${it.descritivo||'—'}</b>${it.material?' | '+it.material:''} — ${it.pdv||''} — Qtd: ${it.qtd||0}</span>
+    </label>`).join('');
+}
+
+function selecionarTodosItens(sel) {
+  document.querySelectorAll('.item-check').forEach(c=>c.checked=sel);
+}
+
+async function gerarLink() {
+  const forn=document.getElementById('fornecedorLink').value.trim();
+  if(!forn){showToast('Informe o nome do fornecedor','err');return;}
+  const selecionados=[...document.querySelectorAll('.item-check:checked')].map(c=>c.value);
+  if(!selecionados.length){showToast('Selecione ao menos um item','err');return;}
+  const token='cot_'+Math.random().toString(36).substring(2,12);
+  try {
+    for(const itemId of selecionados) {
+      await api('POST','cotacoes',{item_id:itemId,fornecedor:forn,valor:0,token:token+'_'+itemId,respondido:false});
+    }
+    const link=`${BASE_URL}/formulario.html?token=${token}&forn=${encodeURIComponent(forn)}&itens=${selecionados.join(',')}`;
+    document.getElementById('linkTexto').textContent=link;
+    document.getElementById('linkTexto').dataset.link=link;
+    document.getElementById('linkTexto').dataset.forn=forn;
+    document.getElementById('linkGerado').style.display='block';
+    showToast('Link gerado!');
+    await loadData();
+  } catch(e){ showToast('Erro ao gerar link','err'); console.error(e); }
+}
+
+function copiarLink() {
+  const link=document.getElementById('linkTexto').dataset.link||document.getElementById('linkTexto').textContent;
+  navigator.clipboard.writeText(link).then(()=>showToast('Link copiado!')).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=link; document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); showToast('Link copiado!');
+  });
+}
+
+function abrirWhatsApp() {
+  const link=document.getElementById('linkTexto').dataset.link||document.getElementById('linkTexto').textContent;
+  const forn=document.getElementById('linkTexto').dataset.forn||'fornecedor';
+  const msg=`Olá! Segue o link para preencher a cotação de materiais — SL Óleos:\n${link}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+
+function renderLinksEnviados() {
+  const div=document.getElementById('listaLinks');
+  const tokens={};
+  cotacoes.filter(c=>c.token).forEach(c=>{
+    const base=c.token.split('_itens_')[0]||c.token.substring(0,15);
+    if(!tokens[base]) tokens[base]={forn:c.fornecedor,count:0,respondidos:0};
+    tokens[base].count++;
+    if(c.respondido) tokens[base].respondidos++;
+  });
+  const entries=Object.entries(tokens);
+  if(!entries.length){div.innerHTML='<p style="color:var(--gray);font-size:12px">Nenhum link enviado ainda</p>';return;}
+  div.innerHTML=entries.map(([tok,d])=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f4f0">
+      <div>
+        <span class="forn-tag">${d.forn}</span>
+        <span style="font-size:12px;color:var(--gray);margin-left:8px">${d.count} itens — ${d.respondidos} respondidos</span>
+      </div>
+      <span class="badge ${d.respondidos===d.count?'badge-green':d.respondidos>0?'badge-blue':'badge-gray'}">${d.respondidos===d.count?'Completo':d.respondidos>0?'Parcial':'Aguardando'}</span>
+    </div>`).join('');
+}
+
+// IMPORTAR PLANILHA
+function importarPlanilha() { document.getElementById('fileInput').click(); }
+
+function processarArquivo(e) {
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async(ev)=>{
+    const text=ev.target.result;
+    const linhas=text.split('\n').filter(l=>l.trim());
+    if(linhas.length<2){showToast('Arquivo vazio','err');return;}
+    const sep=linhas[0].includes(';')?';':',';
+    const headers=linhas[0].split(sep).map(h=>h.trim().replace(/"/g,'').toLowerCase());
+    let count=0;
+    for(let i=1;i<linhas.length;i++){
+      const cols=linhas[i].split(sep).map(c=>c.trim().replace(/"/g,''));
+      if(!cols.some(c=>c))continue;
+      const obj={};
+      const map={pdv:['pdv'],cliente:['cliente'],equipamento:['equipamento'],desenho:['desenho'],qtd:['qtd','quantidade'],und:['und','unidade'],descritivo:['descritivo da materia prima','descritivo'],material:['material'],espessura:['espessura'],medida1:['medida 1','medida1'],medida2:['medida 2','medida2'],descricao_peca:['descrição peça','descricao peca'],fornecedor:['fornecedor'],valor_unitario:['valor unitario','valor_unitario'],peso:['peso']};
+      Object.entries(map).forEach(([field,aliases])=>{
+        for(const alias of aliases){
+          const idx=headers.findIndex(h=>h.includes(alias));
+          if(idx>=0&&cols[idx]){obj[field]=cols[idx];break;}
+        }
+      });
+      if(obj.valor_unitario)obj.valor_unitario=parseFloat(obj.valor_unitario.replace(',','.'));
+      if(obj.peso)obj.peso=parseFloat(obj.peso.replace(',','.'));
+      if(obj.qtd)obj.qtd=parseInt(obj.qtd);
+      try{ await api('POST','itens',obj); count++; }catch(e){}
+    }
+    showToast(`${count} itens importados!`);
+    await loadData();
+    e.target.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+// UTILS
+function showTab(n) {
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===n));
+  if(n===0){renderStats0();renderItens();}
+  if(n===1)renderCotacoes();
+  if(n===2)renderComparar();
+  if(n===3){renderStats3();renderComprado();}
+  if(n===4){renderListaItensCheck();renderLinksEnviados();}
+}
+
+function toggleBody(el){el.nextElementSibling.classList.toggle('open');}
+function fecharModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+
+function showToast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.background=type==='err'?'#c62828':'var(--green)';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// INIT
+loadData();
+</script>
+</body>
 </html>
