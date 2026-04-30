@@ -356,7 +356,19 @@ tr:hover td{background:#f9fbf9}
     <div class="form-group full"><label>Equipamento</label><input id="fi_equipamento"></div>
     <div class="form-group"><label>Desenho</label><input id="fi_desenho"></div>
     <div class="form-group"><label>Qtd</label><input id="fi_qtd" type="number" min="1" value="1"></div>
-    <div class="form-group"><label>Und</label><input id="fi_und" placeholder="PC"></div>
+    <div class="form-group"><label>Unidade</label>
+      <select id="fi_und">
+        <option value="">Selecione...</option>
+        <option value="PC">PC — Peça</option>
+        <option value="KG">KG — Quilograma</option>
+        <option value="METRO">METRO — Metro</option>
+        <option value="BARRA">BARRA — Barra</option>
+        <option value="PAR">PAR — Par</option>
+        <option value="CX">CX — Caixa</option>
+        <option value="UN">UN — Unidade</option>
+        <option value="JG">JG — Jogo</option>
+      </select>
+    </div>
     <div class="form-group full"><label>Descritivo</label><input id="fi_descritivo" placeholder="Ex: BARRA REDONDA LAMINADA"></div>
     <div class="form-group"><label>Material</label><input id="fi_material"></div>
     <div class="form-group"><label>Espessura</label><input id="fi_espessura"></div>
@@ -775,16 +787,23 @@ function abrirModalItem(id){
   editItemId=id;
   const it=id?itens.find(i=>i.id===id):null;
   document.getElementById('modalItemTitulo').textContent=id?'Editar item':'Novo item';
-  ['pdv','cliente','equipamento','desenho','und','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>document.getElementById('fi_'+f).value=it?(it[f]||''):'');
+  ['pdv','cliente','equipamento','desenho','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>document.getElementById('fi_'+f).value=it?(it[f]||''):'');
   document.getElementById('fi_qtd').value=it?it.qtd:1;
   document.getElementById('fi_valor').value=it&&it.valor_unitario!=null?it.valor_unitario:'';
   document.getElementById('fi_peso').value=it&&it.peso!=null?it.peso:'';
+  // Und como select — tenta encontrar o valor salvo, senão deixa em branco
+  const undEl=document.getElementById('fi_und');
+  const undVal=it?(it.und||''):'';
+  const optExists=[...undEl.options].some(o=>o.value===undVal);
+  if(optExists) undEl.value=undVal;
+  else { undEl.value=''; if(undVal){ const opt=document.createElement('option'); opt.value=undVal; opt.textContent=undVal; undEl.appendChild(opt); undEl.value=undVal; } }
   document.getElementById('modalItem').classList.add('open');
 }
 
 async function salvarItem(){
   const obj={};
-  ['pdv','cliente','equipamento','desenho','und','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>obj[f]=document.getElementById('fi_'+f).value.trim());
+  ['pdv','cliente','equipamento','desenho','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>obj[f]=document.getElementById('fi_'+f).value.trim());
+  obj.und=document.getElementById('fi_und').value;
   obj.qtd=Number(document.getElementById('fi_qtd').value)||1;
   const v=document.getElementById('fi_valor').value; obj.valor_unitario=v!==''?Number(v):null;
   const p=document.getElementById('fi_peso').value; obj.peso=p!==''?Number(p):null;
