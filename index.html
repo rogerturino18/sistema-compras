@@ -1304,9 +1304,8 @@ async function dispararEmails(){
         </div>
       </div>`;
     try{
-      const r=await fetch('https://api.resend.com/emails',{
+      const r=await fetch('/api/send-email',{
         method:'POST',
-        headers:{'Authorization':`Bearer ${RESEND_KEY}`,'Content-Type':'application/json'},
         body:JSON.stringify({from:`${nomeRemetente} <${remetente}>`,to:[forn.email],reply_to:remetente,subject:'Solicitação de Cotação — SL Óleos',html})
       });
       if(!r.ok)throw new Error(await r.text());
@@ -1352,9 +1351,8 @@ async function enviarEmailTeste(){
       </div>
     </div>`;
   try{
-    const r=await fetch('https://api.resend.com/emails',{
+    const r=await fetch('/api/send-email',{
       method:'POST',
-      headers:{'Authorization':`Bearer ${RESEND_KEY}`,'Content-Type':'application/json'},
       body:JSON.stringify({from:'SL Óleos <adm.geral@sloleos.com.br>',to:[emailDestino],subject:'[TESTE] Solicitação de Cotação — SL Óleos',html})
     });
     if(!r.ok) throw new Error(await r.text());
