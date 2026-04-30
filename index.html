@@ -788,11 +788,34 @@ async function salvarItem(){
   const v=document.getElementById('fi_valor').value; obj.valor_unitario=v!==''?Number(v):null;
   const p=document.getElementById('fi_peso').value; obj.peso=p!==''?Number(p):null;
   if(usuarioLogado){ obj.editado_por=usuarioLogado.nome; obj.editado_em=new Date().toISOString(); }
+
+  // Salvar estado dos filtros antes de recarregar
+  const filtros={
+    busca1: document.getElementById('busca1').value,
+    filtroForn1: document.getElementById('filtroForn1').value,
+    filtroPDV1: document.getElementById('filtroPDV1').value,
+    sortItens: document.getElementById('sortItens').value,
+    busca5: document.getElementById('busca5').value,
+    filtroForn5: document.getElementById('filtroForn5').value,
+    filtroPDV5: document.getElementById('filtroPDV5').value,
+    filtroStatus5: document.getElementById('filtroStatus5').value,
+    sortCompras: document.getElementById('sortCompras').value,
+  };
+
   try{
     if(editItemId) await api('PATCH','itens',obj,`?id=eq.${editItemId}`);
     else await api('POST','itens',obj);
     showToast(editItemId?'Item atualizado!':'Item cadastrado!');
-    fecharModal('modalItem'); await loadAll();
+    fecharModal('modalItem');
+    await loadAll();
+
+    // Restaurar filtros após recarregar
+    Object.entries(filtros).forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      if(el) el.value=val;
+    });
+    renderItens();
+    renderComprado();
   }catch(e){showToast('Erro ao salvar','err');}
 }
 
