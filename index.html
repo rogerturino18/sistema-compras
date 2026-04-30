@@ -307,7 +307,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="tbl-wrap">
     <table><thead><tr>
-      <th>Status</th><th>PDV</th><th>Descritivo</th><th>Material</th><th>Qtd</th><th>Fornecedor</th><th>Valor Unit.</th><th>Dt. Compra</th><th></th>
+      <th>Status</th><th>PDV</th><th>Descritivo</th><th>Material</th><th>Qtd</th><th>Fornecedor</th><th>Valor Unit.</th><th>Valor Total</th><th>Dt. Compra</th><th></th>
     </tr></thead><tbody id="tbodyComprado"></tbody></table>
   </div>
 </div>
@@ -1132,7 +1132,10 @@ function renderComprado(){
     <td>${it.pdv||'—'}</td>
     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.descritivo||'—'}</td>
     <td>${it.material||'—'}</td><td>${it.qtd||0} ${it.und||''}</td>
-    <td>${it.fornecedor||'—'}</td><td>${fmtVal(it.valor_unitario)}</td><td>${fmtDt(it.dt_compra)}</td>
+    <td>${it.fornecedor||'—'}</td>
+    <td>${fmtVal(it.valor_unitario)}</td>
+    <td>${it.valor_unitario&&it.peso?fmtVal(it.valor_unitario*it.peso):'—'}</td>
+    <td>${fmtDt(it.dt_compra)}</td>
     <td style="white-space:nowrap">
       <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')">✏️ Editar</button>
       <button class="btn btn-sm ${it.comprado?'':'primary'}" onclick="toggleComprado('${it.id}',${it.comprado})">${it.comprado?'Desmarcar':'✓ Comprado'}</button>
