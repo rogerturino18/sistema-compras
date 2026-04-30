@@ -287,8 +287,21 @@ tr:hover td{background:#f9fbf9}
   <div class="stat-row" id="statsCompras"></div>
   <div class="toolbar">
     <input type="text" id="busca5" placeholder="Buscar..." oninput="renderComprado()" style="flex:1;min-width:150px">
+    <select id="filtroForn5" onchange="renderComprado()"><option value="">Todos fornecedores</option></select>
+    <select id="filtroPDV5" onchange="renderComprado()"><option value="">Todos PDVs</option></select>
     <select id="filtroStatus5" onchange="renderComprado()">
       <option value="">Todos</option><option value="pendente">Pendente</option><option value="comprado">Comprado</option>
+    </select>
+    <select id="sortCompras" onchange="renderComprado()">
+      <option value="">Ordenar por...</option>
+      <option value="descritivo_asc">Descritivo A→Z</option>
+      <option value="descritivo_desc">Descritivo Z→A</option>
+      <option value="pdv_asc">PDV A→Z</option>
+      <option value="pdv_desc">PDV Z→A</option>
+      <option value="cliente_asc">Cliente A→Z</option>
+      <option value="material_asc">Material A→Z</option>
+      <option value="valor_asc">Valor ↑</option>
+      <option value="valor_desc">Valor ↓</option>
     </select>
     <button class="btn primary" onclick="marcarTodosComprado()">✓ Marcar todos</button>
   </div>
@@ -694,8 +707,12 @@ function renderStats(){
 function populaFiltros(){
   const forns=[...new Set(itens.map(i=>i.fornecedor).filter(Boolean))].sort();
   const pdvs=[...new Set(itens.map(i=>i.pdv).filter(Boolean))].sort();
-  document.getElementById('filtroForn1').innerHTML='<option value="">Todos fornecedores</option>'+forns.map(f=>`<option>${f}</option>`).join('');
-  document.getElementById('filtroPDV1').innerHTML='<option value="">Todos PDVs</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+  const fornOpts='<option value="">Todos fornecedores</option>'+forns.map(f=>`<option>${f}</option>`).join('');
+  const pdvOpts='<option value="">Todos PDVs</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('filtroForn1').innerHTML=fornOpts;
+  document.getElementById('filtroPDV1').innerHTML=pdvOpts;
+  document.getElementById('filtroForn5').innerHTML=fornOpts;
+  document.getElementById('filtroPDV5').innerHTML=pdvOpts;
 }
 
 function renderItens(){
@@ -1087,12 +1104,27 @@ function renderStatsCompras(){
 function renderComprado(){
   const b=(document.getElementById('busca5').value||'').toLowerCase();
   const st=document.getElementById('filtroStatus5').value;
-  const lista=itens.filter(it=>{
-    if(b&&!(it.descritivo+it.fornecedor+it.pdv+'').toLowerCase().includes(b))return false;
+  const f=document.getElementById('filtroForn5').value;
+  const p=document.getElementById('filtroPDV5').value;
+  const sort=document.getElementById('sortCompras').value;
+
+  let lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.fornecedor+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
     if(st==='pendente'&&it.comprado)return false;
     if(st==='comprado'&&!it.comprado)return false;
+    if(f&&it.fornecedor!==f)return false;
+    if(p&&it.pdv!==p)return false;
     return true;
   });
+
+  if(sort){
+    const parts=sort.split('_'); const dir=parts.pop(); const col=parts.join('_');
+    lista=[...lista].sort((a,b)=>{
+      let va=a[col]||'', vb=b[col]||'';
+      if(!isNaN(va)&&!isNaN(vb)) return dir==='asc'?Number(va)-Number(vb):Number(vb)-Number(va);
+      return dir==='asc'?String(va).localeCompare(String(vb),'pt-BR'):String(vb).localeCompare(String(va),'pt-BR');
+    });
+  }
   const tb=document.getElementById('tbodyComprado');
   if(!lista.length){tb.innerHTML='<tr><td colspan="9" class="empty">Nenhum item</td></tr>';return;}
   tb.innerHTML=lista.map(it=>`<tr style="${it.comprado?'opacity:0.6':''}">
