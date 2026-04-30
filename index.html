@@ -162,7 +162,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="tbl-wrap">
     <table><thead><tr>
-      <th>PDV</th><th>Cliente</th><th>Equipamento</th><th>Descritivo</th><th>Material</th><th>Esp.</th><th>Qtd</th><th>Fornecedor</th><th>Valor Unit.</th><th>Status</th><th></th>
+      <th>PDV</th><th>Cliente</th><th>Equipamento</th><th>Descritivo</th><th>Material</th><th>Esp.</th><th>Med. 1</th><th>Med. 2</th><th>Qtd</th><th>Fornecedor</th><th>Valor Unit.</th><th>Status</th><th></th>
     </tr></thead><tbody id="tbodyItens"></tbody></table>
   </div>
 </div>
@@ -480,6 +480,7 @@ function renderItens(){
       <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.equipamento||'—'}</td>
       <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.descritivo||''}">${it.descritivo||'—'}</td>
       <td>${it.material||'—'}</td><td>${it.espessura||'—'}</td>
+      <td>${it.medida1||'—'}</td><td>${it.medida2||'—'}</td>
       <td>${it.qtd||0} ${it.und||''}</td><td>${forn}</td>
       <td>${fmtVal(it.valor_unitario)}</td>
       <td>${badge}${nCot>0?` <span class="badge badge-blue">${nCot} cot.</span>`:''}</td>
