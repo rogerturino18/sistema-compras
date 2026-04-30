@@ -270,16 +270,37 @@ tr:hover td{background:#f9fbf9}
 <div class="modal">
   <h3 id="modalFornTitulo">Novo fornecedor</h3>
   <div class="form-grid">
+    <!-- Tipo de documento -->
     <div class="form-group full">
-      <label>CNPJ <span style="color:var(--green);font-size:10px">(preencha para buscar dados automaticamente)</span></label>
+      <label>Tipo de cadastro</label>
+      <div style="display:flex;gap:8px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;flex:1;justify-content:center" id="lblCNPJ">
+          <input type="radio" name="tipoDoc" value="cnpj" checked onchange="toggleTipoDoc('cnpj')" style="accent-color:var(--green)"> 🏢 Pessoa Jurídica (CNPJ)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;flex:1;justify-content:center" id="lblCPF">
+          <input type="radio" name="tipoDoc" value="cpf" onchange="toggleTipoDoc('cpf')" style="accent-color:var(--green)"> 👤 Pessoa Física (CPF)
+        </label>
+      </div>
+    </div>
+
+    <!-- Campo CNPJ com busca automática -->
+    <div class="form-group full" id="campoCNPJ">
+      <label>CNPJ <span style="color:var(--green);font-size:10px">(busca dados automaticamente)</span></label>
       <div style="display:flex;gap:6px">
         <input id="ff_cnpj" placeholder="00.000.000/0000-00" style="flex:1" oninput="formatarCNPJ(this)">
         <button class="btn primary btn-sm" onclick="buscarCNPJ()">🔍 Buscar</button>
       </div>
       <div class="cnpj-loading" id="cnpjLoading"><span class="spinner"></span>Buscando dados...</div>
     </div>
-    <div class="form-group full"><label>Razão Social</label><input id="ff_razao" placeholder="Nome da empresa"></div>
-    <div class="form-group full"><label>Nome Fantasia</label><input id="ff_fantasia" placeholder="Como é conhecido"></div>
+
+    <!-- Campo CPF manual -->
+    <div class="form-group full" id="campoCPF" style="display:none">
+      <label>CPF</label>
+      <input id="ff_cpf" placeholder="000.000.000-00" oninput="formatarCPF(this)">
+    </div>
+
+    <div class="form-group full"><label id="labelRazao">Razão Social</label><input id="ff_razao" placeholder="Nome da empresa"></div>
+    <div class="form-group full" id="grupoFantasia"><label>Nome Fantasia</label><input id="ff_fantasia" placeholder="Como é conhecido"></div>
     <div class="form-group full"><label>E-mail *</label><input id="ff_email" type="email" placeholder="contato@empresa.com.br"></div>
     <div class="form-group"><label>Telefone</label><input id="ff_telefone" placeholder="(11) 99999-9999"></div>
     <div class="form-group"><label>WhatsApp</label><input id="ff_whatsapp" placeholder="(11) 99999-9999"></div>
@@ -299,10 +320,20 @@ tr:hover td{background:#f9fbf9}
 <div class="modal">
   <h3>Adicionar cotação manual</h3>
   <div class="form-grid">
-    <div class="form-group full"><label>Item</label><select id="fc_item"></select></div>
-    <div class="form-group full"><label>Fornecedor</label><input id="fc_forn" placeholder="Nome do fornecedor"></div>
-    <div class="form-group"><label>Valor unitário (R$) *</label><input id="fc_valor" type="number" step="0.01" min="0"></div>
+    <div class="form-group full"><label>Item</label><select id="fc_item" onchange="atualizarPesoItem()"></select></div>
+    <div class="form-group full">
+      <label>Fornecedor *</label>
+      <select id="fc_forn">
+        <option value="">Selecione um fornecedor...</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Valor unitário (R$) *</label><input id="fc_valor" type="number" step="0.01" min="0" oninput="calcularValorTotal()"></div>
     <div class="form-group"><label>Prazo (dias)</label><input id="fc_prazo" type="number" min="0"></div>
+    <div class="form-group"><label>Peso (kg)</label><input id="fc_peso" type="number" step="0.01" min="0" oninput="calcularValorTotal()"></div>
+    <div class="form-group">
+      <label>Valor Total (R$)</label>
+      <input id="fc_total" type="number" step="0.01" min="0" readonly style="background:#f5f7f5;color:var(--green);font-weight:700">
+    </div>
     <div class="form-group full"><label>Observação</label><textarea id="fc_obs" rows="2"></textarea></div>
   </div>
   <div class="modal-actions">
@@ -547,7 +578,28 @@ function renderFornecedores(){
     </div>`).join('');
 }
 
-function formatarCNPJ(input){
+function toggleTipoDoc(tipo){
+  const isCNPJ = tipo==='cnpj';
+  document.getElementById('campoCNPJ').style.display = isCNPJ?'':'none';
+  document.getElementById('campoCPF').style.display = isCNPJ?'none':'';
+  document.getElementById('grupoFantasia').style.display = isCNPJ?'':'none';
+  document.getElementById('labelRazao').textContent = isCNPJ?'Razão Social':'Nome completo';
+  document.getElementById('ff_razao').placeholder = isCNPJ?'Nome da empresa':'Nome completo da pessoa';
+  if(!isCNPJ){
+    document.getElementById('ff_cnpj').value='';
+    document.getElementById('ff_fantasia').value='';
+  } else {
+    document.getElementById('ff_cpf').value='';
+  }
+}
+
+function formatarCPF(input){
+  let v=input.value.replace(/\D/g,'');
+  v=v.replace(/(\d{3})(\d)/,'$1.$2');
+  v=v.replace(/(\d{3})\.(\d{3})(\d)/,'$1.$2.$3');
+  v=v.replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3-$4');
+  input.value=v.substring(0,14);
+}
   let v=input.value.replace(/\D/g,'');
   v=v.replace(/^(\d{2})(\d)/,'$1.$2');
   v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');
@@ -581,7 +633,16 @@ function abrirModalForn(id){
   editFornId=id;
   const f=id?fornecedores.find(x=>x.id===id):null;
   document.getElementById('modalFornTitulo').textContent=id?'Editar fornecedor':'Novo fornecedor';
-  ['cnpj','razao','fantasia','email','telefone','whatsapp','contato','endereco','cidade','estado'].forEach(k=>{
+
+  // Detecta se é CPF ou CNPJ ao editar
+  const tipoCPF = f&&f.cnpj&&f.cnpj.replace(/\D/g,'').length<=11;
+  const tipo = tipoCPF?'cpf':'cnpj';
+  document.querySelector(`input[name="tipoDoc"][value="${tipo}"]`).checked=true;
+  toggleTipoDoc(tipo);
+
+  document.getElementById('ff_cnpj').value = f&&!tipoCPF?(f.cnpj||''):'';
+  document.getElementById('ff_cpf').value = f&&tipoCPF?(f.cnpj||''):'';
+  ['razao','fantasia','email','telefone','whatsapp','contato','endereco','cidade','estado'].forEach(k=>{
     const el=document.getElementById('ff_'+k);
     if(el) el.value=f?(f[k==='razao'?'razao_social':k==='fantasia'?'nome_fantasia':k==='contato'?'contato_nome':k]||''):'';
   });
@@ -591,10 +652,12 @@ function abrirModalForn(id){
 async function salvarForn(){
   const email=document.getElementById('ff_email').value.trim();
   if(!email){showToast('E-mail é obrigatório','err');return;}
+  const tipoCNPJ=document.querySelector('input[name="tipoDoc"]:checked').value==='cnpj';
+  const docValue=tipoCNPJ?document.getElementById('ff_cnpj').value.trim():document.getElementById('ff_cpf').value.trim();
   const obj={
-    cnpj:document.getElementById('ff_cnpj').value.trim()||null,
+    cnpj:docValue||null,
     razao_social:document.getElementById('ff_razao').value.trim(),
-    nome_fantasia:document.getElementById('ff_fantasia').value.trim(),
+    nome_fantasia:tipoCNPJ?document.getElementById('ff_fantasia').value.trim():'',
     email,
     telefone:document.getElementById('ff_telefone').value.trim(),
     whatsapp:document.getElementById('ff_whatsapp').value.trim(),
@@ -672,20 +735,51 @@ function renderCotacoes(){
 }
 
 function abrirModalCotacao(itemId){
+  // Popula itens
   document.getElementById('fc_item').innerHTML=itens.map(it=>`<option value="${it.id}" ${it.id===itemId?'selected':''}>${it.descritivo||'—'}${it.material?' | '+it.material:''} — ${it.pdv||''}</option>`).join('');
-  ['fc_forn','fc_valor','fc_prazo','fc_obs'].forEach(id=>document.getElementById(id).value='');
+  // Popula fornecedores cadastrados
+  document.getElementById('fc_forn').innerHTML='<option value="">Selecione um fornecedor...</option>'+fornecedores.map(f=>`<option value="${f.razao_social||f.nome_fantasia}">${f.razao_social||f.nome_fantasia}</option>`).join('');
+  ['fc_valor','fc_prazo','fc_obs','fc_total'].forEach(id=>document.getElementById(id).value='');
+  // Preenche peso do item selecionado automaticamente
+  atualizarPesoItem();
   document.getElementById('modalCotacao').classList.add('open');
+}
+
+function atualizarPesoItem(){
+  const itemId=document.getElementById('fc_item').value;
+  const it=itens.find(i=>i.id===itemId);
+  if(it&&it.peso){
+    document.getElementById('fc_peso').value=it.peso;
+  } else {
+    document.getElementById('fc_peso').value='';
+  }
+  calcularValorTotal();
+}
+
+function calcularValorTotal(){
+  const valor=parseFloat(document.getElementById('fc_valor').value)||0;
+  const peso=parseFloat(document.getElementById('fc_peso').value)||0;
+  const total=valor&&peso?valor*peso:0;
+  document.getElementById('fc_total').value=total>0?total.toFixed(2):'';
 }
 
 async function salvarCotacao(){
   const itemId=document.getElementById('fc_item').value;
   const forn=document.getElementById('fc_forn').value.trim();
   const val=document.getElementById('fc_valor').value;
-  if(!forn||!val){showToast('Informe fornecedor e valor','err');return;}
+  if(!forn){showToast('Selecione um fornecedor','err');return;}
+  if(!val){showToast('Informe o valor unitário','err');return;}
+  const peso=parseFloat(document.getElementById('fc_peso').value)||null;
+  const total=parseFloat(document.getElementById('fc_total').value)||null;
   try{
-    await api('POST','cotacoes',{item_id:itemId,fornecedor:forn,valor:Number(val),
+    await api('POST','cotacoes',{
+      item_id:itemId,
+      fornecedor:forn,
+      valor:Number(val),
       prazo:Number(document.getElementById('fc_prazo').value)||null,
-      observacao:document.getElementById('fc_obs').value.trim()||null,respondido:false});
+      observacao:document.getElementById('fc_obs').value.trim()||null,
+      respondido:false
+    });
     showToast('Cotação salva!');fecharModal('modalCotacao');await loadAll();
   }catch(e){showToast('Erro','err');}
 }
@@ -761,7 +855,10 @@ function renderComprado(){
     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.descritivo||'—'}</td>
     <td>${it.material||'—'}</td><td>${it.qtd||0} ${it.und||''}</td>
     <td>${it.fornecedor||'—'}</td><td>${fmtVal(it.valor_unitario)}</td><td>${fmtDt(it.dt_compra)}</td>
-    <td><button class="btn btn-sm ${it.comprado?'':'primary'}" onclick="toggleComprado('${it.id}',${it.comprado})">${it.comprado?'Desmarcar':'✓ Comprado'}</button></td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')">✏️ Editar</button>
+      <button class="btn btn-sm ${it.comprado?'':'primary'}" onclick="toggleComprado('${it.id}',${it.comprado})">${it.comprado?'Desmarcar':'✓ Comprado'}</button>
+    </td>
   </tr>`).join('');
 }
 
