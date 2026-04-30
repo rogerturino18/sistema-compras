@@ -16,8 +16,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f5f7f5;min-heigh
 .card h2{font-size:15px;font-weight:600;color:#2e7d32;margin-bottom:4px}
 .card p{font-size:13px;color:#546e7a;margin-bottom:16px}
 .item-card{background:#f9fbf9;border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid #dce4dc}
-.item-title{font-size:13px;font-weight:600;color:#263238;margin-bottom:2px}
-.item-sub{font-size:11px;color:#546e7a;margin-bottom:12px}
+.item-title{font-size:14px;font-weight:700;color:#263238;margin-bottom:6px}
+.item-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:4px;background:#fff;border-radius:8px;padding:10px;margin-bottom:12px;border:1px solid #e8f5e9}
+.item-details div{font-size:12px;color:#263238;padding:3px 0}
+.detail-label{color:#546e7a;font-weight:600;margin-right:4px;font-size:11px;text-transform:uppercase}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
 .form-group{display:flex;flex-direction:column;gap:4px}
 .form-group.full{grid-column:1/-1}
@@ -83,14 +85,13 @@ async function api(method,table,data=null,filter=''){
 }
 
 const params=new URLSearchParams(window.location.search);
-const token=params.get('token');
 const fornecedor=params.get('forn')||'Fornecedor';
 const itemIds=(params.get('itens')||'').split(',').filter(Boolean);
 
 let itensData=[];
 
 async function init(){
-  if(!token||!itemIds.length){
+  if(!itemIds.length){
     document.getElementById('loadingDiv').style.display='none';
     document.getElementById('errorDiv').style.display='block';
     document.getElementById('errorDiv').textContent='Link inválido ou expirado.';
@@ -116,10 +117,17 @@ function renderItens(){
   div.innerHTML=itensData.map((it,i)=>`
     <div class="item-card">
       <div class="item-title">${i+1}. ${it.descritivo||'—'}${it.material?' | '+it.material:''}</div>
-      <div class="item-sub">
-        ${it.pdv?' PDV: '+it.pdv+' |':''} ${it.equipamento?'Equip: '+it.equipamento+' |':''} Qtd: ${it.qtd||0} ${it.und||''}
-        ${it.espessura?' | Esp: '+it.espessura:''} ${it.medida1?' | Med: '+it.medida1:''} ${it.medida2?'x'+it.medida2:''}
-        ${it.descricao_peca?' | '+it.descricao_peca:''}
+      ${it.descricao_peca?`<div style="font-size:12px;color:#2e7d32;margin-bottom:6px;font-weight:500">${it.descricao_peca}</div>`:''}
+      <div class="item-details">
+        ${it.pdv?`<div><span class="detail-label">PDV</span><span>${it.pdv}</span></div>`:''}
+        ${it.cliente?`<div><span class="detail-label">Cliente</span><span>${it.cliente}</span></div>`:''}
+        ${it.equipamento?`<div><span class="detail-label">Equipamento</span><span>${it.equipamento}</span></div>`:''}
+        ${it.desenho?`<div><span class="detail-label">Desenho</span><span>${it.desenho}</span></div>`:''}
+        <div><span class="detail-label">Quantidade</span><span><b>${it.qtd||0} ${it.und||''}</b></span></div>
+        ${it.espessura?`<div><span class="detail-label">Espessura</span><span><b>${it.espessura}</b></span></div>`:''}
+        ${it.medida1?`<div><span class="detail-label">Medida 1</span><span><b>${it.medida1}</b></span></div>`:''}
+        ${it.medida2?`<div><span class="detail-label">Medida 2</span><span><b>${it.medida2}</b></span></div>`:''}
+        ${it.peso?`<div><span class="detail-label">Peso</span><span>${it.peso} kg</span></div>`:''}
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -157,13 +165,14 @@ async function enviarCotacao(){
       const val=Number(document.getElementById('val_'+it.id).value);
       const prazo=document.getElementById('prazo_'+it.id).value;
       const obs=document.getElementById('obs_'+it.id).value;
-      const tok=token+'_'+it.id;
-      const existing=await api('GET','cotacoes','',`?token=eq.${tok}`);
-      if(existing&&existing.length>0){
-        await api('PATCH','cotacoes',{valor:val,prazo:prazo?Number(prazo):null,observacao:obs||null,respondido:true},`?token=eq.${tok}`);
-      } else {
-        await api('POST','cotacoes',{item_id:it.id,fornecedor,valor:val,prazo:prazo?Number(prazo):null,observacao:obs||null,token:tok,respondido:true});
-      }
+      await api('POST','cotacoes',{
+        item_id:it.id,
+        fornecedor:fornecedor,
+        valor:val,
+        prazo:prazo?Number(prazo):null,
+        observacao:obs||null,
+        respondido:true
+      });
     }
     document.getElementById('formDiv').style.display='none';
     document.getElementById('successDiv').style.display='block';
