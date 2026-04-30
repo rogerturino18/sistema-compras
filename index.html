@@ -575,16 +575,16 @@ function renderDashboard(){
   // Notificações
   const notifs=[];
   const novasCot=cotacoes.filter(c=>c.respondido&&isRecente(c.created_at,2));
-  if(novasCot.length) notifs.push({tipo:'green',icon:'✅',msg:`${novasCot.length} cotação(ões) recebida(s) nas últimas 48h`,acao:()=>showTab(3)});
+  if(novasCot.length) notifs.push({tipo:'green',icon:'✅',msg:`${novasCot.length} cotação(ões) recebida(s) nas últimas 48h`,tab:3});
   const semForn=itens.filter(i=>!i.fornecedor&&!i.comprado);
-  if(semForn.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${semForn.length} item(ns) sem fornecedor definido`,acao:()=>showTab(1)});
-  if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,acao:()=>showTab(6)});
+  if(semForn.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${semForn.length} item(ns) sem fornecedor definido`,tab:1});
+  if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,tab:6});
   const semCotacao=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado);
-  if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,acao:()=>showTab(4)});
+  if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,tab:4});
 
   const divN=document.getElementById('dashNotifs');
-  divN.innerHTML=notifs.length?notifs.map(n=>`
-    <div class="notif-item ${n.tipo}" onclick="${n.acao.toString().replace(/[()]/g,'()')}" style="cursor:pointer">
+  divN.innerHTML=notifs.length?notifs.map((n,i)=>`
+    <div class="notif-item ${n.tipo}" onclick="showTab(${n.tab})" style="cursor:pointer">
       <span style="font-size:18px">${n.icon}</span>
       <span style="font-size:13px;font-weight:500">${n.msg}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--gray)">→</span>
