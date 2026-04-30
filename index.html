@@ -469,7 +469,7 @@ function renderItens(){
     return true;
   });
   const tb=document.getElementById('tbodyItens');
-  if(!lista.length){tb.innerHTML='<tr><td colspan="11" class="empty">Nenhum item</td></tr>';return;}
+  if(!lista.length){tb.innerHTML='<tr><td colspan="13" class="empty">Nenhum item</td></tr>';return;}
   tb.innerHTML=lista.map(it=>{
     const nCot=cotacoes.filter(c=>c.item_id===it.id).length;
     const badge=it.comprado?'<span class="badge badge-green">Comprado</span>':
