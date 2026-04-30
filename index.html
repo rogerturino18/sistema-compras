@@ -47,7 +47,8 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--d
 .btn-sm{padding:4px 10px;font-size:11px}
 .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
 table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px}
-th{background:var(--green-pale);padding:8px 10px;text-align:left;font-weight:700;font-size:11px;color:var(--green);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px}
+th{background:var(--green-pale);padding:8px 10px;text-align:left;font-weight:700;font-size:11px;color:var(--green);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px;user-select:none}
+th[onclick]:hover{background:#c8e6c9;cursor:pointer}
 td{padding:7px 10px;border-bottom:1px solid #f0f4f0;vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#f9fbf9}
@@ -217,12 +218,37 @@ tr:hover td{background:#f9fbf9}
     <input type="text" id="busca1" placeholder="Buscar item..." oninput="renderItens()" style="flex:1;min-width:150px">
     <select id="filtroForn1" onchange="renderItens()"><option value="">Todos fornecedores</option></select>
     <select id="filtroPDV1" onchange="renderItens()"><option value="">Todos PDVs</option></select>
+    <select id="sortItens" onchange="renderItens()">
+      <option value="">Ordenar por...</option>
+      <option value="descritivo_asc">Descritivo A→Z</option>
+      <option value="descritivo_desc">Descritivo Z→A</option>
+      <option value="pdv_asc">PDV A→Z</option>
+      <option value="pdv_desc">PDV Z→A</option>
+      <option value="cliente_asc">Cliente A→Z</option>
+      <option value="material_asc">Material A→Z</option>
+      <option value="qtd_asc">Qtd ↑</option>
+      <option value="qtd_desc">Qtd ↓</option>
+      <option value="valor_asc">Valor ↑</option>
+      <option value="valor_desc">Valor ↓</option>
+    </select>
     <button class="btn primary" onclick="abrirModalItem(null)">+ Novo item</button>
     <button class="btn" onclick="document.getElementById('fileInput').click()">📥 Importar CSV</button>
   </div>
   <div class="tbl-wrap">
     <table><thead><tr>
-      <th>PDV</th><th>Cliente</th><th>Equipamento</th><th>Descritivo</th><th>Material</th><th>Esp.</th><th>Med. 1</th><th>Med. 2</th><th>Qtd</th><th>Fornecedor</th><th>Valor Unit.</th><th>Status</th><th></th>
+      <th style="cursor:pointer" onclick="sortBy('pdv')">PDV <span id="sort_pdv"></span></th>
+      <th style="cursor:pointer" onclick="sortBy('cliente')">Cliente <span id="sort_cliente"></span></th>
+      <th style="cursor:pointer" onclick="sortBy('equipamento')">Equipamento <span id="sort_equipamento"></span></th>
+      <th style="cursor:pointer" onclick="sortBy('descritivo')">Descritivo <span id="sort_descritivo"></span></th>
+      <th style="cursor:pointer" onclick="sortBy('material')">Material <span id="sort_material"></span></th>
+      <th>Esp.</th>
+      <th>Med. 1</th>
+      <th>Med. 2</th>
+      <th style="cursor:pointer" onclick="sortBy('qtd')">Qtd <span id="sort_qtd"></span></th>
+      <th>Fornecedor</th>
+      <th style="cursor:pointer" onclick="sortBy('valor_unitario')">Valor Unit. <span id="sort_valor_unitario"></span></th>
+      <th>Status</th>
+      <th></th>
     </tr></thead><tbody id="tbodyItens"></tbody></table>
   </div>
 </div>
@@ -446,6 +472,20 @@ const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 let itens=[], cotacoes=[], fornecedores=[], emails=[];
 let editItemId=null, editFornId=null;
 let usuarioLogado=null;
+let sortCol='', sortDir='asc';
+
+function sortBy(col){
+  if(sortCol===col) sortDir=sortDir==='asc'?'desc':'asc';
+  else { sortCol=col; sortDir='asc'; }
+  // Update select to match
+  document.getElementById('sortItens').value='';
+  // Update header arrows
+  ['pdv','cliente','equipamento','descritivo','material','qtd','valor_unitario'].forEach(c=>{
+    const el=document.getElementById('sort_'+c);
+    if(el) el.textContent=c===sortCol?(sortDir==='asc'?' ↑':' ↓'):'';
+  });
+  renderItens();
+}
 
 // ===== AUTH =====
 async function fazerLogin(){
@@ -662,12 +702,33 @@ function renderItens(){
   const b=(document.getElementById('busca1').value||'').toLowerCase();
   const f=document.getElementById('filtroForn1').value;
   const p=document.getElementById('filtroPDV1').value;
-  const lista=itens.filter(it=>{
+  const sort=document.getElementById('sortItens').value;
+
+  let lista=itens.filter(it=>{
     if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
     if(f&&it.fornecedor!==f)return false;
     if(p&&it.pdv!==p)return false;
     return true;
   });
+
+  // Apply sorting from select or column click
+  let col=sortCol, dir=sortDir;
+  if(sort){
+    const parts=sort.split('_');
+    dir=parts.pop(); col=parts.join('_');
+    // Update header arrows
+    ['pdv','cliente','equipamento','descritivo','material','qtd','valor_unitario'].forEach(c=>{
+      const el=document.getElementById('sort_'+c);
+      if(el) el.textContent=c===col?(dir==='asc'?' ↑':' ↓'):'';
+    });
+  }
+  if(col){
+    lista=[...lista].sort((a,b)=>{
+      let va=a[col]||'', vb=b[col]||'';
+      if(typeof va==='number'||!isNaN(va)) return dir==='asc'?Number(va)-Number(vb):Number(vb)-Number(va);
+      return dir==='asc'?String(va).localeCompare(String(vb),'pt-BR'):String(vb).localeCompare(String(va),'pt-BR');
+    });
+  }
   const tb=document.getElementById('tbodyItens');
   if(!lista.length){tb.innerHTML='<tr><td colspan="13" class="empty">Nenhum item</td></tr>';return;}
   tb.innerHTML=lista.map(it=>{
@@ -856,51 +917,64 @@ async function deletarForn(id){
 function renderCotacoes(){
   const b=(document.getElementById('busca3').value||'').toLowerCase();
   const div=document.getElementById('listaCotacoes');
+
   const lista=itens.filter(it=>!b||(it.descritivo+it.material+it.descricao_peca+it.pdv+'').toLowerCase().includes(b));
-  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
-  div.innerHTML=lista.map(it=>{
-    const cs=cotacoes.filter(c=>c.item_id===it.id);
-    const detalhes=[
-      it.pdv?`<span class="badge badge-gray">${it.pdv}</span>`:'',
-      it.cliente?`<b>${it.cliente}</b>`:'',
-      it.equipamento?`${it.equipamento}`:'',
-      it.desenho?`Desenho: <b>${it.desenho}</b>`:'',
-    ].filter(Boolean).join(' | ');
-    const medidas=[
-      it.espessura?`Esp: <b>${it.espessura}</b>`:'',
-      it.medida1?`Med1: <b>${it.medida1}</b>`:'',
-      it.medida2?`Med2: <b>${it.medida2}</b>`:'',
-      it.peso?`Peso: <b>${it.peso} kg</b>`:'',
-    ].filter(Boolean).join(' | ');
-    return `<div class="compare-item">
-      <div class="compare-header" onclick="toggleBody(this)">
-        <div style="display:flex;flex-direction:column;gap:2px;flex:1">
-          <span style="font-weight:700">${it.descritivo||'—'}${it.material?' | <span style="color:var(--green)">'+it.material+'</span>':''}</span>
-          ${it.descricao_peca?`<span style="font-size:11px;color:var(--gray);font-weight:400">${it.descricao_peca}</span>`:''}
+  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item encontrado</div>';return;}
+
+  // Agrupar por PDV
+  const grupos={};
+  lista.forEach(it=>{
+    const pdv=it.pdv||'Sem PDV';
+    if(!grupos[pdv]) grupos[pdv]=[];
+    grupos[pdv].push(it);
+  });
+
+  div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,itensPDV])=>{
+    const totalCot=itensPDV.reduce((acc,it)=>acc+cotacoes.filter(c=>c.item_id===it.id).length,0);
+    const itensHtml=itensPDV.map(it=>{
+      const cs=cotacoes.filter(c=>c.item_id===it.id);
+      return `<div class="compare-item" style="margin-bottom:8px;margin-left:0">
+        <div class="compare-header" onclick="toggleBody(this)" style="background:#fff">
+          <div style="display:flex;flex-direction:column;gap:2px;flex:1">
+            <span style="font-weight:600;font-size:13px">${it.descritivo||'—'}${it.material?` <span style="color:var(--green);font-weight:400">| ${it.material}</span>`:''}</span>
+            ${it.descricao_peca?`<span style="font-size:11px;color:var(--gray)">${it.descricao_peca}</span>`:''}
+          </div>
+          <span class="badge ${cs.length?'badge-blue':'badge-gray'}" style="flex-shrink:0;margin-left:8px">${cs.length} cot.</span>
         </div>
-        <span class="badge ${cs.length?'badge-blue':'badge-gray'}" style="flex-shrink:0;margin-left:8px">${cs.length} cotação${cs.length!==1?'s':''}</span>
+        <div class="compare-body">
+          <div style="background:#f9fbf9;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div><span style="color:var(--gray)">Cliente:</span> <b>${it.cliente||'—'}</b></div>
+            <div><span style="color:var(--gray)">Equipamento:</span> ${it.equipamento||'—'}</div>
+            <div><span style="color:var(--gray)">Desenho:</span> ${it.desenho||'—'}</div>
+            <div><span style="color:var(--gray)">Qtd:</span> <b>${it.qtd||0} ${it.und||''}</b></div>
+            <div><span style="color:var(--gray)">Espessura:</span> <b>${it.espessura||'—'}</b></div>
+            <div><span style="color:var(--gray)">Medida 1:</span> <b>${it.medida1||'—'}</b></div>
+            <div><span style="color:var(--gray)">Medida 2:</span> <b>${it.medida2||'—'}</b></div>
+            <div><span style="color:var(--gray)">Peso:</span> <b>${it.peso?it.peso+' kg':'—'}</b></div>
+            ${it.descricao_peca?`<div style="grid-column:1/-1"><span style="color:var(--gray)">Descrição da peça:</span> <b>${it.descricao_peca}</b></div>`:''}
+          </div>
+          ${cs.length?cs.map(c=>`<div class="price-row">
+            <span class="forn-tag">${c.fornecedor}</span>
+            <span style="font-weight:700">${fmtVal(c.valor)}</span>
+            ${c.prazo?`<span class="badge badge-gray">${c.prazo} dias</span>`:''}
+            ${c.respondido?'<span class="badge badge-green">Via e-mail</span>':''}
+            ${c.observacao?`<span style="color:var(--gray);font-size:11px">${c.observacao}</span>`:''}
+            <button class="btn btn-sm danger" style="margin-left:auto" onclick="deletarCotacao('${c.id}')">🗑</button>
+          </div>`).join(''):'<div style="color:var(--gray);font-size:12px;padding:4px 0">Nenhuma cotação cadastrada</div>'}
+          <button class="btn btn-sm primary" style="margin-top:10px" onclick="abrirModalCotacao('${it.id}')">+ Adicionar cotação</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:10px 14px;background:var(--green);border-radius:10px;cursor:pointer" onclick="toggleGrupoPDV('pdv_${pdv.replace(/\s/g,'_')}')">
+        <span style="font-size:14px;font-weight:700;color:#fff">📦 ${pdv}</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.8)">${itensPDV.length} item${itensPDV.length!==1?'s':''}</span>
+        <span class="badge" style="background:rgba(255,255,255,0.2);color:#fff;margin-left:auto">${totalCot} cotação${totalCot!==1?'s':''}</span>
+        <span style="color:rgba(255,255,255,0.8);font-size:12px" id="arrow_pdv_${pdv.replace(/\s/g,'_')}">▼</span>
       </div>
-      <div class="compare-body">
-        <div style="background:#f9fbf9;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          <div><span style="color:var(--gray)">PDV / Cliente:</span> ${it.pdv||'—'} / ${it.cliente||'—'}</div>
-          <div><span style="color:var(--gray)">Equipamento:</span> ${it.equipamento||'—'}</div>
-          <div><span style="color:var(--gray)">Desenho:</span> ${it.desenho||'—'}</div>
-          <div><span style="color:var(--gray)">Qtd:</span> <b>${it.qtd||0} ${it.und||''}</b></div>
-          <div><span style="color:var(--gray)">Espessura:</span> <b>${it.espessura||'—'}</b></div>
-          <div><span style="color:var(--gray)">Medida 1:</span> <b>${it.medida1||'—'}</b></div>
-          <div><span style="color:var(--gray)">Medida 2:</span> <b>${it.medida2||'—'}</b></div>
-          <div><span style="color:var(--gray)">Peso:</span> <b>${it.peso?it.peso+' kg':'—'}</b></div>
-          ${it.descricao_peca?`<div style="grid-column:1/-1"><span style="color:var(--gray)">Descrição da peça:</span> <b>${it.descricao_peca}</b></div>`:''}
-        </div>
-        ${cs.length?cs.map(c=>`<div class="price-row">
-          <span class="forn-tag">${c.fornecedor}</span>
-          <span style="font-weight:700">${fmtVal(c.valor)}</span>
-          ${c.prazo?`<span class="badge badge-gray">${c.prazo} dias</span>`:''}
-          ${c.respondido?'<span class="badge badge-green">Via e-mail</span>':''}
-          ${c.observacao?`<span style="color:var(--gray);font-size:11px">${c.observacao}</span>`:''}
-          <button class="btn btn-sm danger" style="margin-left:auto" onclick="deletarCotacao('${c.id}')">🗑</button>
-        </div>`).join(''):'<div style="color:var(--gray);font-size:12px;padding:4px 0">Nenhuma cotação cadastrada</div>'}
-        <button class="btn btn-sm primary" style="margin-top:10px" onclick="abrirModalCotacao('${it.id}')">+ Adicionar cotação</button>
+      <div id="pdv_${pdv.replace(/\s/g,'_')}" style="padding:0 4px">
+        ${itensHtml}
       </div>
     </div>`;
   }).join('');
@@ -1219,6 +1293,15 @@ function showTab(n){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===n));
 }
+function toggleGrupoPDV(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById('arrow_'+id);
+  if(!el)return;
+  const aberto=el.style.display!=='none';
+  el.style.display=aberto?'none':'block';
+  if(arrow) arrow.textContent=aberto?'▶':'▼';
+}
+
 function toggleBody(el){el.nextElementSibling.classList.toggle('open');}
 function fecharModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
