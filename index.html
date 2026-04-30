@@ -318,6 +318,24 @@ tr:hover td{background:#f9fbf9}
     <h3>📧 Disparar e-mail de cotação</h3>
     <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Selecione os fornecedores e os itens. Cada fornecedor receberá um e-mail profissional com link para preencher os preços.</p>
 
+    <div class="section-title">0. Selecionar remetente</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex:1;min-width:200px;transition:all 0.15s" id="lblRemetente1">
+        <input type="radio" name="remetente" value="adm.geral@sloleos.com.br" checked onchange="selecionarRemetente(this)" style="accent-color:var(--green)">
+        <div>
+          <div style="font-size:13px;font-weight:600">Administrativo</div>
+          <div style="font-size:11px;color:var(--gray)">adm.geral@sloleos.com.br</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex:1;min-width:200px;transition:all 0.15s" id="lblRemetente2">
+        <input type="radio" name="remetente" value="engenharia@sloleos.com.br" onchange="selecionarRemetente(this)" style="accent-color:var(--green)">
+        <div>
+          <div style="font-size:13px;font-weight:600">Engenharia</div>
+          <div style="font-size:11px;color:var(--gray)">engenharia@sloleos.com.br</div>
+        </div>
+      </label>
+    </div>
+
     <div class="section-title">1. Selecionar fornecedores</div>
     <div id="fornCheck" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fafafa;margin-bottom:14px"></div>
 
@@ -1228,11 +1246,35 @@ function renderItemCheck(){
 
 function selAll(cls,sel){document.querySelectorAll('.'+cls).forEach(c=>c.checked=sel);}
 
+function selecionarRemetente(el){
+  // Highlight selected
+  document.querySelectorAll('[id^="lblRemetente"]').forEach(l=>{
+    l.style.borderColor='var(--border)';
+    l.style.background='#fff';
+  });
+  el.closest('label').style.borderColor='var(--green)';
+  el.closest('label').style.background='var(--green-pale)';
+}
+
+// Selecionar automaticamente baseado no usuário logado ao carregar aba
+function preencherRemetenteLogado(){
+  if(!usuarioLogado) return;
+  const radios=document.querySelectorAll('input[name="remetente"]');
+  radios.forEach(r=>{
+    if(r.value===usuarioLogado.email){
+      r.checked=true;
+      selecionarRemetente(r);
+    }
+  });
+}
+
 async function dispararEmails(){
   const fornIds=[...document.querySelectorAll('.fornCheck:checked')].map(c=>c.value);
   const itemIds=[...document.querySelectorAll('.itemCheck:checked')].map(c=>c.value);
   if(!fornIds.length){showToast('Selecione ao menos um fornecedor','err');return;}
   if(!itemIds.length){showToast('Selecione ao menos um item','err');return;}
+  const remetente=document.querySelector('input[name="remetente"]:checked')?.value||'adm.geral@sloleos.com.br';
+  const nomeRemetente=remetente.includes('engenharia')?'Engenharia SL Óleos':'SL Óleos';
   const btn=document.getElementById('btnDisparar');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Enviando...';
   let ok=0,fail=0;
@@ -1256,8 +1298,8 @@ async function dispararEmails(){
             <a href="${link}" style="background:#2e7d32;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block">📋 Preencher Cotação</a>
           </div>
           <p style="font-size:12px;color:#546e7a;border-top:1px solid #eee;padding-top:12px;margin-top:12px">
-            Em caso de dúvidas, entre em contato pelo e-mail <b>adm.geral@sloleos.com.br</b><br>
-            Atenciosamente, <b>Equipe SL Óleos</b>
+            Em caso de dúvidas, entre em contato pelo e-mail <b>${remetente}</b><br>
+            Atenciosamente, <b>${nomeRemetente}</b>
           </p>
         </div>
       </div>`;
@@ -1265,7 +1307,7 @@ async function dispararEmails(){
       const r=await fetch('https://api.resend.com/emails',{
         method:'POST',
         headers:{'Authorization':`Bearer ${RESEND_KEY}`,'Content-Type':'application/json'},
-        body:JSON.stringify({from:'SL Óleos <onboarding@resend.dev>',to:[forn.email],subject:'Solicitação de Cotação — SL Óleos',html})
+        body:JSON.stringify({from:`${nomeRemetente} <${remetente}>`,to:[forn.email],reply_to:remetente,subject:'Solicitação de Cotação — SL Óleos',html})
       });
       if(!r.ok)throw new Error(await r.text());
       await api('POST','emails_enviados',{fornecedor_id:fornId,fornecedor_nome:forn.razao_social||forn.nome_fantasia,fornecedor_email:forn.email,itens_ids:itemIds.join(','),respondido:false});
@@ -1274,7 +1316,7 @@ async function dispararEmails(){
   }
   btn.disabled=false;btn.innerHTML='📧 Disparar e-mails';
   if(ok>0) showToast(`${ok} e-mail(s) enviado(s) com sucesso!`);
-  if(fail>0) showToast(`${fail} e-mail(s) falharam. Verifique o domínio no Resend.`,'err');
+  if(fail>0) showToast(`${fail} e-mail(s) falharam.`,'err');
   await loadAll();
 }
 
@@ -1313,7 +1355,7 @@ async function enviarEmailTeste(){
     const r=await fetch('https://api.resend.com/emails',{
       method:'POST',
       headers:{'Authorization':`Bearer ${RESEND_KEY}`,'Content-Type':'application/json'},
-      body:JSON.stringify({from:'SL Óleos <onboarding@resend.dev>',to:[emailDestino],subject:'[TESTE] Solicitação de Cotação — SL Óleos',html})
+      body:JSON.stringify({from:'SL Óleos <adm.geral@sloleos.com.br>',to:[emailDestino],subject:'[TESTE] Solicitação de Cotação — SL Óleos',html})
     });
     if(!r.ok) throw new Error(await r.text());
     showToast(`E-mail de teste enviado para ${emailDestino}!`);
@@ -1372,6 +1414,7 @@ function fmtDt(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('
 function showTab(n){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===n));
+  if(n===6) preencherRemetenteLogado();
 }
 function toggleGrupoPDV(id){
   const el=document.getElementById(id);
