@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SL Óleos — Formulário de Cotação</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f7f5;min-height:100vh;padding:0 0 40px}
+.header{background:#2e7d32;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.header-logo{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#2e7d32}
+.header-text h1{font-size:16px;font-weight:600;color:#fff}
+.header-text p{font-size:11px;color:rgba(255,255,255,0.75)}
+.container{max-width:600px;margin:0 auto;padding:0 16px}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #dce4dc;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.card h2{font-size:15px;font-weight:600;color:#2e7d32;margin-bottom:4px}
+.card p{font-size:13px;color:#546e7a;margin-bottom:16px}
+.item-card{background:#f9fbf9;border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid #dce4dc}
+.item-title{font-size:14px;font-weight:700;color:#263238;margin-bottom:6px}
+.item-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:4px;background:#fff;border-radius:8px;padding:10px;margin-bottom:12px;border:1px solid #e8f5e9}
+.item-details div{font-size:12px;color:#263238;padding:3px 0}
+.detail-label{color:#546e7a;font-weight:600;margin-right:4px;font-size:11px;text-transform:uppercase}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+.form-group input,.form-group textarea{padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;color:#263238;background:#fff}
+.form-group input:focus,.form-group textarea:focus{outline:none;border-color:#2e7d32}
+.btn{width:100%;padding:14px;border:none;border-radius:10px;background:#2e7d32;color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;transition:background 0.15s}
+.btn:hover{background:#1b5e20}
+.btn:disabled{background:#aaa;cursor:not-allowed}
+.loading{text-align:center;padding:40px;color:#546e7a}
+.spinner{display:inline-block;width:24px;height:24px;border:2px solid #e8f5e9;border-top-color:#2e7d32;border-radius:50%;animation:spin 0.7s linear infinite;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.success{text-align:center;padding:40px 20px}
+.success-icon{font-size:48px;margin-bottom:16px}
+.success h2{color:#2e7d32;font-size:20px;margin-bottom:8px}
+.success p{color:#546e7a;font-size:14px}
+.error-box{background:#ffebee;border:1px solid #ffcdd2;border-radius:10px;padding:16px;text-align:center;color:#c62828}
+@media(max-width:480px){.form-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">SL</div>
+  <div class="header-text">
+    <h1>SL Óleos</h1>
+    <p>Formulário de Cotação</p>
+  </div>
+</div>
+
+<div class="container">
+  <div id="loadingDiv" class="loading">
+    <div class="spinner"></div><br>Carregando itens...
+  </div>
+  <div id="errorDiv" style="display:none" class="error-box"></div>
+  <div id="formDiv" style="display:none">
+    <div class="card">
+      <h2 id="fornTitle">Cotação de Materiais</h2>
+      <p id="fornSub">Preencha os preços para cada item abaixo e clique em Enviar.</p>
+    </div>
+    <div id="itensForm"></div>
+    <button class="btn" id="btnEnviar" onclick="enviarCotacao()">✓ Enviar cotação</button>
+  </div>
+  <div id="successDiv" style="display:none" class="success">
+    <div class="success-icon">✅</div>
+    <h2>Cotação enviada!</h2>
+    <p>Obrigado. Seus preços foram registrados com sucesso pela SL Óleos.</p>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
+const SUPABASE_KEY='sb_publishable_5Q5yuv9FvOVwNQ8B19Fv3w_vXG0VXqe';
+
+async function api(method,table,data=null,filter=''){
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/${table}${filter}`,{
+    method,
+    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'return=representation'},
+    body:data?JSON.stringify(data):undefined
+  });
+  const text=await res.text();
+  return text?JSON.parse(text):[];
+}
+
+const params=new URLSearchParams(window.location.search);
+const fornecedor=params.get('forn')||'Fornecedor';
+const itemIds=(params.get('itens')||'').split(',').filter(Boolean);
+
+let itensData=[];
+
+async function init(){
+  if(!itemIds.length){
+    document.getElementById('loadingDiv').style.display='none';
+    document.getElementById('errorDiv').style.display='block';
+    document.getElementById('errorDiv').textContent='Link inválido ou expirado.';
+    return;
+  }
+  try {
+    const filter='?id=in.('+itemIds.join(',')+')';
+    itensData=await api('GET','itens','',filter);
+    document.getElementById('loadingDiv').style.display='none';
+    document.getElementById('fornTitle').textContent=`Cotação — ${fornecedor}`;
+    document.getElementById('fornSub').textContent=`Olá, ${fornecedor}! Preencha o valor unitário (R$) para cada item abaixo.`;
+    renderItens();
+    document.getElementById('formDiv').style.display='block';
+  } catch(e){
+    document.getElementById('loadingDiv').style.display='none';
+    document.getElementById('errorDiv').style.display='block';
+    document.getElementById('errorDiv').textContent='Erro ao carregar itens. Tente novamente.';
+  }
+}
+
+function renderItens(){
+  const div=document.getElementById('itensForm');
+  div.innerHTML=itensData.map((it,i)=>`
+    <div class="item-card">
+      <div class="item-title">${i+1}. ${it.descritivo||'—'}${it.material?' | '+it.material:''}</div>
+      ${it.descricao_peca?`<div style="font-size:12px;color:#2e7d32;margin-bottom:8px;font-weight:500">${it.descricao_peca}</div>`:''}
+      <div class="item-details">
+        ${it.desenho?`<div><span class="detail-label">Desenho</span><span><b>${it.desenho}</b></span></div>`:''}
+        <div><span class="detail-label">Quantidade</span><span><b>${it.qtd||0} ${it.und||''}</b></span></div>
+        ${it.espessura?`<div><span class="detail-label">Espessura</span><span><b>${it.espessura}</b></span></div>`:''}
+        ${it.medida1?`<div><span class="detail-label">Medida 1</span><span><b>${it.medida1}</b></span></div>`:''}
+        ${it.medida2?`<div><span class="detail-label">Medida 2</span><span><b>${it.medida2}</b></span></div>`:''}
+        ${it.peso?`<div><span class="detail-label">Peso unit.</span><span><b>${it.peso} kg</b></span></div>`:''}
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor unitário (R$) *</label>
+          <input type="number" id="val_${it.id}" step="0.01" min="0" placeholder="0,00" required oninput="calcTotal('${it.id}')">
+        </div>
+        <div class="form-group">
+          <label>Unidade</label>
+          <select id="und_${it.id}">
+            <option value="${it.und||'PC'}">${it.und||'PC'}</option>
+            <option value="KG">KG</option>
+            <option value="METRO">METRO</option>
+            <option value="BARRA">BARRA</option>
+            <option value="UN">UN</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantidade</label>
+          <input type="number" id="qtd_${it.id}" min="1" value="${it.qtd||1}" oninput="calcTotal('${it.id}')">
+        </div>
+        <div class="form-group">
+          <label>Peso (kg)</label>
+          <input type="number" id="peso_${it.id}" step="0.01" min="0" value="${it.peso||''}" placeholder="0,000" oninput="calcTotal('${it.id}')">
+        </div>
+        <div class="form-group">
+          <label>Valor Total (R$)</label>
+          <input type="number" id="total_${it.id}" step="0.01" readonly style="background:#f0f7f0;color:#2e7d32;font-weight:700">
+        </div>
+        <div class="form-group">
+          <label>Prazo (dias)</label>
+          <input type="number" id="prazo_${it.id}" min="0" placeholder="Ex: 7">
+        </div>
+        <div class="form-group full">
+          <label>Observação</label>
+          <input type="text" id="obs_${it.id}" placeholder="Ex: sujeito a estoque, frete por conta do comprador...">
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function calcTotal(id){
+  const val=parseFloat(document.getElementById('val_'+id).value)||0;
+  const qtd=parseFloat(document.getElementById('qtd_'+id).value)||1;
+  const peso=parseFloat(document.getElementById('peso_'+id).value)||0;
+  const total=peso>0?val*peso*qtd:val*qtd;
+  document.getElementById('total_'+id).value=total>0?total.toFixed(2):'';
+}
+
+async function enviarCotacao(){
+  let validos=true;
+  for(const it of itensData){
+    const v=document.getElementById('val_'+it.id).value;
+    if(!v||Number(v)<=0){
+      document.getElementById('val_'+it.id).style.borderColor='#c62828';
+      validos=false;
+    } else {
+      document.getElementById('val_'+it.id).style.borderColor='#dce4dc';
+    }
+  }
+  if(!validos){alert('Preencha o valor unitário de todos os itens.');return;}
+  const btn=document.getElementById('btnEnviar');
+  btn.disabled=true; btn.textContent='Enviando...';
+  try {
+    for(const it of itensData){
+      const val=Number(document.getElementById('val_'+it.id).value);
+      const qtd=Number(document.getElementById('qtd_'+it.id).value)||it.qtd||1;
+      const peso=Number(document.getElementById('peso_'+it.id).value)||null;
+      const total=Number(document.getElementById('total_'+it.id).value)||null;
+      const prazo=document.getElementById('prazo_'+it.id).value;
+      const obs=document.getElementById('obs_'+it.id).value;
+      await api('POST','cotacoes',{
+        item_id:it.id,
+        fornecedor:fornecedor,
+        valor:val,
+        prazo:prazo?Number(prazo):null,
+        observacao:obs||null,
+        respondido:true
+      });
+    }
+    document.getElementById('formDiv').style.display='none';
+    document.getElementById('successDiv').style.display='block';
+  } catch(e){
+    btn.disabled=false; btn.textContent='✓ Enviar cotação';
+    alert('Erro ao enviar. Tente novamente.');
+    console.error(e);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
