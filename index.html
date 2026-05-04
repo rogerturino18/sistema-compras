@@ -1,0 +1,2518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SL Óleos — Gestão de Compras</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#2e7d32;--green-light:#4caf50;--green-pale:#e8f5e9;--green-dark:#1b5e20;
+  --yellow:#f9a825;--dark:#263238;--gray:#546e7a;--bg:#f0f4f0;--white:#fff;--border:#dce4dc;
+}
+body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--dark);background:var(--bg);min-height:100vh}
+.app-content{display:none}
+.header{background:var(--green);padding:12px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15);position:sticky;top:0;z-index:20}
+.header-logo{width:42px;height:42px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--green);flex-shrink:0}
+.header-text h1{font-size:16px;font-weight:700;color:#fff}
+.header-text p{font-size:11px;color:rgba(255,255,255,0.7)}
+.tabs{display:flex;background:#fff;border-bottom:2px solid var(--green-pale);overflow-x:auto;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.tab{padding:11px 16px;cursor:pointer;font-size:12px;white-space:nowrap;border-bottom:3px solid transparent;color:var(--gray);transition:all 0.15s;margin-bottom:-2px;font-weight:500;display:flex;align-items:center;gap:5px}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.tab:hover:not(.active){color:var(--dark);background:var(--green-pale)}
+.panel{display:none;padding:16px;max-width:1200px;margin:0 auto}
+.panel.active{display:block}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:#fff;border-radius:12px;padding:14px 16px;border-left:4px solid var(--green);box-shadow:0 1px 4px rgba(0,0,0,0.07);cursor:pointer;transition:transform 0.15s}
+.stat:hover{transform:translateY(-2px)}
+.stat-label{font-size:10px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.stat-val{font-size:26px;font-weight:800;color:var(--green)}
+.stat-sub{font-size:11px;color:var(--gray);margin-top:2px}
+.stat.yellow{border-left-color:var(--yellow)}
+.stat.yellow .stat-val{color:#795548}
+.stat.blue{border-left-color:#1565c0}
+.stat.blue .stat-val{color:#1565c0}
+.stat.red{border-left-color:#c62828}
+.stat.red .stat-val{color:#c62828}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select{font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--dark)}
+.toolbar input:focus,.toolbar select:focus{outline:none;border-color:var(--green)}
+.btn{padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--dark);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{background:var(--green-pale)}
+.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.primary:hover{background:var(--green-dark)}
+.btn.danger{background:#ffebee;color:#c62828;border-color:#ffcdd2}
+.btn.yellow{background:#fff8e1;color:#795548;border-color:#ffe082}
+.btn.blue{background:#e3f2fd;color:#1565c0;border-color:#bbdefb}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-sm{padding:4px 10px;font-size:11px}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px}
+th{background:var(--green-pale);padding:8px 10px;text-align:left;font-weight:700;font-size:11px;color:var(--green);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px;user-select:none}
+th[onclick]:hover{background:#c8e6c9;cursor:pointer}
+td{padding:7px 10px;border-bottom:1px solid #f0f4f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f9fbf9}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:var(--green-pale);color:var(--green)}
+.badge-yellow{background:#fff9c4;color:#795548}
+.badge-gray{background:#f5f5f5;color:#757575}
+.badge-blue{background:#e3f2fd;color:#1565c0}
+.badge-red{background:#ffebee;color:#c62828}
+.forn-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--green-pale);color:var(--green);font-weight:500}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:22px;width:560px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(46,125,50,0.2)}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:16px;color:var(--green);border-bottom:2px solid var(--green-pale);padding-bottom:8px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+.form-group input,.form-group select,.form-group textarea{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--dark);background:#fff}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--green)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #f0f4f0}
+.compare-item{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.compare-header{padding:10px 14px;background:#f9fbf9;font-weight:600;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.compare-header:hover{background:var(--green-pale)}
+.compare-body{padding:12px 14px;display:none}
+.compare-body.open{display:block}
+.price-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f4f0;flex-wrap:wrap}
+.price-row:last-child{border-bottom:none}
+.best-price{color:var(--green);font-weight:700}
+.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.card h3{font-size:14px;font-weight:700;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f0}
+.activity-item:last-child{border-bottom:none}
+.activity-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.activity-text{flex:1;font-size:12px}
+.activity-time{font-size:11px;color:var(--gray)}
+.notif-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--green-pale);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--green)}
+.notif-item.yellow{background:#fff9c4;border-left-color:var(--yellow)}
+.notif-item.blue{background:#e3f2fd;border-left-color:#1565c0}
+.notif-item.red{background:#ffebee;border-left-color:#c62828}
+.cnpj-loading{font-size:12px;color:var(--gray);padding:4px 0;display:none}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;max-width:300px}
+.toast.show{opacity:1;transform:translateY(0)}
+.empty{text-align:center;padding:40px;color:var(--gray);font-size:13px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--green-pale);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.forn-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.forn-info h4{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:2px}
+.forn-info p{font-size:12px;color:var(--gray)}
+.forn-actions{display:flex;gap:6px;flex-shrink:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-title{font-size:13px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;margin-top:4px}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}.form-group.full{grid-column:1}.grid2{grid-template-columns:1fr}}
+
+/* LOGIN */
+.login-bg{position:fixed;inset:0;background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#388e3c 100%);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
+.login-box{background:#fff;border-radius:16px;padding:36px 32px;width:380px;max-width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.25)}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo .logo-circle{width:64px;height:64px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;margin:0 auto 12px}
+.login-logo h1{font-size:22px;font-weight:800;color:var(--green)}
+.login-logo p{font-size:13px;color:var(--gray)}
+.login-form .form-group{margin-bottom:14px}
+.login-form label{font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:5px}
+.login-form input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:var(--dark);transition:border 0.15s}
+.login-form input:focus{outline:none;border-color:var(--green)}
+.login-btn{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;transition:background 0.15s}
+.login-btn:hover{background:var(--green-dark)}
+.login-error{background:#ffebee;color:#c62828;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;display:none;text-align:center}
+
+/* USER BADGE */
+.user-badge{margin-left:auto;display:flex;align-items:center;gap:8px;cursor:pointer}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.user-name{font-size:12px;color:rgba(255,255,255,0.9);font-weight:500}
+.user-menu{position:absolute;top:60px;right:16px;background:#fff;border-radius:10px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:50;min-width:180px;display:none}
+.user-menu.open{display:block}
+.user-menu-item{padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--dark)}
+.user-menu-item:hover{background:var(--green-pale)}
+.user-menu-item.danger{color:#c62828}
+.user-menu-item.danger:hover{background:#ffebee}
+.audit-badge{font-size:10px;color:var(--gray);margin-top:2px}
+
+/* PROJETOS */
+.proj-pdv{background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.proj-pdv-header{padding:12px 16px;background:var(--green);cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.proj-pdv-header:hover{background:var(--green-dark)}
+.proj-pdv-body{padding:12px}
+.produto-card{background:#f9fbf9;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.produto-header{padding:10px 14px;display:flex;align-items:center;gap:10px;background:#fff;border-bottom:1px solid #f0f4f0;flex-wrap:wrap}
+.produto-etapas{padding:10px 14px}
+.etapa-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;margin:3px;border:1px solid transparent;cursor:default}
+.etapa-projeto{background:#e3f2fd;color:#1565c0;border-color:#bbdefb}
+.etapa-compra{background:#fff9c4;color:#795548;border-color:#ffe082}
+.etapa-recepcao{background:#f3e5f5;color:#6a1b9a;border-color:#ce93d8}
+.etapa-producao{background:#fff3e0;color:#e65100;border-color:#ffcc02}
+.etapa-expedicao{background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7}
+.etapa-concluido{background:#f5f5f5;color:#757575;border-color:#e0e0e0;opacity:0.7}
+.subetapa-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;margin:2px;background:#fff3e0;color:#e65100;border:1px solid #ffcc02}
+
+/* MODAL LEMBRETE URGENTE */
+.lembrete-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;padding:16px}
+.lembrete-bg.open{display:flex;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+.lembrete-box{background:#fff;border-radius:16px;padding:28px;width:480px;max-width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(198,40,40,0.25);border-top:5px solid #c62828}
+.lembrete-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.lembrete-icon{font-size:32px}
+.lembrete-header h3{font-size:17px;font-weight:700;color:#c62828;margin:0}
+.lembrete-header p{font-size:12px;color:var(--gray);margin:2px 0 0}
+.lembrete-item{display:flex;align-items:flex-start;gap:10px;padding:10px;background:#ffebee;border-radius:8px;margin-bottom:8px;border-left:3px solid #c62828}
+.lembrete-item-desc{font-size:13px;font-weight:600;color:#263238}
+.lembrete-item-meta{font-size:11px;color:#546e7a;margin-top:2px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-bg" id="loginBg">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-circle" style="background:#fff;padding:4px"><img src="logo.jpg" style="width:56px;height:56px;object-fit:contain"></div>
+      <h1>SL Óleos</h1>
+      <p>Gestão de Matéria Prima e Compras</p>
+    </div>
+    <div id="loginError" class="login-error">E-mail ou senha incorretos</div>
+    <div class="login-form">
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="loginEmail" placeholder="seu@email.com.br" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="loginSenha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <button class="login-btn" onclick="fazerLogin()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="appContent" class="app-content">
+<div class="header">
+  <div class="header-logo"><img src="logo.jpg" style="width:38px;height:38px;object-fit:contain;border-radius:50%"></div>
+  <div class="header-text">
+    <h1>SL Óleos</h1>
+    <p>Gestão de Matéria Prima e Compras</p>
+  </div>
+  <div class="user-badge" onclick="toggleUserMenu()">
+    <div class="user-avatar" id="userAvatar">?</div>
+    <div class="user-name" id="userName">Carregando...</div>
+    <span style="color:rgba(255,255,255,0.7);font-size:10px">▼</span>
+  </div>
+</div>
+
+<div class="user-menu" id="userMenu">
+  <div class="user-menu-item" onclick="abrirModalPerfil()">👤 Meu perfil</div>
+  <div class="user-menu-item" id="menuBtnBemVindo" onclick="dispararEmailBemVindo()" style="display:none">📧 E-mail de boas-vindas</div>
+  <div class="user-menu-item danger" onclick="fazerLogout()">🚪 Sair</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab(0)">🏠 Dashboard</div>
+  <div class="tab" onclick="showTab(1)">📋 Itens</div>
+  <div class="tab" onclick="showTab(2)">🏢 Fornecedores</div>
+  <div class="tab" onclick="showTab(3)">🎯 Projetos</div>
+  <div class="tab" onclick="showTab(4)">💰 Cotações</div>
+  <div class="tab" onclick="showTab(5)">📊 Comparar</div>
+  <div class="tab" onclick="showTab(6)">✅ Compras</div>
+  <div class="tab" onclick="showTab(7)">🛒 Compras Internas</div>
+  <div class="tab" onclick="showTab(8)">📧 Enviar Cotação</div>
+</div>
+
+<!-- TAB 0: DASHBOARD -->
+<div class="panel active" id="tab0">
+  <div class="stat-row" id="dashStats"></div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <h3>🔔 Notificações</h3>
+        <div id="dashNotifs"><div class="empty">Nenhuma notificação</div></div>
+      </div>
+      <div class="card">
+        <h3>📬 Últimas atividades</h3>
+        <div id="dashAtividades"><div class="empty">Nenhuma atividade</div></div>
+      </div>
+      <div class="card">
+        <h3>🛒 Compras Internas Pendentes</h3>
+        <div id="dashCI"><div class="empty">Nenhuma solicitação pendente</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>📊 Resumo de cotações</h3>
+        <div id="dashCotacoes"><div class="empty">Nenhuma cotação</div></div>
+      </div>
+      <div class="card">
+        <h3>💡 Melhores preços disponíveis</h3>
+        <div id="dashMelhores"><div class="empty">Nenhuma cotação</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 1: ITENS -->
+<div class="panel" id="tab1">
+  <div class="stat-row" id="statsItens"></div>
+  <div class="toolbar">
+    <input type="text" id="busca1" placeholder="Buscar item..." oninput="renderItens()" style="flex:1;min-width:150px">
+    <select id="filtroForn1" onchange="renderItens()"><option value="">Todos fornecedores</option></select>
+    <select id="filtroPDV1" onchange="renderItens()"><option value="">Todos PDVs</option></select>
+    <select id="sortItens" onchange="renderItens()">
+      <option value="">Ordenar por...</option>
+      <option value="descritivo_asc">Descritivo A→Z</option>
+      <option value="descritivo_desc">Descritivo Z→A</option>
+      <option value="pdv_asc">PDV A→Z</option>
+      <option value="pdv_desc">PDV Z→A</option>
+      <option value="cliente_asc">Cliente A→Z</option>
+      <option value="material_asc">Material A→Z</option>
+      <option value="qtd_asc">Quantidade ↑</option>
+      <option value="qtd_desc">Quantidade ↓</option>
+      <option value="valor_asc">Valor ↑</option>
+      <option value="valor_desc">Valor ↓</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalItem(null)">+ Novo item</button>
+    <button class="btn" onclick="document.getElementById('fileInput').click()">📥 Importar CSV</button>
+  </div>
+  <div class="tbl-wrap">
+    <table><thead><tr>
+      <th style="cursor:pointer" onclick="sortBy('descritivo')">Descritivo <span id="sort_descritivo"></span></th>
+      <th style="cursor:pointer" onclick="sortBy('material')">Material <span id="sort_material"></span></th>
+      <th>Espessura</th>
+      <th>Medida 1</th>
+      <th>Medida 2</th>
+      <th style="cursor:pointer" onclick="sortBy('qtd')">Quantidade <span id="sort_qtd"></span></th>
+      <th>Fornecedor</th>
+      <th style="cursor:pointer" onclick="sortBy('valor_unitario')">Valor Unitário <span id="sort_valor_unitario"></span></th>
+      <th>Status</th>
+      <th></th>
+    </tr></thead><tbody id="tbodyItens"></tbody></table>
+  </div>
+</div>
+
+<!-- TAB 2: FORNECEDORES -->
+<div class="panel" id="tab2">
+  <div class="toolbar">
+    <input type="text" id="busca2" placeholder="Buscar fornecedor..." oninput="renderFornecedores()" style="flex:1;min-width:150px">
+    <button class="btn primary" onclick="abrirModalForn(null)">+ Novo fornecedor</button>
+  </div>
+  <div id="listaFornecedores"></div>
+</div>
+
+<!-- TAB 3: PROJETOS (PDV + Gestão) -->
+<div class="panel" id="tab3">
+  <div class="toolbar">
+    <input type="text" id="buscaProjeto" placeholder="Buscar PDV, cliente ou produto..." oninput="renderProjetos()" style="flex:1;min-width:150px">
+    <select id="filtroProjPDV" onchange="renderProjetos()"><option value="">Todos os PDVs</option></select>
+    <select id="filtroEtapa" onchange="renderProjetos()">
+      <option value="">Todas as etapas</option>
+      <option value="Projeto">📐 Projeto</option>
+      <option value="Compra de Matéria Prima">🛍️ Compra de Matéria Prima</option>
+      <option value="Recepção de Matéria Prima">📥 Recepção de Matéria Prima</option>
+      <option value="Produção">⚙️ Produção</option>
+      <option value="Expedição">🚛 Expedição</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalPDV(null)">+ Novo PDV</button>
+  </div>
+  <div id="listaProjetos"></div>
+</div>
+
+<!-- TAB 5: COTAÇÕES -->
+<div class="panel" id="tab4">
+  <div class="toolbar">
+    <input type="text" id="busca3" placeholder="Buscar item..." oninput="renderCotacoes()" style="flex:1;min-width:150px">
+    <button class="btn primary" onclick="abrirModalCotacao(null)">+ Adicionar cotação</button>
+  </div>
+  <div id="listaCotacoes"></div>
+</div>
+
+<!-- TAB 4: COMPARAR -->
+<div class="panel" id="tab5">
+  <div class="toolbar">
+    <input type="text" id="busca4" placeholder="Buscar item..." oninput="renderComparar()" style="flex:1;min-width:150px">
+    <select id="filtroComp" onchange="renderComparar()">
+      <option value="">Todos</option><option value="cotado">Com cotação</option><option value="sem">Sem cotação</option>
+    </select>
+  </div>
+  <div id="listaComparar"></div>
+</div>
+
+<!-- TAB 5: COMPRAS -->
+<div class="panel" id="tab6">
+  <div class="stat-row" id="statsCompras"></div>
+  <div class="toolbar">
+    <input type="text" id="busca5" placeholder="Buscar..." oninput="renderComprado()" style="flex:1;min-width:150px">
+    <select id="filtroForn5" onchange="renderComprado()"><option value="">Todos fornecedores</option></select>
+    <select id="filtroPDV5" onchange="renderComprado()"><option value="">Todos PDVs</option></select>
+    <select id="filtroStatus5" onchange="renderComprado()">
+      <option value="">Todos</option><option value="pendente">Pendente</option><option value="comprado">Comprado</option>
+    </select>
+    <select id="sortCompras" onchange="renderComprado()">
+      <option value="">Ordenar por...</option>
+      <option value="descritivo_asc">Descritivo A→Z</option>
+      <option value="descritivo_desc">Descritivo Z→A</option>
+      <option value="pdv_asc">PDV A→Z</option>
+      <option value="pdv_desc">PDV Z→A</option>
+      <option value="cliente_asc">Cliente A→Z</option>
+      <option value="material_asc">Material A→Z</option>
+      <option value="valor_asc">Valor ↑</option>
+      <option value="valor_desc">Valor ↓</option>
+    </select>
+    <button class="btn primary" onclick="marcarTodosComprado()">✓ Marcar todos</button>
+  </div>
+  <div class="tbl-wrap">
+    <table><thead><tr>
+      <th>Status</th><th>PDV</th><th>Descritivo</th><th>Material</th><th>Quantidade</th><th>Fornecedor</th><th>Valor Unitário</th><th>Valor Total</th><th>Data de Compra</th><th></th>
+    </tr></thead><tbody id="tbodyComprado"></tbody></table>
+  </div>
+</div>
+
+<!-- TAB 7: COMPRAS INTERNAS -->
+<div class="panel" id="tab7">
+  <div class="stat-row" id="statsCI"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaCI" placeholder="Buscar..." oninput="renderCI()" style="flex:1;min-width:150px">
+    <select id="filtroCat" onchange="renderCI()">
+      <option value="">Todas as categorias</option>
+      <option value="Escritório">Escritório</option>
+      <option value="Limpeza">Limpeza</option>
+      <option value="Equipamento">Equipamento</option>
+      <option value="Ferramentas">Ferramentas</option>
+      <option value="EPI">EPI</option>
+      <option value="Manutenção">Manutenção</option>
+      <option value="Outros">Outros</option>
+    </select>
+    <select id="filtroStatusCI" onchange="renderCI()">
+      <option value="">Todos</option>
+      <option value="pendente">Pendente</option>
+      <option value="comprado">Comprado</option>
+    </select>
+    <button class="btn primary" onclick="isPerfilSimplificadoCI()?document.getElementById('modalCISimples').classList.add('open'):abrirModalCI(null)">+ Nova solicitação</button>
+  </div>
+  <div class="tbl-wrap">
+    <table><thead id="theadCI"><tr>
+      <th>Status</th><th>Prioridade</th><th>Descrição</th><th>Categoria</th><th>Quantidade</th><th>Fornecedor</th><th>Valor Unitário</th><th>Valor Total</th><th>Solicitado por</th><th>Data</th><th></th>
+    </tr></thead><tbody id="tbodyCI"></tbody></table>
+  </div>
+</div>
+
+<!-- TAB 8: ENVIAR COTAÇÃO -->
+<div class="panel" id="tab8">
+  <div class="card" style="max-width:680px">
+    <h3>📧 Disparar e-mail de cotação</h3>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Selecione os fornecedores e os itens. Cada fornecedor receberá um e-mail profissional com link para preencher os preços.</p>
+
+    <div class="section-title">0. Selecionar remetente</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex:1;min-width:200px;transition:all 0.15s" id="lblRemetente1">
+        <input type="radio" name="remetente" value="adm.geral@sloleos.com.br" checked onchange="selecionarRemetente(this)" style="accent-color:var(--green)">
+        <div>
+          <div style="font-size:13px;font-weight:600">Administrativo</div>
+          <div style="font-size:11px;color:var(--gray)">adm.geral@sloleos.com.br</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex:1;min-width:200px;transition:all 0.15s" id="lblRemetente2">
+        <input type="radio" name="remetente" value="engenharia@sloleos.com.br" onchange="selecionarRemetente(this)" style="accent-color:var(--green)">
+        <div>
+          <div style="font-size:13px;font-weight:600">Engenharia</div>
+          <div style="font-size:11px;color:var(--gray)">engenharia@sloleos.com.br</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="section-title">1. Selecionar fornecedores</div>
+    <div style="margin-bottom:6px">
+      <input type="text" id="buscaFornEnvio" placeholder="🔍 Buscar fornecedor pelo nome ou e-mail..." oninput="renderFornCheck()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:6px">
+    </div>
+    <div id="fornCheck" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fafafa;margin-bottom:14px"></div>
+
+    <div class="section-title">2. Selecionar itens para cotar</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <button class="btn btn-sm" onclick="selAll('itemCheck',true)">Selecionar todos</button>
+      <button class="btn btn-sm" onclick="selAll('itemCheck',false)">Limpar tudo</button>
+    </div>
+    <div id="itemCheck" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fafafa;margin-bottom:14px"></div>
+
+    <button class="btn primary" id="btnDisparar" onclick="dispararEmails()" style="width:100%;justify-content:center;padding:12px">📧 Disparar e-mails</button>
+  </div>
+
+  <div class="card" style="max-width:680px">
+    <h3>📬 E-mails enviados</h3>
+    <div id="listaEmails"><div class="empty">Nenhum e-mail enviado ainda</div></div>
+  </div>
+</div>
+
+<!-- MODAIS -->
+<div class="modal-bg" id="modalItem">
+<div class="modal">
+  <h3 id="modalItemTitulo">Novo item</h3>
+  <div class="form-grid">
+    <div class="form-group full">
+      <label>PDV <span style="color:var(--green);font-size:10px">(selecione para preencher cliente e equipamento)</span></label>
+      <select id="fi_pdv_sel" onchange="autoPreencherPDV()">
+        <option value="">Selecione um PDV...</option>
+      </select>
+    </div>
+    <div class="form-group"><label>PDV (manual)</label><input id="fi_pdv" placeholder="PDV 69"></div>
+    <div class="form-group"><label>Cliente</label><input id="fi_cliente"></div>
+    <div class="form-group full"><label>Equipamento</label><input id="fi_equipamento"></div>
+    <div class="form-group"><label>Desenho</label><input id="fi_desenho"></div>
+    <div class="form-group"><label>Quantidade</label><input id="fi_qtd" type="number" min="1" value="1"></div>
+    <div class="form-group"><label>Unidade</label>
+      <select id="fi_und">
+        <option value="">Selecione...</option>
+        <option value="PC">PC — Peça</option>
+        <option value="KG">KG — Quilograma</option>
+        <option value="METRO">METRO — Metro</option>
+        <option value="BARRA">BARRA — Barra</option>
+        <option value="PAR">PAR — Par</option>
+        <option value="CX">CX — Caixa</option>
+        <option value="UN">UN — Unidade</option>
+        <option value="JG">JG — Jogo</option>
+      </select>
+    </div>
+    <div class="form-group full"><label>Descritivo</label><input id="fi_descritivo" placeholder="Ex: BARRA REDONDA LAMINADA"></div>
+    <div class="form-group"><label>Material</label><input id="fi_material"></div>
+    <div class="form-group"><label>Espessura</label><input id="fi_espessura"></div>
+    <div class="form-group"><label>Medida 1</label><input id="fi_medida1"></div>
+    <div class="form-group"><label>Medida 2</label><input id="fi_medida2"></div>
+    <div class="form-group full"><label>Descrição da peça</label><input id="fi_descricao_peca"></div>
+    <div class="form-group full"><label>Descrição do Item <span style="color:var(--gray);font-weight:400;text-transform:none;font-size:10px">(opcional — use para acessórios e equipamentos prontos)</span></label><textarea id="fi_descricao_item" rows="2" placeholder="Ex: Parafuso sextavado M8 x 30mm inox, Kit vedação bomba Rexroth..."></textarea></div>
+    <div class="form-group"><label>Valor unitário (R$)</label><input id="fi_valor" type="number" step="0.01" min="0"></div>
+    <div class="form-group"><label>Peso (kg)</label><input id="fi_peso" type="number" step="0.01" min="0"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalItem')">Cancelar</button>
+    <button class="btn primary" onclick="salvarItem()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg" id="modalForn">
+<div class="modal">
+  <h3 id="modalFornTitulo">Novo fornecedor</h3>
+  <div class="form-grid">
+    <!-- Tipo de documento -->
+    <div class="form-group full">
+      <label>Tipo de cadastro</label>
+      <div style="display:flex;gap:8px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;flex:1;justify-content:center" id="lblCNPJ">
+          <input type="radio" name="tipoDoc" value="cnpj" checked onchange="toggleTipoDoc('cnpj')" style="accent-color:var(--green)"> 🏢 Pessoa Jurídica (CNPJ)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;flex:1;justify-content:center" id="lblCPF">
+          <input type="radio" name="tipoDoc" value="cpf" onchange="toggleTipoDoc('cpf')" style="accent-color:var(--green)"> 👤 Pessoa Física (CPF)
+        </label>
+      </div>
+    </div>
+
+    <!-- Campo CNPJ com busca automática -->
+    <div class="form-group full" id="campoCNPJ">
+      <label>CNPJ <span style="color:var(--green);font-size:10px">(busca dados automaticamente)</span></label>
+      <div style="display:flex;gap:6px">
+        <input id="ff_cnpj" placeholder="00.000.000/0000-00" style="flex:1" oninput="formatarCNPJ(this)">
+        <button class="btn primary btn-sm" onclick="buscarCNPJ()">🔍 Buscar</button>
+      </div>
+      <div class="cnpj-loading" id="cnpjLoading"><span class="spinner"></span>Buscando dados...</div>
+    </div>
+
+    <!-- Campo CPF manual -->
+    <div class="form-group full" id="campoCPF" style="display:none">
+      <label>CPF</label>
+      <input id="ff_cpf" placeholder="000.000.000-00" oninput="formatarCPF(this)">
+    </div>
+
+    <div class="form-group full"><label id="labelRazao">Razão Social</label><input id="ff_razao" placeholder="Nome da empresa"></div>
+    <div class="form-group full" id="grupoFantasia"><label>Nome Fantasia</label><input id="ff_fantasia" placeholder="Como é conhecido"></div>
+    <div class="form-group full"><label>E-mail *</label><input id="ff_email" type="email" placeholder="contato@empresa.com.br"></div>
+    <div class="form-group"><label>Telefone</label><input id="ff_telefone" placeholder="(11) 99999-9999"></div>
+    <div class="form-group"><label>WhatsApp</label><input id="ff_whatsapp" placeholder="(11) 99999-9999"></div>
+    <div class="form-group full"><label>Nome do contato</label><input id="ff_contato" placeholder="Nome da pessoa responsável"></div>
+    <div class="form-group full"><label>Endereço</label><input id="ff_endereco" placeholder="Rua, número, bairro"></div>
+    <div class="form-group"><label>Cidade</label><input id="ff_cidade"></div>
+    <div class="form-group"><label>Estado</label><input id="ff_estado" placeholder="SP"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalForn')">Cancelar</button>
+    <button class="btn primary" onclick="salvarForn()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg" id="modalCotacao">
+<div class="modal">
+  <h3>Adicionar cotação manual</h3>
+  <div class="form-grid">
+    <div class="form-group full"><label>Item</label><select id="fc_item" onchange="atualizarPesoItem()"></select></div>
+    <div class="form-group full">
+      <label>Fornecedor *</label>
+      <select id="fc_forn">
+        <option value="">Selecione um fornecedor...</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Valor unitário (R$) *</label><input id="fc_valor" type="number" step="0.01" min="0" oninput="calcularValorTotal()"></div>
+    <div class="form-group"><label>Prazo (dias)</label><input id="fc_prazo" type="number" min="0"></div>
+    <div class="form-group"><label>Quantidade</label><input id="fc_qtd" type="number" min="1" value="1" oninput="calcularValorTotal()"></div>
+    <div class="form-group"><label>Peso (kg)</label><input id="fc_peso" type="number" step="0.01" min="0" oninput="calcularValorTotal()"></div>
+    <div class="form-group full">
+      <label>Valor Total (R$) <span style="color:var(--gray);font-weight:400;text-transform:none">(unit. × peso × qtd)</span></label>
+      <input id="fc_total" type="number" step="0.01" min="0" readonly style="background:#f5f7f5;color:var(--green);font-weight:700">
+    </div>
+    <div class="form-group full"><label>Observação</label><textarea id="fc_obs" rows="2"></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalCotacao')">Cancelar</button>
+    <button class="btn primary" onclick="salvarCotacao()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL COMPRAS INTERNAS -->
+<div class="modal-bg" id="modalCI">
+<div class="modal">
+  <h3 id="modalCITitulo">Nova Solicitação de Compra</h3>
+  <div class="form-grid">
+    <div class="form-group full"><label>Descrição *</label><input id="ci_descricao" placeholder="Ex: Papel A4, Caneta, Capacete..."></div>
+    <div class="form-group"><label>Categoria</label>
+      <select id="ci_categoria">
+        <option value="">Selecione...</option>
+        <option>Escritório</option><option>Limpeza</option><option>Equipamento</option>
+        <option>Ferramentas</option><option>EPI</option><option>Manutenção</option><option>Outros</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Prioridade</label>
+      <select id="ci_prioridade">
+        <option value="normal">Normal</option>
+        <option value="alta">Alta</option>
+        <option value="urgente">Urgente</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Quantidade</label><input id="ci_qtd" type="number" min="0" step="0.01" placeholder="1"></div>
+    <div class="form-group"><label>Unidade</label>
+      <select id="ci_und">
+        <option value="UN">Unidade</option><option value="PC">Peça</option><option value="KG">KG</option>
+        <option value="CX">Caixa</option><option value="PAC">Pacote</option><option value="METRO">Metro</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Fornecedor</label><input id="ci_fornecedor" placeholder="Nome do fornecedor"></div>
+    <div class="form-group"><label>Valor Unitário (R$)</label><input id="ci_valor" type="number" step="0.01" min="0" oninput="calcCITotal()"></div>
+    <div class="form-group"><label>Valor Total (R$)</label><input id="ci_total" type="number" step="0.01" readonly style="background:#f5f7f5;color:var(--green);font-weight:700"></div>
+    <div class="form-group full"><label>Observação</label><textarea id="ci_obs" rows="2" placeholder="Detalhes adicionais..."></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalCI')">Cancelar</button>
+    <button class="btn primary" onclick="salvarCI()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL COMPRAS INTERNAS SIMPLIFICADO (Expedição) -->
+<div class="modal-bg" id="modalCISimples">
+<div class="modal">
+  <h3>📦 Solicitar Compra</h3>
+  <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Preencha os dados do item que precisa ser comprado.</p>
+  <div class="form-grid">
+    <div class="form-group full">
+      <label>Descrição do item *</label>
+      <textarea id="cis_descricao" rows="3" placeholder="Descreva o item que precisa ser comprado..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Categoria</label>
+      <select id="cis_categoria">
+        <option value="">Selecione...</option>
+        <option>Escritório</option><option>Limpeza</option><option>Equipamento</option>
+        <option>Ferramentas</option><option>EPI</option><option>Manutenção</option><option>Outros</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Quantidade</label>
+      <input id="cis_qtd" type="number" min="1" value="1" placeholder="1">
+    </div>
+    <div class="form-group">
+      <label>Prioridade</label>
+      <select id="cis_prioridade">
+        <option value="normal">Normal</option>
+        <option value="alta">Alta</option>
+        <option value="urgente">🚨 Urgente</option>
+      </select>
+    </div>
+    <div class="form-group full">
+      <label>Observação <span style="color:var(--gray);font-weight:400;text-transform:none">(opcional)</span></label>
+      <input id="cis_obs" placeholder="Algum detalhe adicional...">
+    </div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalCISimples')">Cancelar</button>
+    <button class="btn primary" onclick="salvarCISimples()">Solicitar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL LEMBRETE URGENTE -->
+<div class="lembrete-bg" id="lembreteModal">
+<div class="lembrete-box">
+  <div class="lembrete-header">
+    <span class="lembrete-icon">🚨</span>
+    <div>
+      <h3>Compras Internas Urgentes!</h3>
+      <p>Itens que precisam de atenção imediata</p>
+    </div>
+  </div>
+  <div id="lembreteItens"></div>
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <button class="btn primary" style="flex:1" onclick="showTab(7);fecharLembrete()">📋 Ver Compras Internas</button>
+    <button class="btn" style="flex:1" onclick="fecharLembrete()">Fechar</button>
+  </div>
+  <p style="font-size:11px;color:var(--gray);text-align:center;margin-top:10px">Este lembrete aparece 3x por dia para itens urgentes pendentes</p>
+</div>
+</div>
+
+<!-- MODAL PRODUTO PDV -->
+<div class="modal-bg" id="modalProduto">
+<div class="modal">
+  <h3 id="modalProdutoTitulo">Novo Produto</h3>
+  <div class="form-grid">
+    <div class="form-group full"><label>PDV *</label><select id="pp_pdv"></select></div>
+    <div class="form-group full"><label>Nome do Produto *</label><input id="pp_nome" placeholder="Ex: Eixo Principal, Tampa Lateral..."></div>
+    <div class="form-group"><label>Número de Desenho</label><input id="pp_desenho" placeholder="Ex: DES-001, 3-18979"></div>
+    <div class="form-group"><label>Responsável</label><input id="pp_responsavel" placeholder="Ex: João Silva"></div>
+    <div class="form-group full"><label>Descrição</label><textarea id="pp_descricao" rows="2" placeholder="Detalhes do produto..."></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalProduto')">Cancelar</button>
+    <button class="btn primary" onclick="salvarProduto()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL ETAPA -->
+<div class="modal-bg" id="modalEtapa">
+<div class="modal">
+  <h3 id="modalEtapaTitulo">Nova Etapa</h3>
+  <div class="form-grid">
+    <div class="form-group full">
+      <label>Etapa *</label>
+      <select id="et_etapa" onchange="toggleSubEtapa()">
+        <option value="Projeto">📐 Projeto</option>
+        <option value="Compra de Matéria Prima">🛍️ Compra de Matéria Prima</option>
+        <option value="Recepção de Matéria Prima">📥 Recepção de Matéria Prima</option>
+        <option value="Produção">⚙️ Produção</option>
+        <option value="Expedição">🚛 Expedição</option>
+      </select>
+    </div>
+    <div class="form-group full" id="grupoSubEtapa" style="display:none">
+      <label>Sub-etapa de Produção</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px" id="subEtapasDiv">
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer"><input type="checkbox" class="subetapa" value="Corte" style="accent-color:var(--green)"> ✂️ Corte</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer"><input type="checkbox" class="subetapa" value="Usinagem" style="accent-color:var(--green)"> 🔧 Usinagem</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer"><input type="checkbox" class="subetapa" value="Solda" style="accent-color:var(--green)"> 🔥 Solda</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer"><input type="checkbox" class="subetapa" value="Montagem" style="accent-color:var(--green)"> 🔩 Montagem</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer"><input type="checkbox" class="subetapa" value="Terceirizado" style="accent-color:var(--green)"> 🏭 Terceirizado</label>
+      </div>
+    </div>
+    <div class="form-group full" id="grupoTerceirizado" style="display:none">
+      <label>Terceirizado</label>
+      <select id="et_terceirizado">
+        <option value="">Selecione...</option>
+        <option value="Wanderlei">Wanderlei</option>
+        <option value="Ricardo">Ricardo</option>
+        <option value="Wellington">Wellington</option>
+        <option value="UBM">UBM</option>
+      </select>
+    </div>
+    <div class="form-group full"><label>Responsável</label><input id="et_responsavel" placeholder="Quem vai executar esta etapa"></div>
+    <div class="form-group full"><label>Observação</label><textarea id="et_observacao" rows="2" placeholder="Detalhes, prazo, instruções..."></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalEtapa')">Cancelar</button>
+    <button class="btn primary" onclick="salvarEtapa()">Iniciar etapa</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept=".csv" style="display:none" onchange="importarCSV(event)">
+
+<!-- MODAL PDV -->
+<div class="modal-bg" id="modalPDV">
+<div class="modal">
+  <h3 id="modalPDVTitulo">Novo PDV</h3>
+  <div class="form-grid">
+    <div class="form-group full"><label>Número / Identificação *</label><input id="fp_numero" placeholder="Ex: PDV 69"></div>
+    <div class="form-group full"><label>Cliente</label><input id="fp_cliente" placeholder="Nome do cliente"></div>
+    <div class="form-group full"><label>Equipamento</label><input id="fp_equipamento" placeholder="Nome do equipamento"></div>
+    <div class="form-group full"><label>Descrição</label><input id="fp_descricao" placeholder="Descrição adicional"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalPDV')">Cancelar</button>
+    <button class="btn primary" onclick="salvarPDV()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL PERFIL -->
+<div class="modal-bg" id="modalPerfil">
+<div class="modal">
+  <h3>👤 Meu perfil</h3>
+  <div class="form-grid">
+    <div class="form-group full"><label>Nome</label><input id="fp_nome" placeholder="Seu nome"></div>
+    <div class="form-group full"><label>E-mail</label><input id="fp_email" type="email" readonly style="background:#f5f7f5"></div>
+    <div class="form-group full"><label>Cargo</label><input id="fp_cargo" placeholder="Ex: Compras"></div>
+    <div class="form-group full" style="border-top:1px solid #f0f4f0;padding-top:12px;margin-top:4px">
+      <label>Nova senha <span style="color:var(--gray);font-weight:400;text-transform:none">(deixe em branco para não alterar)</span></label>
+      <input id="fp_senha" type="password" placeholder="Nova senha">
+    </div>
+    <div class="form-group full"><label>Confirmar nova senha</label><input id="fp_senha2" type="password" placeholder="Confirmar senha"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalPerfil')">Cancelar</button>
+    <button class="btn primary" onclick="salvarPerfil()">Salvar</button>
+  </div>
+</div>
+</div>
+
+</div><!-- end appContent -->
+
+<script>
+const SB_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
+const SB_KEY='sb_publishable_5Q5yuv9FvOVwNQ8B19Fv3w_vXG0VXqe';
+const RESEND_KEY='re_jGEqPVW3_MLzktXZDieed4ZyACnhTNNFZ';
+const APP_URL=window.location.origin;
+const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
+
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[];
+let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null;
+let usuarioLogado=null;
+let sortCol='', sortDir='asc';
+
+function sortBy(col){
+  if(sortCol===col) sortDir=sortDir==='asc'?'desc':'asc';
+  else { sortCol=col; sortDir='asc'; }
+  // Update select to match
+  document.getElementById('sortItens').value='';
+  // Update header arrows
+  ['pdv','cliente','equipamento','descritivo','material','qtd','valor_unitario'].forEach(c=>{
+    const el=document.getElementById('sort_'+c);
+    if(el) el.textContent=c===sortCol?(sortDir==='asc'?' ↑':' ↓'):'';
+  });
+  renderItens();
+}
+
+// ===== AUTH =====
+async function fazerLogin(){
+  const email=document.getElementById('loginEmail').value.trim().toLowerCase();
+  const senha=document.getElementById('loginSenha').value;
+  if(!email||!senha){showLoginError('Preencha e-mail e senha');return;}
+  try{
+    const res=await api('GET','usuarios','',`?email=eq.${encodeURIComponent(email)}&senha=eq.${encodeURIComponent(senha)}&ativo=eq.true`);
+    if(!res||!res.length){showLoginError('E-mail ou senha incorretos');return;}
+    usuarioLogado=res[0];
+    sessionStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
+    document.getElementById('loginBg').style.display='none';
+    document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
+    document.getElementById('userName').textContent=usuarioLogado.nome;
+    mostrarApp();
+    await loadAll();
+  }catch(e){showLoginError('Erro ao conectar. Tente novamente.');console.error(e);}
+}
+
+function showLoginError(msg){
+  const el=document.getElementById('loginError');
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
+}
+
+function fazerLogout(){
+  sessionStorage.removeItem('sl_usuario');
+  usuarioLogado=null;
+  document.getElementById('loginBg').style.display='flex';
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginSenha').value='';
+  document.getElementById('appContent').style.display='none';
+  document.getElementById('userMenu').classList.remove('open');
+}
+
+function toggleUserMenu(){
+  document.getElementById('userMenu').classList.toggle('open');
+}
+
+function abrirModalPerfil(){
+  document.getElementById('fp_nome').value=usuarioLogado.nome||'';
+  document.getElementById('fp_email').value=usuarioLogado.email||'';
+  document.getElementById('fp_cargo').value=usuarioLogado.cargo||'';
+  document.getElementById('fp_senha').value='';
+  document.getElementById('fp_senha2').value='';
+  document.getElementById('userMenu').classList.remove('open');
+  document.getElementById('modalPerfil').classList.add('open');
+}
+
+async function salvarPerfil(){
+  const nome=document.getElementById('fp_nome').value.trim();
+  const cargo=document.getElementById('fp_cargo').value.trim();
+  const senha=document.getElementById('fp_senha').value;
+  const senha2=document.getElementById('fp_senha2').value;
+  if(!nome){showToast('Nome é obrigatório','err');return;}
+  if(senha&&senha!==senha2){showToast('As senhas não coincidem','err');return;}
+  const obj={nome,cargo};
+  if(senha) obj.senha=senha;
+  try{
+    await api('PATCH','usuarios',obj,`?id=eq.${usuarioLogado.id}`);
+    usuarioLogado={...usuarioLogado,...obj};
+    sessionStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
+    document.getElementById('userAvatar').textContent=nome.substring(0,2).toUpperCase();
+    document.getElementById('userName').textContent=nome;
+    showToast('Perfil atualizado!');
+    fecharModal('modalPerfil');
+  }catch(e){showToast('Erro ao salvar','err');}
+}
+
+// Fechar menu ao clicar fora
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('userMenu');
+  const badge=document.querySelector('.user-badge');
+  if(menu&&badge&&!menu.contains(e.target)&&!badge.contains(e.target)){
+    menu.classList.remove('open');
+  }
+});
+
+// Verificar sessão ao carregar - movido para o final do script
+
+
+async function api(method,table,data=null,filter=''){
+  const res=await fetch(`${SB_URL}/rest/v1/${table}${filter}`,{
+    method,
+    headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=representation'},
+    body:data?JSON.stringify(data):undefined
+  });
+  const text=await res.text();
+  if(!res.ok) throw new Error(text);
+  return text?JSON.parse(text):[];
+}
+
+async function loadAll(){
+  try {
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto]=await Promise.all([
+      api('GET','itens','','?order=created_at.asc'),
+      api('GET','cotacoes','','?order=created_at.desc'),
+      api('GET','fornecedores','','?order=razao_social.asc'),
+      api('GET','emails_enviados','','?order=enviado_em.desc&limit=50'),
+      api('GET','pdvs','','?order=numero.asc&ativo=eq.true'),
+      api('GET','compras_internas','','?order=created_at.desc'),
+      api('GET','produtos_pdv','','?order=created_at.asc'),
+      api('GET','etapas_produto','','?order=iniciado_em.asc')
+    ]);
+    renderAll();
+    verificarLembretes();
+  } catch(e){ console.error(e); showToast('Erro ao carregar dados','err'); }
+}
+
+function renderAll(){
+  renderDashboard();
+  renderStats(); renderItens(); populaFiltros();
+  renderFornecedores();
+  popularSelectPDV();
+  renderProjetos();
+  renderCotacoes(); renderComparar();
+  renderStatsCompras(); renderComprado();
+  renderStatsCI(); renderCI();
+  renderFornCheck(); renderItemCheck(); renderEmails();
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(){
+  const total=itens.length;
+  const comp=itens.filter(i=>i.comprado).length;
+  const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)).length;
+  const cotResp=cotacoes.filter(c=>c.respondido).length;
+  const aguard=emails.filter(e=>!e.respondido).length;
+
+  document.getElementById('dashStats').innerHTML=`
+    <div class="stat" onclick="showTab(1)"><div class="stat-label">Itens pendentes</div><div class="stat-val">${total-comp}</div><div class="stat-sub">de ${total} total</div></div>
+    <div class="stat yellow" onclick="showTab(1)"><div class="stat-label">Sem cotação</div><div class="stat-val">${semCot}</div><div class="stat-sub">itens</div></div>
+    <div class="stat blue" onclick="showTab(4)"><div class="stat-label">Cotações recebidas</div><div class="stat-val">${cotResp}</div><div class="stat-sub">via formulário</div></div>
+    <div class="stat" onclick="showTab(6)"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div><div class="stat-sub">${total?Math.round(comp/total*100):0}% do total</div></div>
+    <div class="stat red" onclick="showTab(8)"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>`;
+
+  // Notificações
+  const notifs=[];
+  const novasCot=cotacoes.filter(c=>c.respondido&&isRecente(c.created_at,2));
+  if(novasCot.length) notifs.push({tipo:'green',icon:'✅',msg:`${novasCot.length} cotação(ões) recebida(s) nas últimas 48h`,tab:4});
+  const semForn=itens.filter(i=>!i.fornecedor&&!i.comprado);
+  if(semForn.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${semForn.length} item(ns) sem fornecedor definido`,tab:1});
+  if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,tab:8});
+  const semCotacao=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado);
+  if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,tab:4});
+
+  const divN=document.getElementById('dashNotifs');
+  divN.innerHTML=notifs.length?notifs.map((n,i)=>`
+    <div class="notif-item ${n.tipo}" onclick="showTab(${n.tab})" style="cursor:pointer">
+      <span style="font-size:18px">${n.icon}</span>
+      <span style="font-size:13px;font-weight:500">${n.msg}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--gray)">→</span>
+    </div>`).join(''):'<div class="empty">Tudo em ordem! ✅</div>';
+
+  // Atividades recentes
+  const ativs=cotacoes.slice(0,8).map(c=>{
+    const it=itens.find(i=>i.id===c.item_id);
+    return {icon:c.respondido?'📩':'📋',text:`${c.fornecedor} cotou <b>${it?it.descritivo:'item'}</b> — ${fmtVal(c.valor)}`,time:fmtDt(c.created_at),cor:'#e8f5e9'};
+  });
+  const divA=document.getElementById('dashAtividades');
+  divA.innerHTML=ativs.length?ativs.map(a=>`
+    <div class="activity-item">
+      <div class="activity-icon" style="background:${a.cor}">${a.icon}</div>
+      <div><div class="activity-text">${a.text}</div><div class="activity-time">${a.time}</div></div>
+    </div>`).join(''):'<div class="empty">Nenhuma atividade</div>';
+
+  // Resumo cotações
+  const grupos={};
+  itens.forEach(it=>{
+    const cs=cotacoes.filter(c=>c.item_id===it.id);
+    if(cs.length) grupos[it.id]={it,cs};
+  });
+  const divC=document.getElementById('dashCotacoes');
+  const entries=Object.values(grupos).slice(0,6);
+  divC.innerHTML=entries.length?entries.map(({it,cs})=>{
+    const melhor=cs.sort((a,b)=>a.valor-b.valor)[0];
+    return `<div class="price-row">
+      <span style="flex:1;font-size:12px;font-weight:500">${it.descritivo||'—'}</span>
+      <span class="forn-tag">${melhor.fornecedor}</span>
+      <span class="badge badge-blue">${cs.length} cot.</span>
+      <span class="best-price">${fmtVal(melhor.valor)}</span>
+    </div>`;
+  }).join(''):'<div class="empty">Nenhuma cotação</div>';
+
+  // Melhores preços
+  const melhores=Object.values(grupos).map(({it,cs})=>{
+    const sorted=cs.sort((a,b)=>a.valor-b.valor);
+    return {it,melhor:sorted[0],economia:sorted.length>1?sorted[sorted.length-1].valor-sorted[0].valor:0};
+  }).filter(m=>m.economia>0).sort((a,b)=>b.economia-a.economia).slice(0,5);
+  const divM=document.getElementById('dashMelhores');
+  divM.innerHTML=melhores.length?melhores.map(m=>`
+    <div class="price-row">
+      <span style="flex:1;font-size:12px">${m.it.descritivo||'—'}</span>
+      <span class="forn-tag">${m.melhor.fornecedor}</span>
+      <span class="best-price">${fmtVal(m.melhor.valor)}</span>
+      <span class="badge badge-green">-${fmtVal(m.economia)}</span>
+    </div>`).join(''):'<div class="empty">Adicione cotações para ver comparativo</div>';
+
+  // Compras Internas pendentes
+  const priorCor={urgente:'badge-red',alta:'badge-yellow',normal:'badge-gray'};
+  const ciPendentes=comprasInternas.filter(i=>!i.comprado).slice(0,10);
+  const divCI=document.getElementById('dashCI');
+  if(divCI){
+    divCI.innerHTML=ciPendentes.length?ciPendentes.map(i=>`
+      <div class="price-row" style="cursor:pointer" onclick="showTab(7)">
+        <span class="badge ${priorCor[i.prioridade]||'badge-gray'}" style="flex-shrink:0">${i.prioridade||'normal'}</span>
+        <span style="flex:1;font-size:12px;margin:0 8px">${i.descricao||'—'}${i.categoria?' <span style="color:var(--gray);font-size:11px">— '+i.categoria+'</span>':''}</span>
+        <span style="font-size:11px;color:var(--gray)">${i.solicitado_por||''}</span>
+      </div>`).join(''):'<div class="empty">Nenhuma solicitação pendente ✅</div>';
+  }
+}
+
+function isRecente(dt,dias){
+  if(!dt)return false;
+  return (Date.now()-new Date(dt).getTime())<dias*86400000;
+}
+
+// ===== ITENS =====
+function renderStats(){
+  const total=itens.length,comp=itens.filter(i=>i.comprado).length;
+  const semForn=itens.filter(i=>!i.fornecedor).length;
+  const comCot=new Set(cotacoes.map(c=>c.item_id)).size;
+  document.getElementById('statsItens').innerHTML=`
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-val">${total}</div></div>
+    <div class="stat"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div></div>
+    <div class="stat yellow"><div class="stat-label">Sem fornecedor</div><div class="stat-val">${semForn}</div></div>
+    <div class="stat blue"><div class="stat-label">Com cotação</div><div class="stat-val">${comCot}</div></div>`;
+}
+
+function populaFiltros(){
+  const forns=[...new Set(itens.map(i=>i.fornecedor).filter(Boolean))].sort();
+  const pdvs=[...new Set(itens.map(i=>i.pdv).filter(Boolean))].sort();
+  const fornOpts='<option value="">Todos fornecedores</option>'+forns.map(f=>`<option>${f}</option>`).join('');
+  const pdvOpts='<option value="">Todos PDVs</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('filtroForn1').innerHTML=fornOpts;
+  document.getElementById('filtroPDV1').innerHTML=pdvOpts;
+  document.getElementById('filtroForn5').innerHTML=fornOpts;
+  document.getElementById('filtroPDV5').innerHTML=pdvOpts;
+}
+
+function renderItens(){
+  const b=(document.getElementById('busca1').value||'').toLowerCase();
+  const f=document.getElementById('filtroForn1').value;
+  const p=document.getElementById('filtroPDV1').value;
+  const sort=document.getElementById('sortItens').value;
+
+  let lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
+    if(f&&it.fornecedor!==f)return false;
+    if(p&&it.pdv!==p)return false;
+    return true;
+  });
+
+  // Apply sorting from select or column click
+  let col=sortCol, dir=sortDir;
+  if(sort){
+    const parts=sort.split('_');
+    dir=parts.pop(); col=parts.join('_');
+    // Update header arrows
+    ['pdv','cliente','equipamento','descritivo','material','qtd','valor_unitario'].forEach(c=>{
+      const el=document.getElementById('sort_'+c);
+      if(el) el.textContent=c===col?(dir==='asc'?' ↑':' ↓'):'';
+    });
+  }
+  if(col){
+    lista=[...lista].sort((a,b)=>{
+      let va=a[col]||'', vb=b[col]||'';
+      if(typeof va==='number'||!isNaN(va)) return dir==='asc'?Number(va)-Number(vb):Number(vb)-Number(va);
+      return dir==='asc'?String(va).localeCompare(String(vb),'pt-BR'):String(vb).localeCompare(String(va),'pt-BR');
+    });
+  }
+  const tb=document.getElementById('tbodyItens');
+  if(!lista.length){tb.innerHTML='<tr><td colspan="10" class="empty">Nenhum item</td></tr>';return;}
+  tb.innerHTML=lista.map(it=>{
+    const nCot=cotacoes.filter(c=>c.item_id===it.id).length;
+    const badge=it.comprado?'<span class="badge badge-green">Comprado</span>':
+      it.fornecedor?'<span class="badge badge-blue">Pendente</span>':'<span class="badge badge-yellow">Sem fornecedor</span>';
+    const forn=it.fornecedor?`<span class="forn-tag">${it.fornecedor}</span>`:'—';
+    return `<tr>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.descritivo||''}">${it.descritivo||'—'}</td>
+      <td>${it.material||'—'}</td><td>${it.espessura||'—'}</td>
+      <td>${it.medida1||'—'}</td><td>${it.medida2||'—'}</td>
+      <td>${it.qtd||0} ${it.und||''}</td><td>${forn}</td>
+      <td>${fmtVal(it.valor_unitario)}</td>
+      <td>${badge}${nCot>0?` <span class="badge badge-blue">${nCot} cot.</span>`:''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')">✏️</button>
+        <button class="btn btn-sm blue" onclick="duplicarItem('${it.id}')" title="Duplicar item">⧉</button>
+        <button class="btn btn-sm danger" onclick="deletarItem('${it.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalItem(id){
+  editItemId=id;
+  const it=id?itens.find(i=>i.id===id):null;
+  document.getElementById('modalItemTitulo').textContent=id?'Editar item':'Novo item';
+
+  // Esconder campos técnicos para expedição
+  const camposCompletos=['fi_pdv_sel','fi_pdv','fi_cliente','fi_equipamento','fi_desenho','fi_material','fi_espessura','fi_medida1','fi_medida2','fi_descricao_peca','fi_valor','fi_peso'];
+  camposCompletos.forEach(fid=>{
+    const el=document.getElementById(fid);
+    if(el){ const g=el.closest('.form-group'); if(g) g.style.display=isExpedicao()?'none':'flex'; }
+  });
+
+  ['pdv','cliente','equipamento','desenho','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>document.getElementById('fi_'+f).value=it?(it[f]||''):'');
+  document.getElementById('fi_descricao_item').value=it?(it.descricao_item||''):'';
+  document.getElementById('fi_qtd').value=it?it.qtd:1;
+  document.getElementById('fi_valor').value=it&&it.valor_unitario!=null?it.valor_unitario:'';
+  document.getElementById('fi_peso').value=it&&it.peso!=null?it.peso:'';
+  const undEl=document.getElementById('fi_und');
+  const undVal=it?(it.und||''):'';
+  const optExists=[...undEl.options].some(o=>o.value===undVal);
+  if(optExists) undEl.value=undVal;
+  else { undEl.value=''; if(undVal){ const opt=document.createElement('option'); opt.value=undVal; opt.textContent=undVal; undEl.appendChild(opt); undEl.value=undVal; } }
+  document.getElementById('modalItem').classList.add('open');
+}
+
+async function salvarItem(){
+  const obj={};
+  ['pdv','cliente','equipamento','desenho','descritivo','material','espessura','medida1','medida2','descricao_peca','fornecedor'].forEach(f=>obj[f]=document.getElementById('fi_'+f).value.trim());
+  obj.und=document.getElementById('fi_und').value;
+  obj.descricao_item=document.getElementById('fi_descricao_item').value.trim()||null;
+  obj.qtd=Number(document.getElementById('fi_qtd').value)||1;
+  const v=document.getElementById('fi_valor').value; obj.valor_unitario=v!==''?Number(v):null;
+  const p=document.getElementById('fi_peso').value; obj.peso=p!==''?Number(p):null;
+  if(usuarioLogado){ obj.editado_por=usuarioLogado.nome; obj.editado_em=new Date().toISOString(); }
+
+  // Salvar estado dos filtros antes de recarregar
+  const filtros={
+    busca1: document.getElementById('busca1').value,
+    filtroForn1: document.getElementById('filtroForn1').value,
+    filtroPDV1: document.getElementById('filtroPDV1').value,
+    sortItens: document.getElementById('sortItens').value,
+    busca5: document.getElementById('busca5').value,
+    filtroForn5: document.getElementById('filtroForn5').value,
+    filtroPDV5: document.getElementById('filtroPDV5').value,
+    filtroStatus5: document.getElementById('filtroStatus5').value,
+    sortCompras: document.getElementById('sortCompras').value,
+  };
+
+  try{
+    if(editItemId) await api('PATCH','itens',obj,`?id=eq.${editItemId}`);
+    else await api('POST','itens',obj);
+    showToast(editItemId?'Item atualizado!':'Item cadastrado!');
+    fecharModal('modalItem');
+    await loadAll();
+
+    // Restaurar filtros após recarregar
+    Object.entries(filtros).forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      if(el) el.value=val;
+    });
+    renderItens();
+    renderComprado();
+  }catch(e){showToast('Erro ao salvar','err');}
+}
+
+async function duplicarItem(id){
+  const it=itens.find(i=>i.id===id);
+  if(!it) return;
+  const obj={
+    pdv:it.pdv, cliente:it.cliente, equipamento:it.equipamento,
+    desenho:it.desenho, qtd:it.qtd, und:it.und, descritivo:it.descritivo,
+    material:it.material, espessura:it.espessura, medida1:it.medida1,
+    medida2:it.medida2, descricao_peca:it.descricao_peca,
+    fornecedor:it.fornecedor, valor_unitario:it.valor_unitario, peso:it.peso,
+    comprado:false, dt_compra:null
+  };
+  try{
+    await api('POST','itens',obj);
+    showToast('Item duplicado!');
+    await loadAll();
+  }catch(e){showToast('Erro ao duplicar','err');}
+}
+
+async function deletarItem(id){
+  if(!confirm('Remover este item?'))return;
+  try{await api('DELETE','cotacoes','',`?item_id=eq.${id}`);await api('DELETE','itens','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+// ===== PDVs =====
+function renderPDVs(){
+  const b=(document.getElementById('buscaPDV')?.value||'').toLowerCase();
+  const div=document.getElementById('listaPDVs');
+  if(!div) return;
+  const lista=pdvs.filter(p=>!b||(p.numero+p.cliente+p.equipamento+'').toLowerCase().includes(b));
+  if(!lista.length){div.innerHTML='<div class="empty">Nenhum PDV cadastrado</div>';return;}
+  div.innerHTML=`<div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>PDV</th><th>Cliente</th><th>Equipamento</th><th>Descrição</th><th></th>
+    </tr></thead>
+    <tbody>${lista.map(p=>`<tr>
+      <td><b>${p.numero}</b></td>
+      <td>${p.cliente||'—'}</td>
+      <td>${p.equipamento||'—'}</td>
+      <td>${p.descricao||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirModalPDV('${p.id}')">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarPDV('${p.id}')">🗑</button>
+      </td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function popularSelectPDV(){
+  const sel=document.getElementById('fi_pdv_sel');
+  if(!sel) return;
+  const atual=sel.value;
+  sel.innerHTML='<option value="">Selecione um PDV...</option>'+
+    pdvs.map(p=>`<option value="${p.id}" data-numero="${p.numero}" data-cliente="${p.cliente||''}" data-equipamento="${p.equipamento||''}">${p.numero}${p.cliente?' — '+p.cliente:''}</option>`).join('');
+  if(atual) sel.value=atual;
+}
+
+function autoPreencherPDV(){
+  const sel=document.getElementById('fi_pdv_sel');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value) return;
+  document.getElementById('fi_pdv').value=opt.dataset.numero||'';
+  document.getElementById('fi_cliente').value=opt.dataset.cliente||'';
+  document.getElementById('fi_equipamento').value=opt.dataset.equipamento||'';
+}
+
+function abrirModalPDV(id){
+  editPDVId=id;
+  const p=id?pdvs.find(x=>x.id===id):null;
+  document.getElementById('modalPDVTitulo').textContent=id?'Editar PDV':'Novo PDV';
+  document.getElementById('fp_numero').value=p?(p.numero||''):'';
+  document.getElementById('fp_cliente').value=p?(p.cliente||''):'';
+  document.getElementById('fp_equipamento').value=p?(p.equipamento||''):'';
+  document.getElementById('fp_descricao').value=p?(p.descricao||''):'';
+  document.getElementById('modalPDV').classList.add('open');
+}
+
+async function salvarPDV(){
+  const numero=document.getElementById('fp_numero').value.trim();
+  if(!numero){showToast('Informe o número/identificação do PDV','err');return;}
+  const obj={
+    numero,
+    cliente:document.getElementById('fp_cliente').value.trim(),
+    equipamento:document.getElementById('fp_equipamento').value.trim(),
+    descricao:document.getElementById('fp_descricao').value.trim()
+  };
+  try{
+    if(editPDVId) await api('PATCH','pdvs',obj,`?id=eq.${editPDVId}`);
+    else await api('POST','pdvs',obj);
+    showToast(editPDVId?'PDV atualizado!':'PDV cadastrado!');
+    fecharModal('modalPDV'); await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');}
+}
+
+async function deletarPDV(id){
+  if(!confirm('Remover este PDV?'))return;
+  try{await api('DELETE','pdvs','',`?id=eq.${id}`);showToast('PDV removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+// ===== FORNECEDORES =====
+function renderFornecedores(){
+  const b=(document.getElementById('busca2').value||'').toLowerCase();
+  const lista=fornecedores.filter(f=>{
+    if(b&&!(f.razao_social+f.nome_fantasia+f.email+'').toLowerCase().includes(b))return false;
+    return true;
+  });
+  const div=document.getElementById('listaFornecedores');
+  if(!lista.length){div.innerHTML='<div class="empty">Nenhum fornecedor cadastrado</div>';return;}
+  div.innerHTML=lista.map(f=>`
+    <div class="forn-card">
+      <div class="forn-info">
+        <h4>${f.razao_social||f.nome_fantasia||'—'}</h4>
+        <p>${f.cnpj?'CNPJ: '+f.cnpj+' | ':''} ${f.email||'—'} ${f.telefone?' | '+f.telefone:''}</p>
+        ${f.contato_nome?`<p style="margin-top:2px">Contato: ${f.contato_nome}</p>`:''}
+        ${f.cidade?`<p style="margin-top:2px">${f.cidade}${f.estado?' — '+f.estado:''}</p>`:''}
+      </div>
+      <div class="forn-actions">
+        <button class="btn btn-sm" onclick="abrirModalForn('${f.id}')">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarForn('${f.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function toggleTipoDoc(tipo){
+  const isCNPJ = tipo==='cnpj';
+  document.getElementById('campoCNPJ').style.display = isCNPJ?'':'none';
+  document.getElementById('campoCPF').style.display = isCNPJ?'none':'';
+  document.getElementById('grupoFantasia').style.display = isCNPJ?'':'none';
+  document.getElementById('labelRazao').textContent = isCNPJ?'Razão Social':'Nome completo';
+  document.getElementById('ff_razao').placeholder = isCNPJ?'Nome da empresa':'Nome completo da pessoa';
+  if(!isCNPJ){
+    document.getElementById('ff_cnpj').value='';
+    document.getElementById('ff_fantasia').value='';
+  } else {
+    document.getElementById('ff_cpf').value='';
+  }
+}
+
+function formatarCPF(input){
+  let v=input.value.replace(/\D/g,'');
+  v=v.replace(/(\d{3})(\d)/,'$1.$2');
+  v=v.replace(/(\d{3})\.(\d{3})(\d)/,'$1.$2.$3');
+  v=v.replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3-$4');
+  input.value=v.substring(0,14);
+}
+
+function formatarCNPJ(input){
+  let v=input.value.replace(/\D/g,'');
+  v=v.replace(/^(\d{2})(\d)/,'$1.$2');
+  v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');
+  v=v.replace(/\.(\d{3})(\d)/,'.$1/$2');
+  v=v.replace(/(\d{4})(\d)/,'$1-$2');
+  input.value=v;
+}
+
+async function buscarCNPJ(){
+  const cnpj=document.getElementById('ff_cnpj').value.replace(/\D/g,'');
+  if(cnpj.length!==14){showToast('CNPJ inválido — deve ter 14 dígitos','err');return;}
+  document.getElementById('cnpjLoading').style.display='block';
+  try{
+    const res=await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    if(!res.ok)throw new Error('CNPJ não encontrado');
+    const d=await res.json();
+    document.getElementById('ff_razao').value=d.razao_social||'';
+    document.getElementById('ff_fantasia').value=d.nome_fantasia||'';
+    document.getElementById('ff_telefone').value=d.ddd_telefone_1?'('+d.ddd_telefone_1.substring(0,2)+') '+d.ddd_telefone_1.substring(2):'';
+    document.getElementById('ff_email').value=d.email||'';
+    const end=[(d.logradouro||''),(d.numero||''),(d.bairro||'')].filter(Boolean).join(', ');
+    document.getElementById('ff_endereco').value=end;
+    document.getElementById('ff_cidade').value=d.municipio||'';
+    document.getElementById('ff_estado').value=d.uf||'';
+    showToast('Dados encontrados!');
+  }catch(e){showToast('CNPJ não encontrado na Receita','err');}
+  document.getElementById('cnpjLoading').style.display='none';
+}
+
+function abrirModalForn(id){
+  editFornId=id;
+  const f=id?fornecedores.find(x=>x.id===id):null;
+  document.getElementById('modalFornTitulo').textContent=id?'Editar fornecedor':'Novo fornecedor';
+
+  // Detecta se é CPF ou CNPJ ao editar
+  const tipoCPF = f&&f.cnpj&&f.cnpj.replace(/\D/g,'').length<=11;
+  const tipo = tipoCPF?'cpf':'cnpj';
+  document.querySelector(`input[name="tipoDoc"][value="${tipo}"]`).checked=true;
+  toggleTipoDoc(tipo);
+
+  document.getElementById('ff_cnpj').value = f&&!tipoCPF?(f.cnpj||''):'';
+  document.getElementById('ff_cpf').value = f&&tipoCPF?(f.cnpj||''):'';
+  ['razao','fantasia','email','telefone','whatsapp','contato','endereco','cidade','estado'].forEach(k=>{
+    const el=document.getElementById('ff_'+k);
+    if(el) el.value=f?(f[k==='razao'?'razao_social':k==='fantasia'?'nome_fantasia':k==='contato'?'contato_nome':k]||''):'';
+  });
+  document.getElementById('modalForn').classList.add('open');
+}
+
+async function salvarForn(){
+  const email=document.getElementById('ff_email').value.trim();
+  if(!email){showToast('E-mail é obrigatório','err');return;}
+  const tipoCNPJ=document.querySelector('input[name="tipoDoc"]:checked').value==='cnpj';
+  const docValue=tipoCNPJ?document.getElementById('ff_cnpj').value.trim():document.getElementById('ff_cpf').value.trim();
+  const obj={
+    cnpj:docValue||null,
+    razao_social:document.getElementById('ff_razao').value.trim(),
+    nome_fantasia:tipoCNPJ?document.getElementById('ff_fantasia').value.trim():'',
+    email,
+    telefone:document.getElementById('ff_telefone').value.trim(),
+    whatsapp:document.getElementById('ff_whatsapp').value.trim(),
+    contato_nome:document.getElementById('ff_contato').value.trim(),
+    endereco:document.getElementById('ff_endereco').value.trim(),
+    cidade:document.getElementById('ff_cidade').value.trim(),
+    estado:document.getElementById('ff_estado').value.trim()
+  };
+  try{
+    if(editFornId) await api('PATCH','fornecedores',obj,`?id=eq.${editFornId}`);
+    else await api('POST','fornecedores',obj);
+    showToast(editFornId?'Fornecedor atualizado!':'Fornecedor cadastrado!');
+    fecharModal('modalForn'); await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+}
+
+async function deletarForn(id){
+  if(!confirm('Remover este fornecedor?'))return;
+  try{await api('DELETE','fornecedores','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+// ===== COTAÇÕES =====
+function renderCotacoes(){
+  const b=(document.getElementById('busca3').value||'').toLowerCase();
+  const div=document.getElementById('listaCotacoes');
+
+  const lista=itens.filter(it=>!b||(it.descritivo+it.material+it.descricao_peca+it.pdv+'').toLowerCase().includes(b));
+  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item encontrado</div>';return;}
+
+  // Agrupar por PDV
+  const grupos={};
+  lista.forEach(it=>{
+    const pdv=it.pdv||'Sem PDV';
+    if(!grupos[pdv]) grupos[pdv]=[];
+    grupos[pdv].push(it);
+  });
+
+  div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,itensPDV])=>{
+    const totalCot=itensPDV.reduce((acc,it)=>acc+cotacoes.filter(c=>c.item_id===it.id).length,0);
+    const itensHtml=itensPDV.map(it=>{
+      const cs=cotacoes.filter(c=>c.item_id===it.id);
+      return `<div class="compare-item" style="margin-bottom:8px;margin-left:0">
+        <div class="compare-header" onclick="toggleBody(this)" style="background:#fff">
+          <div style="display:flex;flex-direction:column;gap:2px;flex:1">
+            <span style="font-weight:600;font-size:13px">${it.descritivo||'—'}${it.material?` <span style="color:var(--green);font-weight:400">| ${it.material}</span>`:''}</span>
+            ${it.descricao_peca?`<span style="font-size:11px;color:var(--gray)">${it.descricao_peca}</span>`:''}
+          </div>
+          <span class="badge ${cs.length?'badge-blue':'badge-gray'}" style="flex-shrink:0;margin-left:8px">${cs.length} cot.</span>
+        </div>
+        <div class="compare-body">
+          <div style="background:#f9fbf9;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div><span style="color:var(--gray)">Cliente:</span> <b>${it.cliente||'—'}</b></div>
+            <div><span style="color:var(--gray)">Equipamento:</span> ${it.equipamento||'—'}</div>
+            <div><span style="color:var(--gray)">Desenho:</span> ${it.desenho||'—'}</div>
+            <div><span style="color:var(--gray)">Quantidade:</span> <b>${it.qtd||0} ${it.und||''}</b></div>
+            <div><span style="color:var(--gray)">Espessura:</span> <b>${it.espessura||'—'}</b></div>
+            <div><span style="color:var(--gray)">Medida 1:</span> <b>${it.medida1||'—'}</b></div>
+            <div><span style="color:var(--gray)">Medida 2:</span> <b>${it.medida2||'—'}</b></div>
+            <div><span style="color:var(--gray)">Peso:</span> <b>${it.peso?it.peso+' kg':'—'}</b></div>
+            ${it.descricao_peca?`<div style="grid-column:1/-1"><span style="color:var(--gray)">Descrição da peça:</span> <b>${it.descricao_peca}</b></div>`:''}
+          </div>
+          ${cs.length?cs.map(c=>`<div class="price-row">
+            <span class="forn-tag">${c.fornecedor}</span>
+            <span style="font-weight:700">${fmtVal(c.valor)}</span>
+            ${c.prazo?`<span class="badge badge-gray">${c.prazo} dias</span>`:''}
+            ${c.respondido?'<span class="badge badge-green">Via e-mail</span>':''}
+            ${c.observacao?`<span style="color:var(--gray);font-size:11px">${c.observacao}</span>`:''}
+            <button class="btn btn-sm" style="margin-left:auto" onclick="editarCotacao('${c.id}','${c.item_id}','${c.fornecedor}',${c.valor},${c.prazo||0},'${c.observacao||''}')">✏️</button>
+            ${c.arquivo_url?`<a href="${c.arquivo_url}" target="_blank" class="btn btn-sm blue" title="Ver orçamento anexado">📎</a>`:''}
+            <button class="btn btn-sm danger" onclick="deletarCotacao('${c.id}')">🗑</button>
+          </div>`).join(''):'<div style="color:var(--gray);font-size:12px;padding:4px 0">Nenhuma cotação cadastrada</div>'}
+          <button class="btn btn-sm primary" style="margin-top:10px" onclick="abrirModalCotacao('${it.id}')">+ Adicionar cotação</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:10px 14px;background:var(--green);border-radius:10px;cursor:pointer" onclick="toggleGrupoPDV('pdv_${pdv.replace(/\s/g,'_')}')">
+        <span style="font-size:14px;font-weight:700;color:#fff">📦 ${pdv}</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.8)">${itensPDV.length} item${itensPDV.length!==1?'s':''}</span>
+        <span class="badge" style="background:rgba(255,255,255,0.2);color:#fff;margin-left:auto">${totalCot} cotação${totalCot!==1?'s':''}</span>
+        <span style="color:rgba(255,255,255,0.8);font-size:12px" id="arrow_pdv_${pdv.replace(/\s/g,'_')}">▼</span>
+      </div>
+      <div id="pdv_${pdv.replace(/\s/g,'_')}" style="padding:0 4px">
+        ${itensHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirModalCotacao(itemId){
+  document.getElementById('fc_item').innerHTML=itens.map(it=>`<option value="${it.id}" ${it.id===itemId?'selected':''}>${it.descritivo||'—'}${it.material?' | '+it.material:''} — ${it.pdv||''}</option>`).join('');
+  document.getElementById('fc_forn').innerHTML='<option value="">Selecione um fornecedor...</option>'+fornecedores.map(f=>`<option value="${f.razao_social||f.nome_fantasia}">${f.razao_social||f.nome_fantasia}</option>`).join('');
+  ['fc_valor','fc_prazo','fc_obs','fc_total'].forEach(id=>document.getElementById(id).value='');
+  atualizarPesoItem();
+  document.getElementById('modalCotacao').classList.add('open');
+}
+
+function atualizarPesoItem(){
+  const itemId=document.getElementById('fc_item').value;
+  const it=itens.find(i=>i.id===itemId);
+  if(it){
+    if(it.peso) document.getElementById('fc_peso').value=it.peso;
+    else document.getElementById('fc_peso').value='';
+    if(it.qtd) document.getElementById('fc_qtd').value=it.qtd;
+    else document.getElementById('fc_qtd').value=1;
+  } else {
+    document.getElementById('fc_peso').value='';
+    document.getElementById('fc_qtd').value=1;
+  }
+  calcularValorTotal();
+}
+
+function calcularValorTotal(){
+  const valor=parseFloat(document.getElementById('fc_valor').value)||0;
+  const peso=parseFloat(document.getElementById('fc_peso').value)||0;
+  const qtd=parseFloat(document.getElementById('fc_qtd').value)||1;
+  const total=valor&&peso?valor*peso*qtd:valor&&qtd?valor*qtd:0;
+  document.getElementById('fc_total').value=total>0?total.toFixed(2):'';
+}
+
+async function salvarCotacao(){
+  const itemId=document.getElementById('fc_item').value;
+  const forn=document.getElementById('fc_forn').value.trim();
+  const val=document.getElementById('fc_valor').value;
+  if(!forn){showToast('Selecione um fornecedor','err');return;}
+  if(!val){showToast('Informe o valor unitário','err');return;}
+  const peso=parseFloat(document.getElementById('fc_peso').value)||null;
+  const editId=document.getElementById('modalCotacao').dataset.editId;
+  const obj={
+    item_id:itemId,
+    fornecedor:forn,
+    valor:Number(val),
+    prazo:Number(document.getElementById('fc_prazo').value)||null,
+    observacao:document.getElementById('fc_obs').value.trim()||null,
+    respondido:false
+  };
+  try{
+    if(editId){
+      await api('PATCH','cotacoes',obj,`?id=eq.${editId}`);
+      showToast('Cotação atualizada!');
+      delete document.getElementById('modalCotacao').dataset.editId;
+      document.getElementById('modalCotacao').querySelector('h3').textContent='Adicionar cotação manual';
+    } else {
+      await api('POST','cotacoes',obj);
+      showToast('Cotação salva!');
+    }
+    fecharModal('modalCotacao');
+    await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+function editarCotacao(id, itemId, fornecedor, valor, prazo, obs){
+  // Abre o modal de cotação preenchido para edição
+  document.getElementById('fc_item').innerHTML=itens.map(it=>`<option value="${it.id}" ${it.id===itemId?'selected':''}>${it.descritivo||'—'}${it.material?' | '+it.material:''} — ${it.pdv||''}</option>`).join('');
+  document.getElementById('fc_forn').innerHTML='<option value="">Selecione um fornecedor...</option>'+fornecedores.map(f=>`<option value="${f.razao_social||f.nome_fantasia}" ${(f.razao_social||f.nome_fantasia)===fornecedor?'selected':''}>${f.razao_social||f.nome_fantasia}</option>`).join('');
+  // Se fornecedor não está na lista, adiciona como opção
+  if(fornecedor && ![...document.getElementById('fc_forn').options].some(o=>o.value===fornecedor)){
+    const opt=document.createElement('option'); opt.value=fornecedor; opt.textContent=fornecedor; opt.selected=true;
+    document.getElementById('fc_forn').appendChild(opt);
+  }
+  document.getElementById('fc_forn').value=fornecedor;
+  document.getElementById('fc_valor').value=valor||'';
+  document.getElementById('fc_prazo').value=prazo||'';
+  document.getElementById('fc_obs').value=obs||'';
+  atualizarPesoItem();
+  // Marca que é uma edição
+  document.getElementById('modalCotacao').dataset.editId=id;
+  document.getElementById('modalCotacao').querySelector('h3').textContent='Editar cotação';
+  document.getElementById('modalCotacao').classList.add('open');
+}
+
+async function deletarCotacao(id){
+  if(!confirm('Remover esta cotação?'))return;
+  try{await api('DELETE','cotacoes','',`?id=eq.${id}`);showToast('Removida!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+// ===== COMPARAR =====
+function renderComparar(){
+  const b=(document.getElementById('busca4').value||'').toLowerCase();
+  const filtro=document.getElementById('filtroComp').value;
+  const div=document.getElementById('listaComparar');
+  const lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.material+'').toLowerCase().includes(b))return false;
+    const cs=cotacoes.filter(c=>c.item_id===it.id);
+    if(filtro==='cotado'&&!cs.length)return false;
+    if(filtro==='sem'&&cs.length)return false;
+    return true;
+  });
+  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
+  div.innerHTML=lista.map(it=>{
+    const cs=cotacoes.filter(c=>c.item_id===it.id);
+    const all=[...cs.map(c=>({forn:c.fornecedor,val:c.valor,via:c.respondido?'e-mail':'manual'}))];
+    if(it.valor_unitario&&it.fornecedor) all.push({forn:it.fornecedor,val:it.valor_unitario,via:'planilha'});
+    all.sort((a,b)=>a.val-b.val);
+    const melhor=all[0];
+    return `<div class="compare-item">
+      <div class="compare-header" onclick="toggleBody(this)">
+        <span>${it.descritivo||'—'}${it.material?' | '+it.material:''}</span>
+        <span>${melhor?`<b style="color:var(--green)">${fmtVal(melhor.val)}</b> <span class="forn-tag">${melhor.forn}</span>`:'<span class="badge badge-yellow">Sem preço</span>'}</span>
+      </div>
+      <div class="compare-body">
+        <div style="font-size:12px;color:var(--gray);margin-bottom:10px">${it.pdv||''} | Quantidade: ${it.qtd||0} ${it.und||''}</div>
+        ${all.length?all.map((p,i)=>`<div class="price-row">
+          <span>${i===0?'⭐':'☆'}</span>
+          <span class="forn-tag">${p.forn}</span>
+          <span class="${i===0?'best-price':''}" style="font-weight:700">${fmtVal(p.val)}</span>
+          <span class="badge badge-gray">${p.via}</span>
+          ${i===0&&all.length>1?`<span style="color:var(--green);font-size:11px;font-weight:600">economia ${fmtVal(all[all.length-1].val-p.val)}</span>`:''}
+        </div>`).join(''):'<div style="color:var(--gray);font-size:12px">Nenhuma cotação</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== COMPRAS =====
+function renderStatsCompras(){
+  const total=itens.length,comp=itens.filter(i=>i.comprado).length;
+  document.getElementById('statsCompras').innerHTML=`
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-val">${total}</div></div>
+    <div class="stat"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div></div>
+    <div class="stat yellow"><div class="stat-label">Pendentes</div><div class="stat-val">${total-comp}</div></div>
+    <div class="stat blue"><div class="stat-label">Progresso</div><div class="stat-val">${total?Math.round(comp/total*100):0}%</div></div>`;
+}
+
+function renderComprado(){
+  const b=(document.getElementById('busca5').value||'').toLowerCase();
+  const st=document.getElementById('filtroStatus5').value;
+  const f=document.getElementById('filtroForn5').value;
+  const p=document.getElementById('filtroPDV5').value;
+  const sort=document.getElementById('sortCompras').value;
+
+  let lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.fornecedor+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
+    if(st==='pendente'&&it.comprado)return false;
+    if(st==='comprado'&&!it.comprado)return false;
+    if(f&&it.fornecedor!==f)return false;
+    if(p&&it.pdv!==p)return false;
+    return true;
+  });
+
+  if(sort){
+    const parts=sort.split('_'); const dir=parts.pop(); const col=parts.join('_');
+    lista=[...lista].sort((a,b)=>{
+      let va=a[col]||'', vb=b[col]||'';
+      if(!isNaN(va)&&!isNaN(vb)) return dir==='asc'?Number(va)-Number(vb):Number(vb)-Number(va);
+      return dir==='asc'?String(va).localeCompare(String(vb),'pt-BR'):String(vb).localeCompare(String(va),'pt-BR');
+    });
+  }
+  const tb=document.getElementById('tbodyComprado');
+  if(!lista.length){tb.innerHTML='<tr><td colspan="9" class="empty">Nenhum item</td></tr>';return;}
+  tb.innerHTML=lista.map(it=>`<tr style="${it.comprado?'opacity:0.6':''}">
+    <td>${it.comprado?'<span class="badge badge-green">Comprado</span>':'<span class="badge badge-yellow">Pendente</span>'}</td>
+    <td>${it.pdv||'—'}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.descritivo||'—'}</td>
+    <td>${it.material||'—'}</td><td>${it.qtd||0} ${it.und||''}</td>
+    <td>${it.fornecedor||'—'}</td>
+    <td>${fmtVal(it.valor_unitario)}</td>
+    <td>${it.valor_unitario&&it.peso?fmtVal(it.valor_unitario*it.peso):'—'}</td>
+    <td>${fmtDt(it.dt_compra)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')">✏️ Editar</button>
+      <button class="btn btn-sm ${it.comprado?'':'primary'}" onclick="toggleComprado('${it.id}',${it.comprado})">${it.comprado?'Desmarcar':'✓ Comprado'}</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function toggleComprado(id,atual){
+  const hoje=new Date().toISOString().substring(0,10);
+  try{await api('PATCH','itens',{comprado:!atual,dt_compra:!atual?hoje:null},`?id=eq.${id}`);await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+async function marcarTodosComprado(){
+  const pend=itens.filter(i=>!i.comprado);
+  if(!pend.length){showToast('Todos já marcados!');return;}
+  if(!confirm(`Marcar ${pend.length} itens como comprado?`))return;
+  const hoje=new Date().toISOString().substring(0,10);
+  try{
+    for(const it of pend) await api('PATCH','itens',{comprado:true,dt_compra:hoje},`?id=eq.${it.id}`);
+    await loadAll();showToast('Itens marcados!');
+  }catch(e){showToast('Erro','err');}
+}
+
+// ===== ENVIAR E-MAIL =====
+function renderFornCheck(){
+  const div=document.getElementById('fornCheck');
+  const busca=(document.getElementById('buscaFornEnvio')?.value||'').toLowerCase();
+  if(!fornecedores.length){
+    div.innerHTML='<p style="color:var(--gray);font-size:12px;padding:8px">Nenhum fornecedor cadastrado. <a href="#" onclick="showTab(2)" style="color:var(--green)">Cadastre aqui</a></p>';
+    return;
+  }
+  const lista=fornecedores.filter(f=>
+    !busca||
+    (f.razao_social||'').toLowerCase().includes(busca)||
+    (f.nome_fantasia||'').toLowerCase().includes(busca)||
+    (f.email||'').toLowerCase().includes(busca)
+  );
+  if(!lista.length){
+    div.innerHTML='<p style="color:var(--gray);font-size:12px;padding:8px">Nenhum fornecedor encontrado</p>';
+    return;
+  }
+  div.innerHTML=lista.map(f=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 6px;cursor:pointer;border-bottom:1px solid #f0f4f0">
+      <input type="checkbox" class="fornCheck" value="${f.id}" style="width:15px;height:15px;accent-color:var(--green);flex-shrink:0">
+      <div>
+        <div style="font-size:13px;font-weight:600">${f.razao_social||f.nome_fantasia||'—'}</div>
+        <div style="font-size:11px;color:var(--gray)">${f.email}${f.contato_nome?' · '+f.contato_nome:''}</div>
+      </div>
+    </label>`).join('');
+}
+
+function renderItemCheck(){
+  const div=document.getElementById('itemCheck');
+  if(!itens.length){div.innerHTML='<p style="color:var(--gray);font-size:12px;padding:8px">Nenhum item cadastrado.</p>';return;}
+
+  const pendentes=itens.filter(i=>!i.comprado);
+  const grupos={};
+  pendentes.forEach(it=>{
+    const pdv=it.pdv||'Sem PDV';
+    if(!grupos[pdv]) grupos[pdv]=[];
+    grupos[pdv].push(it);
+  });
+
+  div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,lista])=>`
+    <div style="margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--green);border-radius:8px;cursor:pointer;user-select:none" onclick="toggleGrupoCheck('grp_${pdv.replace(/\s/g,'_')}')">
+        <span style="font-size:12px;font-weight:700;color:#fff">📦 ${pdv}</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.8)">${lista.length} item${lista.length!==1?'s':''}</span>
+        <button onclick="event.stopPropagation();selGrupo('${pdv.replace(/\s/g,'_')}',true)" style="margin-left:auto;background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:10px;padding:2px 7px;border-radius:4px;cursor:pointer">✓ Todos</button>
+        <button onclick="event.stopPropagation();selGrupo('${pdv.replace(/\s/g,'_')}',false)" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:10px;padding:2px 7px;border-radius:4px;cursor:pointer">✗ Nenhum</button>
+        <span style="color:rgba(255,255,255,0.7);font-size:11px" id="arrow_grp_${pdv.replace(/\s/g,'_')}">▼</span>
+      </div>
+      <div id="grp_${pdv.replace(/\s/g,'_')}" style="padding:0 4px">
+        ${lista.map(it=>`
+          <label style="display:flex;align-items:flex-start;gap:8px;padding:7px 4px;cursor:pointer;border-bottom:1px solid #f0f4f0">
+            <input type="checkbox" class="itemCheck grp_${pdv.replace(/\s/g,'_')}" value="${it.id}" style="width:15px;height:15px;accent-color:var(--green);margin-top:2px;flex-shrink:0">
+            <div style="font-size:12px">
+              <div style="font-weight:600;color:var(--dark)">${it.descritivo||'—'}${it.material?' <span style="color:var(--green)">| '+it.material+'</span>':''}</div>
+              <div style="color:var(--gray);font-size:11px;margin-top:1px">
+                ${it.desenho?'Desenho: <b>'+it.desenho+'</b> · ':''}
+                Quantidade: <b>${it.qtd||0} ${it.und||''}</b>
+                ${it.espessura?' · Esp: <b>'+it.espessura+'</b>':''}
+                ${it.medida1?' · Med: <b>'+it.medida1+(it.medida2?' x'+it.medida2:'')+'</b>':''}
+                ${it.peso?' · <b>'+it.peso+' kg</b>':''}
+                ${it.descricao_peca?' · <i>'+it.descricao_peca+'</i>':''}
+              </div>
+            </div>
+          </label>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleGrupoCheck(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById('arrow_'+id);
+  if(!el) return;
+  const aberto=el.style.display!=='none';
+  el.style.display=aberto?'none':'block';
+  if(arrow) arrow.textContent=aberto?'▶':'▼';
+}
+
+function selGrupo(pdvId, sel){
+  document.querySelectorAll('.grp_'+pdvId).forEach(c=>c.checked=sel);
+}
+
+function selAll(cls,sel){document.querySelectorAll('.'+cls).forEach(c=>c.checked=sel);}
+
+function selecionarRemetente(el){
+  // Highlight selected
+  document.querySelectorAll('[id^="lblRemetente"]').forEach(l=>{
+    l.style.borderColor='var(--border)';
+    l.style.background='#fff';
+  });
+  el.closest('label').style.borderColor='var(--green)';
+  el.closest('label').style.background='var(--green-pale)';
+}
+
+// Selecionar automaticamente baseado no usuário logado ao carregar aba
+function preencherRemetenteLogado(){
+  if(!usuarioLogado) return;
+  const radios=document.querySelectorAll('input[name="remetente"]');
+  radios.forEach(r=>{
+    if(r.value===usuarioLogado.email){
+      r.checked=true;
+      selecionarRemetente(r);
+    }
+  });
+}
+
+async function dispararEmails(){
+  const fornIds=[...document.querySelectorAll('.fornCheck:checked')].map(c=>c.value);
+  const itemIds=[...document.querySelectorAll('.itemCheck:checked')].map(c=>c.value);
+  if(!fornIds.length){showToast('Selecione ao menos um fornecedor','err');return;}
+  if(!itemIds.length){showToast('Selecione ao menos um item','err');return;}
+  const remetente=document.querySelector('input[name="remetente"]:checked')?.value||'adm.geral@sloleos.com.br';
+  const nomeRemetente=remetente.includes('engenharia')?'Engenharia SL Óleos':'SL Óleos';
+  const btn=document.getElementById('btnDisparar');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Enviando...';
+  let ok=0,fail=0;
+  for(const fornId of fornIds){
+    const forn=fornecedores.find(f=>f.id===fornId);
+    if(!forn)continue;
+    const link=`${APP_URL}/formulario.html?forn=${encodeURIComponent(forn.razao_social||forn.nome_fantasia)}&itens=${itemIds.join(',')}`;
+    const itensNomes=itemIds.map(id=>{
+      const it=itens.find(i=>i.id===id);
+      if(!it) return '';
+      return `<tr>
+        <td style="padding:8px;border-bottom:1px solid #eee;font-size:13px"><b>${it.descritivo||'—'}</b>${it.material?' | '+it.material:''}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;color:#546e7a">${it.desenho||'—'}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.espessura||'—'}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.medida1||'—'}${it.medida2?' x'+it.medida2:''}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center"><b>${it.qtd||0} ${it.und||''}</b></td>
+        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.peso?it.peso+' kg':'—'}</td>
+        ${it.descricao_peca?`<td style="padding:8px;border-bottom:1px solid #eee;font-size:11px;color:#546e7a">${it.descricao_peca}</td>`:'<td style="padding:8px;border-bottom:1px solid #eee">—</td>'}
+      </tr>`;
+    }).join('');
+    const html=`
+      <div style="font-family:sans-serif;max-width:700px;margin:0 auto">
+        <div style="background:#2e7d32;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+          <h1 style="color:#fff;font-size:22px;margin:0">SL Óleos</h1>
+          <p style="color:rgba(255,255,255,0.8);margin:4px 0 0">Solicitação de Cotação</p>
+        </div>
+        <div style="background:#fff;padding:24px;border:1px solid #dce4dc;border-top:none;border-radius:0 0 12px 12px">
+          <p style="font-size:15px">Olá, <b>${forn.contato_nome||forn.razao_social||'Prezado(a)'}</b>!</p>
+          <p style="color:#546e7a;margin:12px 0">Gostaríamos de solicitar cotação para os seguintes itens:</p>
+          <table style="width:100%;border-collapse:collapse;background:#f5f7f5;border-radius:8px;overflow:hidden">
+            <thead>
+              <tr style="background:#2e7d32">
+                <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição / Material</th>
+                <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Desenho</th>
+                <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Espessura</th>
+                <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Medidas</th>
+                <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Quantidade</th>
+                <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Peso</th>
+                <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição peça</th>
+              </tr>
+            </thead>
+            <tbody>${itensNomes}</tbody>
+          </table>
+          <p style="margin:16px 0;color:#546e7a;font-size:13px">Por favor, acesse o link abaixo para preencher os preços:</p>
+          <div style="text-align:center;margin:20px 0">
+            <a href="${link}" style="background:#2e7d32;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block">📋 Preencher Cotação</a>
+          </div>
+          <p style="font-size:12px;color:#546e7a;border-top:1px solid #eee;padding-top:12px;margin-top:12px">
+            Em caso de dúvidas, entre em contato pelo e-mail <b>${remetente}</b><br>
+            Atenciosamente, <b>${nomeRemetente}</b>
+          </p>
+        </div>
+      </div>`;
+    try{
+      const r=await fetch('https://kzkqcwsracvosdhqkmaf.supabase.co/functions/v1/send-email',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({from:`${nomeRemetente} <${remetente}>`,to:[forn.email],reply_to:remetente,subject:'Solicitação de Cotação — SL Óleos',html})
+      });
+      if(!r.ok)throw new Error(await r.text());
+      await api('POST','emails_enviados',{fornecedor_id:fornId,fornecedor_nome:forn.razao_social||forn.nome_fantasia,fornecedor_email:forn.email,itens_ids:itemIds.join(','),respondido:false});
+      ok++;
+    }catch(e){console.error('Erro ao enviar para',forn.email,e);fail++;}
+  }
+  btn.disabled=false;btn.innerHTML='📧 Disparar e-mails';
+  if(ok>0) showToast(`${ok} e-mail(s) enviado(s) com sucesso!`);
+  if(fail>0) showToast(`${fail} e-mail(s) falharam.`,'err');
+  await loadAll();
+}
+
+async function enviarEmailTeste(){
+  const emailDestino=document.getElementById('emailTeste').value.trim();
+  if(!emailDestino){showToast('Informe o e-mail de destino','err');return;}
+  // Usa os itens selecionados ou os primeiros 5 como exemplo
+  const itensSelecionados=[...document.querySelectorAll('.itemCheck:checked')].map(c=>c.value);
+  const itensExemplo=itensSelecionados.length>0
+    ? itens.filter(i=>itensSelecionados.includes(i.id))
+    : itens.slice(0,5);
+  const idsExemplo=itensExemplo.map(i=>i.id).join(',');
+  const link=`${APP_URL}/formulario.html?forn=${encodeURIComponent('Fornecedor Teste')}&itens=${idsExemplo}`;
+  const remetenteSel=document.querySelector('input[name="remetente"]:checked')?.value||'adm.geral@sloleos.com.br';
+
+  const itensTabela=itensExemplo.map(it=>`<tr>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:13px"><b>${it.descritivo||'—'}</b>${it.material?' | '+it.material:''}</td>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;color:#546e7a">${it.desenho||'—'}</td>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.espessura||'—'}</td>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.medida1||'—'}${it.medida2?' x'+it.medida2:''}</td>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center"><b>${it.qtd||0} ${it.und||''}</b></td>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.peso?it.peso+' kg':'—'}</td>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:11px;color:#546e7a">${it.descricao_peca||'—'}</td>
+  </tr>`).join('');
+
+  const html=`
+    <div style="font-family:sans-serif;max-width:700px;margin:0 auto">
+      <div style="background:#2e7d32;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="color:#fff;font-size:22px;margin:0">SL Óleos</h1>
+        <p style="color:rgba(255,255,255,0.8);margin:4px 0 0">Solicitação de Cotação</p>
+      </div>
+      <div style="background:#fff;padding:24px;border:1px solid #dce4dc;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Olá, <b>Fornecedor Teste</b>!</p>
+        <p style="color:#546e7a;margin:12px 0">Este é um e-mail de <b>teste</b>. Gostaríamos de solicitar cotação para os seguintes itens:</p>
+        <table style="width:100%;border-collapse:collapse;background:#f5f7f5;border-radius:8px;overflow:hidden">
+          <thead>
+            <tr style="background:#2e7d32">
+              <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição / Material</th>
+              <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Desenho</th>
+              <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Espessura</th>
+              <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Medidas</th>
+              <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Quantidade</th>
+              <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Peso</th>
+              <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição peça</th>
+            </tr>
+          </thead>
+          <tbody>${itensTabela}</tbody>
+        </table>
+        <p style="margin:16px 0;color:#546e7a;font-size:13px">Por favor, acesse o link abaixo para preencher os preços:</p>
+        <div style="text-align:center;margin:20px 0">
+          <a href="${link}" style="background:#2e7d32;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block">📋 Preencher Cotação</a>
+        </div>
+        <div style="background:#fff9c4;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#795548">
+          ⚠️ Este é um e-mail de teste enviado pelo sistema SL Óleos.
+        </div>
+        <p style="font-size:12px;color:#546e7a;border-top:1px solid #eee;padding-top:12px;margin-top:12px">
+          Em caso de dúvidas, entre em contato pelo e-mail <b>${remetenteSel}</b><br>
+          Atenciosamente, <b>Equipe SL Óleos</b>
+        </p>
+      </div>
+    </div>`;
+  try{
+    const r=await fetch('https://kzkqcwsracvosdhqkmaf.supabase.co/functions/v1/send-email',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({from:`SL Óleos <${remetenteSel}>`,to:[emailDestino],subject:'[TESTE] Solicitação de Cotação — SL Óleos',html})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    showToast(`E-mail de teste enviado para ${emailDestino}!`);
+    await api('POST','emails_enviados',{fornecedor_nome:'TESTE',fornecedor_email:emailDestino,itens_ids:idsExemplo,respondido:false});
+    await loadAll();
+  }catch(e){showToast('Erro ao enviar teste.','err');console.error(e);}
+}
+
+function renderEmails(){
+  const div=document.getElementById('listaEmails');
+  if(!emails.length){div.innerHTML='<div class="empty">Nenhum e-mail enviado ainda</div>';return;}
+  div.innerHTML=emails.map(e=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f4f0;flex-wrap:wrap;gap:8px">
+      <div>
+        <span class="forn-tag">${e.fornecedor_nome||'—'}</span>
+        <span style="font-size:12px;color:var(--gray);margin-left:8px">${e.fornecedor_email}</span>
+        <div style="font-size:11px;color:var(--gray);margin-top:2px">${fmtDt(e.enviado_em)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="badge ${e.respondido?'badge-green':'badge-yellow'}">${e.respondido?'✅ Respondido':'⏳ Aguardando'}</span>
+        ${!e.respondido?`<button class="btn btn-sm primary" onclick="marcarEmailRespondido('${e.id}')">✓ Marcar respondido</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+async function marcarEmailRespondido(id){
+  try{
+    await api('PATCH','emails_enviados',{respondido:true,respondido_em:new Date().toISOString()},`?id=eq.${id}`);
+    showToast('Marcado como respondido!');
+    await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+// ===== IMPORT CSV =====
+function importarCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async(ev)=>{
+    const text=ev.target.result;
+    const linhas=text.split('\n').filter(l=>l.trim());
+    if(linhas.length<2){showToast('Arquivo vazio','err');return;}
+    const sep=linhas[0].includes(';')?';':',';
+    const headers=linhas[0].split(sep).map(h=>h.trim().replace(/"/g,'').toLowerCase());
+    let count=0;
+    for(let i=1;i<linhas.length;i++){
+      const cols=linhas[i].split(sep).map(c=>c.trim().replace(/"/g,''));
+      if(!cols.some(c=>c))continue;
+      const obj={};
+      const map={pdv:['pdv'],cliente:['cliente'],equipamento:['equipamento'],desenho:['desenho'],qtd:['qtd','quantidade'],und:['und','unidade'],descritivo:['descritivo da materia prima','descritivo'],material:['material'],espessura:['espessura'],medida1:['medida 1','medida1'],medida2:['medida 2','medida2'],descricao_peca:['descrição peça','descricao_peca'],fornecedor:['fornecedor'],valor_unitario:['valor unitario','valor_unitario'],peso:['peso']};
+      Object.entries(map).forEach(([field,aliases])=>{
+        for(const alias of aliases){
+          const idx=headers.findIndex(h=>h.includes(alias));
+          if(idx>=0&&cols[idx]){obj[field]=cols[idx];break;}
+        }
+      });
+      if(obj.valor_unitario)obj.valor_unitario=parseFloat(obj.valor_unitario.replace(',','.'));
+      if(obj.peso)obj.peso=parseFloat(obj.peso.replace(',','.'));
+      if(obj.qtd)obj.qtd=parseInt(obj.qtd);
+      try{await api('POST','itens',obj);count++;}catch(e){}
+    }
+    showToast(`${count} itens importados!`);await loadAll();e.target.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+// ===== COMPRAS INTERNAS =====
+function renderStatsCI(){
+  const total=comprasInternas.length;
+  const comp=comprasInternas.filter(i=>i.comprado).length;
+  const urgente=comprasInternas.filter(i=>i.prioridade==='urgente'&&!i.comprado).length;
+  const el=document.getElementById('statsCI');
+  if(!el) return;
+  el.innerHTML=`
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-val">${total}</div></div>
+    <div class="stat"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div></div>
+    <div class="stat yellow"><div class="stat-label">Pendentes</div><div class="stat-val">${total-comp}</div></div>
+    <div class="stat red"><div class="stat-label">Urgentes</div><div class="stat-val">${urgente}</div></div>`;
+}
+
+function renderCI(){
+  const b=(document.getElementById('buscaCI')?.value||'').toLowerCase();
+  const cat=document.getElementById('filtroCat')?.value||'';
+  const st=document.getElementById('filtroStatusCI')?.value||'';
+  const lista=comprasInternas.filter(i=>{
+    if(b&&!(i.descricao+i.categoria+i.fornecedor+'').toLowerCase().includes(b))return false;
+    if(cat&&i.categoria!==cat)return false;
+    if(st==='pendente'&&i.comprado)return false;
+    if(st==='comprado'&&!i.comprado)return false;
+    return true;
+  });
+  const tb=document.getElementById('tbodyCI');
+  if(!tb) return;
+
+  const priorCor={urgente:'badge-red',alta:'badge-yellow',normal:'badge-gray'};
+  const theadCI=document.getElementById('theadCI');
+
+  if(isPerfilSimplificadoCI()){
+    // Atualiza cabeçalho simplificado SEMPRE (antes do check de lista vazia)
+    if(theadCI) theadCI.innerHTML='<tr><th>Status</th><th>Prioridade</th><th>Descrição</th><th>Categoria</th><th>Quantidade</th></tr>';
+    if(!lista.length){tb.innerHTML='<tr><td colspan="5" class="empty">Nenhuma solicitação</td></tr>';return;}
+    tb.innerHTML=lista.map(i=>`<tr>
+      <td>${i.comprado?'<span class="badge badge-green">Comprado</span>':'<span class="badge badge-yellow">Pendente</span>'}</td>
+      <td><span class="badge ${priorCor[i.prioridade]||'badge-gray'}">${i.prioridade||'normal'}</span></td>
+      <td>${i.descricao||'—'}</td>
+      <td>${i.categoria||'—'}</td>
+      <td>${i.quantidade||0} ${i.unidade||''}</td>
+    </tr>`).join('');
+    return;
+  }
+
+  // Cabeçalho completo para usuários normais
+  if(theadCI) theadCI.innerHTML='<tr><th>Status</th><th>Prioridade</th><th>Descrição</th><th>Categoria</th><th>Quantidade</th><th>Fornecedor</th><th>Valor Unitário</th><th>Valor Total</th><th>Solicitado por</th><th>Data</th><th></th></tr>';
+  // Tabela completa para usuários normais
+  if(!lista.length){tb.innerHTML='<tr><td colspan="11" class="empty">Nenhuma solicitação</td></tr>';return;}
+  tb.innerHTML=lista.map(i=>`<tr style="${i.comprado?'opacity:0.6':''}">
+    <td>${i.comprado?'<span class="badge badge-green">Comprado</span>':'<span class="badge badge-yellow">Pendente</span>'}</td>
+    <td><span class="badge ${priorCor[i.prioridade]||'badge-gray'}">${i.prioridade||'normal'}</span></td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.descricao||''}">${i.descricao||'—'}</td>
+    <td>${i.categoria||'—'}</td>
+    <td>${i.quantidade||0} ${i.unidade||''}</td>
+    <td>${i.fornecedor||'—'}</td>
+    <td>${fmtVal(i.valor_unitario)}</td>
+    <td>${fmtVal(i.valor_total)}</td>
+    <td>${i.solicitado_por||'—'}</td>
+    <td>${fmtDt(i.dt_solicitacao)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm" onclick="abrirModalCI('${i.id}')">✏️</button>
+      <button class="btn btn-sm ${i.comprado?'':'primary'}" onclick="toggleCI('${i.id}',${i.comprado})">${i.comprado?'Desmarcar':'✓ Comprado'}</button>
+      <button class="btn btn-sm danger" onclick="deletarCI('${i.id}')">🗑</button>
+    </td>
+  </tr>`).join('');
+}
+
+function calcCITotal(){
+  const val=parseFloat(document.getElementById('ci_valor').value)||0;
+  const qtd=parseFloat(document.getElementById('ci_qtd').value)||1;
+  document.getElementById('ci_total').value=val&&qtd?(val*qtd).toFixed(2):'';
+}
+
+function abrirModalCI(id){
+  editCIId=id;
+  const i=id?comprasInternas.find(x=>x.id===id):null;
+  document.getElementById('modalCITitulo').textContent=id?'Editar Solicitação':'Nova Solicitação de Compra';
+  document.getElementById('ci_descricao').value=i?(i.descricao||''):'';
+  document.getElementById('ci_categoria').value=i?(i.categoria||''):'';
+  document.getElementById('ci_prioridade').value=i?(i.prioridade||'normal'):'normal';
+  document.getElementById('ci_qtd').value=i?(i.quantidade||1):1;
+  document.getElementById('ci_und').value=i?(i.unidade||'UN'):'UN';
+  document.getElementById('ci_fornecedor').value=i?(i.fornecedor||''):'';
+  document.getElementById('ci_valor').value=i&&i.valor_unitario!=null?i.valor_unitario:'';
+  document.getElementById('ci_total').value=i&&i.valor_total!=null?i.valor_total:'';
+  document.getElementById('ci_obs').value=i?(i.observacao||''):'';
+  document.getElementById('modalCI').classList.add('open');
+}
+
+async function salvarCI(){
+  const descricao=document.getElementById('ci_descricao').value.trim();
+  if(!descricao){showToast('Informe a descrição','err');return;}
+  const qtd=parseFloat(document.getElementById('ci_qtd').value)||1;
+  const val=parseFloat(document.getElementById('ci_valor').value)||null;
+  const obj={
+    descricao,
+    categoria:document.getElementById('ci_categoria').value,
+    prioridade:document.getElementById('ci_prioridade').value,
+    quantidade:qtd,
+    unidade:document.getElementById('ci_und').value,
+    fornecedor:document.getElementById('ci_fornecedor').value.trim()||null,
+    valor_unitario:val,
+    valor_total:val?val*qtd:null,
+    observacao:document.getElementById('ci_obs').value.trim()||null,
+    solicitado_por:usuarioLogado?.nome||null
+  };
+  try{
+    if(editCIId) await api('PATCH','compras_internas',obj,`?id=eq.${editCIId}`);
+    else await api('POST','compras_internas',obj);
+    showToast(editCIId?'Atualizado!':'Solicitação criada!');
+    fecharModal('modalCI'); await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+}
+
+async function toggleCI(id,atual){
+  const hoje=new Date().toISOString();
+  try{
+    await api('PATCH','compras_internas',{comprado:!atual,dt_compra:!atual?hoje:null,status:!atual?'comprado':'pendente'},`?id=eq.${id}`);
+    await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+async function salvarCISimples(){
+  const descricao=document.getElementById('cis_descricao').value.trim();
+  if(!descricao){showToast('Informe a descrição do item','err');return;}
+  const obj={
+    descricao,
+    categoria:document.getElementById('cis_categoria').value||null,
+    quantidade:parseFloat(document.getElementById('cis_qtd').value)||1,
+    unidade:'UN',
+    prioridade:document.getElementById('cis_prioridade').value,
+    observacao:document.getElementById('cis_obs').value.trim()||null,
+    solicitado_por:usuarioLogado?.nome||null,
+    status:'pendente',
+    comprado:false
+  };
+  try{
+    await api('POST','compras_internas',obj);
+    showToast('Solicitação enviada!');
+    fecharModal('modalCISimples');
+    document.getElementById('cis_descricao').value='';
+    document.getElementById('cis_categoria').value='';
+    document.getElementById('cis_qtd').value='1';
+    document.getElementById('cis_prioridade').value='normal';
+    document.getElementById('cis_obs').value='';
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+}
+
+async function deletarCI(id){
+  if(!confirm('Remover esta solicitação?'))return;
+  try{await api('DELETE','compras_internas','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+function fecharLembrete(){
+  document.getElementById('lembreteModal').classList.remove('open');
+}
+
+function verificarLembretes(){
+  // Só para admin (não expedição)
+  if(!usuarioLogado||isExpedicao()) return;
+
+  const urgentes=comprasInternas.filter(i=>i.prioridade==='urgente'&&!i.comprado);
+  if(!urgentes.length) return;
+
+  // Verificar horários: 8h, 12h, 17h
+  const agora=new Date();
+  const hora=agora.getHours();
+  const horariosLembrete=[8,12,17];
+  if(!horariosLembrete.includes(hora)) return;
+
+  // Verificar se já mostrou nesta hora hoje
+  const chave=`lembrete_${agora.toDateString()}_${hora}h`;
+  if(sessionStorage.getItem(chave)) return;
+  sessionStorage.setItem(chave,'1');
+
+  // Mostrar popup
+  document.getElementById('lembreteItens').innerHTML=urgentes.slice(0,5).map(i=>`
+    <div class="lembrete-item">
+      <span style="font-size:20px">🔴</span>
+      <div>
+        <div class="lembrete-item-desc">${i.descricao||'—'}</div>
+        <div class="lembrete-item-meta">
+          ${i.categoria?i.categoria+' · ':''}
+          Qtd: ${i.quantidade||0} · 
+          Solicitado por: ${i.solicitado_por||'—'} · 
+          ${fmtDt(i.dt_solicitacao)}
+        </div>
+      </div>
+    </div>`).join('')+
+    (urgentes.length>5?`<p style="font-size:12px;color:var(--gray);text-align:center;padding:8px">+${urgentes.length-5} item(ns) urgente(s)</p>`:'');
+
+  document.getElementById('lembreteModal').classList.add('open');
+}
+
+// ===== PROJETOS =====
+const ETAPA_COR={
+  'Projeto':'etapa-projeto',
+  'Compra de Matéria Prima':'etapa-compra',
+  'Recepção de Matéria Prima':'etapa-recepcao',
+  'Produção':'etapa-producao',
+  'Expedição':'etapa-expedicao',
+  'Concluído':'etapa-concluido'
+};
+const ETAPA_ICON={
+  'Projeto':'📐','Compra de Matéria Prima':'🛍️',
+  'Recepção de Matéria Prima':'📥','Produção':'⚙️',
+  'Expedição':'🚛','Concluído':'✅'
+};
+
+function renderProjetos(){
+  const b=(document.getElementById('buscaProjeto')?.value||'').toLowerCase();
+  const filtroPDV=document.getElementById('filtroProjPDV')?.value||'';
+  const filtroEt=document.getElementById('filtroEtapa')?.value||'';
+  const div=document.getElementById('listaProjetos');
+  if(!div) return;
+
+  // Popula filtro PDV
+  const selPDV=document.getElementById('filtroProjPDV');
+  if(selPDV&&selPDV.options.length<=1){
+    pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
+  }
+
+  // Agrupa produtos por PDV
+  const grupos={};
+  pdvs.forEach(p=>grupos[p.id]={pdv:p,produtos:[]});
+  produtosPDV.forEach(prod=>{
+    if(grupos[prod.pdv_id]) grupos[prod.pdv_id].produtos.push(prod);
+  });
+
+  const entries=Object.values(grupos).filter(g=>{
+    if(filtroPDV&&g.pdv.id!==filtroPDV) return false;
+    if(b&&!(g.pdv.numero+g.pdv.cliente+g.pdv.equipamento+'').toLowerCase().includes(b)&&
+       !g.produtos.some(p=>(p.nome+p.descricao+'').toLowerCase().includes(b))) return false;
+    if(filtroEt&&!g.produtos.some(p=>{
+      const ets=etapasProduto.filter(e=>e.produto_id===p.id&&e.status==='ativo');
+      return ets.some(e=>e.etapa===filtroEt);
+    })) return false;
+    return true;
+  });
+
+  if(!entries.length){
+    div.innerHTML=pdvs.length
+      ?'<div class="empty">Nenhum PDV encontrado com os filtros selecionados.</div>'
+      :`<div class="empty" style="padding:32px;text-align:center">
+          <div style="font-size:32px;margin-bottom:12px">📦</div>
+          <div style="font-weight:600;margin-bottom:8px">Nenhum PDV cadastrado ainda</div>
+          <div style="font-size:13px;color:var(--gray);margin-bottom:16px">Crie um PDV para começar a gerenciar projetos e produtos</div>
+          <button class="btn primary" style="width:auto;padding:10px 24px" onclick="abrirModalPDV(null)">+ Criar primeiro PDV</button>
+        </div>`;
+    return;
+  }
+
+  div.innerHTML=entries.map(({pdv,produtos})=>{
+    const totalProd=produtos.length;
+    const concluidos=produtos.filter(p=>etapasProduto.some(e=>e.produto_id===p.id&&e.etapa==='Expedição'&&e.status==='ativo')).length;
+
+    const produtosHtml=produtos.length?produtos.map(prod=>{
+      const etapas=etapasProduto.filter(e=>e.produto_id===prod.id);
+      const ativas=etapas.filter(e=>e.status==='ativo');
+      const etapasHtml=ativas.length?ativas.map(e=>{
+        const cor=ETAPA_COR[e.etapa]||'etapa-projeto';
+        const icon=ETAPA_ICON[e.etapa]||'📌';
+        const subs=e.sub_etapa?e.sub_etapa.split(',').map(s=>`<span class="subetapa-chip">${s.trim()}</span>`).join(''):'';
+        const terc=e.terceirizado?`<span class="subetapa-chip" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7">🏭 ${e.terceirizado}</span>`:'';
+        return `<span class="etapa-chip ${cor}" title="${e.responsavel||''} — ${fmtDt(e.iniciado_em)}">
+          ${icon} ${e.etapa}${subs?':<br>'+subs:''}${terc}
+          <button onclick="concluirEtapa('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:11px;margin-left:4px;opacity:0.7" title="Concluir etapa">✓</button>
+        </span>`;
+      }).join(''):'<span style="color:var(--gray);font-size:12px">Nenhuma etapa ativa</span>';
+
+      const historico=etapas.filter(e=>e.status==='concluido');
+      const historicoHtml=historico.length?`<div style="margin-top:6px;font-size:11px;color:var(--gray)">
+        Histórico: ${historico.map(e=>`<span style="text-decoration:line-through">${e.etapa}</span>`).join(' → ')}
+      </div>`:'';
+
+      return `<div class="produto-card">
+        <div class="produto-header">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700">${prod.nome}</div>
+            <div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">
+              ${prod.numero_desenho?`<span class="badge badge-blue">📐 Nº ${prod.numero_desenho}</span>`:''}
+              ${prod.responsavel?`<span class="badge badge-gray">👤 ${prod.responsavel}</span>`:''}
+            </div>
+          </div>
+          <button class="btn btn-sm primary" onclick="abrirModalEtapa('${prod.id}')">+ Etapa</button>
+          <button class="btn btn-sm danger" onclick="deletarProduto('${prod.id}')">🗑</button>
+        </div>
+        <div class="produto-etapas">
+          ${prod.descricao?`<div style="font-size:12px;color:var(--gray);margin-bottom:8px">${prod.descricao}</div>`:''}
+          <div>${etapasHtml}</div>
+          ${historicoHtml}
+        </div>
+      </div>`;
+    }).join(''):'<div style="color:var(--gray);font-size:13px;padding:8px">Nenhum produto cadastrado. Clique em <b>+ Produto</b> para adicionar.</div>';
+
+    return `<div class="proj-pdv">
+      <div class="proj-pdv-header" onclick="toggleGrupoPDV('proj_${pdv.id}')">
+        <div style="display:flex;align-items:center;gap:10px;flex:1">
+          <span style="font-size:14px;font-weight:700;color:#fff">📦 ${pdv.numero}</span>
+          ${pdv.cliente?`<span style="font-size:12px;color:rgba(255,255,255,0.85)">${pdv.cliente}</span>`:''}
+          ${pdv.equipamento?`<span style="font-size:11px;color:rgba(255,255,255,0.65)">${pdv.equipamento}</span>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:rgba(255,255,255,0.8)">${totalProd} produto${totalProd!==1?'s':''}</span>
+          ${concluidos>0?`<span class="badge" style="background:rgba(255,255,255,0.2);color:#fff">${concluidos} expedido${concluidos!==1?'s':''}</span>`:''}
+          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:transparent" onclick="event.stopPropagation();abrirModalProduto('${pdv.id}')">+ Produto</button>
+          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:transparent" onclick="event.stopPropagation();abrirModalPDV('${pdv.id}')" title="Editar PDV">✏️</button>
+          <span style="color:rgba(255,255,255,0.7)" id="arrow_proj_${pdv.id}">▼</span>
+        </div>
+      </div>
+      <div class="proj-pdv-body" id="proj_${pdv.id}">${produtosHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function abrirModalProduto(pdvId){
+  editProdutoId=null;
+  const sel=document.getElementById('pp_pdv');
+  sel.innerHTML=pdvs.map(p=>`<option value="${p.id}" ${p.id===pdvId?'selected':''}>${p.numero}${p.cliente?' — '+p.cliente:''}</option>`).join('');
+  ['pp_nome','pp_descricao','pp_responsavel','pp_desenho'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('modalProduto').classList.add('open');
+}
+
+async function salvarProduto(){
+  const nome=document.getElementById('pp_nome').value.trim();
+  const pdvId=document.getElementById('pp_pdv').value;
+  if(!nome){showToast('Informe o nome do produto','err');return;}
+  try{
+    await api('POST','produtos_pdv',{
+      pdv_id:pdvId, nome,
+      descricao:document.getElementById('pp_descricao').value.trim()||null,
+      responsavel:document.getElementById('pp_responsavel').value.trim()||null,
+      numero_desenho:document.getElementById('pp_desenho').value.trim()||null,
+      criado_por:usuarioLogado?.nome||null
+    });
+    showToast('Produto cadastrado!');
+    fecharModal('modalProduto'); await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');}
+}
+
+async function deletarProduto(id){
+  if(!confirm('Remover este produto e todas suas etapas?'))return;
+  try{
+    await api('DELETE','etapas_produto','',`?produto_id=eq.${id}`);
+    await api('DELETE','produtos_pdv','',`?id=eq.${id}`);
+    showToast('Produto removido!'); await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+function abrirModalEtapa(produtoId){
+  etapaProdutoAtual=produtoId;
+  document.getElementById('et_etapa').value='Projeto';
+  document.getElementById('et_responsavel').value='';
+  document.getElementById('et_observacao').value='';
+  document.querySelectorAll('.subetapa').forEach(c=>c.checked=false);
+  document.getElementById('et_terceirizado').value='';
+  toggleSubEtapa();
+  document.getElementById('modalEtapaTitulo').textContent='Nova Etapa';
+  document.getElementById('modalEtapa').classList.add('open');
+}
+
+function toggleSubEtapa(){
+  const etapa=document.getElementById('et_etapa').value;
+  const isProd=etapa==='Produção';
+  document.getElementById('grupoSubEtapa').style.display=isProd?'block':'none';
+  // Show terceirizado only if Terceirizado sub-etapa is checked
+  const hasTerceirizado=isProd&&[...document.querySelectorAll('.subetapa:checked')].some(c=>c.value==='Terceirizado');
+  document.getElementById('grupoTerceirizado').style.display=hasTerceirizado?'block':'none';
+}
+
+// Add event listener for terceirizado checkbox
+document.addEventListener('change',e=>{
+  if(e.target.classList.contains('subetapa')) toggleSubEtapa();
+});
+
+async function salvarEtapa(){
+  const etapa=document.getElementById('et_etapa').value;
+  const subs=[...document.querySelectorAll('.subetapa:checked')].map(c=>c.value);
+  const obj={
+    produto_id:etapaProdutoAtual,
+    etapa,
+    sub_etapa:subs.length?subs.join(', '):null,
+    terceirizado:document.getElementById('et_terceirizado').value||null,
+    responsavel:document.getElementById('et_responsavel').value.trim()||null,
+    observacao:document.getElementById('et_observacao').value.trim()||null,
+    status:'ativo',
+    iniciado_por:usuarioLogado?.nome||null,
+    iniciado_em:new Date().toISOString()
+  };
+  try{
+    await api('POST','etapas_produto',obj);
+    showToast('Etapa iniciada!');
+    fecharModal('modalEtapa'); await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');}
+}
+
+async function concluirEtapa(id){
+  if(!confirm('Marcar esta etapa como concluída?'))return;
+  try{
+    await api('PATCH','etapas_produto',{
+      status:'concluido',
+      concluido_por:usuarioLogado?.nome||null,
+      concluido_em:new Date().toISOString()
+    },`?id=eq.${id}`);
+    showToast('Etapa concluída!'); await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+// ===== UTILS =====
+function fmtVal(v){return v!=null&&v!==0?'R$ '+Number(v).toFixed(2):'—';}
+function fmtDt(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('pt-BR');}catch{return d.substring(0,10);}}
+function showTab(n){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===n));
+  if(n===8) preencherRemetenteLogado();
+}
+
+async function dispararEmailBemVindo(){
+  document.getElementById('userMenu').classList.remove('open');
+  const usuarios_lista=[
+    {nome:'Administrador', email:'adm.geral@sloleos.com.br', senha:'sl2024@adm', cargo:'Compras'},
+    {nome:'Engenharia (Sylvio)', email:'engenharia@sloleos.com.br', senha:'sl2024@eng', cargo:'Engenharia'},
+    {nome:'PCP', email:'pcp@sloleos.com.br', senha:'sl2024@pcp', cargo:'PCP'},
+    {nome:'Álvaro', email:'expedicao@sloleos.com.br', senha:'sl2024@exp', cargo:'Expedição'}
+  ];
+  if(!confirm(`Enviar e-mail de boas-vindas para ${usuarios_lista.length} usuários?`)) return;
+  showToast('Enviando e-mails...');
+  let ok=0, fail=0;
+  for(const u of usuarios_lista){
+    const html=`<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f0f4f0;font-family:system-ui,-apple-system,sans-serif">
+<div style="max-width:600px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10)">
+  <div style="background:#2e7d32;padding:32px 24px;text-align:center">
+    <img src="https://sistema-compras-jogy.vercel.app/logo.jpg" style="width:80px;height:80px;object-fit:contain;border-radius:50%;background:#fff;padding:8px;margin-bottom:16px">
+    <h1 style="color:#fff;margin:0;font-size:26px;font-weight:800">SL Óleos</h1>
+    <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px">Sistema de Gestão de Matéria Prima e Compras</p>
+  </div>
+  <div style="padding:36px 32px">
+    <h2 style="color:#2e7d32;font-size:22px;margin:0 0 16px">Bem-vindo(a) ao sistema, ${u.nome}! 👋</h2>
+    <p style="color:#546e7a;font-size:15px;line-height:1.7;margin:0 0 24px">
+      Temos o prazer de informar que seu acesso ao <strong style="color:#263238">Sistema de Gestão de Compras da SL Óleos</strong> 
+      foi configurado com sucesso. Esta plataforma foi desenvolvida para otimizar nossos processos de compras, 
+      cotações e controle de matéria prima.
+    </p>
+    <div style="background:#e8f5e9;border-radius:12px;padding:24px;margin-bottom:28px;border-left:4px solid #2e7d32">
+      <p style="margin:0 0 14px;font-size:12px;color:#2e7d32;font-weight:700;text-transform:uppercase;letter-spacing:0.8px">🔑 Suas credenciais de acesso</p>
+      <table style="width:100%;border-collapse:collapse">
+        <tr><td style="padding:8px 0;font-size:13px;color:#546e7a;width:80px;vertical-align:top">E-mail</td><td style="padding:8px 0;font-size:14px;color:#263238;font-weight:700">${u.email}</td></tr>
+        <tr><td colspan="2" style="border-top:1px solid #c8e6c9;padding:0"></td></tr>
+        <tr><td style="padding:8px 0;font-size:13px;color:#546e7a;vertical-align:top">Senha</td><td style="padding:8px 0;font-size:16px;color:#2e7d32;font-weight:700;font-family:monospace;letter-spacing:3px">${u.senha}</td></tr>
+        <tr><td colspan="2" style="border-top:1px solid #c8e6c9;padding:0"></td></tr>
+        <tr><td style="padding:8px 0;font-size:13px;color:#546e7a;vertical-align:top">Cargo</td><td style="padding:8px 0;font-size:14px;color:#263238;font-weight:600">${u.cargo}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="https://sistema-compras-jogy.vercel.app" style="background:#2e7d32;color:#fff;padding:15px 40px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:700;display:inline-block;letter-spacing:0.3px">🚀 Acessar o Sistema</a>
+    </div>
+    <div style="background:#fff9c4;border-radius:10px;padding:16px;margin-bottom:24px;border-left:3px solid #f9a825">
+      <p style="margin:0;font-size:13px;color:#795548;line-height:1.6"><strong>⚠️ Importante:</strong> Por segurança, recomendamos que você altere sua senha no primeiro acesso. Clique no seu nome no canto superior direito e selecione <strong>"Meu Perfil"</strong>.</p>
+    </div>
+  </div>
+  <div style="background:#263238;padding:24px 32px;text-align:center">
+    <p style="margin:0 0 6px;font-size:13px;color:rgba(255,255,255,0.9);font-weight:600">SL Óleos — Sistema de Gestão de Compras</p>
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.5)">Em caso de dúvidas, entre em contato com o administrador do sistema.</p>
+  </div>
+</div>
+</body></html>`;
+    try{
+      const r=await fetch('https://kzkqcwsracvosdhqkmaf.supabase.co/functions/v1/send-email',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({from:'SL Óleos <adm.geral@sloleos.com.br>',to:[u.email],subject:'🎉 Bem-vindo ao Sistema de Gestão SL Óleos',html})
+      });
+      if(!r.ok) throw new Error(await r.text());
+      ok++;
+    }catch(e){fail++;console.error('Erro:',u.email,e);}
+  }
+  if(ok>0) showToast(`${ok} e-mail(s) de boas-vindas enviado(s)!`);
+  if(fail>0) showToast(`${fail} e-mail(s) falharam.`,'err');
+}
+
+function isExpedicao(){
+  return usuarioLogado&&usuarioLogado.email==='expedicao@sloleos.com.br';
+}
+
+function isPerfilSimplificadoCI(){
+  const emails=['expedicao@sloleos.com.br','pcp@sloleos.com.br'];
+  return usuarioLogado&&emails.includes(usuarioLogado.email);
+}
+
+function mostrarApp(){
+  document.getElementById('appContent').style.display='block';
+  // Mostrar botão de boas-vindas só para admins
+  const btnBV=document.getElementById('menuBtnBemVindo');
+  if(btnBV) btnBV.style.display=!isExpedicao()?'flex':'none';
+  if(isExpedicao()){
+    document.querySelectorAll('.tab').forEach((t,i)=>{
+      t.style.display=[1,3,6,7].includes(i)?'flex':'none';
+    });
+    showTab(1);
+  } else {
+    document.querySelectorAll('.tab').forEach(t=>t.style.display='flex');
+    showTab(0);
+  }
+  // Verificar lembretes a cada 30 minutos
+  setInterval(verificarLembretes, 30*60*1000);
+}
+function toggleGrupoPDV(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById('arrow_'+id);
+  if(!el)return;
+  const aberto=el.style.display!=='none';
+  el.style.display=aberto?'none':'block';
+  if(arrow) arrow.textContent=aberto?'▶':'▼';
+}
+
+function toggleBody(el){el.nextElementSibling.classList.toggle('open');}
+function fecharModal(id){
+  document.getElementById(id).classList.remove('open');
+  if(id==='modalCotacao'){
+    delete document.getElementById('modalCotacao').dataset.editId;
+    document.getElementById('modalCotacao').querySelector('h3').textContent='Adicionar cotação manual';
+  }
+}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function showToast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=type==='err'?'#c62828':'var(--green)';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// Verificar sessão ao carregar
+window.addEventListener('load',()=>{
+  const saved=sessionStorage.getItem('sl_usuario');
+  if(saved){
+    try{
+      usuarioLogado=JSON.parse(saved);
+      document.getElementById('loginBg').style.display='none';
+      document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
+      document.getElementById('userName').textContent=usuarioLogado.nome;
+      mostrarApp();
+      loadAll();
+    }catch(e){
+      sessionStorage.removeItem('sl_usuario');
+      document.getElementById('appContent').style.display='none';
+      document.getElementById('loginBg').style.display='flex';
+    }
+  } else {
+    document.getElementById('appContent').style.display='none';
+    document.getElementById('loginBg').style.display='flex';
+  }
+});
+</script>
+</body>
+</html>
