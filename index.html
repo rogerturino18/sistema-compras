@@ -3809,7 +3809,8 @@ function renderProjetos(){
           acoes=`<button class="btn btn-sm primary" style="font-size:11px;padding:3px 8px" onclick="abrirIniciarTrabalho('${peca.id}')">▶ Iniciar</button>`;
         } else if(col.status==='trabalhando'){
           acoes=`<button class="btn btn-sm" style="background:#fff9c4;color:#f57f17;border-color:#ffe082;font-size:11px;padding:3px 8px" onclick="pausarTrabalho('${peca.id}')">⏸ Pausar</button>
-                 <button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:transparent;font-size:11px;padding:3px 8px" onclick="abrirFinalizarTrabalho('${peca.id}')">✅ Fim</button>`;
+                 <button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:transparent;font-size:11px;padding:3px 8px" onclick="abrirFinalizarTrabalho('${peca.id}')" title="Finalizar e adicionar material">✅ + Mat.</button>
+                 <button class="btn btn-sm" style="background:#546e7a;color:#fff;border-color:transparent;font-size:11px;padding:3px 8px" onclick="finalizarDireto('${peca.id}')" title="Finalizar sem material">✅ Fim</button>`;
         } else if(col.status==='concluido'){
           acoes=`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="reabrirPeca('${peca.id}')">↩ Reabrir</button>`;
         }
@@ -4221,7 +4222,13 @@ function voltarPreenchimento(){
   document.getElementById('acoesPasso2').style.display='none';
 }
 
-async function confirmarFinalizarSemMateriais(){
+async function finalizarDireto(pecaId){
+  if(!confirm('Finalizar esta peça sem adicionar materiais?')) return;
+  pecaAtual=pecaId;
+  await confirmarFinalizarSemMateriais();
+}
+
+
   try{
     const sessao=sessoesTrab.find(s=>s.peca_id===pecaAtual&&(s.status==='ativo'||s.status==='pausado'));
     if(sessao) await api('PATCH','sessoes_trabalho',{status:'finalizado',finalizado_em:new Date().toISOString()},`?id=eq.${sessao.id}`);
