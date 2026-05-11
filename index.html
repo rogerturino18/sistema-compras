@@ -480,7 +480,7 @@ tr:hover td{background:#f9fbf9}
       <option value="">Ordenar por...</option>
       <option value="descritivo_asc">Descritivo A→Z</option>
       <option value="descritivo_desc">Descritivo Z→A</option>
-      <option value="pdv_asc">PDV A→Z</option>
+      <option value="pdv_asc" selected>PDV A→Z</option>
       <option value="pdv_desc">PDV Z→A</option>
       <option value="cliente_asc">Cliente A→Z</option>
       <option value="material_asc">Material A→Z</option>
@@ -2375,24 +2375,47 @@ function renderComprado(){
   }
   const tb=document.getElementById('tbodyComprado');
   if(!lista.length){tb.innerHTML='<tr><td colspan="13" class="empty">Nenhum item</td></tr>';return;}
-  tb.innerHTML=lista.map(it=>`<tr style="${it.comprado?'opacity:0.6':''}">
-    <td>${it.comprado?'<span class="badge badge-green">Comprado</span>':'<span class="badge badge-yellow">Pendente</span>'}</td>
-    <td>${it.pdv||'—'}</td>
-    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.descritivo||'—'}</td>
-    <td>${it.material||'—'}</td>
-    <td style="font-family:monospace;font-size:11px">${it.espessura||'—'}</td>
-    <td style="font-family:monospace;font-size:11px">${it.medida1||'—'}</td>
-    <td style="font-family:monospace;font-size:11px">${it.medida2||'—'}</td>
-    <td>${it.qtd||0} ${it.und||''}</td>
-    <td>${it.fornecedor||'—'}</td>
-    <td>${fmtVal(it.valor_unitario)}</td>
-    <td>${it.valor_unitario&&it.peso?fmtVal(it.valor_unitario*it.peso):'—'}</td>
-    <td>${fmtDt(it.dt_compra)}</td>
-    <td style="white-space:nowrap">
-      <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')">✏️ Editar</button>
-      <button class="btn btn-sm ${it.comprado?'':'primary'}" onclick="toggleComprado('${it.id}',${it.comprado})">${it.comprado?'Desmarcar':'✓ Comprado'}</button>
-    </td>
-  </tr>`).join('');
+
+  // Agrupa por PDV quando ordenado por PDV
+  let html='';
+  let pdvAtual='';
+  lista.forEach(it=>{
+    const pdv=it.pdv||'Sem PDV';
+    if(pdv!==pdvAtual){
+      pdvAtual=pdv;
+      const itensPDV=lista.filter(i=>(i.pdv||'Sem PDV')===pdv);
+      const pendPDV=itensPDV.filter(i=>!i.comprado).length;
+      html+=`<tr>
+        <td colspan="13" style="background:var(--green);color:#fff;padding:6px 12px;font-weight:700;font-size:12px">
+          📦 ${pdv}
+          ${it.cliente?` — ${it.cliente}`:''}
+          <span style="float:right;font-weight:400;font-size:11px">
+            ${itensPDV.length} item${itensPDV.length!==1?'s':''}
+            ${pendPDV?` · <span style="color:#ffcc80">${pendPDV} pendente${pendPDV!==1?'s':''}</span>`:''}
+          </span>
+        </td>
+      </tr>`;
+    }
+    html+=`<tr style="${it.comprado?'opacity:0.6':''}">
+      <td>${it.comprado?'<span class="badge badge-green" style="font-size:10px">Comprado</span>':'<span class="badge badge-yellow" style="font-size:10px">Pendente</span>'}</td>
+      <td style="font-size:11px;color:var(--gray)">${it.pdv||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${it.descritivo||'—'}</td>
+      <td style="font-size:12px">${it.material||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${it.espessura||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${it.medida1||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${it.medida2||'—'}</td>
+      <td style="font-size:12px">${it.qtd||0} ${it.und||''}</td>
+      <td style="font-size:12px">${it.fornecedor||'—'}</td>
+      <td style="font-size:12px">${fmtVal(it.valor_unitario)}</td>
+      <td style="font-size:12px">${it.valor_unitario&&it.peso?fmtVal(it.valor_unitario*it.peso):'—'}</td>
+      <td style="font-size:11px">${fmtDt(it.dt_compra)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')">✏️</button>
+        <button class="btn btn-sm ${it.comprado?'':'primary'}" style="font-size:10px;padding:3px 6px" onclick="toggleComprado('${it.id}',${it.comprado})">${it.comprado?'↩':'✓'}</button>
+      </td>
+    </tr>`;
+  });
+  tb.innerHTML=html;
 }
 
 async function toggleComprado(id,atual){
