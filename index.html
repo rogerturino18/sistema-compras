@@ -233,6 +233,15 @@ tr:hover td{background:#f9fbf9}
 .etapa-concluido{background:#f5f5f5;color:#757575;border-color:#e0e0e0;opacity:0.7}
 .subetapa-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;margin:2px;background:#fff3e0;color:#e65100;border:1px solid #ffcc02}
 
+/* PEDIDO DE VENDA */
+.pv-badge-orcamento{background:#fff9c4;color:#795548}
+.pv-badge-aprovado{background:#e8f5e9;color:#2e7d32}
+.pv-badge-producao{background:#e3f2fd;color:#1565c0}
+.pv-badge-faturado{background:#f3e5f5;color:#6a1b9a}
+.pv-badge-entregue{background:#f5f5f5;color:#546e7a}
+.pv-badge-cancelado{background:#ffebee;color:#c62828}
+.pv-totais{background:#e8f5e9;border-radius:10px;padding:14px 18px}
+.kanban-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:4px 2px}
 /* MODAL LEMBRETE URGENTE */
 .lembrete-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;padding:16px}
 .lembrete-bg.open{display:flex;animation:fadeIn 0.3s ease}
@@ -326,6 +335,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tab" onclick="showTab(10)">📧 Enviar Cotação</div>
   <div class="tab" onclick="showTab(11)">📦 Estoque</div>
   <div class="tab" onclick="showTab(12)">📄 Fiscal</div>
+  <div class="tab" onclick="showTab(13)">🛒 Ped. Venda</div>
 </div>
 
 <!-- TAB 0: DASHBOARD -->
@@ -1800,6 +1810,180 @@ tr:hover td{background:#f9fbf9}
   </div>
 </div>
 
+<!-- MODAL TERCEIRIZADO -->
+<div class="modal-bg" id="modalTerceirizado">
+<div class="modal" style="max-width:420px">
+  <div class="modal-header">
+    <h3>🏭 Enviar para Terceirizado</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalTerceirizado')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Nome do Terceirizado *</label>
+      <input id="terceirizadoNome" type="text" placeholder="Ex: Usinagem Silva, Tratamento XYZ...">
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Serviço / Observação</label>
+      <input id="terceirizadoObs" type="text" placeholder="Ex: Tratamento térmico, Galvanização...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modalTerceirizado')">Cancelar</button>
+      <button class="btn primary" onclick="confirmarTerceirizado()">✔ Confirmar Envio</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB 13: PEDIDOS DE VENDA -->
+<div class="panel" id="tab13">
+  <div class="stat-row" id="statsPV"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaPV" placeholder="Buscar nº, cliente, vendedor..." oninput="renderPedidosVenda()" style="flex:1;min-width:150px">
+    <select id="filtroPVStatus" onchange="renderPedidosVenda()">
+      <option value="">Todos os status</option>
+      <option value="Orçamento">📝 Orçamento</option>
+      <option value="Aprovado">✅ Aprovado</option>
+      <option value="Em Produção">🔧 Em Produção</option>
+      <option value="Faturado">💜 Faturado</option>
+      <option value="Entregue">📦 Entregue</option>
+      <option value="Cancelado">❌ Cancelado</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalPV(null)">+ Novo Pedido</button>
+    <button class="btn" onclick="exportarExcelPV()">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nº</th><th>Data</th><th>Cliente</th><th>Vendedor</th>
+        <th>Prev. Faturamento</th><th>Parcelas</th><th>Total (R$)</th>
+        <th>Status</th><th style="width:130px">Ações</th>
+      </tr></thead>
+      <tbody id="listaPV"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="pvPrintArea" style="display:none"></div>
+
+<!-- MODAL PEDIDO DE VENDA -->
+<div class="modal-bg" id="modalPV">
+  <div class="modal" style="width:900px;max-width:99vw">
+    <div class="modal-header">
+      <h3 id="modalPVTitulo">Novo Pedido de Venda</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalPV')">_</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalPV')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:0;border-bottom:2px solid #e8f5e9;margin-bottom:16px">
+        <button id="pvTab_dados" onclick="showPVSubTab('dados')" style="padding:8px 18px;border:none;background:none;cursor:pointer;font-weight:700;font-size:13px;color:#2e7d32;border-bottom:3px solid #2e7d32;margin-bottom:-2px">📋 Dados</button>
+        <button id="pvTab_itens" onclick="showPVSubTab('itens')" style="padding:8px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📦 Itens</button>
+        <button id="pvTab_pagto" onclick="showPVSubTab('pagto')" style="padding:8px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">💳 Pagamento</button>
+      </div>
+      <!-- DADOS -->
+      <div id="pvSubDados">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="form-group"><label>Nº Pedido</label><input id="pv_numero" type="number" readonly style="background:#f5f5f5;font-weight:700"></div>
+          <div class="form-group"><label>Status</label><select id="pv_status"><option value="Orçamento">📝 Orçamento</option><option value="Aprovado">✅ Aprovado</option><option value="Em Produção">🔧 Em Produção</option><option value="Faturado">💜 Faturado</option><option value="Entregue">📦 Entregue</option><option value="Cancelado">❌ Cancelado</option></select></div>
+          <div class="form-group"><label>Vendedor</label><input id="pv_vendedor" type="text" placeholder="Nome do vendedor"></div>
+          <div class="form-group"><label>Previsão de Faturamento</label><input id="pv_prev_fat" type="date"></div>
+          <div class="form-group"><label>Frete (R$)</label><input id="pv_frete" type="number" step="0.01" value="0" oninput="recalcularTotaisPV()"></div>
+          <div class="form-group"><label>Condição de Pagamento</label><input id="pv_cond_pag" type="text" placeholder="Ex: 30/60/90"></div>
+        </div>
+        <div style="margin:14px 0 8px;font-size:12px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-top:1px solid #e8f5e9;padding-top:12px;display:flex;align-items:center;gap:10px">
+          👤 Cliente <button class="btn btn-sm" onclick="abrirSelecionarClientePV()" style="font-size:11px">📋 Buscar da base</button>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="form-group full"><label>Razão Social *</label><input id="pv_cli_razao" type="text" placeholder="Razão Social do cliente"></div>
+          <div class="form-group"><label>Contato</label><input id="pv_cli_contato" type="text"></div>
+          <div class="form-group"><label>CNPJ/CPF</label><input id="pv_cli_cnpj" type="text"></div>
+          <div class="form-group"><label>Inscrição Estadual</label><input id="pv_cli_ie" type="text"></div>
+          <div class="form-group full"><label>Endereço</label><input id="pv_cli_end" type="text"></div>
+          <div class="form-group"><label>Cidade / UF / CEP</label><input id="pv_cli_cidade" type="text"></div>
+          <div class="form-group"><label>Telefone</label><input id="pv_cli_tel" type="text"></div>
+          <div class="form-group"><label>E-mail</label><input id="pv_cli_email" type="email"></div>
+        </div>
+        <div class="form-group full" style="margin-top:10px"><label>Observações</label><textarea id="pv_obs" rows="2" style="resize:vertical;font-size:13px;padding:8px;border:1px solid #dce4dc;border-radius:8px;width:100%"></textarea></div>
+      </div>
+      <!-- ITENS -->
+      <div id="pvSubItens" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn primary" onclick="addItemPV()" style="font-size:12px">+ Novo Item</button>
+          <button class="btn blue" onclick="abrirBuscaEstoquePV()" style="font-size:12px">🔍 Buscar do Estoque</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+            <thead><tr style="background:#e8f5e9">
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px">Código</th>
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px">Descrição</th>
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px;width:90px">NCM</th>
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px;width:60px">Qtd</th>
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px;width:50px">Und</th>
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px;width:100px">Vlr Unit R$</th>
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px;width:70px">Desc %</th>
+              <th style="padding:6px 8px;color:#2e7d32;font-size:11px;width:90px">Total R$</th>
+              <th style="width:30px"></th>
+            </tr></thead>
+            <tbody id="pvItensBody"></tbody>
+          </table>
+        </div>
+        <div class="pv-totais" style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid #c8e6c9"><span>Subtotal:</span><span id="pv_subtotal">R$ 0,00</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid #c8e6c9"><span>IPI:</span><span>R$ 0,00</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid #c8e6c9"><span>ICMS ST:</span><span>R$ 0,00</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid #c8e6c9"><span>Frete:</span><span id="pv_frete_tot">R$ 0,00</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:#2e7d32;margin-top:6px;padding-top:8px;border-top:2px solid #2e7d32"><span>TOTAL:</span><span id="pv_total">R$ 0,00</span></div>
+        </div>
+      </div>
+      <!-- PAGAMENTO -->
+      <div id="pvSubPagto" style="display:none">
+        <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+          <label style="font-size:12px;color:#546e7a;font-weight:600">Parcelas:</label>
+          <select id="pvNumParcelas" onchange="gerarParcelasPV()" style="padding:6px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+            <option value="1">1x</option><option value="2">2x</option><option value="3" selected>3x</option>
+            <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
+          </select>
+          <label style="font-size:12px;color:#546e7a;font-weight:600">1º vencimento:</label>
+          <input type="date" id="pvPrimVenc" onchange="gerarParcelasPV()" style="padding:6px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+          <button class="btn btn-sm" onclick="gerarParcelasPV()">🔄 Recalcular</button>
+        </div>
+        <div id="pvParcelasDiv"></div>
+        <div style="margin-top:14px;padding:12px;background:#e8f5e9;border-radius:10px;font-size:13px;color:#2e7d32;font-weight:600">Total: <span id="pvTotalPagto">R$ 0,00</span></div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn" onclick="fecharModal('modalPV')">Cancelar</button>
+        <button class="btn blue" onclick="showPVSubTab('itens')">→ Itens</button>
+        <button class="btn primary" onclick="salvarPV()">💾 Salvar Pedido</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SELECIONAR CLIENTE PV -->
+<div class="modal-bg" id="modalSelecionarClientePV">
+  <div class="modal" style="width:560px">
+    <div class="modal-header"><h3>👤 Selecionar Cliente</h3><div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalSelecionarClientePV')">✕</button></div></div>
+    <div class="modal-body">
+      <input type="text" id="buscaClientePVModal" placeholder="Buscar cliente..." oninput="renderClientesPVModal()" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;margin-bottom:10px">
+      <div id="listaClientesPVModal" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BUSCAR ESTOQUE PV -->
+<div class="modal-bg" id="modalBuscaEstoquePV">
+  <div class="modal" style="width:620px">
+    <div class="modal-header"><h3>🔍 Buscar Item do Estoque</h3><div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalBuscaEstoquePV')">✕</button></div></div>
+    <div class="modal-body">
+      <input type="text" id="buscaEstPV" placeholder="Buscar por descrição..." oninput="renderEstoquePVModal()" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;margin-bottom:10px">
+      <div id="listaEstPVModal" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- end appContent -->
 
 <script>
@@ -1810,7 +1994,7 @@ const APP_URL=window.location.origin;
 const SITE_URL=window.location.origin; // ← URL do sistema (automático)
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], pedidosVenda=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 let sortCol='', sortDir='asc';
@@ -1921,7 +2105,7 @@ async function api(method,table,data=null,filter=''){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,pedidosVenda]=await Promise.all([
       api('GET','itens','','?order=created_at.asc'),
       api('GET','cotacoes','','?order=created_at.desc'),
       api('GET','fornecedores','','?order=razao_social.asc'),
@@ -1938,7 +2122,8 @@ async function loadAll(){
       api('GET','estoque_itens','','?order=descricao.asc'),
       api('GET','estoque_movimentacoes','','?order=data.desc'),
       api('GET','clientes_fiscal','','?order=nome.asc').catch(()=>[]),
-      api('GET','notas_fiscais','','?order=created_at.desc').catch(()=>[])
+      api('GET','notas_fiscais','','?order=created_at.desc').catch(()=>[]),
+      api('GET','pedidos_venda','','?order=numero.desc').catch(()=>[])
     ]);
     renderAll();
     verificarLembretes();
@@ -1958,6 +2143,7 @@ function renderAll(){
   renderStatsCI(); renderCI();
   renderFornCheck(); renderItemCheck(); renderEmails();
   renderEstoque();
+  renderPedidosVenda();
 }
 // ===== DASHBOARD =====
 function renderDashboard(){
@@ -1967,12 +2153,15 @@ function renderDashboard(){
   const cotResp=cotacoes.filter(c=>c.respondido).length;
   const aguard=emails.filter(e=>!e.respondido).length;
 
+  const pvAbertos=pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length;
+  const pvValor=pedidosVenda.filter(p=>p.status==='Aprovado'||p.status==='Em Produção').reduce((s,p)=>s+(p.total||0),0);
   document.getElementById('dashStats').innerHTML=`
     <div class="stat" onclick="showTab(1)"><div class="stat-label">Itens pendentes</div><div class="stat-val">${total-comp}</div><div class="stat-sub">de ${total} total</div></div>
     <div class="stat yellow" onclick="showTab(1)"><div class="stat-label">Sem cotação</div><div class="stat-val">${semCot}</div><div class="stat-sub">itens</div></div>
     <div class="stat blue" onclick="showTab(6)"><div class="stat-label">Cotações recebidas</div><div class="stat-val">${cotResp}</div><div class="stat-sub">via formulário</div></div>
     <div class="stat" onclick="showTab(6)"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div><div class="stat-sub">${total?Math.round(comp/total*100):0}% do total</div></div>
-    <div class="stat red" onclick="showTab(10)"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>`;
+    <div class="stat red" onclick="showTab(10)"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>
+    <div class="stat" style="border-left-color:#6a1b9a;cursor:pointer" onclick="showTab(13)"><div class="stat-label">Pedidos de Venda</div><div class="stat-val" style="color:#6a1b9a">${pvAbertos}</div><div class="stat-sub">em aberto · ${fmtVal(pvValor)}</div></div>`;
 
   // Notificações
   const notifs=[];
@@ -2698,8 +2887,15 @@ function editarCotacao(id, itemId, fornecedor, valor, prazo, obs){
 
 async function deletarCotacao(id){
   if(!confirm('Remover esta cotação?'))return;
-  try{await api('DELETE','cotacoes','',`?id=eq.${id}`);showToast('Removida!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  try{
+    const cot=cotacoes.find(c=>c.id===id);
+    await api('DELETE','cotacoes','',`?id=eq.${id}`);
+    if(cot){
+      const restantes=cotacoes.filter(c=>c.id!==id&&c.item_id===cot.item_id);
+      if(restantes.length===0) await api('PATCH','itens',{fornecedor:null,valor_unitario:null},`?id=eq.${cot.item_id}`).catch(()=>{});
+    }
+    showToast('Cotação removida!'); await loadAll();
+  }catch(e){showToast('Erro','err');}
 }
 
 // ===== COMPARAR =====
@@ -2727,9 +2923,10 @@ function renderComparar(){
   div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,itensPDV])=>{
     const linhas=itensPDV.map(it=>{
       const cs=cotacoes.filter(c=>c.item_id===it.id);
-      const all=[...cs.map(c=>({forn:c.fornecedor,val:c.valor,via:c.respondido?'📧 e-mail':'manual',obs:c.observacao}))];
-      if(it.valor_unitario&&it.fornecedor) all.push({forn:it.fornecedor,val:it.valor_unitario,via:'planilha'});
-      all.sort((a,b)=>a.val-b.val);
+      const allRaw=[...cs.map(c=>({forn:c.fornecedor,val:c.valor,via:c.respondido?'📧 e-mail':'manual',obs:c.observacao}))];
+      if(it.valor_unitario&&it.fornecedor) allRaw.push({forn:it.fornecedor,val:it.valor_unitario,via:'planilha'});
+      const byForn={};allRaw.forEach(p=>{const k=(p.forn||'').trim().toLowerCase();if(!byForn[k]||p.val<byForn[k].val)byForn[k]=p;});
+      const all=Object.values(byForn).sort((a,b)=>a.val-b.val);
       const melhor=all[0];
 
       // Cálculo total do melhor preço
@@ -3604,10 +3801,10 @@ async function concluirEtapa(id){
 }
 
 // ===== ORDENS DE PRODUÇÃO =====
-const OPERACOES_PROD=['Serra','Torno','Plaina','Centro de Usinagem','Furadeira','Solda','Freza','Montagem'];
+const OPERACOES_PROD=['Serra','Torno','Plaina','Centro de Usinagem','Furadeira','Solda','Freza','Montagem','Terceirizado'];
 const COR_OPERACAO={
   'Serra':'#1565c0','Torno':'#6a1b9a','Plaina':'#00838f','Centro de Usinagem':'#e65100',
-  'Furadeira':'#558b2f','Solda':'#c62828','Freza':'#37474f','Montagem':'#2e7d32'
+  'Furadeira':'#558b2f','Solda':'#c62828','Freza':'#37474f','Montagem':'#2e7d32','Terceirizado':'#f57f17'
 };
 
 let opAtual=null;
@@ -3718,7 +3915,7 @@ function renderOrdens(){
             ${o.desenho?`<div style="font-size:10px;color:#546e7a;margin-top:2px">📐 ${o.desenho}${o.material?' · ⚙️ '+o.material:''}</div>`:''}
             ${tempo?.observacao?`<div class="kanban-card-obs">💬 ${tempo.observacao}</div>`:''}
             <div class="kanban-card-footer" style="margin-top:10px">
-              <div class="projetista-badge" style="background:${proj.cor||'#546e7a'}">${proj.inicial} ${tempo?.operador||'—'}</div>
+              <div class="projetista-badge" style="background:${proj.cor||'#546e7a'}">${tempo?.operador||'—'}</div>
               <button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:transparent;font-size:10px;padding:3px 10px" onclick="abrirFinalizarOp('${tempo?.id}')">⏹ Finalizar</button>
             </div>
           </div>`;
@@ -3777,7 +3974,8 @@ function abrirIniciarOp(ordemId, operacao){
     <b>Ordem Nº ${o?.numero}</b> — ${o?.descricao||'—'}<br>
     <span style="color:var(--gray);font-size:12px">PDV: ${pdv?.numero||'—'} ${pdv?.cliente||''} · Desenho: ${o?.desenho||'—'}</span>`;
   document.getElementById('op_operador').value=usuarioLogado?.nome||'';
-  document.getElementById('op_obs').value='';
+  document.getElementById('op_obs').value=_pendingTerceirizadoObs||'';
+  _pendingTerceirizadoObs=null;
   abrirModal('modalIniciarOp');
 }
 
@@ -3952,6 +4150,14 @@ async function dragDropOp(e, novaOp){
   const placeholder=temposOP.filter(t=>t.ordem_id===draggedOrdemId&&t.operacao==='REPROCESSAR');
   for(const p of placeholder){
     await api('DELETE','tempos_op','',`?id=eq.${p.id}`);
+  }
+  if(novaOp==='Terceirizado'){
+    _terceirizadoOrdemId=draggedOrdemId;
+    draggedOrdemId=null;
+    document.getElementById('terceirizadoNome').value='';
+    document.getElementById('terceirizadoObs').value='';
+    abrirModal('modalTerceirizado');
+    return;
   }
   abrirIniciarOp(draggedOrdemId, novaOp);
   draggedOrdemId=null;
@@ -4915,6 +5121,7 @@ const TILE_DEFS = [
    ['Lista de Compras','📋',1,'linear-gradient(135deg,#4527a0,#311b92)','tile-md','Status'],
    ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-md','Solicitações'],
    ['Ordens','🔧',5,'linear-gradient(135deg,#558b2f,#33691e)','tile-md','Produção'],
+   ['Pedido de Venda','🛒',13,'linear-gradient(135deg,#6a1b9a,#4a148c)','tile-md','Vendas'],
    ['Estoque','📦',11,'linear-gradient(135deg,#00695c,#004d40)','tile-md','MP e Produtos'],
    ['Enviar Cotação','📧',10,'linear-gradient(135deg,#c62828,#b71c1c)','tile-md','E-mails']]
 ];
@@ -5004,7 +5211,8 @@ function renderHomeTiles(){
   const ciPend=comprasInternas.filter(i=>!i.comprado).length;
   const emDesenho=pecasProjeto.filter(p=>p.status==='trabalhando').length;
   const lmSemCot=itens.filter(i=>i.origem_projeto&&!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
-  const badges={6:semCot,9:ciPend,3:emDesenho,4:lmSemCot};
+  const pvBadge=pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length;
+  const badges={6:semCot,9:ciPend,3:emDesenho,4:lmSemCot,13:pvBadge};
   div.innerHTML=tileDefs.map(row=>`
     <div class="tiles-row">
       ${row.map(([label,icon,tab,color,size,sub])=>{
@@ -5861,33 +6069,6 @@ function filtrarItensSaida(){
   }).join('');
 }
 
-function selecionarItemSaida(itemId){
-  const item=estoqueItens.find(i=>i.id===itemId);
-  if(!item)return;
-  document.getElementById('saidaItemId').value=itemId;
-  document.getElementById('saidaItemBusca').value=`${item.tipo_peca||item.descricao}${item.material?' | '+item.material:''}${item.espessura?' | '+item.espessura:''}${item.medida1?' × '+item.medida1:''}${item.medida2?' × '+item.medida2:''}`;
-  document.getElementById('saidaItemDropdown').style.display='none';
-
-  // Detecta unidade automaticamente pelo tipo de peça
-  const tp=(item.tipo_peca||item.descricao||'').toUpperCase();
-  const unidAuto=
-    tp.includes('CHAPA')||tp.includes('BARRA REDONDA')||tp.includes('TUBO')||tp.includes('ANEL')||tp.includes('DISCO')?'KG':
-    tp.includes('CHAVETA')||tp.includes('BARRA ROSCADA')||tp.includes('PARAF')||tp.includes('PORCA')||tp.includes('ARRUELA')||tp.includes('CONEXÃO')?'PC':
-    (item.unidade||'PC');
-  document.getElementById('saidaUnidade').value=unidAuto;
-
-  // Mostra saldo atual
-  const mov=estoqueMov.filter(m=>m.item_id===itemId);
-  const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item.qtd_inicial||0));
-  const info=document.getElementById('saidaItemInfo');
-  const saldoFmt=`${saldo.toLocaleString('pt-BR',{maximumFractionDigits:3})} ${item.unidade||unidAuto}`;
-  info.innerHTML=`Saldo atual: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldoFmt}</b> · Localização: <b>${item.localizacao||'—'}</b>${item.peso_unitario?` · Peso unit.: <b>${item.peso_unitario} kg/pc</b>`:''}${item.valor_unitario?` · Preço: <b>R$ ${Number(item.valor_unitario).toLocaleString('pt-BR',{minimumFractionDigits:2})}</b>`:''}`;
-  const si=document.getElementById('saidaSaldoInfo');
-  si.style.display='block';
-  si.innerHTML=`📦 <b>${item.tipo_peca||item.descricao}</b> · Saldo: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldoFmt}</b>`;
-  calcularSaidaInfo();
-}
-
 function calcularSaidaInfo(){
   const itemId=document.getElementById('saidaItemId').value;
   const qtd=parseFloat(document.getElementById('saidaQtd').value)||0;
@@ -5897,12 +6078,10 @@ function calcularSaidaInfo(){
   const item=estoqueItens.find(i=>i.id===itemId);
   if(!item){el.style.display='none';return;}
   const parts=[];
-  // Peso total
   if(item.peso_unitario&&und==='PC'){
     const pesoTotal=qtd*parseFloat(item.peso_unitario);
     parts.push(`⚖️ Peso total: <b>${pesoTotal.toLocaleString('pt-BR',{maximumFractionDigits:3})} kg</b>`);
   }
-  // Valor total (só se tiver preço)
   if(item.valor_unitario){
     const valorTotal=qtd*parseFloat(item.valor_unitario);
     parts.push(`💰 Valor total: <b>R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</b>`);
@@ -5911,19 +6090,40 @@ function calcularSaidaInfo(){
   else el.style.display='none';
 }
 
+function selecionarItemSaida(itemId){
+  const item=estoqueItens.find(i=>i.id===itemId);
+  if(!item)return;
+  document.getElementById('saidaItemId').value=itemId;
+  document.getElementById('saidaItemBusca').value=`${item.tipo_peca||item.descricao}${item.material?' | '+item.material:''}${item.espessura?' | '+item.espessura:''}${item.medida1?' × '+item.medida1:''}${item.medida2?' × '+item.medida2:''}`;
+  document.getElementById('saidaItemDropdown').style.display='none';
+  const tp=(item.tipo_peca||item.descricao||'').toUpperCase();
+  const unidAuto=tp.includes('CHAPA')||tp.includes('BARRA REDONDA')||tp.includes('TUBO')||tp.includes('ANEL')||tp.includes('DISCO')?'KG':
+    tp.includes('CHAVETA')||tp.includes('BARRA ROSCADA')||tp.includes('PARAF')||tp.includes('PORCA')||tp.includes('ARRUELA')?'PC':
+    (item.unidade||'PC');
+  document.getElementById('saidaUnidade').value=unidAuto;
+  const mov=estoqueMov.filter(m=>m.item_id===itemId);
+  const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item.qtd_inicial||0));
+  const info=document.getElementById('saidaItemInfo');
+  info.innerHTML=`Saldo atual: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldo} ${item.unidade||''}</b> · Local: <b>${item.localizacao||'—'}</b>${item.peso_unitario?` · Peso unit.: <b>${item.peso_unitario} kg</b>`:''}${item.valor_unitario?` · Preço: <b>R$ ${Number(item.valor_unitario).toLocaleString('pt-BR',{minimumFractionDigits:2})}</b>`:''}`;
+  const si=document.getElementById('saidaSaldoInfo');
+  si.style.display='block';
+  si.innerHTML=`📦 <b>${item.tipo_peca||item.descricao}</b> · Saldo: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldo} ${item.unidade||''}</b>`;
+  calcularSaidaInfo();
+}
+
 function limparFormSaida(){
   ['saidaItemBusca','saidaDept','saidaOrdem','saidaObs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['saidaQtd'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('saidaItemId').value='';
   document.getElementById('saidaItemInfo').innerHTML='';
-  document.getElementById('saidaCalcInfo').style.display='none';
+  const ci=document.getElementById('saidaCalcInfo');if(ci)ci.style.display='none';
   document.getElementById('saidaSaldoInfo').style.display='none';
 }
 
 async function registrarSaida(){
   const itemId=document.getElementById('saidaItemId').value;
   const qtd=parseFloat(document.getElementById('saidaQtd').value);
-  const und=document.getElementById('saidaUnidade').value;
+  const und=document.getElementById('saidaUnidade')?.value||'PC';
   const dept=(document.getElementById('saidaDept').value||'').trim();
   const data=document.getElementById('saidaData').value;
   if(!itemId){showToast('Selecione o item','err');return;}
@@ -5933,11 +6133,8 @@ async function registrarSaida(){
   const mov=estoqueMov.filter(m=>m.item_id===itemId);
   const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item?.qtd_inicial||0));
   if(qtd>saldo&&!confirm(`Saldo disponível é ${saldo} ${item?.unidade||''}. Confirmar saída mesmo assim?`))return;
-
-  // Calcula peso e valor se disponível
   const pesoTotal=(und==='PC'&&item?.peso_unitario)?qtd*parseFloat(item.peso_unitario):null;
   const valorTotal=item?.valor_unitario?qtd*parseFloat(item.valor_unitario):null;
-
   try{
     await api('POST','estoque_movimentacoes',{
       item_id:itemId,
@@ -5981,7 +6178,6 @@ function renderSaidas(){
   // Stats
   const totalSaidas=saidas.length;
   const valorTotal=saidas.reduce((acc,m)=>{
-    if(m.valor_total) return acc+parseFloat(m.valor_total);
     const item=estoqueItens.find(i=>i.id===m.item_id);
     return acc+(m.valor_unitario||item?.valor_unitario||0)*m.quantidade;
   },0);
@@ -6021,15 +6217,13 @@ function renderSaidas(){
       const item=estoqueItens.find(i=>i.id===m.item_id);
       const dtCurta=m.data?new Date(m.data+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
       const valUnit=m.valor_unitario||item?.valor_unitario||0;
-      const valTotal=m.valor_total||(valUnit*m.quantidade)||0;
-      const und=m.unidade_saida||item?.unidade||'';
-      const pesoFmt=m.peso_total?`<div style="font-size:10px;color:#546e7a">${m.peso_total.toLocaleString('pt-BR',{maximumFractionDigits:3})} kg</div>`:'';
+      const valTotal=valUnit*m.quantidade;
       return `<tr style="border-bottom:1px solid #f0f4f0">
         <td style="padding:7px 10px;font-size:11px">${dtCurta}</td>
         <td style="padding:7px 10px;font-weight:600;font-size:12px">${item?.tipo_peca||item?.descricao||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--green)">${item?.material||'—'}</td>
         <td style="padding:7px 10px;font-family:monospace;font-size:11px">${[item?.espessura,item?.medida1,item?.medida2].filter(Boolean).join(' × ')||'—'}</td>
-        <td style="padding:7px 10px;font-size:12px;font-weight:700;color:#e65100">${m.quantidade} ${und}${pesoFmt}</td>
+        <td style="padding:7px 10px;font-size:12px;font-weight:700;color:#e65100">${m.quantidade} ${item?.unidade||''}</td>
         <td style="padding:7px 10px;font-size:12px">${valUnit?fmtVal(valUnit):'—'}</td>
         <td style="padding:7px 10px;font-size:12px;font-weight:600;color:#2e7d32">${valTotal>0?fmtVal(valTotal):'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${m.ordem||'—'}</td>
@@ -6842,6 +7036,366 @@ window.addEventListener('load',()=>{
     document.getElementById('loginBg').style.display='flex';
   }
 });
+
+// ===== PEDIDOS DE VENDA =====
+let editPVId=null, pvItensLocal=[], pvParcelasLocal=[];
+let _terceirizadoOrdemId=null, _pendingTerceirizadoObs=null;
+
+async function confirmarTerceirizado(){
+  const nome=document.getElementById('terceirizadoNome').value.trim();
+  if(!nome){showToast('Informe o nome do terceirizado','err');return;}
+  const obs=document.getElementById('terceirizadoObs').value.trim();
+  fecharModal('modalTerceirizado');
+  _pendingTerceirizadoObs=`🏭 ${nome}${obs?' — '+obs:''}`;
+  abrirIniciarOp(_terceirizadoOrdemId,'Terceirizado');
+  _terceirizadoOrdemId=null;
+}
+
+function pvStatusBadge(s){
+  const m={'Orçamento':'pv-badge-orcamento','Aprovado':'pv-badge-aprovado','Em Produção':'pv-badge-producao','Faturado':'pv-badge-faturado','Entregue':'pv-badge-entregue','Cancelado':'pv-badge-cancelado'};
+  return `<span class="badge ${m[s]||'badge-gray'}">${s||'—'}</span>`;
+}
+
+function renderPedidosVenda(){
+  const b=(document.getElementById('buscaPV')?.value||'').toLowerCase();
+  const st=document.getElementById('filtroPVStatus')?.value||'';
+  const tbody=document.getElementById('listaPV');
+  if(!tbody)return;
+  const total=pedidosVenda.length;
+  const abertos=pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length;
+  const valorAberto=pedidosVenda.filter(p=>p.status==='Aprovado'||p.status==='Em Produção').reduce((s,p)=>s+(p.total||0),0);
+  const faturados=pedidosVenda.filter(p=>p.status==='Faturado'||p.status==='Entregue').length;
+  const el=document.getElementById('statsPV');
+  if(el) el.innerHTML=`
+    <div class="stat" style="cursor:default"><div class="stat-label">Total PV</div><div class="stat-val">${total}</div></div>
+    <div class="stat yellow" style="cursor:default"><div class="stat-label">Em Aberto</div><div class="stat-val">${abertos}</div></div>
+    <div class="stat" style="border-left-color:#6a1b9a;cursor:default"><div class="stat-label">Valor Aprovado</div><div class="stat-val" style="color:#6a1b9a;font-size:18px">${fmtVal(valorAberto)}</div></div>
+    <div class="stat blue" style="cursor:default"><div class="stat-label">Faturados/Entregues</div><div class="stat-val">${faturados}</div></div>`;
+  let lista=[...pedidosVenda];
+  if(b) lista=lista.filter(p=>(p.numero+''+p.cliente_nome+p.vendedor+'').toLowerCase().includes(b));
+  if(st) lista=lista.filter(p=>p.status===st);
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">Nenhum pedido encontrado</td></tr>`;return;}
+  tbody.innerHTML=lista.map(p=>{
+    const parcs=Array.isArray(p.parcelas)?p.parcelas:[];
+    return `<tr>
+      <td style="padding:7px 10px;font-weight:700;color:#2e7d32">Nº ${p.numero||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${p.data_inclusao?new Date(p.data_inclusao).toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;font-weight:600">${p.cliente_nome||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${p.vendedor||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${p.prev_faturamento?new Date(p.prev_faturamento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${parcs.length?parcs.length+'x':'—'}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:700;color:#2e7d32">${fmtVal(p.total||0)}</td>
+      <td style="padding:7px 10px">${pvStatusBadge(p.status)}</td>
+      <td style="padding:7px 6px;white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirModalPV('${p.id}')" title="Editar">✏️</button>
+        <button class="btn btn-sm blue" onclick="imprimirPV('${p.id}')" title="Imprimir">🖨️</button>
+        <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;font-size:10px" onclick="gerarNFeFromPV('${p.id}')">📄 NF-e</button>
+        <button class="btn btn-sm danger" onclick="deletarPV('${p.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function showPVSubTab(sub){
+  ['dados','itens','pagto'].forEach(s=>{
+    const el=document.getElementById('pvSub'+s.charAt(0).toUpperCase()+s.slice(1));
+    if(el) el.style.display=s===sub?'block':'none';
+    const btn=document.getElementById('pvTab_'+s);
+    if(btn){btn.style.color=s===sub?'#2e7d32':'#546e7a';btn.style.fontWeight=s===sub?'700':'600';btn.style.borderBottom=s===sub?'3px solid #2e7d32':'3px solid transparent';}
+  });
+  if(sub==='itens') renderPVItens();
+  if(sub==='pagto'){gerarParcelasPV();const t=document.getElementById('pvTotalPagto');if(t)t.textContent=document.getElementById('pv_total')?.textContent||'R$ 0,00';}
+}
+
+function abrirModalPV(id){
+  editPVId=id; pvItensLocal=[]; pvParcelasLocal=[];
+  const p=id?pedidosVenda.find(x=>x.id===id):null;
+  document.getElementById('modalPVTitulo').textContent=id?'Editar Pedido de Venda':'Novo Pedido de Venda';
+  if(p){
+    document.getElementById('pv_numero').value=p.numero||'';
+    document.getElementById('pv_status').value=p.status||'Orçamento';
+    document.getElementById('pv_vendedor').value=p.vendedor||'';
+    document.getElementById('pv_prev_fat').value=p.prev_faturamento||'';
+    document.getElementById('pv_frete').value=p.frete||0;
+    document.getElementById('pv_cond_pag').value=p.cond_pagamento||'';
+    document.getElementById('pv_cli_razao').value=p.cliente_nome||'';
+    document.getElementById('pv_cli_contato').value=p.cliente_contato||'';
+    document.getElementById('pv_cli_cnpj').value=p.cliente_cnpj||'';
+    document.getElementById('pv_cli_ie').value=p.cliente_ie||'';
+    document.getElementById('pv_cli_end').value=p.cliente_endereco||'';
+    document.getElementById('pv_cli_cidade').value=p.cliente_cidade||'';
+    document.getElementById('pv_cli_tel').value=p.cliente_tel||'';
+    document.getElementById('pv_cli_email').value=p.cliente_email||'';
+    document.getElementById('pv_obs').value=p.observacoes||'';
+    pvItensLocal=Array.isArray(p.itens)?JSON.parse(JSON.stringify(p.itens)):[];
+    pvParcelasLocal=Array.isArray(p.parcelas)?JSON.parse(JSON.stringify(p.parcelas)):[];
+    if(pvParcelasLocal.length) document.getElementById('pvNumParcelas').value=pvParcelasLocal.length;
+  } else {
+    const maxNum=pedidosVenda.length?Math.max(...pedidosVenda.map(x=>x.numero||0)):0;
+    document.getElementById('pv_numero').value=maxNum+1;
+    document.getElementById('pv_status').value='Orçamento';
+    document.getElementById('pv_vendedor').value=usuarioLogado?.nome||'';
+    ['pv_prev_fat','pv_cond_pag','pv_cli_razao','pv_cli_contato','pv_cli_cnpj','pv_cli_ie','pv_cli_end','pv_cli_cidade','pv_cli_tel','pv_cli_email','pv_obs'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+    document.getElementById('pv_frete').value=0;
+    pvItensLocal=[]; pvParcelasLocal=[];
+  }
+  showPVSubTab('dados'); recalcularTotaisPV(); abrirModal('modalPV');
+}
+
+function addItemPV(item=null){
+  pvItensLocal.push({codigo:item?.codigo||'',descricao:item?.descricao||'',ncm:item?.ncm||'',qtd:item?.qtd||1,und:item?.und||'PC',valor_unit:item?.valor_unit||0,desconto:0,total:0});
+  renderPVItens();
+}
+
+function renderPVItens(){
+  const tbody=document.getElementById('pvItensBody');
+  if(!tbody)return;
+  if(!pvItensLocal.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:16px;color:#bdbdbd;font-size:12px">Nenhum item — clique em "+ Novo Item"</td></tr>`;recalcularTotaisPV();return;}
+  tbody.innerHTML=pvItensLocal.map((it,i)=>{
+    const total=calcTotalItemPV(it);it.total=total;
+    return `<tr style="border-bottom:1px solid #f0f4f0">
+      <td style="padding:4px 6px"><input value="${it.codigo||''}" onchange="pvItensLocal[${i}].codigo=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:80px"></td>
+      <td style="padding:4px 6px"><input value="${(it.descricao||'').replace(/"/g,'&quot;')}" onchange="pvItensLocal[${i}].descricao=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:100%;min-width:180px"></td>
+      <td style="padding:4px 6px"><input value="${it.ncm||''}" onchange="pvItensLocal[${i}].ncm=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:88px"></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.qtd||1}" min="0.001" step="0.001" onchange="pvItensLocal[${i}].qtd=parseFloat(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:60px"></td>
+      <td style="padding:4px 6px"><select onchange="pvItensLocal[${i}].und=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px">${['PC','UN','CJ','KG','MT','M2','HR','CX','LT'].map(u=>`<option ${it.und===u?'selected':''}>${u}</option>`).join('')}</select></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.valor_unit||0}" min="0" step="0.0001" onchange="pvItensLocal[${i}].valor_unit=parseFloat(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:90px"></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.desconto||0}" min="0" max="100" step="0.01" onchange="pvItensLocal[${i}].desconto=parseFloat(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:60px"></td>
+      <td style="padding:4px 8px;font-weight:700;color:#2e7d32;font-size:12px;white-space:nowrap">${fmtVal(total)}</td>
+      <td style="padding:4px 4px"><button onclick="pvItensLocal.splice(${i},1);renderPVItens()" style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:2px 6px;cursor:pointer;font-size:12px">✕</button></td>
+    </tr>`;
+  }).join('');
+  recalcularTotaisPV();
+}
+
+function calcTotalItemPV(it){return (it.qtd||0)*(it.valor_unit||0)*(1-(it.desconto||0)/100);}
+
+function recalcularTotaisPV(){
+  pvItensLocal.forEach(it=>it.total=calcTotalItemPV(it));
+  const subtotal=pvItensLocal.reduce((s,it)=>s+(it.total||0),0);
+  const frete=parseFloat(document.getElementById('pv_frete')?.value)||0;
+  const total=subtotal+frete;
+  const fmt=v=>`R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  if(document.getElementById('pv_subtotal')) document.getElementById('pv_subtotal').textContent=fmt(subtotal);
+  if(document.getElementById('pv_frete_tot')) document.getElementById('pv_frete_tot').textContent=fmt(frete);
+  if(document.getElementById('pv_total')) document.getElementById('pv_total').textContent=fmt(total);
+  if(document.getElementById('pvTotalPagto')) document.getElementById('pvTotalPagto').textContent=fmt(total);
+  return total;
+}
+
+function gerarParcelasPV(){
+  const n=parseInt(document.getElementById('pvNumParcelas')?.value)||3;
+  const primVenc=document.getElementById('pvPrimVenc')?.value;
+  const total=recalcularTotaisPV();
+  if(!total){pvParcelasLocal=[];renderParcelasPV();return;}
+  pvParcelasLocal=[];
+  for(let i=0;i<n;i++){
+    let venc='';
+    if(primVenc){const d=new Date(primVenc+'T12:00');d.setMonth(d.getMonth()+i);venc=d.toISOString().split('T')[0];}
+    pvParcelasLocal.push({parcela:i+1,vencimento:venc,valor:i<n-1?total/n:total-Math.floor(total/n*100)*(n-1)/100});
+  }
+  renderParcelasPV();
+}
+
+function renderParcelasPV(){
+  const div=document.getElementById('pvParcelasDiv');
+  if(!div)return;
+  if(!pvParcelasLocal.length){div.innerHTML='<p style="color:#bdbdbd;font-size:12px">Preencha os itens e o 1º vencimento.</p>';return;}
+  div.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:#e8f5e9"><th style="padding:6px 10px;color:#2e7d32;font-size:11px">Parcela</th><th style="padding:6px 10px;color:#2e7d32;font-size:11px">Vencimento</th><th style="padding:6px 10px;color:#2e7d32;font-size:11px">Valor (R$)</th></tr></thead>
+    <tbody>${pvParcelasLocal.map((p,i)=>`<tr style="border-bottom:1px solid #f0f4f0;text-align:center">
+      <td style="padding:6px 10px;font-weight:700">${p.parcela}</td>
+      <td style="padding:4px 8px"><input type="date" value="${p.vencimento||''}" onchange="pvParcelasLocal[${i}].vencimento=this.value" style="padding:4px 8px;border:1px solid #dce4dc;border-radius:6px;font-size:12px"></td>
+      <td style="padding:6px 10px;font-weight:600;color:#2e7d32">${fmtVal(p.valor)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+async function salvarPV(){
+  const razao=document.getElementById('pv_cli_razao').value.trim();
+  if(!razao){showToast('Informe a razão social do cliente','err');return;}
+  const total=recalcularTotaisPV();
+  const obj={
+    numero:parseInt(document.getElementById('pv_numero').value)||0,
+    status:document.getElementById('pv_status').value,
+    vendedor:document.getElementById('pv_vendedor').value.trim(),
+    prev_faturamento:document.getElementById('pv_prev_fat').value||null,
+    frete:parseFloat(document.getElementById('pv_frete').value)||0,
+    cond_pagamento:document.getElementById('pv_cond_pag').value.trim(),
+    cliente_nome:razao,
+    cliente_contato:document.getElementById('pv_cli_contato').value.trim(),
+    cliente_cnpj:document.getElementById('pv_cli_cnpj').value.trim(),
+    cliente_ie:document.getElementById('pv_cli_ie').value.trim(),
+    cliente_endereco:document.getElementById('pv_cli_end').value.trim(),
+    cliente_cidade:document.getElementById('pv_cli_cidade').value.trim(),
+    cliente_tel:document.getElementById('pv_cli_tel').value.trim(),
+    cliente_email:document.getElementById('pv_cli_email').value.trim(),
+    observacoes:document.getElementById('pv_obs').value.trim(),
+    itens:pvItensLocal, parcelas:pvParcelasLocal, total,
+    data_inclusao:editPVId?(pedidosVenda.find(x=>x.id===editPVId)?.data_inclusao||new Date().toISOString()):new Date().toISOString()
+  };
+  try{
+    if(editPVId) await api('PATCH','pedidos_venda',obj,`?id=eq.${editPVId}`);
+    else await api('POST','pedidos_venda',obj);
+    showToast(editPVId?'Pedido atualizado!':'Pedido criado!');
+    fecharModal('modalPV'); await loadAll();
+  }catch(e){showToast('Erro ao salvar pedido','err');console.error(e);}
+}
+
+async function deletarPV(id){
+  if(!confirm('Excluir este pedido de venda?'))return;
+  try{await api('DELETE','pedidos_venda','',`?id=eq.${id}`);showToast('Pedido removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+function abrirSelecionarClientePV(){
+  document.getElementById('buscaClientePVModal').value='';
+  renderClientesPVModal();
+  abrirModal('modalSelecionarClientePV');
+}
+function renderClientesPVModal(){
+  const b=(document.getElementById('buscaClientePVModal')?.value||'').toLowerCase();
+  const div=document.getElementById('listaClientesPVModal');
+  if(!div)return;
+  const lista=clientesFiscal.filter(c=>!b||(c.nome+c.cnpj_cpf+'').toLowerCase().includes(b));
+  if(!lista.length){div.innerHTML='<p style="color:#bdbdbd;padding:12px;font-size:13px">Nenhum cliente</p>';return;}
+  div.innerHTML=lista.map(c=>`<div onclick="selecionarClientePV('${c.id}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f4f0" onmouseover="this.style.background='#f9fbf9'" onmouseout="this.style.background=''">
+    <div style="font-weight:600;font-size:13px">${c.nome||'—'}</div>
+    <div style="font-size:11px;color:#546e7a">${c.cnpj_cpf||''}${c.cidade?' · '+c.cidade:''}</div>
+  </div>`).join('');
+}
+function selecionarClientePV(id){
+  const c=clientesFiscal.find(x=>x.id===id);if(!c)return;
+  document.getElementById('pv_cli_razao').value=c.nome||'';
+  document.getElementById('pv_cli_cnpj').value=c.cnpj_cpf||'';
+  document.getElementById('pv_cli_ie').value=c.ie||'';
+  document.getElementById('pv_cli_end').value=c.endereco||'';
+  document.getElementById('pv_cli_cidade').value=[c.cidade,c.uf,c.cep].filter(Boolean).join(' - ');
+  document.getElementById('pv_cli_email').value=c.email||'';
+  fecharModal('modalSelecionarClientePV');
+}
+
+function abrirBuscaEstoquePV(){
+  document.getElementById('buscaEstPV').value='';renderEstoquePVModal();abrirModal('modalBuscaEstoquePV');
+}
+function renderEstoquePVModal(){
+  const b=(document.getElementById('buscaEstPV')?.value||'').toLowerCase();
+  const div=document.getElementById('listaEstPVModal');
+  if(!div)return;
+  const lista=estoqueItens.filter(i=>!b||(i.descricao+i.codigo+'').toLowerCase().includes(b));
+  if(!lista.length){div.innerHTML='<p style="color:#bdbdbd;padding:12px;font-size:13px">Nenhum item</p>';return;}
+  div.innerHTML=lista.map(i=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f0f4f0">
+    <div><div style="font-weight:600;font-size:13px">${i.descricao||'—'}</div><div style="font-size:11px;color:#546e7a">${i.codigo?'Cód: '+i.codigo+' · ':''}${i.ncm?'NCM: '+i.ncm:''}</div></div>
+    <button class="btn btn-sm primary" onclick="adicionarItemEstoquePV('${i.id}')" style="font-size:11px">+ Add</button>
+  </div>`).join('');
+}
+function adicionarItemEstoquePV(id){
+  const item=estoqueItens.find(i=>i.id===id);if(!item)return;
+  addItemPV({codigo:item.codigo||'',descricao:item.descricao||'',ncm:item.ncm||'',qtd:1,und:item.unidade||'PC',valor_unit:item.preco_venda||0});
+  showPVSubTab('itens');fecharModal('modalBuscaEstoquePV');
+}
+
+function gerarNFeFromPV(id){
+  const p=pedidosVenda.find(x=>x.id===id);if(!p)return;
+  showTab(12);showFiscalSub('nfe');
+  const cp=(p.cliente_cidade||'').split('-').map(s=>s.trim());
+  document.getElementById('nfe_cli_busca').value=p.cliente_nome||'';
+  document.getElementById('nfe_dest_nome').value=p.cliente_nome||'';
+  document.getElementById('nfe_dest_doc').value=p.cliente_cnpj||'';
+  document.getElementById('nfe_dest_ie').value=p.cliente_ie||'';
+  document.getElementById('nfe_dest_end').value=p.cliente_endereco||'';
+  document.getElementById('nfe_dest_cidade').value=cp[0]||'';
+  document.getElementById('nfe_dest_uf').value=cp[1]||'';
+  document.getElementById('nfe_dest_cep').value=cp[2]||'';
+  document.getElementById('nfe_dest_email').value=p.cliente_email||'';
+  nfeItens=[];
+  (p.itens||[]).forEach(it=>{
+    if(!it.descricao||!(it.qtd>0))return;
+    nfeItens.push({descricao:it.descricao,ncm:(it.ncm||'').replace(/\D/g,''),cfop:'6102',und:it.und||'PC',qtd:it.qtd||1,vunit:it.valor_unit||0,icms:13.92,total:it.total||0});
+  });
+  renderItensNFe();calcularTotaisNFe();
+  showToast('Dados do PV carregados na NF-e!');
+}
+
+function imprimirPV(id){
+  const p=pedidosVenda.find(x=>x.id===id)||{};
+  const itArr=Array.isArray(p.itens)?p.itens:[];
+  const parArr=Array.isArray(p.parcelas)?p.parcelas:[];
+  const fmt=v=>v?`R$ ${Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`:'R$ 0,00';
+  const fmtDate=s=>s?new Date(s.includes('T')?s:s+'T12:00').toLocaleDateString('pt-BR'):'—';
+  const subtotal=itArr.reduce((s,it)=>s+(it.total||0),0);
+  const totalGeral=subtotal+(p.frete||0);
+  const html=`<div style="font-family:Arial,sans-serif;font-size:12px;color:#000;padding:20px;max-width:800px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #2e7d32;padding-bottom:12px;margin-bottom:14px">
+      <div><div style="font-size:22px;font-weight:800;color:#2e7d32">Pedido de Venda Nº ${p.numero||'—'}</div>
+      <div style="font-size:11px;color:#546e7a">Gerado em ${new Date().toLocaleDateString('pt-BR')} por ${usuarioLogado?.nome||'—'}</div></div>
+      <div style="text-align:right"><div style="font-weight:800;font-size:13px">M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</div>
+      <div style="font-size:11px;color:#546e7a">www.sloleos.com.br · CNPJ: 08.363.498/0001-69</div>
+      <div style="font-size:11px;color:#546e7a">RUA FRANCISCO JOSE CASEIRO, 190 · JAÚ - SP · (14) 3626-1777</div></div>
+    </div>
+    <div style="background:#f9fbf9;border:1px solid #dce4dc;border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:6px">Informações do Cliente</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">${p.cliente_nome||'—'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:11px;color:#546e7a">
+        ${p.cliente_contato?`<div><b>Contato:</b> ${p.cliente_contato}</div>`:''}
+        ${p.cliente_cnpj?`<div><b>CNPJ:</b> ${p.cliente_cnpj}</div>`:''}
+        ${p.cliente_tel?`<div><b>Tel:</b> ${p.cliente_tel}</div>`:''}
+        ${p.cliente_email?`<div><b>E-mail:</b> ${p.cliente_email}</div>`:''}
+        ${p.cliente_endereco?`<div style="grid-column:1/-1"><b>End:</b> ${p.cliente_endereco}${p.cliente_cidade?' · '+p.cliente_cidade:''}</div>`:''}
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <thead><tr style="background:#2e7d32;color:#fff">
+        <th style="padding:7px 8px;text-align:left;font-size:11px">Código</th>
+        <th style="padding:7px 8px;text-align:left;font-size:11px">Descrição</th>
+        <th style="padding:7px 8px;text-align:center;font-size:11px">NCM</th>
+        <th style="padding:7px 8px;text-align:center;font-size:11px">Quant.</th>
+        <th style="padding:7px 8px;text-align:right;font-size:11px">Unit.</th>
+        <th style="padding:7px 8px;text-align:right;font-size:11px">Total</th>
+      </tr></thead>
+      <tbody>${itArr.map((it,i)=>`<tr style="border-bottom:1px solid #f0f4f0;${i%2===0?'background:#fafafa':''}">
+        <td style="padding:6px 8px;font-size:11px">${it.codigo||'—'}</td>
+        <td style="padding:6px 8px;font-size:11px">${it.descricao||'—'}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:center">${it.ncm||'—'}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:center">${it.qtd||0} ${it.und||''}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right">${fmt(it.valor_unit)}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right;font-weight:700">${fmt(it.total)}</td>
+      </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:12px;color:#bdbdbd">Nenhum item</td></tr>'}</tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <table style="min-width:260px;border-collapse:collapse;font-size:12px">
+        <tr><td style="padding:4px 10px">Subtotal:</td><td style="padding:4px 10px;text-align:right">${fmt(subtotal)}</td></tr>
+        <tr><td style="padding:4px 10px">IPI:</td><td style="padding:4px 10px;text-align:right">R$ 0,00</td></tr>
+        <tr><td style="padding:4px 10px">ICMS ST:</td><td style="padding:4px 10px;text-align:right">R$ 0,00</td></tr>
+        <tr style="border-top:2px solid #2e7d32"><td style="padding:6px 10px;font-weight:800;font-size:14px;color:#2e7d32">Total:</td><td style="padding:6px 10px;text-align:right;font-weight:800;font-size:14px;color:#2e7d32">${fmt(totalGeral)}</td></tr>
+      </table>
+    </div>
+    ${parArr.length?`<div style="margin-bottom:14px"><div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:6px">Vencimentos ${parArr.length} Parcelas</div>
+    <table style="border-collapse:collapse;font-size:12px"><thead><tr style="background:#2e7d32;color:#fff"><th style="padding:5px 10px">Parcela</th><th style="padding:5px 10px">Vencimento</th><th style="padding:5px 10px">Valor</th></tr></thead>
+    <tbody>${parArr.map(par=>`<tr style="text-align:center;border-bottom:1px solid #f0f4f0"><td style="padding:5px 10px;font-weight:700">${par.parcela}</td><td style="padding:5px 10px">${fmtDate(par.vencimento)}</td><td style="padding:5px 10px;font-weight:700;color:#2e7d32">${fmt(par.valor)}</td></tr>`).join('')}</tbody></table></div>`:''}
+    <div style="background:#f9fbf9;border:1px solid #dce4dc;border-radius:8px;padding:12px;font-size:12px">
+      <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:6px">Outras Informações</div>
+      <div><b>Pedido de Venda — incluído em:</b> ${fmtDate(p.data_inclusao)}</div>
+      ${p.prev_faturamento?`<div><b>Previsão de Faturamento:</b> ${fmtDate(p.prev_faturamento)}</div>`:''}
+      ${p.vendedor?`<div><b>Vendedor:</b> ${p.vendedor}</div>`:''}
+    </div>
+  </div>`;
+  const area=document.getElementById('pvPrintArea');
+  area.innerHTML=html; area.style.display='block';
+  const style=document.createElement('style');
+  style.id='pvPrintStyle';
+  style.textContent='@media print{@page{size:A4 portrait;margin:10mm}body *{visibility:hidden!important}#pvPrintArea,#pvPrintArea *{visibility:visible!important}#pvPrintArea{display:block!important;position:fixed;left:0;top:0;width:100%}.no-print{display:none!important}}';
+  document.head.appendChild(style);
+  setTimeout(()=>{window.print();setTimeout(()=>{area.style.display='none';area.innerHTML='';const s=document.getElementById('pvPrintStyle');if(s)s.remove();},1000);},200);
+}
+
+function exportarExcelPV(){
+  if(!pedidosVenda.length){showToast('Nenhum pedido para exportar','err');return;}
+  const rows=[['Nº','Data','Cliente','Vendedor','Prev.Faturamento','Total','Status']];
+  pedidosVenda.forEach(p=>rows.push([p.numero||'',p.data_inclusao?new Date(p.data_inclusao).toLocaleDateString('pt-BR'):'',p.cliente_nome||'',p.vendedor||'',p.prev_faturamento?new Date(p.prev_faturamento+'T12:00').toLocaleDateString('pt-BR'):'',p.total||0,p.status||'']));
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pedidos_venda.xls';a.click();
+}
+
 </script>
 </body>
 </html>
