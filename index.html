@@ -3537,10 +3537,9 @@ function abrirFinalizarOp(tempoId){
     <span style="color:var(--gray);font-size:12px">Operador: <b>${t?.operador||'—'}</b> · Operação: <b>${t?.operacao||'—'}</b></span>`;
   // Preenche com horários úteis padrão de hoje
   const hoje=new Date();
-  const pad=n=>String(n).padStart(2,'0');
-  const dataStr=`${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}`;
+  const dataStr=fmtDatetimeLocal(hoje).split('T')[0];
   document.getElementById('op_fim_inicio').value=`${dataStr}T07:00`;
-  document.getElementById('op_fim_fim').value=`${dataStr}T${pad(hoje.getHours())}:${pad(hoje.getMinutes())}`;
+  document.getElementById('op_fim_fim').value=fmtDatetimeLocal(hoje);
   document.getElementById('op_tempo_total').textContent='—';
   document.getElementById('op_tempo_detalhe').textContent='';
   calcularTempoOp();
@@ -3605,7 +3604,8 @@ function calcularTempoOp(){
   const elTotal=document.getElementById('op_tempo_total');
   const elDetalhe=document.getElementById('op_tempo_detalhe');
   if(!iniVal||!fimVal){elTotal.textContent='—';elDetalhe.textContent='';return;}
-  const ini=new Date(iniVal), fim=new Date(fimVal);
+  // Usa parseLocalDate para evitar problema de fuso horário
+  const ini=parseLocalDate(iniVal), fim=parseLocalDate(fimVal);
   if(fim<=ini){elTotal.textContent='❌ Fim antes do início';elTotal.style.color='#c62828';elDetalhe.textContent='';return;}
   const {texto,detalhe}=calcularHorasUteis(ini,fim);
   elTotal.textContent=texto;
@@ -3613,23 +3613,44 @@ function calcularTempoOp(){
   elDetalhe.textContent=detalhe;
 }
 
+// Converte datetime-local string para Date sem converter fuso
+function parseLocalDate(val){
+  if(!val) return null;
+  const [datePart, timePart]=val.split('T');
+  const [y,mo,d]=datePart.split('-').map(Number);
+  const [h,mi]=(timePart||'00:00').split(':').map(Number);
+  return new Date(y,mo-1,d,h,mi,0,0);
+}
+
+// Formata Date para datetime-local input
+function fmtDatetimeLocal(dt){
+  if(!dt) return '';
+  const pad=n=>String(n).padStart(2,'0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
 async function confirmarFinalizarOp(){
   const iniVal=document.getElementById('op_fim_inicio').value;
   const fimVal=document.getElementById('op_fim_fim').value;
   if(!iniVal||!fimVal){showToast('Preencha início e fim','err');return;}
-  const ini=new Date(iniVal), fim=new Date(fimVal);
+  const ini=parseLocalDate(iniVal), fim=parseLocalDate(fimVal);
   if(fim<=ini){showToast('Fim deve ser após o início','err');return;}
   const {minutos}=calcularHorasUteis(ini,fim);
+  // Salva como ISO string no horário local (sem converter para UTC)
+  const toISO=d=>{
+    const pad=n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+  };
   try{
     await api('PATCH','tempos_op',{
-      dt_hr_inicial:ini.toISOString(),
-      dt_hr_final:fim.toISOString(),
+      dt_hr_inicial:toISO(ini),
+      dt_hr_final:toISO(fim),
       duracao_minutos:minutos
     },`?id=eq.${tempoOpAtualId}`);
     showToast('Operação concluída! Tempo: '+calcularHorasUteis(ini,fim).texto);
     fecharModal('modalFinalizarOp');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Erro','err');console.error(e);}
 }
 
 async function concluirOperacao(ordemId, operacao){
@@ -5144,14 +5165,20 @@ function editarTempoOp(tempoId){
   document.getElementById('finalizarOpInfo').innerHTML=`
     <b>Ordem Nº ${o?.numero}</b> — ${o?.descricao||'—'}<br>
     <span style="color:var(--gray);font-size:12px">Operador: <b>${t.operador||'—'}</b></span>`;
-  const pad=n=>String(n).padStart(2,'0');
-  const fmtInput=dt=>{
-    if(!dt) return '';
-    const d=new Date(dt);
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // Converte ISO string para Date local sem problema de fuso
+  const parseISO=s=>{
+    if(!s) return null;
+    // Remove timezone info e parseia como local
+    const clean=s.replace('Z','').replace(/[+-]\d{2}:\d{2}$/,'');
+    const [datePart,timePart]=clean.split('T');
+    const [y,mo,d]=datePart.split('-').map(Number);
+    const [h,mi]=(timePart||'00:00').split(':').map(Number);
+    return new Date(y,mo-1,d,h,mi,0,0);
   };
-  document.getElementById('op_fim_inicio').value=fmtInput(t.dt_hr_inicial);
-  document.getElementById('op_fim_fim').value=fmtInput(t.dt_hr_final);
+  const ini=parseISO(t.dt_hr_inicial);
+  const fim=parseISO(t.dt_hr_final);
+  document.getElementById('op_fim_inicio').value=ini?fmtDatetimeLocal(ini):'';
+  document.getElementById('op_fim_fim').value=fim?fmtDatetimeLocal(fim):'';
   calcularTempoOp();
   document.getElementById('modalFinalizarOp').classList.add('open');
 }
