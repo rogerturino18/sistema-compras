@@ -1518,7 +1518,18 @@ tr:hover td{background:#f9fbf9}
 
         <div class="form-group">
           <label>Quantidade *</label>
-          <input id="saidaQtd" type="number" step="0.001" min="0.001" placeholder="0">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="saidaQtd" type="number" step="0.001" min="0.001" placeholder="0" oninput="calcularSaidaInfo()" style="flex:1">
+            <select id="saidaUnidade" onchange="calcularSaidaInfo()" style="padding:7px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;min-width:70px">
+              <option value="PC">PC</option>
+              <option value="KG">KG</option>
+              <option value="UN">UN</option>
+              <option value="MT">MT</option>
+              <option value="M2">M2</option>
+              <option value="LT">LT</option>
+            </select>
+          </div>
+          <div id="saidaCalcInfo" style="margin-top:5px;font-size:12px;color:#2e7d32;display:none"></div>
         </div>
         <div class="form-group">
           <label>Data *</label>
@@ -5856,14 +5867,48 @@ function selecionarItemSaida(itemId){
   document.getElementById('saidaItemId').value=itemId;
   document.getElementById('saidaItemBusca').value=`${item.tipo_peca||item.descricao}${item.material?' | '+item.material:''}${item.espessura?' | '+item.espessura:''}${item.medida1?' × '+item.medida1:''}${item.medida2?' × '+item.medida2:''}`;
   document.getElementById('saidaItemDropdown').style.display='none';
+
+  // Detecta unidade automaticamente pelo tipo de peça
+  const tp=(item.tipo_peca||item.descricao||'').toUpperCase();
+  const unidAuto=
+    tp.includes('CHAPA')||tp.includes('BARRA REDONDA')||tp.includes('TUBO')||tp.includes('ANEL')||tp.includes('DISCO')?'KG':
+    tp.includes('CHAVETA')||tp.includes('BARRA ROSCADA')||tp.includes('PARAF')||tp.includes('PORCA')||tp.includes('ARRUELA')||tp.includes('CONEXÃO')?'PC':
+    (item.unidade||'PC');
+  document.getElementById('saidaUnidade').value=unidAuto;
+
   // Mostra saldo atual
   const mov=estoqueMov.filter(m=>m.item_id===itemId);
   const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item.qtd_inicial||0));
   const info=document.getElementById('saidaItemInfo');
-  info.innerHTML=`Saldo atual: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldo} ${item.unidade||''}</b> · Localização: <b>${item.localizacao||'—'}</b>`;
+  const saldoFmt=`${saldo.toLocaleString('pt-BR',{maximumFractionDigits:3})} ${item.unidade||unidAuto}`;
+  info.innerHTML=`Saldo atual: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldoFmt}</b> · Localização: <b>${item.localizacao||'—'}</b>${item.peso_unitario?` · Peso unit.: <b>${item.peso_unitario} kg/pc</b>`:''}${item.valor_unitario?` · Preço: <b>R$ ${Number(item.valor_unitario).toLocaleString('pt-BR',{minimumFractionDigits:2})}</b>`:''}`;
   const si=document.getElementById('saidaSaldoInfo');
   si.style.display='block';
-  si.innerHTML=`📦 <b>${item.tipo_peca||item.descricao}</b> · Saldo disponível: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldo} ${item.unidade||''}</b>`;
+  si.innerHTML=`📦 <b>${item.tipo_peca||item.descricao}</b> · Saldo: <b style="color:${saldo<=0?'#c62828':'#2e7d32'}">${saldoFmt}</b>`;
+  calcularSaidaInfo();
+}
+
+function calcularSaidaInfo(){
+  const itemId=document.getElementById('saidaItemId').value;
+  const qtd=parseFloat(document.getElementById('saidaQtd').value)||0;
+  const und=document.getElementById('saidaUnidade').value;
+  const el=document.getElementById('saidaCalcInfo');
+  if(!itemId||!qtd){el.style.display='none';return;}
+  const item=estoqueItens.find(i=>i.id===itemId);
+  if(!item){el.style.display='none';return;}
+  const parts=[];
+  // Peso total
+  if(item.peso_unitario&&und==='PC'){
+    const pesoTotal=qtd*parseFloat(item.peso_unitario);
+    parts.push(`⚖️ Peso total: <b>${pesoTotal.toLocaleString('pt-BR',{maximumFractionDigits:3})} kg</b>`);
+  }
+  // Valor total (só se tiver preço)
+  if(item.valor_unitario){
+    const valorTotal=qtd*parseFloat(item.valor_unitario);
+    parts.push(`💰 Valor total: <b>R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</b>`);
+  }
+  if(parts.length){el.innerHTML=parts.join(' · ');el.style.display='block';}
+  else el.style.display='none';
 }
 
 function limparFormSaida(){
@@ -5871,12 +5916,14 @@ function limparFormSaida(){
   ['saidaQtd'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('saidaItemId').value='';
   document.getElementById('saidaItemInfo').innerHTML='';
+  document.getElementById('saidaCalcInfo').style.display='none';
   document.getElementById('saidaSaldoInfo').style.display='none';
 }
 
 async function registrarSaida(){
   const itemId=document.getElementById('saidaItemId').value;
   const qtd=parseFloat(document.getElementById('saidaQtd').value);
+  const und=document.getElementById('saidaUnidade').value;
   const dept=(document.getElementById('saidaDept').value||'').trim();
   const data=document.getElementById('saidaData').value;
   if(!itemId){showToast('Selecione o item','err');return;}
@@ -5886,12 +5933,21 @@ async function registrarSaida(){
   const mov=estoqueMov.filter(m=>m.item_id===itemId);
   const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item?.qtd_inicial||0));
   if(qtd>saldo&&!confirm(`Saldo disponível é ${saldo} ${item?.unidade||''}. Confirmar saída mesmo assim?`))return;
+
+  // Calcula peso e valor se disponível
+  const pesoTotal=(und==='PC'&&item?.peso_unitario)?qtd*parseFloat(item.peso_unitario):null;
+  const valorTotal=item?.valor_unitario?qtd*parseFloat(item.valor_unitario):null;
+
   try{
     await api('POST','estoque_movimentacoes',{
       item_id:itemId,
       tipo:'saida',
       subtipo:'producao',
       quantidade:qtd,
+      unidade_saida:und,
+      peso_total:pesoTotal,
+      valor_total:valorTotal,
+      valor_unitario:item?.valor_unitario||null,
       data:data||new Date().toISOString().split('T')[0],
       pdv:dept,
       ordem:document.getElementById('saidaOrdem').value.trim()||null,
@@ -5925,6 +5981,7 @@ function renderSaidas(){
   // Stats
   const totalSaidas=saidas.length;
   const valorTotal=saidas.reduce((acc,m)=>{
+    if(m.valor_total) return acc+parseFloat(m.valor_total);
     const item=estoqueItens.find(i=>i.id===m.item_id);
     return acc+(m.valor_unitario||item?.valor_unitario||0)*m.quantidade;
   },0);
@@ -5964,13 +6021,15 @@ function renderSaidas(){
       const item=estoqueItens.find(i=>i.id===m.item_id);
       const dtCurta=m.data?new Date(m.data+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
       const valUnit=m.valor_unitario||item?.valor_unitario||0;
-      const valTotal=valUnit*m.quantidade;
+      const valTotal=m.valor_total||(valUnit*m.quantidade)||0;
+      const und=m.unidade_saida||item?.unidade||'';
+      const pesoFmt=m.peso_total?`<div style="font-size:10px;color:#546e7a">${m.peso_total.toLocaleString('pt-BR',{maximumFractionDigits:3})} kg</div>`:'';
       return `<tr style="border-bottom:1px solid #f0f4f0">
         <td style="padding:7px 10px;font-size:11px">${dtCurta}</td>
         <td style="padding:7px 10px;font-weight:600;font-size:12px">${item?.tipo_peca||item?.descricao||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--green)">${item?.material||'—'}</td>
         <td style="padding:7px 10px;font-family:monospace;font-size:11px">${[item?.espessura,item?.medida1,item?.medida2].filter(Boolean).join(' × ')||'—'}</td>
-        <td style="padding:7px 10px;font-size:12px;font-weight:700;color:#e65100">${m.quantidade} ${item?.unidade||''}</td>
+        <td style="padding:7px 10px;font-size:12px;font-weight:700;color:#e65100">${m.quantidade} ${und}${pesoFmt}</td>
         <td style="padding:7px 10px;font-size:12px">${valUnit?fmtVal(valUnit):'—'}</td>
         <td style="padding:7px 10px;font-size:12px;font-weight:600;color:#2e7d32">${valTotal>0?fmtVal(valTotal):'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${m.ordem||'—'}</td>
