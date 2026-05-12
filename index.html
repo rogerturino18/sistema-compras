@@ -5736,13 +5736,11 @@ async function deletarMovEstoque(id){
 function fmtVal(v){return v!=null&&v!==0?'R$ '+Number(v).toFixed(2):'—';}
 function fmtDt(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('pt-BR');}catch{return d.substring(0,10);}}
 function showTab(n){
-  document.querySelectorAll('.tab').forEach((t,i)=>{
-    // Tab bar skips tab8 (removed), so adjust index
-    const tabNums=[0,1,2,3,4,5,6,7,9,10,11];
-    t.classList.toggle('active',tabNums[i]===n);
+  document.querySelectorAll('.tab').forEach(t=>{
+    const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
+    if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
   for(let i=0;i<=11;i++){
-    if(i===8)continue;
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
