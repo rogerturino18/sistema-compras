@@ -1690,7 +1690,6 @@ function renderAll(){
   renderListaMaterial();
   renderOrdens();
   renderCotacoes(); renderComparar();
-  renderStatsCompras(); renderComprado();
   renderStatsCI(); renderCI();
   renderFornCheck(); renderItemCheck(); renderEmails();
   renderEstoque();
@@ -1825,13 +1824,12 @@ function renderStats(){
 
 function populaFiltros(){
   const forns=[...new Set(itens.map(i=>i.fornecedor).filter(Boolean))].sort();
-  const pdvs=[...new Set(itens.map(i=>i.pdv).filter(Boolean))].sort();
+  const pdvsList=[...new Set(itens.map(i=>i.pdv).filter(Boolean))].sort();
   const fornOpts='<option value="">Todos fornecedores</option>'+forns.map(f=>`<option>${f}</option>`).join('');
-  const pdvOpts='<option value="">Todos PDVs</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
-  document.getElementById('filtroForn1').innerHTML=fornOpts;
-  document.getElementById('filtroPDV1').innerHTML=pdvOpts;
-  document.getElementById('filtroForn5').innerHTML=fornOpts;
-  document.getElementById('filtroPDV5').innerHTML=pdvOpts;
+  const pdvOpts='<option value="">Todos PDVs</option>'+pdvsList.map(p=>`<option>${p}</option>`).join('');
+  const set=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html;};
+  set('filtroForn1',fornOpts);
+  set('filtroPDV1',pdvOpts);
 }
 
 function renderItens(){
@@ -1976,11 +1974,7 @@ async function salvarItem(){
     filtroForn1: document.getElementById('filtroForn1').value,
     filtroPDV1: document.getElementById('filtroPDV1').value,
     sortItens: document.getElementById('sortItens').value,
-    busca5: document.getElementById('busca5').value,
-    filtroForn5: document.getElementById('filtroForn5').value,
-    filtroPDV5: document.getElementById('filtroPDV5').value,
-    filtroStatus5: document.getElementById('filtroStatus5').value,
-    sortCompras: document.getElementById('sortCompras').value,
+    busca5:'', filtroForn5:'', filtroPDV5:'', filtroStatus5:'', sortCompras:'',
   };
 
   try{
@@ -1996,7 +1990,6 @@ async function salvarItem(){
       if(el) el.value=val;
     });
     renderItens();
-    renderComprado();
   }catch(e){showToast('Erro ao salvar','err');}
 }
 
@@ -2536,6 +2529,8 @@ function renderComparar(){
 
 // ===== COMPRAS =====
 function renderStatsCompras(){
+  const el=document.getElementById('statsCompras');
+  if(!el)return;
   const total=itens.length,comp=itens.filter(i=>i.comprado).length;
   document.getElementById('statsCompras').innerHTML=`
     <div class="stat"><div class="stat-label">Total</div><div class="stat-val">${total}</div></div>
@@ -2545,11 +2540,10 @@ function renderStatsCompras(){
 }
 
 function renderComprado(){
-  const b=(document.getElementById('busca5').value||'').toLowerCase();
-  const st=document.getElementById('filtroStatus5').value;
-  const f=document.getElementById('filtroForn5').value;
-  const p=document.getElementById('filtroPDV5').value;
-  const sort=document.getElementById('sortCompras').value;
+  // Função mantida para compatibilidade mas tab8 foi fundida em tab1
+  renderItens();
+  return;
+  const b='', st='', f='', p='', sort='pdv_asc';
 
   let lista=itens.filter(it=>{
     if(b&&!(it.descritivo+it.fornecedor+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
