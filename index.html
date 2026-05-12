@@ -3815,169 +3815,122 @@ async function salvarOrdem(){
     showToast('Ordem criada!');
     fecharModal('modalOrdem');
     await loadAll();
-    if(res&&res[0]) setTimeout(()=>imprimirOrdem(res[0].id),500);
+    if(res&&res[0]){
+      const novaOrdemId=res[0].id;
+      if(confirm('Deseja imprimir a ordem agora?')){
+        setTimeout(()=>imprimirOrdem(novaOrdemId),800);
+      }
+    }
   }catch(e){showToast('Erro ao criar ordem','err');console.error(e);}
 }
 
 function imprimirOrdem(id){
   const o=ordens.find(x=>x.id===id);
-  if(!o) return;
+  if(!o){showToast('Ordem não encontrada','err');return;}
   const pdv=pdvs.find(p=>p.id===o.pdv_id);
-  const tempos=temposOP.filter(t=>t.ordem_id===id);
+  const tempos=temposOP.filter(t=>t.ordem_id===id&&t.operacao);
+  const dataAbertura=o.dt_abertura?o.dt_abertura.split('T')[0].split('-').reverse().join('/'):'';
+
+  const fmtDtHr=s=>{
+    if(!s) return '';
+    const clean=s.replace('Z','').replace(/[+-]\d{2}:\d{2}$/,'');
+    const [dp,tp]=clean.split('T');
+    const [y,mo,d]=dp.split('-');
+    const [h,mi]=(tp||'00:00').split(':');
+    return `${d}/${mo}/${String(y).slice(2)} ${h}:${mi}`;
+  };
+
   const getTempo=(op)=>{
-    const t=tempos.find(x=>x.operacao===op);
+    const t=tempos.find(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase());
     return {
       operador:t?.operador||'',
-      ini:t?.dt_hr_inicial?new Date(t.dt_hr_inicial).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'',
-      fim:t?.dt_hr_final?new Date(t.dt_hr_final).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):''
+      ini:fmtDtHr(t?.dt_hr_inicial),
+      fim:fmtDtHr(t?.dt_hr_final)
     };
   };
+
   const opRow=(op1,op2)=>`
     <tr style="background:#d9d9d9;font-weight:700;text-align:center">
-      <td colspan="3" style="border:1px solid #000;padding:4px">${op1}</td>
-      <td colspan="3" style="border:1px solid #000;padding:4px">${op2}</td>
+      <td colspan="3" style="border:1px solid #000;padding:3px;font-size:10px">${op1}</td>
+      <td colspan="3" style="border:1px solid #000;padding:3px;font-size:10px">${op2}</td>
     </tr>
-    <tr style="font-size:10px;font-weight:700;text-align:center">
-      <td style="border:1px solid #000;padding:3px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:3px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:3px">DT/HR FINAL</td>
-      <td style="border:1px solid #000;padding:3px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:3px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:3px">DT/HR FINAL</td>
+    <tr style="font-size:9px;font-weight:700;text-align:center">
+      <td style="border:1px solid #000;padding:2px">OPERADOR</td>
+      <td style="border:1px solid #000;padding:2px">DT/HR INICIAL</td>
+      <td style="border:1px solid #000;padding:2px">DT/HR FINAL</td>
+      <td style="border:1px solid #000;padding:2px">OPERADOR</td>
+      <td style="border:1px solid #000;padding:2px">DT/HR INICIAL</td>
+      <td style="border:1px solid #000;padding:2px">DT/HR FINAL</td>
     </tr>
-    <tr style="height:28px">
-      <td style="border:1px solid #000;padding:3px">${getTempo(op1).operador}</td>
-      <td style="border:1px solid #000;padding:3px">${getTempo(op1).ini}</td>
-      <td style="border:1px solid #000;padding:3px">${getTempo(op1).fim}</td>
-      <td style="border:1px solid #000;padding:3px">${getTempo(op2).operador}</td>
-      <td style="border:1px solid #000;padding:3px">${getTempo(op2).ini}</td>
-      <td style="border:1px solid #000;padding:3px">${getTempo(op2).fim}</td>
+    <tr style="height:22px;font-size:10px">
+      <td style="border:1px solid #000;padding:2px">${getTempo(op1).operador}</td>
+      <td style="border:1px solid #000;padding:2px">${getTempo(op1).ini}</td>
+      <td style="border:1px solid #000;padding:2px">${getTempo(op1).fim}</td>
+      <td style="border:1px solid #000;padding:2px">${getTempo(op2).operador}</td>
+      <td style="border:1px solid #000;padding:2px">${getTempo(op2).ini}</td>
+      <td style="border:1px solid #000;padding:2px">${getTempo(op2).fim}</td>
     </tr>`;
-  const html=`<style>
-    @media print {
-      @page { size: A4 landscape; margin: 8mm; }
-      body * { visibility: hidden; }
-      #ordemImpressao, #ordemImpressao * { visibility: visible; }
-      #ordemImpressao { position: fixed; left: 0; top: 0; width: 100%; }
-    }
-  </style>
-  <div style="font-family:Arial,sans-serif;font-size:11px;padding:8px;max-width:100%;margin:0 auto">
-    <table style="width:100%;border-collapse:collapse;margin-bottom:0;page-break-inside:avoid">
-      <tr>
-        <td rowspan="2" style="border:1px solid #000;padding:6px;width:70px;text-align:center">
-          <img src="logo.jpg" style="width:50px;height:50px;object-fit:contain">
-        </td>
-        <td colspan="3" style="border:1px solid #000;padding:6px;text-align:center;font-size:16px;font-weight:700">ORDEM DE PRODUÇÃO</td>
-        <td style="border:1px solid #000;padding:3px;text-align:center;font-weight:700;font-size:10px">NÚMERO DA ORDEM</td>
-        <td style="border:1px solid #000;padding:3px;text-align:center;font-size:18px;font-weight:700;color:#2e7d32">${o.numero}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #000;padding:3px;font-weight:700;text-align:center;font-size:10px">DT ABERTURA</td>
-        <td style="border:1px solid #000;padding:3px;font-weight:700;text-align:center;font-size:10px">PROJETO</td>
-        <td colspan="3" style="border:1px solid #000;padding:3px;text-align:center;font-size:10px">${pdv?pdv.numero+' — '+(pdv.cliente||'')+(pdv.equipamento?' / '+pdv.equipamento:''):''}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #000;padding:3px"></td>
-        <td style="border:1px solid #000;padding:3px;text-align:center;font-size:10px">${dataAbertura}</td>
-        <td style="border:1px solid #000;padding:3px;font-weight:700;text-align:center;font-size:10px">CLIENTE</td>
-        <td colspan="3" style="border:1px solid #000;padding:3px;text-align:center;font-size:10px">${pdv?.cliente||''}</td>
-      </tr>
-      <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:10px">
-        <td style="border:1px solid #000;padding:3px">DESENHO</td>
-        <td colspan="2" style="border:1px solid #000;padding:3px">DESCRIÇÃO</td>
-        <td style="border:1px solid #000;padding:3px">MATERIAL</td>
-        <td colspan="2" style="border:1px solid #000;padding:3px">QUANTIDADE</td>
-      </tr>
-      <tr style="text-align:center;font-size:12px">
-        <td style="border:1px solid #000;padding:4px;font-weight:700">${o.desenho||''}</td>
-        <td colspan="2" style="border:1px solid #000;padding:4px;font-weight:700">${o.descricao||''}</td>
-        <td style="border:1px solid #000;padding:4px">${o.material||''}</td>
-        <td colspan="2" style="border:1px solid #000;padding:4px;font-size:14px;font-weight:700">${o.quantidade||''}</td>
-      </tr>
-      ${opRow('SERRA','TORNO')}
-      ${opRow('PLAINA','CENTRO DE USINAGEM')}
-      ${opRow('FURADEIRA','SOLDA')}
-      ${opRow('FREZA','MONTAGEM')}
-    </table>
-  </div>`;
-  const div=document.getElementById('ordemImpressao');
-  div.innerHTML=html; div.style.display='block';
-  window.print();
-  div.style.display='none';
+
+  const conteudo=`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  @page { size: A4 landscape; margin: 6mm; }
+  body { font-family: Arial, sans-serif; font-size: 11px; }
+  table { width:100%; border-collapse:collapse; }
+  @media print { body { margin:0; } }
+</style>
+</head><body>
+<table>
+  <tr>
+    <td rowspan="3" style="border:1px solid #000;padding:6px;width:65px;text-align:center">
+      <img src="${window.location.origin}/logo.jpg" style="width:45px;height:45px;object-fit:contain" onerror="this.style.display='none'">
+      <div style="font-weight:700;font-size:8px;margin-top:2px">SL ÓLEOS</div>
+    </td>
+    <td colspan="4" style="border:1px solid #000;padding:5px;text-align:center;font-size:15px;font-weight:700">ORDEM DE PRODUÇÃO</td>
+    <td style="border:1px solid #000;padding:3px;text-align:center;font-weight:700;font-size:9px">Nº DA ORDEM</td>
+    <td style="border:1px solid #000;padding:3px;text-align:center;font-size:20px;font-weight:700;color:#2e7d32">${o.numero}</td>
+  </tr>
+  <tr>
+    <td style="border:1px solid #000;padding:2px;font-weight:700;text-align:center;font-size:9px;background:#eee">DT ABERTURA</td>
+    <td style="border:1px solid #000;padding:2px;text-align:center;font-size:10px">${dataAbertura}</td>
+    <td style="border:1px solid #000;padding:2px;font-weight:700;text-align:center;font-size:9px;background:#eee">PROJETO</td>
+    <td colspan="3" style="border:1px solid #000;padding:2px;text-align:center;font-size:10px">${pdv?'PDV '+pdv.numero+' — '+(pdv.cliente||'')+(pdv.equipamento?' / '+pdv.equipamento:''):''}</td>
+  </tr>
+  <tr>
+    <td style="border:1px solid #000;padding:2px;font-weight:700;text-align:center;font-size:9px;background:#eee">CLIENTE</td>
+    <td colspan="5" style="border:1px solid #000;padding:2px;text-align:center;font-size:10px">${pdv?.cliente||''}</td>
+  </tr>
+  <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:9px">
+    <td style="border:1px solid #000;padding:3px">DESENHO</td>
+    <td colspan="2" style="border:1px solid #000;padding:3px">DESCRIÇÃO DA PEÇA</td>
+    <td colspan="2" style="border:1px solid #000;padding:3px">MATERIAL</td>
+    <td colspan="2" style="border:1px solid #000;padding:3px">QUANTIDADE</td>
+  </tr>
+  <tr style="text-align:center;font-size:12px">
+    <td style="border:1px solid #000;padding:4px;font-weight:700">${o.desenho||''}</td>
+    <td colspan="2" style="border:1px solid #000;padding:4px;font-weight:700">${o.descricao||''}</td>
+    <td colspan="2" style="border:1px solid #000;padding:4px">${o.material||''}</td>
+    <td colspan="2" style="border:1px solid #000;padding:4px;font-size:16px;font-weight:700">${o.quantidade||''}</td>
+  </tr>
+  ${opRow('SERRA','TORNO')}
+  ${opRow('PLAINA','CENTRO DE USINAGEM')}
+  ${opRow('FURADEIRA','SOLDA')}
+  ${opRow('FREZA','MONTAGEM')}
+</table>
+</body></html>`;
+
+  const win=window.open('','_blank','width=900,height=600');
+  win.document.write(conteudo);
+  win.document.close();
+  win.onload=()=>{win.print();win.close();};
 }
-
-function abrirModalTempos(ordemId){
-  ordemAtual=ordemId;
-  const o=ordens.find(x=>x.id===ordemId);
-  document.getElementById('temposOrdemNum').textContent=o?.numero||'';
-  const tempos=temposOP.filter(t=>t.ordem_id===ordemId);
-  const OPERACOES=['Serra','Torno','Plaina','Centro de Usinagem','Furadeira','Solda','Freza','Montagem'];
-  document.getElementById('temposGrid').innerHTML=OPERACOES.map(op=>{
-    const t=tempos.find(x=>x.operacao===op)||{};
-    return `<div style="background:#f9fbf9;border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:${COR_OPERACAO[op]||'var(--green)'}">⚙️ ${op}</div>
-      <div class="form-group" style="margin-bottom:6px">
-        <label>Operador</label>
-        <input id="top_op_${op.replace(/\s/g,'_')}" value="${t.operador||''}" placeholder="Nome do operador">
-      </div>
-      <div class="form-group" style="margin-bottom:6px">
-        <label>Data/Hora Inicial</label>
-        <input type="datetime-local" id="top_ini_${op.replace(/\s/g,'_')}" value="${t.dt_hr_inicial?t.dt_hr_inicial.slice(0,16):''}">
-      </div>
-      <div class="form-group">
-        <label>Data/Hora Final</label>
-        <input type="datetime-local" id="top_fim_${op.replace(/\s/g,'_')}" value="${t.dt_hr_final?t.dt_hr_final.slice(0,16):''}">
-      </div>
-    </div>`;
-  }).join('');
-  abrirModal('modalTempos');
-}
-
-async function salvarTempos(){
-  const OPERACOES=['Serra','Torno','Plaina','Centro de Usinagem','Furadeira','Solda','Freza','Montagem'];
-  const temposExist=temposOP.filter(t=>t.ordem_id===ordemAtual);
-  try{
-    for(const op of OPERACOES){
-      const key=op.replace(/\s/g,'_');
-      const operador=document.getElementById('top_op_'+key)?.value||'';
-      const ini=document.getElementById('top_ini_'+key)?.value||null;
-      const fim=document.getElementById('top_fim_'+key)?.value||null;
-      if(!operador&&!ini&&!fim) continue;
-      const existente=temposExist.find(t=>t.operacao===op);
-      const obj={ordem_id:ordemAtual,operacao:op,operador:operador||null,dt_hr_inicial:ini||null,dt_hr_final:fim||null};
-      if(existente) await api('PATCH','tempos_op',obj,`?id=eq.${existente.id}`);
-      else await api('POST','tempos_op',obj);
-    }
-    showToast('Tempos salvos!'); fecharModal('modalTempos'); await loadAll();
-  }catch(e){showToast('Erro ao salvar tempos','err');}
-}
-
-async function deletarOrdem(id){
-  if(!confirm('Remover esta ordem de produção?'))return;
-  try{
-    await api('DELETE','tempos_op','',`?ordem_id=eq.${id}`);
-    await api('DELETE','ordens_producao','',`?id=eq.${id}`);
-    showToast('Ordem removida!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
-}
-
-
-// ===== GESTÃO DE PROJETOS =====
-// ===== PROJETISTAS CONFIG =====
-const PROJETISTAS = {
-  'Alonso': {classe:'proj-alonso', badge:'badge-alonso', cor:'#1565c0', inicial:'AL', style:''},
-  'Silvio':  {classe:'proj-silvio',  badge:'badge-silvio',  cor:'#6a1b9a', inicial:'SI', style:''},
-  'Lucas':   {classe:'proj-lucas',  badge:'badge-lucas',  cor:'#e65100', inicial:'LU', style:''},
-};
 
 function getProjetista(nome){
-  if(!nome) return {classe:'proj-default',badge:'badge-default',cor:'#546e7a',inicial:'—',style:''};
-  const key=Object.keys(PROJETISTAS).find(k=>nome.toLowerCase().includes(k.toLowerCase()));
-  if(key) return PROJETISTAS[key];
-  // Qualquer outro usuário — cor baseada no nome
-  const cores=['#00838f','#37474f','#558b2f','#ad1457','#0277bd','#6d4c41'];
-  const cor=cores[nome.charCodeAt(0)%cores.length];
-  const partes=nome.trim().split(' ');
+  const cores=['#1565c0','#6a1b9a','#e65100','#2e7d32','#c62828','#00695c'];
+  const cor=cores[nome?(nome.charCodeAt(0)%cores.length):0];
+  const partes=(nome||'?').trim().split(' ');
   const ini=(partes[0][0]+(partes[1]?partes[1][0]:partes[0][1]||'')).toUpperCase();
   return {classe:'proj-default',badge:'badge-default',cor,inicial:ini,style:`background:${cor}`};
 }
