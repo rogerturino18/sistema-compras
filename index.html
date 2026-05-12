@@ -5158,17 +5158,21 @@ function abrirRelatorioOrdem(ordemId){
 
 function editarTempoOp(tempoId){
   const t=temposOP.find(x=>x.id===tempoId);
-  if(!t) return;
+  if(!t){showToast('Operação não encontrada','err');return;}
   tempoOpAtualId=tempoId;
   const o=ordens.find(x=>x.id===t.ordem_id);
+
+  // Fecha modais abertos e abre o de edição
+  fecharModal('modalRelatorioOrdem');
+  fecharModal('modalRelatoriosGrupo');
+
   document.getElementById('modalFinalizarOpTitulo').textContent=`✏️ Editar: ${t.operacao}`;
   document.getElementById('finalizarOpInfo').innerHTML=`
     <b>Ordem Nº ${o?.numero}</b> — ${o?.descricao||'—'}<br>
-    <span style="color:var(--gray);font-size:12px">Operador: <b>${t.operador||'—'}</b></span>`;
-  // Converte ISO string para Date local sem problema de fuso
+    <span style="color:var(--gray);font-size:12px">Operador: <b>${t.operador||'—'}</b> · Operação: <b>${t.operacao||'—'}</b></span>`;
+
   const parseISO=s=>{
     if(!s) return null;
-    // Remove timezone info e parseia como local
     const clean=s.replace('Z','').replace(/[+-]\d{2}:\d{2}$/,'');
     const [datePart,timePart]=clean.split('T');
     const [y,mo,d]=datePart.split('-').map(Number);
