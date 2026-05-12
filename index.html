@@ -17,7 +17,7 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--d
 .header-text h1{font-size:16px;font-weight:700;color:#fff}
 .header-text p{font-size:11px;color:rgba(255,255,255,0.7)}
 .tabs{display:flex;background:#fff;border-bottom:2px solid var(--green-pale);overflow-x:auto;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
-.tab{padding:11px 16px;cursor:pointer;font-size:12px;white-space:nowrap;border-bottom:3px solid transparent;color:var(--gray);transition:all 0.15s;margin-bottom:-2px;font-weight:500;display:flex;align-items:center;gap:5px}
+.tab{padding:10px 12px;cursor:pointer;font-size:11.5px;white-space:nowrap;border-bottom:3px solid transparent;color:var(--gray);transition:all 0.15s;margin-bottom:-2px;font-weight:500;display:flex;align-items:center;gap:4px}
 .tab.active{color:var(--green);border-bottom-color:var(--green)}
 .tab:hover:not(.active){color:var(--dark);background:var(--green-pale)}
 .panel{display:none;padding:16px;max-width:1200px;margin:0 auto}
@@ -159,20 +159,20 @@ tr:hover td{background:#f9fbf9}
 .home-greeting{color:#fff;font-size:36px;font-weight:200;letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,0.5)}
 .home-greeting span{font-weight:700;color:#a5d6a7}
 .home-time{color:rgba(255,255,255,0.85);font-size:15px;margin-top:6px;text-shadow:0 1px 4px rgba(0,0,0,0.5)}
-.home-tiles{display:flex;flex-direction:column;gap:16px;padding:0 40px;justify-content:center;align-items:center;flex:1}
-.tiles-row{display:flex;gap:14px;justify-content:center}
-.tile{border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:18px 20px;position:relative;overflow:hidden;transition:transform 0.15s,box-shadow 0.15s,filter 0.15s;user-select:none;box-shadow:0 6px 24px rgba(0,0,0,0.4);backdrop-filter:blur(2px)}
+.home-tiles{display:flex;flex-direction:column;gap:16px;padding:0 32px;justify-content:center;align-items:center;flex:1}
+.tiles-row{display:flex;gap:14px;justify-content:center;flex-wrap:nowrap}
+.tile{border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:20px 22px;position:relative;overflow:hidden;transition:transform 0.15s,box-shadow 0.15s,filter 0.15s;user-select:none;box-shadow:0 6px 24px rgba(0,0,0,0.4);backdrop-filter:blur(2px)}
 .tile:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 12px 40px rgba(0,0,0,0.5);filter:brightness(1.1)}
 .tile:active{transform:scale(0.97)}
 .tile::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0))}
-.tile-icon{font-size:38px;margin-bottom:10px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
-.tile-label{color:#fff;font-size:15px;font-weight:700;letter-spacing:0.3px;text-shadow:0 1px 4px rgba(0,0,0,0.5)}
-.tile-sub{color:rgba(255,255,255,0.8);font-size:12px;margin-top:3px;text-shadow:0 1px 3px rgba(0,0,0,0.4)}
-.tile-badge{position:absolute;top:12px;right:12px;background:#ef5350;color:#fff;border-radius:12px;padding:2px 8px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
-.tile-sm{width:150px;height:150px}
-.tile-md{width:175px;height:175px}
-.tile-lg{width:200px;height:200px}
-.tile-wide{width:364px;height:175px}
+.tile-icon{font-size:36px;margin-bottom:10px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
+.tile-label{color:#fff;font-size:14px;font-weight:700;letter-spacing:0.3px;text-shadow:0 1px 4px rgba(0,0,0,0.5)}
+.tile-sub{color:rgba(255,255,255,0.75);font-size:11px;margin-top:3px;text-shadow:0 1px 3px rgba(0,0,0,0.4)}
+.tile-badge{position:absolute;top:10px;right:10px;background:#ef5350;color:#fff;border-radius:12px;padding:2px 8px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.tile-sm{width:150px;height:155px}
+.tile-md{width:170px;height:170px}
+.tile-lg{width:190px;height:170px}
+.tile-wide{width:354px;height:170px}
 .home-enter-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px;backdrop-filter:blur(10px);transition:background 0.2s;white-space:nowrap}
 .home-enter-btn:hover{background:rgba(255,255,255,0.28)}
 .home-dots{display:flex;gap:6px;justify-content:center;padding-bottom:16px;position:relative;z-index:2}
@@ -335,7 +335,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tab" onclick="showTab(10)">📧 Enviar Cotação</div>
   <div class="tab" onclick="showTab(11)">📦 Estoque</div>
   <div class="tab" onclick="showTab(12)">📄 Fiscal</div>
-  <div class="tab" onclick="showTab(13)">🛒 Ped. Venda</div>
+  <div class="tab" onclick="showTab(13)">🧾 Ped. de Venda</div>
 </div>
 
 <!-- TAB 0: DASHBOARD -->
@@ -5114,23 +5114,22 @@ const WALLPAPERS = [
 
 const TILE_DEFS = [
   [['Dashboard','🏠',0,'linear-gradient(135deg,#00838f,#006064)','tile-md','Visão geral'],
-   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-lg','PDVs e desenhos'],
-   ['Lista de Material','📝',4,'linear-gradient(135deg,#6a1b9a,#4a148c)','tile-wide','Itens dos projetistas'],
-   ['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-md','Matéria prima']],
+   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-md','PDVs e desenhos'],
+   ['Lista de Material','📝',4,'linear-gradient(135deg,#6a1b9a,#4a148c)','tile-md','Itens dos projetistas'],
+   ['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-md','Matéria prima'],
+   ['Ordens','🔧',5,'linear-gradient(135deg,#558b2f,#33691e)','tile-md','Produção']],
   [['Cotações','💰',6,'linear-gradient(135deg,#e65100,#bf360c)','tile-md','Ver preços'],
-   ['Lista de Compras','📋',1,'linear-gradient(135deg,#4527a0,#311b92)','tile-md','Status'],
    ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-md','Solicitações'],
-   ['Ordens','🔧',5,'linear-gradient(135deg,#558b2f,#33691e)','tile-md','Produção'],
-   ['Pedido de Venda','🛒',13,'linear-gradient(135deg,#6a1b9a,#4a148c)','tile-md','Vendas'],
+   ['Ped. de Venda','🧾',13,'linear-gradient(135deg,#6a1b9a,#4a148c)','tile-md','Vendas'],
    ['Estoque','📦',11,'linear-gradient(135deg,#00695c,#004d40)','tile-md','MP e Produtos'],
-   ['Enviar Cotação','📧',10,'linear-gradient(135deg,#c62828,#b71c1c)','tile-md','E-mails']]
+   ['Fiscal','📄',12,'linear-gradient(135deg,#37474f,#263238)','tile-md','NF-e']]
 ];
 
 const TILE_DEFS_EXPEDICAO = [
-  [['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-lg','Matéria prima'],
-   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-lg','PDVs e desenhos']],
-  [['Lista de Compras','📋',1,'linear-gradient(135deg,#4527a0,#311b92)','tile-lg','Status compras'],
-   ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-lg','Solicitações']]
+  [['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-md','Matéria prima'],
+   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-md','PDVs e desenhos'],
+   ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-md','Solicitações'],
+   ['Estoque','📦',11,'linear-gradient(135deg,#00695c,#004d40)','tile-md','MP e Produtos']]
 ];
 
 const TILE_DEFS_PROJETO = [
@@ -6822,13 +6821,14 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=12;i++){
+  for(let i=0;i<=13;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
   if(n===10) preencherRemetenteLogado();
   if(n===11) renderEstoque();
   if(n===12) renderFiscal();
+  if(n===13) renderPedidosVenda();
 }
 
 async function dispararEmailBemVindo(){
