@@ -7058,6 +7058,13 @@ function showTab(n){
   if(n===11) renderEstoque();
   if(n===12) renderFiscal();
   if(n===13) renderPedidosVenda();
+  // Sync sidebar
+  const SB_NAMES_MAP={0:'Dashboard',1:'Lista de Compras',2:'Fornecedores',3:'Projetos',4:'Lista de Material',5:'Ordens',6:'Cotações',7:'Comparar',9:'Compras Internas',10:'Enviar Cotação',11:'Estoque',12:'Fiscal / NF-e',13:'Pedido de Venda'};
+  const bc=document.getElementById('sbBreadcrumbText');
+  if(bc&&SB_NAMES_MAP[n]) bc.textContent=SB_NAMES_MAP[n];
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));
+  const item=document.getElementById('sbitem_'+n);
+  if(item) item.classList.add('active');
 }
 
 async function dispararEmailBemVindo(){
@@ -7719,18 +7726,7 @@ function sbNavDirect(tabNum, name){
   if(tabNum===11) document.getElementById('sbico_estoque')?.classList.add('active');
 }
 
-// Patch showTab para atualizar breadcrumb e sidebar quando chamado externamente
-const _origShowTab = showTab;
-function showTab(n){
-  _origShowTab(n);
-  // Sync sidebar state
-  const name = SB_NAMES[n]||'';
-  const bc=document.getElementById('sbBreadcrumbText');
-  if(bc&&name) bc.textContent=name;
-  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));
-  const item=document.getElementById('sbitem_'+n);
-  if(item) item.classList.add('active');
-}
+
 
 </script>
 </body>
