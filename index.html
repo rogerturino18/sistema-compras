@@ -61,7 +61,7 @@ tr:hover td{background:#f9fbf9}
 .badge-red{background:#ffebee;color:#c62828}
 .forn-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--green-pale);color:var(--green);font-weight:500}
 .modal-bg{display:none;position:fixed;inset:0;z-index:100;pointer-events:none}
-.modal-bg.open{display:block;z-index:200}
+.modal-bg.open{display:block}
 .modal-bg.minimized{display:block}
 .modal{background:#fff;border-radius:14px;padding:0;width:560px;max-width:98vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(46,125,50,0.25);position:fixed;top:80px;left:50%;transform:translateX(-50%);pointer-events:all;cursor:default}
 .modal-bg.minimized .modal{max-height:48px;overflow:hidden;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.2)}
@@ -1610,7 +1610,7 @@ function abrirModalPerfil(){
   document.getElementById('fp_senha').value='';
   document.getElementById('fp_senha2').value='';
   document.getElementById('userMenu').classList.remove('open');
-  document.getElementById('modalPerfil').classList.add('open');
+  abrirModal('modalPerfil');
 }
 
 async function salvarPerfil(){
@@ -1955,7 +1955,7 @@ function abrirModalItem(id){
   const optExists=[...undEl.options].some(o=>o.value===undVal);
   if(optExists) undEl.value=undVal;
   else { undEl.value=''; if(undVal){ const opt=document.createElement('option'); opt.value=undVal; opt.textContent=undVal; undEl.appendChild(opt); undEl.value=undVal; } }
-  document.getElementById('modalItem').classList.add('open');
+  abrirModal('modalItem');
 }
 
 async function salvarItem(){
@@ -2067,7 +2067,7 @@ function abrirModalPDV(id){
   document.getElementById('fp_cliente').value=p?(p.cliente||''):'';
   document.getElementById('fp_equipamento').value=p?(p.equipamento||''):'';
   document.getElementById('fp_descricao').value=p?(p.descricao||''):'';
-  document.getElementById('modalPDV').classList.add('open');
+  abrirModal('modalPDV');
 }
 
 async function salvarPDV(){
@@ -2187,7 +2187,7 @@ function abrirModalForn(id){
     const el=document.getElementById('ff_'+k);
     if(el) el.value=f?(f[k==='razao'?'razao_social':k==='fantasia'?'nome_fantasia':k==='contato'?'contato_nome':k]||''):'';
   });
-  document.getElementById('modalForn').classList.add('open');
+  abrirModal('modalForn');
 }
 
 async function salvarForn(){
@@ -2332,7 +2332,7 @@ function abrirModalCotacao(itemId){
   document.getElementById('fc_forn').innerHTML='<option value="">Selecione um fornecedor...</option>'+fornecedores.map(f=>`<option value="${f.razao_social||f.nome_fantasia}">${f.razao_social||f.nome_fantasia}</option>`).join('');
   ['fc_valor','fc_prazo','fc_obs','fc_total'].forEach(id=>document.getElementById(id).value='');
   atualizarPesoItem();
-  document.getElementById('modalCotacao').classList.add('open');
+  abrirModal('modalCotacao');
 }
 
 function atualizarPesoItem(){
@@ -2428,7 +2428,7 @@ function editarCotacao(id, itemId, fornecedor, valor, prazo, obs){
   // Marca que é uma edição
   document.getElementById('modalCotacao').dataset.editId=id;
   document.getElementById('modalCotacao').querySelector('h3').textContent='Editar cotação';
-  document.getElementById('modalCotacao').classList.add('open');
+  abrirModal('modalCotacao');
 }
 
 async function deletarCotacao(id){
@@ -3052,7 +3052,7 @@ function abrirModalCI(id){
   document.getElementById('ci_valor').value=i&&i.valor_unitario!=null?i.valor_unitario:'';
   document.getElementById('ci_total').value=i&&i.valor_total!=null?i.valor_total:'';
   document.getElementById('ci_obs').value=i?(i.observacao||''):'';
-  document.getElementById('modalCI').classList.add('open');
+  abrirModal('modalCI');
 }
 
 async function salvarCI(){
@@ -3097,7 +3097,7 @@ function abrirModalCISimples(id){
   document.getElementById('cis_prioridade').value=i?(i.prioridade||'normal'):'normal';
   document.getElementById('cis_obs').value=i?(i.observacao||''):'';
   document.getElementById('modalCISimples').dataset.editId=id||'';
-  document.getElementById('modalCISimples').classList.add('open');
+  abrirModal('modalCISimples');
 }
 
 async function salvarCISimples(){
@@ -3250,7 +3250,7 @@ function abrirModalProduto(pdvId){
   const sel=document.getElementById('pp_pdv');
   sel.innerHTML=pdvs.map(p=>`<option value="${p.id}" ${p.id===pdvId?'selected':''}>${p.numero}${p.cliente?' — '+p.cliente:''}</option>`).join('');
   ['pp_nome','pp_descricao','pp_responsavel','pp_desenho'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('modalProduto').classList.add('open');
+  abrirModal('modalProduto');
 }
 
 async function salvarProduto(){
@@ -3288,7 +3288,7 @@ function abrirModalEtapa(produtoId){
   document.getElementById('et_terceirizado').value='';
   toggleSubEtapa();
   document.getElementById('modalEtapaTitulo').textContent='Nova Etapa';
-  document.getElementById('modalEtapa').classList.add('open');
+  abrirModal('modalEtapa');
 }
 
 function toggleSubEtapa(){
@@ -3506,7 +3506,7 @@ function abrirIniciarOp(ordemId, operacao){
     <span style="color:var(--gray);font-size:12px">PDV: ${pdv?.numero||'—'} ${pdv?.cliente||''} · Desenho: ${o?.desenho||'—'}</span>`;
   document.getElementById('op_operador').value=usuarioLogado?.nome||'';
   document.getElementById('op_obs').value='';
-  document.getElementById('modalIniciarOp').classList.add('open');
+  abrirModal('modalIniciarOp');
 }
 
 async function confirmarIniciarOp(){
@@ -3543,7 +3543,7 @@ function abrirFinalizarOp(tempoId){
   document.getElementById('op_tempo_total').textContent='—';
   document.getElementById('op_tempo_detalhe').textContent='';
   calcularTempoOp();
-  document.getElementById('modalFinalizarOp').classList.add('open');
+  abrirModal('modalFinalizarOp');
 }
 
 // ===== CÁLCULO DE HORAS ÚTEIS =====
@@ -3698,7 +3698,7 @@ function abrirModalOrdem(id){
   ['ord_descricao','ord_desenho','ord_material'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ord_qtd').value=1;
   document.getElementById('ord_data').value=new Date().toISOString().split('T')[0];
-  document.getElementById('modalOrdem').classList.add('open');
+  abrirModal('modalOrdem');
 }
 
 function filtrarPecasPorPDV(){
@@ -3918,7 +3918,7 @@ function abrirModalTempos(ordemId){
       </div>
     </div>`;
   }).join('');
-  document.getElementById('modalTempos').classList.add('open');
+  abrirModal('modalTempos');
 }
 
 async function salvarTempos(){
@@ -4205,7 +4205,7 @@ function abrirConcluidosPDV(pdvId){
       }).join('')}
     </div>`:'<div class="empty">Nenhuma peça concluída ainda</div>';
 
-  document.getElementById('modalConcluidosPDV').classList.add('open');
+  abrirModal('modalConcluidosPDV');
 }
 
 function abrirModalPeca_semSetor(pdvId){
@@ -4258,7 +4258,7 @@ function abrirModalSetor(pdvId){
   document.getElementById('set_nome').value='';
   document.getElementById('set_desc').value='';
   document.getElementById('modalSetor').dataset.editId='';
-  document.getElementById('modalSetor').classList.add('open');
+  abrirModal('modalSetor');
 }
 
 async function salvarSetor(){
@@ -4293,7 +4293,7 @@ function abrirModalPeca(setorId){
   document.getElementById('modalPeca').dataset.editId='';
   ['pec_nome','pec_desenho','pec_responsavel','pec_desc'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('modalPecaTitulo').textContent='Nova Peça';
-  document.getElementById('modalPeca').classList.add('open');
+  abrirModal('modalPeca');
 }
 
 async function salvarPeca(){
@@ -4333,7 +4333,7 @@ function abrirIniciarTrabalho(pecaId){
     <span style="color:var(--gray)">📁 ${setor?.nome||'—'} · 📦 ${pdv?.numero||''} ${pdv?.cliente||''}</span>`;
   document.getElementById('trab_obs').value='';
   document.getElementById('modalIniciarTitulo').textContent=peca?.status==='pausado'?'Retomar Trabalho':'Iniciar Trabalho';
-  document.getElementById('modalIniciarTrabalho').classList.add('open');
+  abrirModal('modalIniciarTrabalho');
 }
 
 async function confirmarIniciarTrabalho(){
@@ -4387,7 +4387,7 @@ function abrirFinalizarTrabalho(pecaId){
   document.getElementById('acoesPasso2').style.display='none';
   document.getElementById('materiaisLinhas').innerHTML='';
   adicionarLinhaMateria();
-  document.getElementById('modalFinalizarTrabalho').classList.add('open');
+  abrirModal('modalFinalizarTrabalho');
 }
 
 function adicionarLinhaMateria(){
@@ -4901,7 +4901,7 @@ function abrirModalEstoque(sub, id){
   document.getElementById('est_valor').value=item?.valor_unitario||'';
   document.getElementById('est_nf').value=item?.nota_fiscal||'';
   document.getElementById('est_obs').value=item?.observacao||'';
-  document.getElementById('modalEstoque').classList.add('open');
+  abrirModal('modalEstoque');
 }
 
 async function salvarEstoque(){
@@ -4995,7 +4995,7 @@ function abrirMovEstoque(itemId, tipo){
   document.getElementById('mov_resp').value=usuarioLogado?.nome||'';
   document.getElementById('mov_obs').value='';
   atualizarSaldoPreview();
-  document.getElementById('modalMovEstoque').classList.add('open');
+  abrirModal('modalMovEstoque');
 }
 
 function atualizarSaldoPreview(){
@@ -5088,7 +5088,7 @@ function abrirHistEstoque(itemId){
         </tr>`;
       }).join('')}</tbody>
     </table></div>`:'<div class="empty">Nenhuma movimentação registrada</div>'}`;
-  document.getElementById('modalHistEstoque').classList.add('open');
+  abrirModal('modalHistEstoque');
 }
 
 function gerarConteudoRelatorio(ordemId){
@@ -5152,12 +5152,10 @@ function abrirRelatorioOrdem(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
   // Fecha outros modais para evitar sobreposição
   fecharModal('modalRelatoriosGrupo');
-  document.getElementById('modalRelatorioOrdem').style.zIndex='200';
-  document.getElementById('modalRelatorioOrdem').querySelector('.modal').style.zIndex='200';
   document.getElementById('modalRelatorioTitulo').textContent=`📊 Ordem Nº ${o?.numero} — ${o?.descricao||''}`;
   document.getElementById('relatorioOrdemConteudo').innerHTML=gerarConteudoRelatorio(ordemId);
   document.getElementById('modalRelatorioOrdem').dataset.ordemId=ordemId;
-  document.getElementById('modalRelatorioOrdem').classList.add('open');
+  abrirModal('modalRelatorioOrdem');
 }
 
 function editarTempoOp(tempoId){
@@ -5188,7 +5186,7 @@ function editarTempoOp(tempoId){
   document.getElementById('op_fim_inicio').value=ini?fmtDatetimeLocal(ini):'';
   document.getElementById('op_fim_fim').value=fim?fmtDatetimeLocal(fim):'';
   calcularTempoOp();
-  document.getElementById('modalFinalizarOp').classList.add('open');
+  abrirModal('modalFinalizarOp');
 }
 
 async function deletarTempoOp(tempoId){
@@ -5235,6 +5233,7 @@ function abrirRelatoriosGrupo(pdvId){
           <div style="display:flex;gap:8px;align-items:center">
             <span style="font-size:12px;color:var(--gray)">${o.desenho||''}</span>
             <button class="btn btn-sm primary" onclick="event.stopPropagation();abrirRelatorioOrdem('${o.id}')">📊 Ver</button>
+            <button class="btn btn-sm" style="background:#fff3e0;color:#e65100;border-color:#ffcc80;font-size:11px" onclick="event.stopPropagation();reprocessarOrdem('${o.id}')" title="Volta para Aguardando mantendo os tempos já registrados">↩ Reprocessar</button>
             <span style="color:var(--green);font-size:12px">▼</span>
           </div>
         </div>
@@ -5243,10 +5242,32 @@ function abrirRelatoriosGrupo(pdvId){
         </div>
       </div>`).join(''):
     '<div class="empty">Nenhuma ordem concluída ainda</div>';
-  document.getElementById('modalRelatoriosGrupo').classList.add('open');
+  abrirModal('modalRelatoriosGrupo');
 }
 
-// ===== EXPORTAR EXCEL =====
+async function reprocessarOrdem(ordemId){
+  const o=ordens.find(x=>x.id===ordemId);
+  if(!confirm(`Reprocessar Ordem Nº ${o?.numero} — ${o?.descricao}?\n\nEla voltará para "Aguardando" no Kanban.\nOs tempos já registrados serão mantidos.`)) return;
+  try{
+    // Remove dt_hr_final do último tempo (reabre para novo processamento)
+    // Não apaga os tempos anteriores — apenas cria condição para nova operação
+    // A ordem volta para aguardando pois terá tempo com dt_hr_final mas poderá receber novos
+    // Criamos um novo registro de tempo sem dt_hr_final para indicar que está aguardando
+    // Na verdade: basta não ter nenhum tempo SEM dt_hr_final para aparecer em aguardando
+    // Então adicionamos um tempo "placeholder" sem início para forçar volta ao kanban
+    // Melhor abordagem: adicionar campo status na ordem
+    // Solução simples: apagar SOMENTE o último dt_hr_final para reabrir
+    const tops=temposOP.filter(t=>t.ordem_id===ordemId).sort((a,b)=>new Date(b.dt_hr_final||0)-new Date(a.dt_hr_final||0));
+    if(tops.length>0&&tops[0].dt_hr_final){
+      await api('PATCH','tempos_op',{dt_hr_final:null,duracao_minutos:null},`?id=eq.${tops[0].id}`);
+    }
+    showToast(`Ordem Nº ${o?.numero} voltou para produção!`);
+    fecharModal('modalRelatoriosGrupo');
+    await loadAll();
+  }catch(e){showToast('Erro','err');console.error(e);}
+}
+
+
 function exportarExcel(aba){
   let rows=[], titulo='';
 
@@ -5378,7 +5399,7 @@ function lerNFe(input){
 
       nfeData={nNF,dtFmt,dhEmi,fornNome,fornCNPJ,vNF,itensNF};
       renderNFeModal();
-      document.getElementById('modalNFe').classList.add('open');
+      abrirModal('modalNFe');
     }catch(err){
       showToast('Erro ao ler XML','err');console.error(err);
     }
@@ -5893,6 +5914,15 @@ function toggleGrupoPDV(id){
 }
 
 function toggleBody(el){el.nextElementSibling.classList.toggle('open');}
+let _modalZ=200;
+function abrirModal(id){
+  const m=document.getElementById(id);
+  if(!m) return;
+  _modalZ+=10;
+  m.style.zIndex=_modalZ;
+  m.classList.add('open');
+}
+
 function fecharModal(id){
   const m=document.getElementById(id);
   if(!m) return;
