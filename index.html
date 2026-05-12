@@ -3387,7 +3387,7 @@ function renderOrdens(){
 
     // Ordem concluída = todas as operações REAIS têm dt_hr_final
     // Ignora tempos placeholder (sem operacao = reprocessamento)
-    const temposReais=t=>t.operacao&&t.operacao!==null;
+    const temposReais=t=>t.operacao&&t.operacao!=='REPROCESSAR';
     const ordenConcluidas=ordensGrupo.filter(o=>{
       const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t));
       const placeholder=temposOP.filter(t=>t.ordem_id===o.id&&!temposReais(t));
@@ -3440,10 +3440,10 @@ function renderOrdens(){
         const cor=COR_OPERACAO[op]||'#546e7a';
         // Só ordens ATIVAS nesta operação (sem dt_hr_final)
         const ordenNaOp=ordenAtivas.filter(o=>
-          temposOP.some(t=>t.ordem_id===o.id&&t.operacao===op&&!t.dt_hr_final)
+          temposOP.some(t=>t.ordem_id===o.id&&t.operacao===op&&t.operacao!=='REPROCESSAR'&&!t.dt_hr_final)
         );
         const cards=ordenNaOp.map(o=>{
-          const tempo=temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&!t.dt_hr_final);
+          const tempo=temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&t.operacao!=='REPROCESSAR'&&!t.dt_hr_final);
           const proj=getProjetista(tempo?.operador);
           return `<div class="kanban-card" style="border-left:4px solid ${cor};background:linear-gradient(to right,${cor}18,#fff)"
             draggable="true" id="opcard_${o.id}_${op.replace(/\s/g,'_')}"
@@ -3684,7 +3684,7 @@ async function dragDropOp(e, novaOp){
   const jaAtivo=temposOP.find(t=>t.ordem_id===draggedOrdemId&&t.operacao===novaOp&&!t.dt_hr_final);
   if(jaAtivo){showToast('Esta operação já está em andamento','err');return;}
   // Remove placeholder de reprocessamento se existir
-  const placeholder=temposOP.filter(t=>t.ordem_id===draggedOrdemId&&!t.operacao);
+  const placeholder=temposOP.filter(t=>t.ordem_id===draggedOrdemId&&t.operacao==='REPROCESSAR');
   for(const p of placeholder){
     await api('DELETE','tempos_op','',`?id=eq.${p.id}`);
   }
@@ -3841,78 +3841,87 @@ function imprimirOrdem(id){
   };
 
   const getTempo=(op)=>{
-    const t=tempos.find(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase());
+    // Pega todos os tempos desta operação com dt_hr_final (concluídos)
+    const ts=tempos.filter(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&x.dt_hr_final);
+    const t=ts.sort((a,b)=>new Date(b.dt_hr_final)-new Date(a.dt_hr_final))[0];
+    // Se não tem concluído, pega o em andamento
+    const tAtivo=!t?tempos.find(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&!x.dt_hr_final):null;
+    const reg=t||tAtivo;
+    let tempo='';
+    if(reg?.duracao_minutos){
+      const h=Math.floor(reg.duracao_minutos/60), m=reg.duracao_minutos%60;
+      tempo=`${h}h${String(m).padStart(2,'0')}`;
+    }
     return {
-      operador:t?.operador||'',
-      ini:fmtDtHr(t?.dt_hr_inicial),
-      fim:fmtDtHr(t?.dt_hr_final)
+      operador:reg?.operador||'',
+      ini:fmtDtHr(reg?.dt_hr_inicial),
+      fim:fmtDtHr(reg?.dt_hr_final),
+      tempo
     };
   };
 
-  const opRow=(op1,op2)=>`
-    <tr style="background:#d9d9d9;font-weight:700;text-align:center">
-      <td colspan="3" style="border:1px solid #000;padding:3px;font-size:10px">${op1}</td>
-      <td colspan="3" style="border:1px solid #000;padding:3px;font-size:10px">${op2}</td>
+  const opRow=(op1,op2)=>{
+    const t1=getTempo(op1), t2=getTempo(op2);
+    return `
+    <tr class="hdr">
+      <td colspan="4">${op1}</td>
+      <td colspan="4">${op2}</td>
     </tr>
-    <tr style="font-size:9px;font-weight:700;text-align:center">
-      <td style="border:1px solid #000;padding:2px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:2px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:2px">DT/HR FINAL</td>
-      <td style="border:1px solid #000;padding:2px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:2px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:2px">DT/HR FINAL</td>
+    <tr style="font-size:10px;font-weight:700;text-align:center;background:#f5f5f5">
+      <td>OPERADOR</td><td>DT/HR INICIAL</td><td>DT/HR FINAL</td><td>TEMPO ÚTIL</td>
+      <td>OPERADOR</td><td>DT/HR INICIAL</td><td>DT/HR FINAL</td><td>TEMPO ÚTIL</td>
     </tr>
-    <tr style="height:22px;font-size:10px">
-      <td style="border:1px solid #000;padding:2px">${getTempo(op1).operador}</td>
-      <td style="border:1px solid #000;padding:2px">${getTempo(op1).ini}</td>
-      <td style="border:1px solid #000;padding:2px">${getTempo(op1).fim}</td>
-      <td style="border:1px solid #000;padding:2px">${getTempo(op2).operador}</td>
-      <td style="border:1px solid #000;padding:2px">${getTempo(op2).ini}</td>
-      <td style="border:1px solid #000;padding:2px">${getTempo(op2).fim}</td>
-    </tr>`;
+    <tr style="height:26px;font-size:11px;text-align:center">
+      <td>${t1.operador}</td><td>${t1.ini}</td><td>${t1.fim}</td><td style="font-weight:700">${t1.tempo}</td>
+      <td>${t2.operador}</td><td>${t2.ini}</td><td>${t2.fim}</td><td style="font-weight:700">${t2.tempo}</td>
+    </tr>`;};
 
   const conteudo=`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  @page { size: A4 landscape; margin: 6mm; }
+  @page { size: A4 portrait; margin: 8mm; }
+  html, body { width:194mm; }
   body { font-family: Arial, sans-serif; font-size: 11px; }
   table { width:100%; border-collapse:collapse; }
+  td { border:1px solid #000; padding:3px 5px; }
+  .hdr { background:#d9d9d9; font-weight:700; text-align:center; font-size:10px; padding:4px; }
+  .lbl { background:#eee; font-weight:700; text-align:center; font-size:10px; }
   @media print { body { margin:0; } }
 </style>
 </head><body>
 <table>
   <tr>
-    <td rowspan="3" style="border:1px solid #000;padding:6px;width:65px;text-align:center">
-      <img src="${window.location.origin}/logo.jpg" style="width:45px;height:45px;object-fit:contain" onerror="this.style.display='none'">
+    <td rowspan="3" style="width:70px;text-align:center;padding:6px">
+      <img src="${window.location.origin}/logo.jpg" style="width:55px;height:55px;object-fit:contain" onerror="this.style.display='none'">
       <div style="font-weight:700;font-size:8px;margin-top:2px">SL ÓLEOS</div>
     </td>
-    <td colspan="4" style="border:1px solid #000;padding:5px;text-align:center;font-size:15px;font-weight:700">ORDEM DE PRODUÇÃO</td>
-    <td style="border:1px solid #000;padding:3px;text-align:center;font-weight:700;font-size:9px">Nº DA ORDEM</td>
-    <td style="border:1px solid #000;padding:3px;text-align:center;font-size:20px;font-weight:700;color:#2e7d32">${o.numero}</td>
+    <td colspan="5" style="text-align:center;font-size:18px;font-weight:700;padding:6px">ORDEM DE PRODUÇÃO</td>
+    <td class="lbl" style="width:90px">Nº DA ORDEM</td>
+    <td style="text-align:center;font-size:24px;font-weight:700;width:80px">${o.numero}</td>
   </tr>
   <tr>
-    <td style="border:1px solid #000;padding:2px;font-weight:700;text-align:center;font-size:9px;background:#eee">DT ABERTURA</td>
-    <td style="border:1px solid #000;padding:2px;text-align:center;font-size:10px">${dataAbertura}</td>
-    <td style="border:1px solid #000;padding:2px;font-weight:700;text-align:center;font-size:9px;background:#eee">PROJETO</td>
-    <td colspan="3" style="border:1px solid #000;padding:2px;text-align:center;font-size:10px">${pdv?'PDV '+pdv.numero+' — '+(pdv.cliente||'')+(pdv.equipamento?' / '+pdv.equipamento:''):''}</td>
+    <td class="lbl" style="width:80px">DT ABERTURA</td>
+    <td style="text-align:center">${dataAbertura}</td>
+    <td class="lbl">PROJETO</td>
+    <td colspan="4" style="text-align:center">${pdv?'PDV '+pdv.numero+(pdv.equipamento?' / '+pdv.equipamento:''):''}</td>
   </tr>
   <tr>
-    <td style="border:1px solid #000;padding:2px;font-weight:700;text-align:center;font-size:9px;background:#eee">CLIENTE</td>
-    <td colspan="5" style="border:1px solid #000;padding:2px;text-align:center;font-size:10px">${pdv?.cliente||''}</td>
+    <td class="lbl">CLIENTE</td>
+    <td colspan="6" style="text-align:center;font-size:12px;font-weight:600">${pdv?.cliente||''}</td>
   </tr>
-  <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:9px">
-    <td style="border:1px solid #000;padding:3px">DESENHO</td>
-    <td colspan="2" style="border:1px solid #000;padding:3px">DESCRIÇÃO DA PEÇA</td>
-    <td colspan="2" style="border:1px solid #000;padding:3px">MATERIAL</td>
-    <td colspan="2" style="border:1px solid #000;padding:3px">QUANTIDADE</td>
+  <tr class="hdr">
+    <td>DESENHO</td>
+    <td colspan="3">DESCRIÇÃO DA PEÇA</td>
+    <td colspan="2">MATERIAL</td>
+    <td colspan="2">QUANTIDADE</td>
   </tr>
-  <tr style="text-align:center;font-size:12px">
-    <td style="border:1px solid #000;padding:4px;font-weight:700">${o.desenho||''}</td>
-    <td colspan="2" style="border:1px solid #000;padding:4px;font-weight:700">${o.descricao||''}</td>
-    <td colspan="2" style="border:1px solid #000;padding:4px">${o.material||''}</td>
-    <td colspan="2" style="border:1px solid #000;padding:4px;font-size:16px;font-weight:700">${o.quantidade||''}</td>
+  <tr style="text-align:center;font-size:13px">
+    <td style="font-weight:700">${o.desenho||''}</td>
+    <td colspan="3" style="font-weight:700">${o.descricao||''}</td>
+    <td colspan="2">${o.material||''}</td>
+    <td colspan="2" style="font-size:18px;font-weight:700">${o.quantidade||''}</td>
   </tr>
   ${opRow('SERRA','TORNO')}
   ${opRow('PLAINA','CENTRO DE USINAGEM')}
@@ -3921,7 +3930,7 @@ function imprimirOrdem(id){
 </table>
 </body></html>`;
 
-  const win=window.open('','_blank','width=900,height=600');
+  const win=window.open('','_blank','width=1000,height=700');
   win.document.write(conteudo);
   win.document.close();
   win.onload=()=>{win.print();win.close();};
@@ -5059,7 +5068,7 @@ function abrirHistEstoque(itemId){
 function gerarConteudoRelatorio(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
   const pdv=pdvs.find(p=>p.id===o?.pdv_id);
-  const tops=temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao).sort((a,b)=>new Date(a.dt_hr_inicial||0)-new Date(b.dt_hr_inicial||0));
+  const tops=temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao&&t.operacao!=='REPROCESSAR').sort((a,b)=>new Date(a.dt_hr_inicial||0)-new Date(b.dt_hr_inicial||0));
   const totalMin=tops.reduce((acc,t)=>acc+(t.duracao_minutos||0),0);
   const totalH=Math.floor(totalMin/60), totalM=totalMin%60;
   const fmtDt=dt=>dt?new Date(dt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
@@ -5155,13 +5164,17 @@ function editarTempoOp(tempoId){
 }
 
 async function deletarTempoOp(tempoId){
-  if(!confirm('Excluir esta operação do relatório?')) return;
+  const t=temposOP.find(x=>x.id===tempoId);
+  if(t?.dt_hr_final){
+    if(!confirm(`⚠️ ATENÇÃO: Esta operação JÁ FOI CONCLUÍDA!\n\nOperação: ${t.operacao}\nOperador: ${t.operador}\nTempo: ${t.duracao_minutos?Math.floor(t.duracao_minutos/60)+'h '+t.duracao_minutos%60+'min':'—'}\n\nTem CERTEZA que quer excluir? Isso NÃO pode ser desfeito!`)) return;
+  } else {
+    if(!confirm(`Excluir operação ${t?.operacao||''} em andamento?`)) return;
+  }
   try{
     await api('DELETE','tempos_op','',`?id=eq.${tempoId}`);
     showToast('Operação excluída!');
     const ordemId=document.getElementById('modalRelatorioOrdem').dataset.ordemId;
     await loadAll();
-    // Atualiza o relatório aberto
     if(ordemId) document.getElementById('relatorioOrdemConteudo').innerHTML=gerarConteudoRelatorio(ordemId);
   }catch(e){showToast('Erro','err');}
 }
@@ -5197,7 +5210,8 @@ function abrirRelatoriosGrupo(pdvId){
           <span style="font-weight:700">Ordem Nº ${o.numero} — ${o.descricao||'—'}</span>
           <div style="display:flex;gap:8px;align-items:center">
             <span style="font-size:12px;color:var(--gray)">${o.desenho||''}</span>
-            <button class="btn btn-sm primary" onclick="event.stopPropagation();abrirRelatorioOrdem('${o.id}')">📊 Ver</button>
+            <button class="btn btn-sm primary" onclick="event.stopPropagation();abrirRelatorioOrdem('${o.id}')">📊 Relatório</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();imprimirOrdem('${o.id}')" style="background:#1565c0;color:#fff;border-color:#1565c0">🖨️ Ordem</button>
             <button class="btn btn-sm" style="background:#fff3e0;color:#e65100;border-color:#ffcc80;font-size:11px" onclick="event.stopPropagation();reprocessarOrdem('${o.id}')" title="Volta para Aguardando mantendo os tempos já registrados">↩ Reprocessar</button>
             <span style="color:var(--green);font-size:12px">▼</span>
           </div>
@@ -5219,12 +5233,12 @@ async function reprocessarOrdem(ordemId){
     // Assim: tem tempos com fim (histórico) + 1 tempo sem fim (reabre)
     await api('POST','tempos_op',{
       ordem_id:ordemId,
-      operacao:null,
-      operador:null,
+      operacao:'REPROCESSAR',
+      operador:usuarioLogado?.nome||null,
       dt_hr_inicial:null,
       dt_hr_final:null,
       duracao_minutos:null,
-      observacao:'Reprocessamento'
+      observacao:'Aguardando reprocessamento'
     });
     showToast(`Ordem Nº ${o?.numero} voltou para Aguardando!`);
     fecharModal('modalRelatoriosGrupo');
