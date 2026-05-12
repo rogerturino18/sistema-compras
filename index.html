@@ -325,6 +325,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tab" onclick="showTab(9)">🛒 Compras Internas</div>
   <div class="tab" onclick="showTab(10)">📧 Enviar Cotação</div>
   <div class="tab" onclick="showTab(11)">📦 Estoque</div>
+  <div class="tab" onclick="showTab(12)">📄 Fiscal</div>
 </div>
 
 <!-- TAB 0: DASHBOARD -->
@@ -1367,6 +1368,36 @@ tr:hover td{background:#f9fbf9}
 </div>
 </div>
 
+<!-- MODAL CLIENTE FISCAL -->
+<div class="modal-bg" id="modalClienteFiscal">
+<div class="modal" style="max-width:560px">
+  <div class="modal-header">
+    <h3 id="modalClienteFiscalTitulo">Novo Cliente</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="minimizarModal('modalClienteFiscal')">−</button>
+      <button class="modal-header-btn" onclick="fecharModal('modalClienteFiscal')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <div class="form-grid">
+      <div class="form-group"><label>CNPJ / CPF *</label><input id="cli_doc" placeholder="00.000.000/0001-00"></div>
+      <div class="form-group"><label>Inscrição Estadual</label><input id="cli_ie" placeholder="Isento ou nº IE"></div>
+      <div class="form-group full"><label>Razão Social / Nome *</label><input id="cli_nome" placeholder="Nome completo"></div>
+      <div class="form-group full"><label>Endereço *</label><input id="cli_end" placeholder="Rua, número, bairro"></div>
+      <div class="form-group"><label>Cidade *</label><input id="cli_cidade" placeholder="Cidade"></div>
+      <div class="form-group"><label>UF *</label><input id="cli_uf" placeholder="SP" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="form-group"><label>CEP</label><input id="cli_cep" placeholder="00000-000"></div>
+      <div class="form-group"><label>Telefone</label><input id="cli_fone" placeholder="(00) 00000-0000"></div>
+      <div class="form-group full"><label>E-mail</label><input id="cli_email" placeholder="email@empresa.com" type="email"></div>
+    </div>
+  </div>
+  <div class="modal-actions" style="padding:0 22px 22px">
+    <button class="btn" onclick="fecharModal('modalClienteFiscal')">Cancelar</button>
+    <button class="btn primary" onclick="salvarClienteFiscalModal()">Salvar</button>
+  </div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="importarCSV(event)">
 
@@ -1537,6 +1568,227 @@ tr:hover td{background:#f9fbf9}
   </div>
 </div>
 
+<!-- TAB 12: FISCAL -->
+<div class="panel" id="tab12">
+  <!-- Sub-abas -->
+  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);align-items:flex-end">
+    <button id="fiscalSubNFe"   onclick="showFiscalSub('nfe')"     style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:700;font-size:13px;color:var(--green);border-bottom:3px solid var(--green);margin-bottom:-2px">📄 Emitir NF-e</button>
+    <button id="fiscalSubLista" onclick="showFiscalSub('lista')"   style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px">📋 Notas Emitidas</button>
+    <button id="fiscalSubClientes" onclick="showFiscalSub('clientes')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px">👥 Clientes</button>
+    <div style="margin-left:auto;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;color:var(--gray)">Ambiente:</span>
+      <button id="btnAmbiente" onclick="toggleAmbiente()" 
+        style="padding:4px 12px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:#fff3e0;color:#e65100">
+        🧪 Homologação
+      </button>
+    </div>
+  </div>
+
+  <!-- EMITIR NF-e -->
+  <div id="fiscalNFe">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <!-- Coluna esquerda: dados da nota -->
+      <div>
+        <div style="background:#e3f2fd;border-radius:10px;padding:14px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:13px;color:#1565c0;margin-bottom:10px">📋 Dados da Nota</div>
+          <div class="form-grid" style="gap:8px">
+            <div class="form-group">
+              <label>Tipo *</label>
+              <select id="nfe_tipo" onchange="onNFeTipoChange()">
+                <option value="venda">🛒 Venda de Produto</option>
+                <option value="servico">🔧 Serviço de Industrialização</option>
+                <option value="devolucao_compra">↩ Devolução de Compra</option>
+                <option value="devolucao_venda">↩ Devolução de Venda</option>
+                <option value="exportacao">🌍 Exportação</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Natureza da Operação *</label>
+              <input id="nfe_natureza" value="VENDA DE MERCADORIA">
+            </div>
+            <div class="form-group">
+              <label>Data de Emissão *</label>
+              <input id="nfe_dt_emissao" type="date">
+            </div>
+            <div class="form-group">
+              <label>Data Saída/Entrada</label>
+              <input id="nfe_dt_saida" type="date">
+            </div>
+          </div>
+        </div>
+
+        <!-- Destinatário -->
+        <div style="background:#f3e5f5;border-radius:10px;padding:14px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:13px;color:#6a1b9a;margin-bottom:10px">👤 Destinatário</div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label>Buscar cliente cadastrado</label>
+            <div style="position:relative">
+              <input id="nfe_cli_busca" placeholder="Digite nome ou CNPJ..." oninput="filtrarClientesFiscal()" autocomplete="off"
+                style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+              <div id="nfe_cli_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
+            </div>
+          </div>
+          <div class="form-grid" style="gap:8px">
+            <div class="form-group"><label>CNPJ / CPF *</label><input id="nfe_dest_doc" placeholder="00.000.000/0001-00" oninput="formatarDocFiscal(this)"></div>
+            <div class="form-group"><label>Inscrição Estadual</label><input id="nfe_dest_ie" placeholder="Isento ou nº IE"></div>
+            <div class="form-group full"><label>Razão Social / Nome *</label><input id="nfe_dest_nome" placeholder="Nome completo ou razão social"></div>
+            <div class="form-group full"><label>Endereço *</label><input id="nfe_dest_end" placeholder="Rua, número, bairro"></div>
+            <div class="form-group"><label>Cidade *</label><input id="nfe_dest_cidade" placeholder="Cidade"></div>
+            <div class="form-group"><label>UF *</label><input id="nfe_dest_uf" placeholder="SP" maxlength="2" style="text-transform:uppercase"></div>
+            <div class="form-group"><label>CEP *</label><input id="nfe_dest_cep" placeholder="00000-000"></div>
+            <div class="form-group"><label>E-mail</label><input id="nfe_dest_email" placeholder="email@cliente.com" type="email"></div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="salvarClienteFiscal()">💾 Salvar cliente</button>
+          </div>
+        </div>
+
+        <!-- Transporte -->
+        <div style="background:#e8f5e9;border-radius:10px;padding:14px">
+          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:10px">🚚 Transporte e Pagamento</div>
+          <div class="form-grid" style="gap:8px">
+            <div class="form-group">
+              <label>Modalidade Frete</label>
+              <select id="nfe_frete">
+                <option value="0">0 - Emitente</option>
+                <option value="1">1 - Destinatário (CIF)</option>
+                <option value="2">2 - Terceiros</option>
+                <option value="9" selected>9 - Sem frete</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Forma de Pagamento</label>
+              <select id="nfe_pagamento">
+                <option value="01">Dinheiro</option>
+                <option value="03">Cartão de Crédito</option>
+                <option value="04">Cartão de Débito</option>
+                <option value="15" selected>Boleto Bancário</option>
+                <option value="17">Transferência/PIX</option>
+                <option value="90">Sem Pagamento</option>
+              </select>
+            </div>
+            <div class="form-group full"><label>Informações Adicionais</label><textarea id="nfe_info_adicional" rows="2" placeholder="Obs: dados do pedido, condições especiais..."></textarea></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coluna direita: itens -->
+      <div>
+        <div style="background:#fff9c4;border-radius:10px;padding:14px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:13px;color:#f57f17;margin-bottom:10px">📦 Itens da Nota</div>
+
+          <!-- Adicionar item -->
+          <div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid #ffe082">
+            <div class="form-grid" style="gap:6px">
+              <div class="form-group full">
+                <label style="font-size:11px">Descrição do Produto/Serviço *</label>
+                <input id="item_desc" placeholder="Ex: CHAPA ASTM A516-60 5/8...">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">NCM *</label>
+                <div style="position:relative">
+                  <input id="item_ncm" placeholder="Buscar NCM..." oninput="buscarNCM()" autocomplete="off"
+                    style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+                  <div id="ncm_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12);font-size:12px"></div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">CFOP *</label>
+                <select id="item_cfop" style="font-size:12px">
+                  <option value="5102">5102 - Venda SP</option>
+                  <option value="6102">6102 - Venda outros estados</option>
+                  <option value="7102">7102 - Exportação</option>
+                  <option value="5405">5405 - Venda ST SP</option>
+                  <option value="5124">5124 - Industrialização SP</option>
+                  <option value="6124">6124 - Industrialização outros</option>
+                  <option value="5201">5201 - Dev. Compra SP</option>
+                  <option value="6201">6201 - Dev. Compra outros</option>
+                  <option value="5411">5411 - Dev. Venda SP</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Unidade</label>
+                <select id="item_und" style="font-size:12px">
+                  <option>KG</option><option>PC</option><option>UN</option>
+                  <option>MT</option><option>CX</option><option>TON</option>
+                  <option>LT</option><option>M2</option><option>HR</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Quantidade *</label>
+                <input id="item_qtd" type="number" step="0.001" min="0.001" placeholder="0" oninput="calcularItemNFe()">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Valor Unitário *</label>
+                <input id="item_vunit" type="number" step="0.01" min="0" placeholder="0,00" oninput="calcularItemNFe()">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">% ICMS</label>
+                <input id="item_icms" type="number" step="0.01" value="13.92" placeholder="13.92" oninput="calcularItemNFe()">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Total Item</label>
+                <input id="item_total" readonly style="background:#f5f5f5;font-weight:700">
+              </div>
+            </div>
+            <button class="btn primary" onclick="adicionarItemNFe()" style="margin-top:8px;width:100%">+ Adicionar Item</button>
+          </div>
+
+          <!-- Lista de itens -->
+          <div id="listaItensNFe">
+            <div style="color:#bdbdbd;text-align:center;padding:16px;font-size:12px">Nenhum item adicionado</div>
+          </div>
+        </div>
+
+        <!-- Totais -->
+        <div style="background:#e8f5e9;border-radius:10px;padding:14px">
+          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:10px">💰 Totais</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Valor Produtos:</span><span id="tot_produtos" style="font-weight:600">R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Base ICMS:</span><span id="tot_base_icms" style="font-weight:600">R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Valor ICMS:</span><span id="tot_icms" style="font-weight:600">R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Frete:</span><span id="tot_frete" style="font-weight:600">R$ 0,00</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:2px solid #2e7d32;font-size:16px;font-weight:700;color:#2e7d32">
+            <span>TOTAL NF-e:</span>
+            <span id="tot_nfe">R$ 0,00</span>
+          </div>
+          <button class="btn primary" onclick="emitirNFe()" style="width:100%;margin-top:12px;font-size:14px;padding:12px;background:#1565c0;border-color:#1565c0">
+            🚀 Emitir NF-e
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTAS EMITIDAS -->
+  <div id="fiscalLista" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="buscaNFe" placeholder="Buscar por nº, cliente, valor..." oninput="renderNotasEmitidas()" style="flex:1">
+      <select id="filtroStatusNFe" onchange="renderNotasEmitidas()">
+        <option value="">Todos os status</option>
+        <option value="autorizado">✅ Autorizada</option>
+        <option value="cancelado">❌ Cancelada</option>
+        <option value="processando">⏳ Processando</option>
+        <option value="erro">⚠️ Erro</option>
+      </select>
+      <button class="btn" onclick="exportarExcel('fiscal')">📊 Excel</button>
+    </div>
+    <div id="statsNFe" class="stat-row"></div>
+    <div id="listaNFe"></div>
+  </div>
+
+  <!-- CLIENTES -->
+  <div id="fiscalClientes" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="buscaClienteFiscal" placeholder="Buscar cliente..." oninput="renderClientesFiscal()" style="flex:1">
+      <button class="btn primary" onclick="abrirModalClienteFiscal(null)">+ Novo Cliente</button>
+    </div>
+    <div id="listaClientesFiscal"></div>
+  </div>
+</div>
+
 </div><!-- end appContent -->
 
 <script>
@@ -1547,7 +1799,7 @@ const APP_URL=window.location.origin;
 const SITE_URL=window.location.origin; // ← URL do sistema (automático)
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 let sortCol='', sortDir='asc';
@@ -1658,7 +1910,7 @@ async function api(method,table,data=null,filter=''){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais]=await Promise.all([
       api('GET','itens','','?order=created_at.asc'),
       api('GET','cotacoes','','?order=created_at.desc'),
       api('GET','fornecedores','','?order=razao_social.asc'),
@@ -1673,7 +1925,9 @@ async function loadAll(){
       api('GET','pecas_projeto','','?order=created_at.asc'),
       api('GET','sessoes_trabalho','','?order=iniciado_em.desc'),
       api('GET','estoque_itens','','?order=descricao.asc'),
-      api('GET','estoque_movimentacoes','','?order=data.desc')
+      api('GET','estoque_movimentacoes','','?order=data.desc'),
+      api('GET','clientes_fiscal','','?order=nome.asc').catch(()=>[]),
+      api('GET','notas_fiscais','','?order=created_at.desc').catch(()=>[])
     ]);
     renderAll();
     verificarLembretes();
@@ -3879,16 +4133,17 @@ function imprimirOrdem(id){
   const conteudo=`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: 210mm 297mm; margin: 8mm; }
+  @media print { @page { size: 210mm 297mm portrait; margin: 8mm; } }
   html, body { width:194mm; }
   body { font-family: Arial, sans-serif; font-size: 11px; }
   table { width:100%; border-collapse:collapse; }
   td { border:1px solid #000; padding:3px 5px; }
   .hdr { background:#d9d9d9; font-weight:700; text-align:center; font-size:10px; padding:4px; }
   .lbl { background:#eee; font-weight:700; text-align:center; font-size:10px; }
-  @media print { body { margin:0; } }
 </style>
 </head><body>
 <table>
@@ -3930,10 +4185,14 @@ function imprimirOrdem(id){
 </table>
 </body></html>`;
 
-  const win=window.open('','_blank','width=1000,height=700');
+  const win=window.open('','_blank','width=700,height=1000');
   win.document.write(conteudo);
   win.document.close();
-  win.onload=()=>{win.print();win.close();};
+  win.onload=()=>{
+    win.document.title='Ordem Nº '+o.numero;
+    win.print();
+    win.close();
+  };
 }
 
 function getProjetista(nome){
@@ -5761,6 +6020,547 @@ async function deletarMovEstoque(id){
   }catch(e){showToast('Erro','err');}
 }
 
+// ===== FISCAL NF-e =====
+const FOCUS_NFE_URL = 'https://api.focusnfe.com.br';
+const FOCUS_NFE_URL_HOMOLOG = 'https://homologacao.focusnfe.com.br';
+let FOCUS_NFE_TOKEN = 'XN0Rq2LcevvVMNSJ1zZEXC383YkQpdEu';
+let FOCUS_NFE_HOMOLOG = true; // true = homologação, false = produção
+
+const EMITENTE = {
+  cnpj: '08363498000169',
+  razao_social: 'M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA',
+  nome_fantasia: 'SL TECNOLOGIA EM ÓLEOS',
+  logradouro: 'RUA FRANCISCO JOSE CASEIRO',
+  numero: '190',
+  bairro: 'JARDIM BELA VISTA',
+  municipio: 'Jaú',
+  uf: 'SP',
+  cep: '17206445',
+  telefone: '1436261777',
+  ie: '401187491112',
+  regime_tributario: '3' // 3 = Regime Normal (Lucro Presumido)
+};
+
+// NCMs mais comuns — será expandido com os do usuário
+const NCM_COMUNS = [
+  {codigo:'72085100', desc:'Chapas de ferro ou aço não ligado, laminadas a quente'},
+  {codigo:'72085200', desc:'Chapas de ferro ou aço não ligado, laminadas a quente, espessura < 3mm'},
+  {codigo:'72141000', desc:'Barras de ferro ou aço não ligado, forjadas'},
+  {codigo:'72149900', desc:'Barras de ferro ou aço não ligado, outras'},
+  {codigo:'72163100', desc:'Perfis em U de ferro ou aço'},
+  {codigo:'72179000', desc:'Fios de ferro ou aço não ligado, outros'},
+  {codigo:'73043100', desc:'Tubos sem costura de ferro ou aço'},
+  {codigo:'73044100', desc:'Tubos sem costura de aço inoxidável'},
+  {codigo:'84833000', desc:'Caixas de mancais, mancais'},
+  {codigo:'84834000', desc:'Engrenagens e rodas de fricção'},
+  {codigo:'84836000', desc:'Embreagens e órgãos de acoplamento'},
+  {codigo:'84839000', desc:'Partes de transmissão mecânica'},
+  {codigo:'84821000', desc:'Rolamentos de esferas'},
+  {codigo:'84822000', desc:'Rolamentos de rolos cônicos'},
+  {codigo:'84829900', desc:'Partes de rolamentos'},
+  {codigo:'40169300', desc:'Juntas e retentores de borracha vulcanizada'},
+  {codigo:'73269090', desc:'Outras obras de ferro ou aço'},
+  {codigo:'84879000', desc:'Partes de máquinas não especificadas'},
+  {codigo:'72142000', desc:'Barras de ferro ou aço, com entalhes'},
+  {codigo:'72161000', desc:'Perfis em L ou T, de ferro ou aço'},
+];
+
+function toggleAmbiente(){
+  FOCUS_NFE_HOMOLOG=!FOCUS_NFE_HOMOLOG;
+  const btn=document.getElementById('btnAmbiente');
+  if(btn){
+    btn.textContent=FOCUS_NFE_HOMOLOG?'🧪 Homologação':'🚀 Produção';
+    btn.style.background=FOCUS_NFE_HOMOLOG?'#fff3e0':'#e8f5e9';
+    btn.style.color=FOCUS_NFE_HOMOLOG?'#e65100':'#2e7d32';
+  }
+  showToast(FOCUS_NFE_HOMOLOG?'Ambiente: Homologação (testes)':'Ambiente: Produção (real!)');
+}
+
+function renderFiscal(){
+  const hoje = new Date().toISOString().split('T')[0];
+  const dtEmissao = document.getElementById('nfe_dt_emissao');
+  const dtSaida = document.getElementById('nfe_dt_saida');
+  if(dtEmissao&&!dtEmissao.value) dtEmissao.value = hoje;
+  if(dtSaida&&!dtSaida.value) dtSaida.value = hoje;
+  renderNotasEmitidas();
+  renderClientesFiscal();
+}
+
+function showFiscalSub(sub){
+  const ACTIVE = 'padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:700;font-size:13px;color:var(--green);border-bottom:3px solid var(--green);margin-bottom:-2px';
+  const IDLE   = 'padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px';
+  document.getElementById('fiscalNFe').style.display     = sub==='nfe'?'block':'none';
+  document.getElementById('fiscalLista').style.display   = sub==='lista'?'block':'none';
+  document.getElementById('fiscalClientes').style.display= sub==='clientes'?'block':'none';
+  document.getElementById('fiscalSubNFe').style.cssText      = sub==='nfe'?ACTIVE:IDLE;
+  document.getElementById('fiscalSubLista').style.cssText    = sub==='lista'?ACTIVE:IDLE;
+  document.getElementById('fiscalSubClientes').style.cssText = sub==='clientes'?ACTIVE:IDLE;
+  if(sub==='lista') renderNotasEmitidas();
+  if(sub==='clientes') renderClientesFiscal();
+}
+
+function onNFeTipoChange(){
+  const tipo = document.getElementById('nfe_tipo').value;
+  const naturezas = {
+    venda:'VENDA DE MERCADORIA',
+    servico:'INDUSTRIALIZAÇÃO POR ENCOMENDA',
+    devolucao_compra:'DEVOLUÇÃO DE COMPRA',
+    devolucao_venda:'DEVOLUÇÃO DE VENDA DE MERCADORIA',
+    exportacao:'EXPORTAÇÃO DE MERCADORIA'
+  };
+  document.getElementById('nfe_natureza').value = naturezas[tipo]||'';
+  const cfops = {
+    venda:'5102', servico:'5124',
+    devolucao_compra:'5201', devolucao_venda:'5411', exportacao:'7102'
+  };
+  document.getElementById('item_cfop').value = cfops[tipo]||'5102';
+}
+
+function formatarDocFiscal(el){
+  let v = el.value.replace(/\D/g,'');
+  if(v.length<=11) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4');
+  else v = v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+  el.value = v;
+}
+
+// Busca NCM
+function buscarNCM(){
+  const busca = (document.getElementById('item_ncm').value||'').toLowerCase();
+  const dd = document.getElementById('ncm_dropdown');
+  if(!busca||busca.length<2){dd.style.display='none';return;}
+  // Filtra por código ou descrição
+  const results = NCM_COMUNS.filter(n=>
+    n.codigo.includes(busca) || n.desc.toLowerCase().includes(busca)
+  ).slice(0,8);
+  if(!results.length){dd.style.display='none';return;}
+  dd.style.display='block';
+  dd.innerHTML = results.map(n=>`
+    <div onclick="selecionarNCM('${n.codigo}','${n.desc.replace(/'/g,"\\'")}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5"
+      onmouseover="this.style.background='#f5f7f5'" onmouseout="this.style.background='#fff'">
+      <span style="font-weight:700;color:#1565c0">${n.codigo}</span>
+      <span style="font-size:11px;color:#546e7a;margin-left:6px">${n.desc}</span>
+    </div>`).join('');
+}
+
+function selecionarNCM(codigo, desc){
+  document.getElementById('item_ncm').value = codigo;
+  document.getElementById('item_desc').value = document.getElementById('item_desc').value||desc;
+  document.getElementById('ncm_dropdown').style.display='none';
+}
+
+function calcularItemNFe(){
+  const qtd = parseFloat(document.getElementById('item_qtd').value)||0;
+  const vunit = parseFloat(document.getElementById('item_vunit').value)||0;
+  const total = qtd*vunit;
+  document.getElementById('item_total').value = total>0?fmtVal(total):'';
+}
+
+function adicionarItemNFe(){
+  const desc  = document.getElementById('item_desc').value.trim();
+  const ncm   = document.getElementById('item_ncm').value.replace(/\D/g,'');
+  const cfop  = document.getElementById('item_cfop').value;
+  const und   = document.getElementById('item_und').value;
+  const qtd   = parseFloat(document.getElementById('item_qtd').value);
+  const vunit = parseFloat(document.getElementById('item_vunit').value);
+  const icms  = parseFloat(document.getElementById('item_icms').value)||13.92;
+  if(!desc){showToast('Informe a descrição do item','err');return;}
+  if(!ncm||ncm.length<8){showToast('Informe o NCM (8 dígitos)','err');return;}
+  if(!qtd||qtd<=0){showToast('Informe a quantidade','err');return;}
+  if(!vunit||vunit<=0){showToast('Informe o valor unitário','err');return;}
+  itensNFe.push({desc,ncm,cfop,und,qtd,vunit,total:qtd*vunit,icms});
+  renderItensNFe();
+  // Limpa campos
+  document.getElementById('item_desc').value='';
+  document.getElementById('item_ncm').value='';
+  document.getElementById('item_qtd').value='';
+  document.getElementById('item_vunit').value='';
+  document.getElementById('item_total').value='';
+}
+
+function renderItensNFe(){
+  const el = document.getElementById('listaItensNFe');
+  if(!itensNFe.length){
+    el.innerHTML='<div style="color:#bdbdbd;text-align:center;padding:16px;font-size:12px">Nenhum item adicionado</div>';
+    atualizarTotaisNFe();
+    return;
+  }
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#f5f7f5">
+      <th style="padding:6px 8px;text-align:left;color:var(--green);font-size:11px">Descrição</th>
+      <th style="padding:6px 8px;color:var(--green);font-size:11px">NCM</th>
+      <th style="padding:6px 8px;color:var(--green);font-size:11px">Qtd</th>
+      <th style="padding:6px 8px;color:var(--green);font-size:11px">Vl. Unit.</th>
+      <th style="padding:6px 8px;color:var(--green);font-size:11px">Total</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${itensNFe.map((it,i)=>`
+      <tr style="border-bottom:1px solid #f0f4f0">
+        <td style="padding:6px 8px;font-weight:600">${it.desc}<div style="font-size:10px;color:var(--gray)">CFOP: ${it.cfop} | ICMS: ${it.icms}%</div></td>
+        <td style="padding:6px 8px;font-family:monospace">${it.ncm}</td>
+        <td style="padding:6px 8px">${it.qtd} ${it.und}</td>
+        <td style="padding:6px 8px">${fmtVal(it.vunit)}</td>
+        <td style="padding:6px 8px;font-weight:700;color:#2e7d32">${fmtVal(it.total)}</td>
+        <td style="padding:6px 4px"><button class="btn btn-sm danger" onclick="removerItemNFe(${i})">🗑</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+  atualizarTotaisNFe();
+}
+
+function removerItemNFe(idx){
+  itensNFe.splice(idx,1);
+  renderItensNFe();
+}
+
+function atualizarTotaisNFe(){
+  const totProd = itensNFe.reduce((a,i)=>a+i.total,0);
+  const totICMS = itensNFe.reduce((a,i)=>a+(i.total*(i.icms/100)),0);
+  document.getElementById('tot_produtos').textContent = fmtVal(totProd);
+  document.getElementById('tot_base_icms').textContent = fmtVal(totProd);
+  document.getElementById('tot_icms').textContent = fmtVal(totICMS);
+  document.getElementById('tot_nfe').textContent = fmtVal(totProd);
+}
+
+// Clientes
+function filtrarClientesFiscal(){
+  const busca = (document.getElementById('nfe_cli_busca').value||'').toLowerCase();
+  const dd = document.getElementById('nfe_cli_dropdown');
+  if(!busca||busca.length<2){dd.style.display='none';return;}
+  const results = clientesFiscal.filter(c=>
+    (c.nome||'').toLowerCase().includes(busca)||
+    (c.cnpj_cpf||'').includes(busca)
+  ).slice(0,8);
+  if(!results.length){dd.style.display='none';return;}
+  dd.style.display='block';
+  dd.innerHTML = results.map(c=>`
+    <div onclick="selecionarClienteFiscal('${c.id}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5"
+      onmouseover="this.style.background='#f5f7f5'" onmouseout="this.style.background='#fff'">
+      <div style="font-weight:600;font-size:13px">${c.nome}</div>
+      <div style="font-size:11px;color:var(--gray)">${c.cnpj_cpf||''} · ${c.cidade||''} ${c.uf||''}</div>
+    </div>`).join('');
+}
+
+function selecionarClienteFiscal(id){
+  const c = clientesFiscal.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('nfe_cli_busca').value = c.nome;
+  document.getElementById('nfe_dest_doc').value = c.cnpj_cpf||'';
+  document.getElementById('nfe_dest_ie').value = c.ie||'';
+  document.getElementById('nfe_dest_nome').value = c.nome||'';
+  document.getElementById('nfe_dest_end').value = c.endereco||'';
+  document.getElementById('nfe_dest_cidade').value = c.cidade||'';
+  document.getElementById('nfe_dest_uf').value = c.uf||'';
+  document.getElementById('nfe_dest_cep').value = c.cep||'';
+  document.getElementById('nfe_dest_email').value = c.email||'';
+  document.getElementById('nfe_cli_dropdown').style.display='none';
+}
+
+async function salvarClienteFiscal(){
+  const doc = document.getElementById('nfe_dest_doc').value.trim();
+  const nome = document.getElementById('nfe_dest_nome').value.trim();
+  if(!doc||!nome){showToast('Informe CNPJ/CPF e nome','err');return;}
+  const obj={
+    cnpj_cpf:doc.replace(/\D/g,''),
+    ie:document.getElementById('nfe_dest_ie').value.trim()||null,
+    nome,
+    endereco:document.getElementById('nfe_dest_end').value.trim()||null,
+    cidade:document.getElementById('nfe_dest_cidade').value.trim()||null,
+    uf:document.getElementById('nfe_dest_uf').value.trim().toUpperCase()||null,
+    cep:document.getElementById('nfe_dest_cep').value.replace(/\D/g,'')||null,
+    email:document.getElementById('nfe_dest_email').value.trim()||null,
+  };
+  try{
+    const exist=clientesFiscal.find(c=>c.cnpj_cpf===obj.cnpj_cpf);
+    if(exist) await api('PATCH','clientes_fiscal',obj,`?id=eq.${exist.id}`);
+    else await api('POST','clientes_fiscal',obj);
+    showToast('Cliente salvo!');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar cliente','err');console.error(e);}
+}
+
+function abrirModalClienteFiscal(id){
+  const c = id?clientesFiscal.find(x=>x.id===id):null;
+  clienteFiscalAtualId = id||null;
+  document.getElementById('modalClienteFiscalTitulo').textContent = c?'Editar Cliente':'Novo Cliente';
+  document.getElementById('cli_doc').value = c?.cnpj_cpf||'';
+  document.getElementById('cli_ie').value = c?.ie||'';
+  document.getElementById('cli_nome').value = c?.nome||'';
+  document.getElementById('cli_end').value = c?.endereco||'';
+  document.getElementById('cli_cidade').value = c?.cidade||'';
+  document.getElementById('cli_uf').value = c?.uf||'';
+  document.getElementById('cli_cep').value = c?.cep||'';
+  document.getElementById('cli_fone').value = c?.telefone||'';
+  document.getElementById('cli_email').value = c?.email||'';
+  abrirModal('modalClienteFiscal');
+}
+
+async function salvarClienteFiscalModal(){
+  const nome = document.getElementById('cli_nome').value.trim();
+  const doc  = document.getElementById('cli_doc').value.replace(/\D/g,'');
+  if(!nome||!doc){showToast('Informe nome e CNPJ/CPF','err');return;}
+  const obj={
+    cnpj_cpf:doc, ie:document.getElementById('cli_ie').value.trim()||null,
+    nome, endereco:document.getElementById('cli_end').value.trim()||null,
+    cidade:document.getElementById('cli_cidade').value.trim()||null,
+    uf:document.getElementById('cli_uf').value.trim().toUpperCase()||null,
+    cep:document.getElementById('cli_cep').value.replace(/\D/g,'')||null,
+    telefone:document.getElementById('cli_fone').value.trim()||null,
+    email:document.getElementById('cli_email').value.trim()||null,
+  };
+  try{
+    if(clienteFiscalAtualId) await api('PATCH','clientes_fiscal',obj,`?id=eq.${clienteFiscalAtualId}`);
+    else await api('POST','clientes_fiscal',obj);
+    showToast('Cliente salvo!');
+    fecharModal('modalClienteFiscal');
+    await loadAll();
+    renderClientesFiscal();
+  }catch(e){showToast('Erro','err');console.error(e);}
+}
+
+function renderClientesFiscal(){
+  const busca=(document.getElementById('buscaClienteFiscal')?.value||'').toLowerCase();
+  const el=document.getElementById('listaClientesFiscal');
+  if(!el) return;
+  const lista=clientesFiscal.filter(c=>
+    !busca||(c.nome+c.cnpj_cpf+c.cidade+'').toLowerCase().includes(busca)
+  );
+  if(!lista.length){el.innerHTML='<div class="empty">Nenhum cliente cadastrado</div>';return;}
+  el.innerHTML=`<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:#f5f7f5">
+      <th style="padding:8px 12px;text-align:left;color:var(--green);font-size:11px">Nome / Razão Social</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">CNPJ / CPF</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">Cidade</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">UF</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">E-mail</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${lista.map(c=>`<tr style="border-bottom:1px solid #f0f4f0">
+      <td style="padding:8px 12px;font-weight:600">${c.nome}</td>
+      <td style="padding:8px 12px;font-family:monospace">${c.cnpj_cpf||'—'}</td>
+      <td style="padding:8px 12px">${c.cidade||'—'}</td>
+      <td style="padding:8px 12px">${c.uf||'—'}</td>
+      <td style="padding:8px 12px;font-size:11px">${c.email||'—'}</td>
+      <td style="padding:8px 12px;white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirModalClienteFiscal('${c.id}')">✏️</button>
+        <button class="btn btn-sm primary" onclick="usarClienteNFe('${c.id}')">📄 Usar em NF-e</button>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function usarClienteNFe(id){
+  selecionarClienteFiscal(id);
+  showFiscalSub('nfe');
+}
+
+// Emissão NF-e
+async function emitirNFe(){
+  if(!FOCUS_NFE_TOKEN){
+    const token=prompt('Informe sua API Key do Focus NFe:');
+    if(!token) return;
+    FOCUS_NFE_TOKEN=token.trim();
+  }
+  if(!itensNFe.length){showToast('Adicione pelo menos 1 item','err');return;}
+  const dest_doc=document.getElementById('nfe_dest_doc').value.replace(/\D/g,'');
+  const dest_nome=document.getElementById('nfe_dest_nome').value.trim();
+  if(!dest_doc||!dest_nome){showToast('Preencha os dados do destinatário','err');return;}
+
+  const ref='SL'+Date.now();
+  const nfe={
+    natureza_operacao: document.getElementById('nfe_natureza').value,
+    data_emissao: document.getElementById('nfe_dt_emissao').value,
+    data_entrada_saida: document.getElementById('nfe_dt_saida').value,
+    tipo_documento: 1,
+    finalidade_emissao: 1,
+    consumidor_final: dest_doc.length===11?1:0,
+    presenca_comprador: 3,
+    modalidade_frete: parseInt(document.getElementById('nfe_frete').value),
+    emitente: {
+      cnpj: EMITENTE.cnpj,
+      nome: EMITENTE.razao_social,
+      logradouro: EMITENTE.logradouro,
+      numero: EMITENTE.numero,
+      bairro: EMITENTE.bairro,
+      municipio: EMITENTE.municipio,
+      uf: EMITENTE.uf,
+      cep: EMITENTE.cep,
+      telefone: EMITENTE.telefone,
+      ie: EMITENTE.ie,
+      regime_tributario: EMITENTE.regime_tributario
+    },
+    destinatario: {
+      [dest_doc.length===11?'cpf':'cnpj']: dest_doc,
+      nome: dest_nome,
+      logradouro: document.getElementById('nfe_dest_end').value.split(',')[0]||'',
+      numero: document.getElementById('nfe_dest_end').value.split(',')[1]?.trim()||'S/N',
+      bairro: document.getElementById('nfe_dest_end').value.split(',')[2]?.trim()||'',
+      municipio: document.getElementById('nfe_dest_cidade').value,
+      uf: document.getElementById('nfe_dest_uf').value.toUpperCase(),
+      cep: document.getElementById('nfe_dest_cep').value.replace(/\D/g,''),
+      email: document.getElementById('nfe_dest_email').value||undefined,
+      ie: document.getElementById('nfe_dest_ie').value||undefined,
+      indicador_ie: 9
+    },
+    items: itensNFe.map((it,i)=>({
+      numero_item: i+1,
+      codigo_produto: String(i+1).padStart(4,'0'),
+      descricao: it.desc,
+      cfop: it.cfop,
+      unidade_comercial: it.und,
+      quantidade_comercial: it.qtd,
+      valor_unitario_comercial: it.vunit,
+      valor_bruto: it.total,
+      ncm: it.ncm,
+      unidade_tributavel: it.und,
+      quantidade_tributavel: it.qtd,
+      valor_unitario_tributavel: it.vunit,
+      inclui_no_total: 1,
+      icms_origem: 0,
+      icms_modalidade: '00',
+      icms_base_calculo: it.total,
+      icms_aliquota: it.icms,
+      icms_valor: it.total*(it.icms/100),
+      pis_modalidade: '07',
+      cofins_modalidade: '07'
+    })),
+    pagamentos: [{forma_pagamento: document.getElementById('nfe_pagamento').value, valor: itensNFe.reduce((a,i)=>a+i.total,0)}],
+    informacoes_adicionais_contribuinte: document.getElementById('nfe_info_adicional').value||undefined
+  };
+
+  showToast('Enviando para SEFAZ...');
+  try{
+    const resp=await fetch(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe?ref=${ref}`,{
+      method:'POST',
+      headers:{'Authorization':'Token token='+FOCUS_NFE_TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify(nfe)
+    });
+    const data=await resp.json();
+    if(resp.ok||resp.status===201||resp.status===200){
+      // Salva no banco
+      await api('POST','notas_fiscais',{
+        ref,
+        tipo: document.getElementById('nfe_tipo').value,
+        destinatario: dest_nome,
+        destinatario_doc: dest_doc,
+        valor_total: itensNFe.reduce((a,i)=>a+i.total,0),
+        status: data.status||'processando',
+        chave: data.chave_nfe||null,
+        numero: data.numero||null,
+        criado_por: usuarioLogado?.nome||null
+      });
+      showToast('NF-e enviada! Status: '+(data.status||'processando'));
+      itensNFe=[];
+      renderItensNFe();
+      await loadAll();
+      showFiscalSub('lista');
+    } else {
+      showToast('Erro: '+(data.mensagem||JSON.stringify(data)),'err');
+    }
+  }catch(e){showToast('Erro de conexão com Focus NFe','err');console.error(e);}
+}
+
+function renderNotasEmitidas(){
+  const busca=(document.getElementById('buscaNFe')?.value||'').toLowerCase();
+  const status=document.getElementById('filtroStatusNFe')?.value||'';
+  const el=document.getElementById('listaNFe');
+  if(!el) return;
+  const lista=notasFiscais.filter(n=>{
+    if(status&&n.status!==status) return false;
+    if(busca&&!(n.destinatario+n.numero+n.valor_total+'').toLowerCase().includes(busca)) return false;
+    return true;
+  });
+  const elStats=document.getElementById('statsNFe');
+  if(elStats){
+    const total=lista.reduce((a,n)=>a+(n.valor_total||0),0);
+    elStats.innerHTML=`
+      <div class="stat"><div class="stat-label">Notas emitidas</div><div class="stat-val">${lista.length}</div></div>
+      <div class="stat blue"><div class="stat-label">Valor total</div><div class="stat-val">${fmtVal(total)}</div></div>
+      <div class="stat"><div class="stat-label">Autorizadas</div><div class="stat-val">${lista.filter(n=>n.status==='autorizado').length}</div></div>
+      <div class="stat yellow"><div class="stat-label">Pendentes</div><div class="stat-val">${lista.filter(n=>n.status==='processando').length}</div></div>`;
+  }
+  if(!lista.length){el.innerHTML='<div class="empty">Nenhuma nota emitida</div>';return;}
+  const statusBadge=s=>({
+    autorizado:'<span class="badge badge-green">✅ Autorizada</span>',
+    cancelado:'<span class="badge" style="background:#ffebee;color:#c62828">❌ Cancelada</span>',
+    processando:'<span class="badge badge-yellow">⏳ Processando</span>',
+    erro:'<span class="badge" style="background:#fff3e0;color:#e65100">⚠️ Erro</span>'
+  }[s]||`<span class="badge badge-gray">${s}</span>`);
+  el.innerHTML=`<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:#f5f7f5">
+      <th style="padding:8px 12px;text-align:left;color:var(--green);font-size:11px">Nº</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">Tipo</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">Destinatário</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">Valor</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">Status</th>
+      <th style="padding:8px 12px;color:var(--green);font-size:11px">Data</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${lista.map(n=>`<tr style="border-bottom:1px solid #f0f4f0">
+      <td style="padding:8px 12px;font-family:monospace;font-weight:700">${n.numero||n.ref||'—'}</td>
+      <td style="padding:8px 12px;font-size:11px">${n.tipo||'—'}</td>
+      <td style="padding:8px 12px;font-weight:600">${n.destinatario||'—'}<div style="font-size:10px;color:var(--gray)">${n.destinatario_doc||''}</div></td>
+      <td style="padding:8px 12px;font-weight:700;color:#2e7d32">${fmtVal(n.valor_total)}</td>
+      <td style="padding:8px 12px">${statusBadge(n.status)}</td>
+      <td style="padding:8px 12px;font-size:11px">${n.created_at?new Date(n.created_at).toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:8px 12px;white-space:nowrap">
+        ${n.status==='autorizado'?`<button class="btn btn-sm primary" onclick="baixarDANFE('${n.ref}')">🖨️ DANFE</button>`:''}
+        ${n.status==='autorizado'?`<button class="btn btn-sm" onclick="baixarXML('${n.ref}')">📄 XML</button>`:''}
+        ${n.status==='processando'?`<button class="btn btn-sm" onclick="consultarNFe('${n.ref}','${n.id}')">🔄</button>`:''}
+        ${n.status==='autorizado'?`<button class="btn btn-sm danger" onclick="cancelarNFe('${n.ref}','${n.id}')">❌</button>`:''}
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+async function consultarNFe(ref,id){
+  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+  try{
+    const resp=await fetch(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}`,{
+      headers:{'Authorization':'Token token='+FOCUS_NFE_TOKEN}
+    });
+    const data=await resp.json();
+    await api('PATCH','notas_fiscais',{status:data.status,chave:data.chave_nfe||null,numero:data.numero||null},`?id=eq.${id}`);
+    showToast('Status: '+data.status);
+    await loadAll();
+    renderNotasEmitidas();
+  }catch(e){showToast('Erro','err');}
+}
+
+function baixarDANFE(ref){
+  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+  window.open(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}.pdf?token=${FOCUS_NFE_TOKEN}`,'_blank');
+}
+
+function baixarXML(ref){
+  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+  window.open(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}.xml?token=${FOCUS_NFE_TOKEN}`,'_blank');
+}
+
+async function cancelarNFe(ref,id){
+  if(!confirm('Cancelar esta NF-e? Esta ação não pode ser desfeita!')) return;
+  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+  const just=prompt('Informe a justificativa do cancelamento (mínimo 15 caracteres):');
+  if(!just||just.length<15){showToast('Justificativa muito curta (mínimo 15 caracteres)','err');return;}
+  try{
+    const resp=await fetch(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Token token='+FOCUS_NFE_TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify({justificativa:just})
+    });
+    if(resp.ok){
+      await api('PATCH','notas_fiscais',{status:'cancelado'},`?id=eq.${id}`);
+      showToast('NF-e cancelada!');
+      await loadAll();
+      renderNotasEmitidas();
+    } else {
+      const d=await resp.json();
+      showToast('Erro: '+(d.mensagem||'Não foi possível cancelar'),'err');
+    }
+  }catch(e){showToast('Erro','err');}
+}
+
 // ===== UTILS =====
 function fmtVal(v){return v!=null&&v!==0?'R$ '+Number(v).toFixed(2):'—';}
 function fmtDt(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('pt-BR');}catch{return d.substring(0,10);}}
@@ -5769,12 +6569,13 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=11;i++){
+  for(let i=0;i<=12;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
   if(n===10) preencherRemetenteLogado();
   if(n===11) renderEstoque();
+  if(n===12) renderFiscal();
 }
 
 async function dispararEmailBemVindo(){
