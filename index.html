@@ -3385,14 +3385,21 @@ function renderOrdens(){
   div.innerHTML=Object.entries(grupos).map(([pdvId,ordensGrupo])=>{
     const pdv=pdvs.find(p=>p.id===pdvId);
 
-    // Ordem concluída = todas as operações lançadas têm dt_hr_final
-    // E tem pelo menos 1 operação registrada
+    // Ordem concluída = todas as operações REAIS têm dt_hr_final
+    // Ignora tempos placeholder (sem operacao = reprocessamento)
+    const temposReais=t=>t.operacao&&t.operacao!==null;
     const ordenConcluidas=ordensGrupo.filter(o=>{
-      const tops=temposOP.filter(t=>t.ordem_id===o.id);
-      return tops.length>0 && tops.every(t=>t.dt_hr_final);
+      const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t));
+      const placeholder=temposOP.filter(t=>t.ordem_id===o.id&&!temposReais(t));
+      // Concluída se: tem operações reais E todas têm fim E não tem placeholder pendente
+      return tops.length>0 && tops.every(t=>t.dt_hr_final) && placeholder.length===0;
     });
     const ordenAtivas=ordensGrupo.filter(o=>!ordenConcluidas.includes(o));
-    const ordenAguardando=ordenAtivas.filter(o=>!temposOP.some(t=>t.ordem_id===o.id));
+    // Aguardando = sem tempos reais em andamento (placeholder conta como aguardando)
+    const ordenAguardando=ordenAtivas.filter(o=>{
+      const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t)&&!t.dt_hr_final);
+      return tops.length===0;
+    });
 
     const kanbanCols=[
       (()=>{
@@ -3676,6 +3683,11 @@ async function dragDropOp(e, novaOp){
   if(novaOp==='aguardando') return;
   const jaAtivo=temposOP.find(t=>t.ordem_id===draggedOrdemId&&t.operacao===novaOp&&!t.dt_hr_final);
   if(jaAtivo){showToast('Esta operação já está em andamento','err');return;}
+  // Remove placeholder de reprocessamento se existir
+  const placeholder=temposOP.filter(t=>t.ordem_id===draggedOrdemId&&!t.operacao);
+  for(const p of placeholder){
+    await api('DELETE','tempos_op','',`?id=eq.${p.id}`);
+  }
   abrirIniciarOp(draggedOrdemId, novaOp);
   draggedOrdemId=null;
 }
@@ -5094,7 +5106,7 @@ function abrirHistEstoque(itemId){
 function gerarConteudoRelatorio(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
   const pdv=pdvs.find(p=>p.id===o?.pdv_id);
-  const tops=temposOP.filter(t=>t.ordem_id===ordemId).sort((a,b)=>new Date(a.dt_hr_inicial||0)-new Date(b.dt_hr_inicial||0));
+  const tops=temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao).sort((a,b)=>new Date(a.dt_hr_inicial||0)-new Date(b.dt_hr_inicial||0));
   const totalMin=tops.reduce((acc,t)=>acc+(t.duracao_minutos||0),0);
   const totalH=Math.floor(totalMin/60), totalM=totalMin%60;
   const fmtDt=dt=>dt?new Date(dt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
@@ -5249,19 +5261,19 @@ async function reprocessarOrdem(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
   if(!confirm(`Reprocessar Ordem Nº ${o?.numero} — ${o?.descricao}?\n\nEla voltará para "Aguardando" no Kanban.\nOs tempos já registrados serão mantidos.`)) return;
   try{
-    // Remove dt_hr_final do último tempo (reabre para novo processamento)
-    // Não apaga os tempos anteriores — apenas cria condição para nova operação
-    // A ordem volta para aguardando pois terá tempo com dt_hr_final mas poderá receber novos
-    // Criamos um novo registro de tempo sem dt_hr_final para indicar que está aguardando
-    // Na verdade: basta não ter nenhum tempo SEM dt_hr_final para aparecer em aguardando
-    // Então adicionamos um tempo "placeholder" sem início para forçar volta ao kanban
-    // Melhor abordagem: adicionar campo status na ordem
-    // Solução simples: apagar SOMENTE o último dt_hr_final para reabrir
-    const tops=temposOP.filter(t=>t.ordem_id===ordemId).sort((a,b)=>new Date(b.dt_hr_final||0)-new Date(a.dt_hr_final||0));
-    if(tops.length>0&&tops[0].dt_hr_final){
-      await api('PATCH','tempos_op',{dt_hr_final:null,duracao_minutos:null},`?id=eq.${tops[0].id}`);
-    }
-    showToast(`Ordem Nº ${o?.numero} voltou para produção!`);
+    // Lógica de conclusão: ordem concluída = todos os tempos têm dt_hr_final
+    // Para voltar ao Aguardando: adicionar novo tempo sem dt_hr_inicial e sem dt_hr_final
+    // Assim: tem tempos com fim (histórico) + 1 tempo sem fim (reabre)
+    await api('POST','tempos_op',{
+      ordem_id:ordemId,
+      operacao:null,
+      operador:null,
+      dt_hr_inicial:null,
+      dt_hr_final:null,
+      duracao_minutos:null,
+      observacao:'Reprocessamento'
+    });
+    showToast(`Ordem Nº ${o?.numero} voltou para Aguardando!`);
     fecharModal('modalRelatoriosGrupo');
     await loadAll();
   }catch(e){showToast('Erro','err');console.error(e);}
