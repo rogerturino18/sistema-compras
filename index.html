@@ -20,7 +20,7 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--d
 .tab{padding:11px 16px;cursor:pointer;font-size:12px;white-space:nowrap;border-bottom:3px solid transparent;color:var(--gray);transition:all 0.15s;margin-bottom:-2px;font-weight:500;display:flex;align-items:center;gap:5px}
 .tab.active{color:var(--green);border-bottom-color:var(--green)}
 .tab:hover:not(.active){color:var(--dark);background:var(--green-pale)}
-.panel{display:none;padding:16px 20px 16px 68px}
+.panel{display:none;padding:60px 20px 16px 68px}
 .panel.active{display:block}
 .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:#fff;border-radius:12px;padding:14px 16px;border-left:4px solid var(--green);box-shadow:0 1px 4px rgba(0,0,0,0.07);cursor:pointer;transition:transform 0.15s}
@@ -1520,42 +1520,61 @@ tr:hover td{background:#f9fbf9}
   <!-- Stats -->
   <div class="stat-row" id="statsEstoque"></div>
 
-  <!-- Toolbar igual lista de compras -->
-  <div class="toolbar">
-    <input type="text" id="buscaEstoque" placeholder="Buscar código, tipo, material, NCM..." oninput="renderEstoque()" style="flex:1;min-width:180px">
-    <select id="filtroEstCat" onchange="renderEstoque()">
-      <option value="">Todas as categorias</option>
-    </select>
-    <button class="btn primary" onclick="abrirModalEstoque('mp',null)">+ Novo Item</button>
-    <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
-    <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
-    <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
+  <!-- Layout: filtro lateral + tabela -->
+  <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;min-height:500px">
+
+    <!-- FILTRO LATERAL por categoria -->
+    <div style="width:200px;flex-shrink:0;background:#f8f9f8;border-right:1px solid var(--border);display:flex;flex-direction:column">
+      <div style="padding:10px 14px;font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border)">Categorias</div>
+      <div id="estCategoriaLista" style="flex:1;overflow-y:auto;padding:4px 0"></div>
+      <div style="padding:10px 12px;border-top:1px solid var(--border)">
+        <button class="btn primary" style="width:100%;font-size:12px" onclick="abrirModalEstoque('mp',null)">+ Novo Item</button>
+      </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+      <!-- Toolbar interno -->
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
+        <input type="text" id="buscaEstoque" placeholder="Buscar código, tipo, material, NCM..." oninput="renderEstoque()" style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
+        <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
+        <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
+        <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
+      </div>
+
+      <!-- Tabela -->
+      <div style="flex:1;overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px">
+          <thead>
+            <tr style="background:#f0f4f0;position:sticky;top:0;z-index:2">
+              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Código</th>
+              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Tipo</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">NCM</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Dimensões</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Saldo</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Custo Unit.</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Preço Venda</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Peso Unit.</th>
+              <th style="width:120px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyEstoque"></tbody>
+        </table>
+        <div id="estVazio" style="display:none;text-align:center;padding:48px;color:#bdbdbd">
+          <div style="font-size:36px;margin-bottom:8px">📦</div>
+          <div style="font-size:14px">Selecione uma categoria</div>
+        </div>
+      </div>
+      <div id="estRodape" style="padding:7px 14px;border-top:1px solid var(--border);font-size:11px;color:#9e9e9e;background:#fafbfa"></div>
+    </div>
   </div>
 
-  <!-- Tabela -->
-  <div class="tbl-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:90px">Código</th>
-          <th>Tipo / Descrição</th>
-          <th>Material</th>
-          <th style="width:90px">NCM</th>
-          <th>Dimensões</th>
-          <th style="width:80px">Saldo</th>
-          <th style="width:90px">Custo Unit.</th>
-          <th style="width:90px">Preço Venda</th>
-          <th style="width:80px">Peso Unit.</th>
-          <th style="width:130px">Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tbodyEstoque"></tbody>
-    </table>
-  </div>
-
-  <!-- Modal entrada/saída rápida -->
-  <div id="estMovRapidoBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:14px;padding:24px;width:360px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+  <!-- Modal movimentação rápida -->
+  <div id="estMovRapidoBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:24px;width:360px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
       <div id="estMovTitulo" style="font-size:15px;font-weight:700;margin-bottom:12px;color:#263238"></div>
       <div id="estMovInfo" style="font-size:12px;color:#546e7a;margin-bottom:12px;padding:8px 12px;background:#f5f7f5;border-radius:8px"></div>
       <div style="margin-bottom:10px">
@@ -1568,8 +1587,8 @@ tr:hover td{background:#f9fbf9}
         </div>
       </div>
       <div style="margin-bottom:14px">
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Referência / Observação</label>
-        <input id="estMovObs" type="text" placeholder="PDV, ordem de produção, NF..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Referência / Obs</label>
+        <input id="estMovObs" type="text" placeholder="PDV, ordem, NF..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" onclick="fecharEstMovRapido()">Cancelar</button>
@@ -1581,7 +1600,6 @@ tr:hover td{background:#f9fbf9}
 </div>
 
 <!-- TAB 12: FISCAL -->
-
 <div class="panel" id="tab12">
   <!-- Sub-abas -->
   <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);align-items:flex-end">
@@ -4298,168 +4316,6 @@ function imprimirOrdem(id){
   ${opRow('FREZA','MONTAGEM')}
 </table>
 
-<!-- MODAL PEDIDO DE VENDA -->
-<div class="modal-bg" id="modalPV">
-  <div class="modal" style="width:900px;max-width:99vw">
-    <div class="modal-header" style="background:#1a237e">
-      <h3 id="modalPVTitulo">Novo Pedido de Venda</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="minimizarModal('modalPV')">_</button>
-        <button class="modal-header-btn" onclick="fecharModal('modalPV')">✕</button>
-      </div>
-    </div>
-    <div class="modal-body" style="padding:0">
-      <div style="padding:16px 20px;background:#f8f9ff;border-bottom:1px solid #e0e0e0">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-          <div style="flex:2;min-width:220px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cliente *</label>
-            <div style="display:flex;gap:6px"><input id="pv_cli_razao" type="text" placeholder="Razão Social" style="flex:1;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-            <button class="btn btn-sm" onclick="abrirSelecionarClientePV()" style="white-space:nowrap">📋 Buscar</button></div>
-          </div>
-          <div style="flex:0 0 80px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
-            <input id="pv_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700"></div>
-          <div style="flex:0 0 120px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Status</label>
-            <select id="pv_status" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:12px">
-              <option value="Orçamento">📝 Orçamento</option><option value="Aprovado">✅ Aprovado</option>
-              <option value="Em Produção">🔧 Em Produção</option><option value="Faturado">💜 Faturado</option>
-              <option value="Entregue">📦 Entregue</option><option value="Cancelado">❌ Cancelado</option>
-            </select></div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px">
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Total Mercadorias</div><div id="pv_tot_merc" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Frete</div><div id="pv_frete_tot" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">IPI</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">ICMS ST</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#1a237e;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,0.8);font-weight:600;text-transform:uppercase;margin-bottom:3px">Total Pedido</div><div id="pv_tot_total" style="font-size:15px;font-weight:800;color:#fff">R$ 0,00</div></div>
-        </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
-          <div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Vendedor</label><input id="pv_vendedor" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-          <div style="flex:1;min-width:140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento</label>
-            <select id="pv_departamento" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-              <option value="">Selecionar...</option><option value="PDV">PDV</option><option value="INDUSTRIA">INDUSTRIA</option>
-              <option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option>
-              <option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option>
-            </select></div>
-          <div style="flex:0 0 100px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Parcelas</label>
-            <select id="pvNumParcelas" onchange="gerarParcelasPV()" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-              <option value="1">À Vista</option><option value="2">2x</option><option value="3" selected>3x</option>
-              <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
-            </select></div>
-          <div style="flex:0 0 110px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Frete R$</label>
-            <input id="pv_frete" type="number" step="0.01" value="0" oninput="recalcularTotaisPV()" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-          <div style="flex:0 0 140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Prev. Faturamento</label>
-            <input id="pv_prev_fat" type="date" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-          <div style="flex:1;min-width:100px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cond. Pagamento</label>
-            <input id="pv_cond_pag" type="text" placeholder="30/60/90" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-        </div>
-      </div>
-      <!-- Sub-abas -->
-      <div style="display:flex;background:#fff;border-bottom:2px solid #e8eaf6;padding:0 20px">
-        <button onclick="showPVSubTab('itens')" id="pvTab_itens" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#1a237e;border-bottom:3px solid #1a237e;margin-bottom:-2px">📦 Itens da Venda</button>
-        <button onclick="showPVSubTab('dados')" id="pvTab_dados" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">👤 Cliente</button>
-        <button onclick="showPVSubTab('pagto')" id="pvTab_pagto" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">💳 Parcelas</button>
-        <button onclick="showPVSubTab('obs')" id="pvTab_obs" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📝 Obs</button>
-      </div>
-      <div style="padding:16px 20px;min-height:240px">
-        <div id="pvSubItens">
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPV()">+ Novo Item</button>
-          </div>
-          <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
-              <thead><tr style="background:#e8eaf6"><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Código</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Descrição</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:80px">NCM</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:60px">Qtd</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:50px">Und</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Vlr Unit</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:70px">Desc %</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Total</th><th style="width:30px"></th></tr></thead>
-              <tbody id="pvItensBody"></tbody>
-            </table>
-          </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:10px">
-            <div style="min-width:260px;font-size:13px">
-              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0"><span style="color:#546e7a">Subtotal:</span><span id="pv_subtotal">R$ 0,00</span></div>
-              <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:2px solid #1a237e;margin-top:4px"><span style="font-weight:700;font-size:14px">TOTAL:</span><span id="pv_total" style="font-weight:800;font-size:15px;color:#1a237e">R$ 0,00</span></div>
-            </div>
-          </div>
-        </div>
-        <div id="pvSubDados" style="display:none">
-          <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="form-group"><label>Contato</label><input id="pv_cli_contato" type="text"></div>
-            <div class="form-group"><label>CNPJ/CPF</label><input id="pv_cli_cnpj" type="text"></div>
-            <div class="form-group"><label>Inscrição Estadual</label><input id="pv_cli_ie" type="text"></div>
-            <div class="form-group full"><label>Endereço</label><input id="pv_cli_end" type="text"></div>
-            <div class="form-group"><label>Cidade / UF / CEP</label><input id="pv_cli_cidade" type="text"></div>
-            <div class="form-group"><label>Telefone</label><input id="pv_cli_tel" type="text"></div>
-            <div class="form-group"><label>E-mail</label><input id="pv_cli_email" type="email"></div>
-          </div>
-        </div>
-        <div id="pvSubPagto" style="display:none">
-          <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-end">
-            <div><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">1º Vencimento</label>
-              <input type="date" id="pvPrimVenc" onchange="gerarParcelasPV()" style="padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-            <button class="btn btn-sm" onclick="gerarParcelasPV()">🔄 Gerar</button>
-          </div>
-          <div id="pvParcelasDiv"></div>
-        </div>
-        <div id="pvSubObs" style="display:none">
-          <div class="form-group full"><label>Observações</label><textarea id="pv_obs" rows="4" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f8f9ff">
-        <button class="btn" onclick="fecharModal('modalPV')">Fechar</button>
-        <div style="display:flex;gap:8px">
-          <button class="btn" onclick="imprimirPV(editPVId)" style="font-size:12px">🖨️ Imprimir</button>
-          <button style="background:#1a237e;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPV()">💾 Salvar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL SELECIONAR CLIENTE PV -->
-<div class="modal-bg" id="modalSelecionarClientePV">
-  <div class="modal" style="width:520px">
-    <div class="modal-header"><h3>👤 Selecionar Cliente</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalSelecionarClientePV')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <input type="text" id="buscaClientePVModal" placeholder="Buscar..." oninput="filtrarClientesPVModal()" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;margin-bottom:10px">
-      <div id="listaClientesPVModal" style="max-height:360px;overflow-y:auto"></div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL NOVO CLIENTE -->
-<div class="modal-bg" id="modalCliente">
-  <div class="modal" style="width:720px;max-width:99vw">
-    <div class="modal-header">
-      <h3 id="modalClienteTitulo">Novo Cliente</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCliente')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <div style="background:#e8f5e9;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-end">
-        <div style="flex:1"><label style="font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;display:block;margin-bottom:4px">🔍 Buscar CNPJ na Receita Federal</label>
-          <input id="cli_cnpj_busca" type="text" placeholder="00.000.000/0001-00" style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600"></div>
-        <button id="btnBuscaCNPJ" class="btn primary" onclick="buscarCNPJ()" style="white-space:nowrap">🔎 Buscar</button>
-      </div>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
-        <div class="form-group full"><label>Razão Social *</label><input id="cli_nome" type="text"></div>
-        <div class="form-group"><label>Nome Fantasia</label><input id="cli_fantasia" type="text"></div>
-        <div class="form-group"><label>CNPJ/CPF</label><input id="cli_cnpj" type="text"></div>
-        <div class="form-group"><label>Inscrição Estadual</label><input id="cli_ie" type="text"></div>
-        <div class="form-group full"><label>Endereço</label><input id="cli_end" type="text"></div>
-        <div class="form-group"><label>Cidade</label><input id="cli_cidade" type="text"></div>
-        <div class="form-group"><label>UF</label><input id="cli_uf" type="text" maxlength="2" style="text-transform:uppercase"></div>
-        <div class="form-group"><label>CEP</label><input id="cli_cep" type="text"></div>
-        <div class="form-group"><label>Telefone</label><input id="cli_tel" type="text"></div>
-        <div class="form-group"><label>E-mail</label><input id="cli_email" type="email"></div>
-        <div class="form-group"><label>Contato</label><input id="cli_contato" type="text"></div>
-        <div class="form-group full"><label>Observações</label><textarea id="cli_obs" rows="2" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="fecharModal('modalCliente')">Cancelar</button>
-        <button class="btn primary" onclick="salvarCliente()">💾 Salvar Cliente</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="pvPrintArea" style="display:none"></div>
 
 
 </body></html>`;
@@ -7179,5 +7035,170 @@ async function reprocessarOrdem(ordemId){
 
 
 </script>
+
+<!-- MODAL PEDIDO DE VENDA -->
+<div class="modal-bg" id="modalPV">
+  <div class="modal" style="width:900px;max-width:99vw">
+    <div class="modal-header" style="background:#1a237e">
+      <h3 id="modalPVTitulo">Novo Pedido de Venda</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalPV')">_</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalPV')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div style="padding:16px 20px;background:#f8f9ff;border-bottom:1px solid #e0e0e0">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:2;min-width:220px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cliente *</label>
+            <div style="display:flex;gap:6px"><input id="pv_cli_razao" type="text" placeholder="Razão Social" style="flex:1;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+            <button class="btn btn-sm" onclick="abrirSelecionarClientePV()" style="white-space:nowrap">📋 Buscar</button></div>
+          </div>
+          <div style="flex:0 0 80px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
+            <input id="pv_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700"></div>
+          <div style="flex:0 0 120px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Status</label>
+            <select id="pv_status" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:12px">
+              <option value="Orçamento">📝 Orçamento</option><option value="Aprovado">✅ Aprovado</option>
+              <option value="Em Produção">🔧 Em Produção</option><option value="Faturado">💜 Faturado</option>
+              <option value="Entregue">📦 Entregue</option><option value="Cancelado">❌ Cancelado</option>
+            </select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px">
+          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Total Mercadorias</div><div id="pv_tot_merc" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
+          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Frete</div><div id="pv_frete_tot" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
+          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">IPI</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
+          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">ICMS ST</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
+          <div style="background:#1a237e;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,0.8);font-weight:600;text-transform:uppercase;margin-bottom:3px">Total Pedido</div><div id="pv_tot_total" style="font-size:15px;font-weight:800;color:#fff">R$ 0,00</div></div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
+          <div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Vendedor</label><input id="pv_vendedor" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
+          <div style="flex:1;min-width:140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento</label>
+            <select id="pv_departamento" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+              <option value="">Selecionar...</option><option value="PDV">PDV</option><option value="INDUSTRIA">INDUSTRIA</option>
+              <option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option>
+              <option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option>
+            </select></div>
+          <div style="flex:0 0 100px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Parcelas</label>
+            <select id="pvNumParcelas" onchange="gerarParcelasPV()" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+              <option value="1">À Vista</option><option value="2">2x</option><option value="3" selected>3x</option>
+              <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
+            </select></div>
+          <div style="flex:0 0 110px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Frete R$</label>
+            <input id="pv_frete" type="number" step="0.01" value="0" oninput="recalcularTotaisPV()" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
+          <div style="flex:0 0 140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Prev. Faturamento</label>
+            <input id="pv_prev_fat" type="date" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
+          <div style="flex:1;min-width:100px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cond. Pagamento</label>
+            <input id="pv_cond_pag" type="text" placeholder="30/60/90" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
+        </div>
+      </div>
+      <!-- Sub-abas -->
+      <div style="display:flex;background:#fff;border-bottom:2px solid #e8eaf6;padding:0 20px">
+        <button onclick="showPVSubTab('itens')" id="pvTab_itens" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#1a237e;border-bottom:3px solid #1a237e;margin-bottom:-2px">📦 Itens da Venda</button>
+        <button onclick="showPVSubTab('dados')" id="pvTab_dados" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">👤 Cliente</button>
+        <button onclick="showPVSubTab('pagto')" id="pvTab_pagto" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">💳 Parcelas</button>
+        <button onclick="showPVSubTab('obs')" id="pvTab_obs" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📝 Obs</button>
+      </div>
+      <div style="padding:16px 20px;min-height:240px">
+        <div id="pvSubItens">
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPV()">+ Novo Item</button>
+          </div>
+          <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+              <thead><tr style="background:#e8eaf6"><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Código</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Descrição</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:80px">NCM</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:60px">Qtd</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:50px">Und</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Vlr Unit</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:70px">Desc %</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Total</th><th style="width:30px"></th></tr></thead>
+              <tbody id="pvItensBody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <div style="min-width:260px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0"><span style="color:#546e7a">Subtotal:</span><span id="pv_subtotal">R$ 0,00</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:2px solid #1a237e;margin-top:4px"><span style="font-weight:700;font-size:14px">TOTAL:</span><span id="pv_total" style="font-weight:800;font-size:15px;color:#1a237e">R$ 0,00</span></div>
+            </div>
+          </div>
+        </div>
+        <div id="pvSubDados" style="display:none">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="form-group"><label>Contato</label><input id="pv_cli_contato" type="text"></div>
+            <div class="form-group"><label>CNPJ/CPF</label><input id="pv_cli_cnpj" type="text"></div>
+            <div class="form-group"><label>Inscrição Estadual</label><input id="pv_cli_ie" type="text"></div>
+            <div class="form-group full"><label>Endereço</label><input id="pv_cli_end" type="text"></div>
+            <div class="form-group"><label>Cidade / UF / CEP</label><input id="pv_cli_cidade" type="text"></div>
+            <div class="form-group"><label>Telefone</label><input id="pv_cli_tel" type="text"></div>
+            <div class="form-group"><label>E-mail</label><input id="pv_cli_email" type="email"></div>
+          </div>
+        </div>
+        <div id="pvSubPagto" style="display:none">
+          <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-end">
+            <div><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">1º Vencimento</label>
+              <input type="date" id="pvPrimVenc" onchange="gerarParcelasPV()" style="padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
+            <button class="btn btn-sm" onclick="gerarParcelasPV()">🔄 Gerar</button>
+          </div>
+          <div id="pvParcelasDiv"></div>
+        </div>
+        <div id="pvSubObs" style="display:none">
+          <div class="form-group full"><label>Observações</label><textarea id="pv_obs" rows="4" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f8f9ff">
+        <button class="btn" onclick="fecharModal('modalPV')">Fechar</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="imprimirPV(editPVId)" style="font-size:12px">🖨️ Imprimir</button>
+          <button style="background:#1a237e;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPV()">💾 Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SELECIONAR CLIENTE PV -->
+<div class="modal-bg" id="modalSelecionarClientePV">
+  <div class="modal" style="width:520px">
+    <div class="modal-header"><h3>👤 Selecionar Cliente</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalSelecionarClientePV')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="buscaClientePVModal" placeholder="Buscar..." oninput="filtrarClientesPVModal()" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;margin-bottom:10px">
+      <div id="listaClientesPVModal" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVO CLIENTE -->
+<div class="modal-bg" id="modalCliente">
+  <div class="modal" style="width:720px;max-width:99vw">
+    <div class="modal-header">
+      <h3 id="modalClienteTitulo">Novo Cliente</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCliente')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <div style="background:#e8f5e9;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-end">
+        <div style="flex:1"><label style="font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;display:block;margin-bottom:4px">🔍 Buscar CNPJ na Receita Federal</label>
+          <input id="cli_cnpj_busca" type="text" placeholder="00.000.000/0001-00" style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600"></div>
+        <button id="btnBuscaCNPJ" class="btn primary" onclick="buscarCNPJ()" style="white-space:nowrap">🔎 Buscar</button>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="form-group full"><label>Razão Social *</label><input id="cli_nome" type="text"></div>
+        <div class="form-group"><label>Nome Fantasia</label><input id="cli_fantasia" type="text"></div>
+        <div class="form-group"><label>CNPJ/CPF</label><input id="cli_cnpj" type="text"></div>
+        <div class="form-group"><label>Inscrição Estadual</label><input id="cli_ie" type="text"></div>
+        <div class="form-group full"><label>Endereço</label><input id="cli_end" type="text"></div>
+        <div class="form-group"><label>Cidade</label><input id="cli_cidade" type="text"></div>
+        <div class="form-group"><label>UF</label><input id="cli_uf" type="text" maxlength="2" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>CEP</label><input id="cli_cep" type="text"></div>
+        <div class="form-group"><label>Telefone</label><input id="cli_tel" type="text"></div>
+        <div class="form-group"><label>E-mail</label><input id="cli_email" type="email"></div>
+        <div class="form-group"><label>Contato</label><input id="cli_contato" type="text"></div>
+        <div class="form-group full"><label>Observações</label><textarea id="cli_obs" rows="2" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCliente')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCliente()">💾 Salvar Cliente</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pvPrintArea" style="display:none"></div>
+
+
 </body>
 </html>
