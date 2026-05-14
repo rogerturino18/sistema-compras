@@ -335,9 +335,17 @@ tr:hover td{background:#f9fbf9}
   <div class="sb-icon" id="sbico_producao" onclick="sbToggle('producao')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🔧<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Produção</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
   <div class="sb-icon" id="sbico_vendas" onclick="sbToggle('vendas')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🧾<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Vendas</span></div>
-  <div class="sb-icon" id="sbico_11" onclick="sbGo(11,'Estoque')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">📦<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Estoque</span></div>
+  <div class="sb-icon" id="sbico_estoque" onclick="sbToggle('estoque')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">📦<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Estoque</span></div>
 </div>
 <!-- Painéis sidebar -->
+<div id="sbpanel_estoque" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:230px;overflow-y:auto;background:#fff;border-right:1px solid var(--border);z-index:14;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
+  <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">📦 Estoque</div>
+  <div style="padding:6px 0">
+    <div class="sbi" onclick="sbGo(11,'Estoque')">📦 Itens em Estoque</div>
+    <div class="sbi" onclick="sbGo(16,'Movimentações de Estoque')">📋 Entradas e Saídas</div>
+    <div class="sbi" onclick="sbGo(17,'Requisições de Material')">📤 Requisições de Material</div>
+  </div>
+</div>
 <div id="sb_overlay" onclick="sbCloseAll()" style="display:none;position:fixed;inset:0;z-index:14"></div>
 <div id="sbpanel_compras" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:14;overflow-y:auto;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🛒 Compras</div>
@@ -1535,7 +1543,15 @@ tr:hover td{background:#f9fbf9}
 
       <!-- Toolbar interno -->
       <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
-        <input type="text" id="buscaEstoque" placeholder="Buscar código, tipo, material, NCM..." oninput="renderEstoque()" style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <input type="text" id="buscaEstoque" placeholder="Buscar código, tipo, material..." oninput="renderEstoque()" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <select id="filtroEstMaterial" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-width:120px">
+          <option value="">Todos materiais</option>
+        </select>
+        <select id="filtroEstBarracao" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
+          <option value="">Ambos barracões</option>
+          <option value="Barracão 1">Barracão 1</option>
+          <option value="Barracão 2">Barracão 2</option>
+        </select>
         <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
         <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
@@ -1551,7 +1567,6 @@ tr:hover td{background:#f9fbf9}
               <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Tipo</th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">NCM</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Dimensões</th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Saldo</th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Custo Unit.</th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Preço Venda</th>
@@ -1584,9 +1599,13 @@ tr:hover td{background:#f9fbf9}
           </select>
         </div>
       </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento</label>
+        <select id="estMovDepto" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"><option value="">Selecionar (opcional)</option><option value="PDV">PDV</option><option value="INDUSTRIA">INDUSTRIA</option><option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option><option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option></select>
+      </div>
       <div style="margin-bottom:14px">
         <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Referência / Obs</label>
-        <input id="estMovObs" type="text" placeholder="PDV, ordem, NF..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <input id="estMovObs" type="text" placeholder="PDV nº, ordem de produção, NF..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" onclick="fecharEstMovRapido()">Cancelar</button>
@@ -1893,6 +1912,201 @@ tr:hover td{background:#f9fbf9}
   </div>
 </div>
 
+
+<!-- TAB 16: MOVIMENTAÇÕES DE ESTOQUE -->
+<div class="panel" id="tab16">
+  <div class="stat-row" id="statsMov"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaMov" placeholder="Buscar item, referência..." oninput="renderMovEstoque()" style="flex:1;min-width:150px">
+    <select id="filtroMovTipo" onchange="renderMovEstoque()">
+      <option value="">Entrada e Saída</option>
+      <option value="entrada">📥 Entradas</option>
+      <option value="saida">📤 Saídas</option>
+    </select>
+    <select id="filtroMovDepto" onchange="renderMovEstoque()">
+      <option value="">Todos departamentos</option>
+      <option value="PDV">PDV</option>
+      <option value="INDUSTRIA">INDUSTRIA</option>
+      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+      <option value="COMERCIAL">COMERCIAL</option>
+      <option value="MANUTENCAO">MANUTENÇÃO</option>
+      <option value="EXPEDICAO">EXPEDIÇÃO</option>
+    </select>
+    <input type="date" id="filtroMovDtDe" onchange="renderMovEstoque()" title="Data de">
+    <input type="date" id="filtroMovDtAte" onchange="renderMovEstoque()" title="Data até">
+    <button class="btn" onclick="limparFiltrosMov()" style="font-size:12px">🔄 Limpar</button>
+    <button class="btn" onclick="exportarExcelMov()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Item</th>
+        <th>Material</th>
+        <th>Qtd</th>
+        <th>Und</th>
+        <th>Departamento</th>
+        <th>Referência / Obs</th>
+        <th>Registrado por</th>
+      </tr></thead>
+      <tbody id="listaMovEstoque"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 17: REQUISIÇÕES DE MATERIAL -->
+<div class="panel" id="tab17">
+  <div class="stat-row" id="statsReq"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaReq" placeholder="Buscar nº, departamento, PDV..." oninput="renderRequisicoes()" style="flex:1;min-width:150px">
+    <select id="filtroReqStatus" onchange="renderRequisicoes()">
+      <option value="">Todos os status</option>
+      <option value="Aguardando Aprovação">⏳ Aguardando Aprovação</option>
+      <option value="Atendida">✅ Atendida</option>
+      <option value="Aguardando Aprovação">⏳ Aguardando Aprovação</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <select id="filtroReqDepto" onchange="renderRequisicoes()">
+      <option value="">Todos departamentos</option>
+      <option value="PDV">PDV</option>
+      <option value="INDUSTRIA">INDUSTRIA</option>
+      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+      <option value="COMERCIAL">COMERCIAL</option>
+      <option value="MANUTENCAO">MANUTENÇÃO</option>
+      <option value="EXPEDICAO">EXPEDIÇÃO</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalReq(null)">+ Nova Requisição</button>
+    <button class="btn" onclick="exportarExcelReq()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nº</th><th>Data</th><th>Departamento</th><th>PDV</th>
+        <th>Itens</th><th>Solicitante</th><th>Observação</th><th>Status</th>
+        <th style="width:110px">Ações</th>
+      </tr></thead>
+      <tbody id="listaRequisicoes"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL REQUISIÇÃO -->
+<div class="modal-bg" id="modalReq">
+  <div class="modal" style="width:900px;max-width:99vw">
+    <div class="modal-header" style="background:#4a148c">
+      <h3 id="modalReqTitulo">Nova Requisição de Material</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalReq')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <!-- Cabeçalho -->
+      <div style="padding:16px 20px;background:#f9f4ff;border-bottom:1px solid #e0e0e0">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:0 0 80px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
+            <input id="req_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
+          </div>
+          <div style="flex:0 0 130px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento *</label>
+            <select id="req_depto" onchange="atualizarReqPDV()" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+              <option value="">Selecionar...</option>
+              <option value="PDV">PDV</option>
+              <option value="INDUSTRIA">INDUSTRIA</option>
+              <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+              <option value="COMERCIAL">COMERCIAL</option>
+              <option value="MANUTENCAO">MANUTENÇÃO</option>
+              <option value="EXPEDICAO">EXPEDIÇÃO</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:160px" id="req_pdv_wrap">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">PDV (se for PDV)</label>
+            <select id="req_pdv_id" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+              <option value="">— Selecionar PDV —</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:140px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Solicitante</label>
+            <input id="req_solicitante" type="text" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:0 0 130px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Data</label>
+            <input id="req_data" type="date" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Observação</label>
+          <input id="req_obs" type="text" placeholder="Ex: Manutenção equipamento, Produção lote 42..." style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+        </div>
+      </div>
+      <!-- Itens -->
+      <div style="padding:14px 20px">
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:#4a148c">Itens da Requisição</span>
+          <button style="background:#7b1fa2;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemReq()">+ Adicionar Item do Estoque</button>
+        </div>
+        <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+            <thead><tr style="background:#f3e5f5">
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;text-align:left">Item / Descrição</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Material</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Saldo Atual</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;width:80px">Qtd *</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;width:60px">Und</th>
+              <th style="width:30px"></th>
+            </tr></thead>
+            <tbody id="reqItensBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Rodapé -->
+      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f9f4ff">
+        <button class="btn" onclick="fecharModal('modalReq')">Cancelar</button>
+        <button style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarRequisicao()">💾 Salvar e Baixar Estoque</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BUSCA ITEM ESTOQUE p/ Requisição -->
+<div class="modal-bg" id="modalBuscaItemReq">
+  <div class="modal" style="width:640px">
+    <div class="modal-header"><h3>🔍 Selecionar Item do Estoque</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalBuscaItemReq')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="buscaItemReqModal" placeholder="Buscar código, tipo, material..." oninput="renderBuscaItemReq()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:10px">
+      <div id="listaItemReqModal" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APROVAÇÃO DE REQUISIÇÃO -->
+<div class="modal-bg" id="modalAprovarReq">
+  <div class="modal" style="width:600px;max-width:99vw">
+    <div class="modal-header" style="background:#4a148c">
+      <h3>⏳ Aprovar Requisição de Material</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalAprovarReq')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="aprovarReqId">
+      <div id="aprovarReqInfo"></div>
+      <div style="margin-top:14px;padding:12px;background:#fff3e0;border-radius:10px;border:1px solid #ffe082">
+        <div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:6px">⚠️ Ao aprovar, o estoque será baixado automaticamente.</div>
+        <div style="font-size:12px;color:#795548">Para recusar, informe o motivo abaixo:</div>
+        <input id="motivoRecusa" type="text" placeholder="Motivo da recusa (obrigatório para recusar)..." style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid #ffe082;border-radius:8px;font-size:13px">
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn" onclick="fecharModal('modalAprovarReq')">Cancelar</button>
+        <button style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer" onclick="recusarRequisicao()">❌ Recusar</button>
+        <button style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer" onclick="confirmarAprovacao()">✅ Aprovar e Baixar Estoque</button>
+      </div>
+    </div>
+  </div>
+</div>
 </div><!-- end appContent -->
 
 <script>
@@ -1903,7 +2117,7 @@ const APP_URL=window.location.origin;
 const SITE_URL=window.location.origin; // ← URL do sistema (automático)
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 let sortCol='', sortDir='asc';
@@ -2014,7 +2228,7 @@ async function api(method,table,data=null,filter=''){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes]=await Promise.all([
       api('GET','itens','','?order=created_at.asc'),
       api('GET','cotacoes','','?order=created_at.desc'),
       api('GET','fornecedores','','?order=razao_social.asc'),
@@ -2034,7 +2248,8 @@ async function loadAll(){
       api('GET','notas_fiscais','','?order=created_at.desc').catch(()=>[]),
       api('GET','clientes','','?order=nome.asc').catch(()=>[]),
       api('GET','pedidos_venda','','?order=numero.desc').catch(()=>[]),
-      api('GET','pedidos_compra','','?order=numero.desc').catch(()=>[])
+      api('GET','pedidos_compra','','?order=numero.desc').catch(()=>[]),
+      api('GET','requisicoes_material','','?order=created_at.desc').catch(()=>[])
     ]);
     renderAll();
     verificarLembretes();
@@ -3778,6 +3993,18 @@ function renderOrdens(){
   }
 
   // Agrupa ordens por PDV
+  // Build grupos from ALL ordens (including concluidas) for the button count
+  // lista is used only for kanban display
+  const gruposAll={};
+  ordens.filter(o=>{
+    if(filtroPDV&&o.pdv_id!==filtroPDV) return false;
+    if(b&&!(o.numero+''+o.descricao+o.desenho+o.material+'').toLowerCase().includes(b)) return false;
+    return true;
+  }).forEach(o=>{
+    const key=o.pdv_id||'sem_pdv';
+    if(!gruposAll[key]) gruposAll[key]=[];
+    gruposAll[key].push(o);
+  });
   const grupos={};
   lista.forEach(o=>{
     const key=o.pdv_id||'sem_pdv';
@@ -3785,7 +4012,8 @@ function renderOrdens(){
     grupos[key].push(o);
   });
 
-  div.innerHTML=Object.entries(grupos).map(([pdvId,ordensGrupo])=>{
+  div.innerHTML=Object.entries(gruposAll).map(([pdvId,ordensGrupoAll])=>{
+    const ordensGrupo=(grupos[pdvId]||[]);
     const pdv=pdvs.find(p=>p.id===pdvId);
 
     // Ordem concluída = todas as operações REAIS têm dt_hr_final
@@ -5191,12 +5419,21 @@ function renderEstoque(){
     }).join('');
   }
 
-  // Filtra itens pela categoria selecionada + busca
-  const busca = (document.getElementById('buscaEstoque')?.value||'').toLowerCase();
-  let lista = estoqueItens.filter(i => {
-    const cat = i.tipo_peca || i.localizacao || 'Outros';
-    if(estCatAtual && cat !== estCatAtual) return false;
-    if(busca && !(i.descricao+i.material+i.codigo+i.ncm+i.tipo_peca+'').toLowerCase().includes(busca)) return false;
+  // Popula filtro de material
+  const matSel=document.getElementById('filtroEstMaterial');
+  if(matSel&&matSel.options.length<=1){
+    const mats=[...new Set(estoqueItens.map(i=>i.material).filter(Boolean))].sort();
+    mats.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;matSel.appendChild(o);});
+  }
+  const filtMat=document.getElementById('filtroEstMaterial')?.value||'';
+  const filtBarr=document.getElementById('filtroEstBarracao')?.value||'';
+  const busca=(document.getElementById('buscaEstoque')?.value||'').toLowerCase();
+  let lista=estoqueItens.filter(i=>{
+    const cat=i.tipo_peca||i.localizacao||'Outros';
+    if(estCatAtual&&cat!==estCatAtual) return false;
+    if(filtMat&&i.material!==filtMat) return false;
+    if(filtBarr&&i.localizacao!==filtBarr) return false;
+    if(busca&&!(i.descricao+i.material+i.codigo+i.ncm+i.tipo_peca+'').toLowerCase().includes(busca)) return false;
     return true;
   });
 
@@ -5258,7 +5495,6 @@ function renderEstoque(){
       </td>
       <td style="padding:8px 10px;font-size:12px;color:var(--green)">${i.material||'—'}</td>
       <td style="padding:8px 10px;font-family:monospace;font-size:11px">${i.ncm||'—'}</td>
-      <td style="padding:8px 10px;font-family:monospace;font-size:11px;white-space:nowrap">${dims}</td>
       <td style="padding:8px 10px;${saldoColor};white-space:nowrap">${saldo.toLocaleString('pt-BR',{maximumFractionDigits:3})} ${i.unidade||''}</td>
       <td style="padding:8px 10px;font-size:12px">${i.valor_unitario?fmtVal(i.valor_unitario):'—'}</td>
       <td style="padding:8px 10px;font-size:12px;color:#6a1b9a;font-weight:${i.preco_venda?'600':'400'}">${i.preco_venda?fmtVal(i.preco_venda):'—'}</td>
@@ -5310,6 +5546,7 @@ async function confirmarEstMov(){
   const und = document.getElementById('estMovUnd').value;
   const item = estoqueItens.find(i=>i.id===estMovItemId);
   try{
+    const depto=document.getElementById('estMovDepto')?.value||null;
     await api('POST','estoque_movimentacoes',{
       item_id: estMovItemId,
       tipo: estMovTipo,
@@ -5317,6 +5554,7 @@ async function confirmarEstMov(){
       quantidade: qtd,
       unidade_saida: und,
       data: new Date().toISOString().split('T')[0],
+      departamento: depto,
       observacao: obs||null,
       criado_por: usuarioLogado?.nome||null
     });
@@ -6381,7 +6619,7 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=15;i++){
+  for(let i=0;i<=17;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
@@ -6390,7 +6628,11 @@ function showTab(n){
   if(n===12) renderFiscal();
   if(n===13) {if(typeof renderPedidosVenda==='function') renderPedidosVenda();}
   if(n===14) {if(typeof renderClientes==='function') renderClientes();}
-  if(n===15) {if(typeof renderPedidosCompra==='function') renderPedidosCompra();}
+  if(n===15) {if(typeof renderPedidosCompra==='function') renderPedidosCompra();
+  if(typeof renderRequisicoes==='function') renderRequisicoes();
+  if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes();}
+  if(n===16) {if(typeof renderMovEstoque==='function') renderMovEstoque();}
+  if(n===17) {if(typeof renderRequisicoes==='function') renderRequisicoes();}
 }
 
 async function dispararEmailBemVindo(){
@@ -6463,6 +6705,15 @@ async function dispararEmailBemVindo(){
 
 function isExpedicao(){
   return usuarioLogado&&usuarioLogado.email==='expedicao@sloleos.com.br';
+}
+function isAprovador(){
+  // Administradores podem aprovar requisições de material
+  const admins=['roger@sloleos.com.br','sylvio@sloleos.com.br'];
+  if(!usuarioLogado) return false;
+  if(admins.includes(usuarioLogado.email)) return true;
+  // Also allow if perfil is Administrador
+  if((usuarioLogado.perfil||usuarioLogado.cargo||'').toLowerCase().includes('admin')) return true;
+  return false;
 }
 
 function isProjeto(){
@@ -6885,40 +7136,73 @@ async function buscarCNPJ(){
   if(raw.length!==14){showToast('CNPJ deve ter 14 dígitos','err');return;}
   const btn=document.getElementById('btnBuscaCNPJ');
   if(btn){btn.disabled=true;btn.textContent='🔄 Buscando...';}
-  try{
-    const res=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+raw);
-    if(!res.ok) throw new Error('não encontrado');
-    const d=await res.json();
-    document.getElementById('cli_nome').value    = d.razao_social||'';
-    document.getElementById('cli_fantasia').value= d.nome_fantasia||'';
-    document.getElementById('cli_cnpj').value    = raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
-    const end=[(d.logradouro||''),(d.numero||''),(d.complemento||''),(d.bairro||'')].filter(Boolean).join(', ');
-    document.getElementById('cli_end').value     = end;
-    document.getElementById('cli_cidade').value  = d.municipio||'';
-    document.getElementById('cli_uf').value      = d.uf||'';
-    document.getElementById('cli_cep').value     = (d.cep||'').replace(/(\d{5})(\d{3})/,'$1-$2');
-    document.getElementById('cli_email').value   = d.email||'';
-    document.getElementById('cli_tel').value     = d.ddd_telefone_1||'';
-    showToast('✅ Dados preenchidos!');
-  }catch(e){
-    // Fallback ReceitaWS
-    try{
-      const r2=await fetch('https://receitaws.com.br/v1/cnpj/'+raw);
-      const d2=await r2.json();
-      if(d2.status==='ERROR') throw new Error(d2.message);
-      document.getElementById('cli_nome').value    = d2.nome||'';
-      document.getElementById('cli_fantasia').value= d2.fantasia||'';
-      document.getElementById('cli_cnpj').value    = raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
-      const end2=[(d2.logradouro||''),(d2.numero||''),(d2.complemento||''),(d2.bairro||'')].filter(Boolean).join(', ');
-      document.getElementById('cli_end').value     = end2;
-      document.getElementById('cli_cidade').value  = d2.municipio||'';
-      document.getElementById('cli_uf').value      = d2.uf||'';
-      document.getElementById('cli_cep').value     = d2.cep||'';
-      document.getElementById('cli_email').value   = d2.email||'';
-      document.getElementById('cli_tel').value     = (d2.telefone||'').split('/')[0].trim();
-      showToast('✅ Dados preenchidos!');
-    }catch(e2){showToast('CNPJ não encontrado','err');}
+
+  function preencherCampos(nome,fantasia,end,cidade,uf,cep,email,tel){
+    const cnpjFmt=raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+    const setEl=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};
+    setEl('cli_nome',nome);
+    setEl('cli_fantasia',fantasia);
+    setEl('cli_cnpj',cnpjFmt);
+    setEl('cli_end',end);
+    setEl('cli_cidade',cidade);
+    setEl('cli_uf',uf);
+    setEl('cli_cep',cep);
+    setEl('cli_email',email);
+    setEl('cli_tel',tel);
   }
+
+  let preencheu=false;
+
+  // 1. BrasilAPI
+  try{
+    const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+raw);
+    if(r.ok){
+      const d=await r.json();
+      const end=[d.logradouro,d.numero,d.complemento,d.bairro].filter(Boolean).join(', ');
+      const cep=(d.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
+      preencherCampos(d.razao_social,d.nome_fantasia,end,d.municipio,d.uf,cep,d.email,d.ddd_telefone_1);
+      if(d.razao_social||d.nome_fantasia){preencheu=true;showToast('✅ CNPJ encontrado!');}
+    }
+  }catch(e){console.warn('BrasilAPI:',e);}
+
+  // 2. cnpj.ws (sem CORS)
+  if(!preencheu){
+    try{
+      const r=await fetch('https://publica.cnpj.ws/cnpj/'+raw);
+      if(r.ok){
+        const d=await r.json();
+        const rs=d.razao_social||'';
+        const ft=d.estabelecimento?.nome_fantasia||'';
+        const logr=d.estabelecimento?.logradouro||'';
+        const num=d.estabelecimento?.numero||'';
+        const bairro=d.estabelecimento?.bairro||'';
+        const cidade=d.estabelecimento?.cidade?.nome||'';
+        const uf=d.estabelecimento?.estado?.sigla||'';
+        const cep=(d.estabelecimento?.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
+        const tel=d.estabelecimento?.ddd1?(d.estabelecimento.ddd1+(d.estabelecimento.telefone1||'')):'';
+        const end=[logr,num,bairro].filter(Boolean).join(', ');
+        preencherCampos(rs,ft,end,cidade,uf,cep,'',tel);
+        if(rs||ft){preencheu=true;showToast('✅ CNPJ encontrado!');}
+      }
+    }catch(e){console.warn('cnpj.ws:',e);}
+  }
+
+  // 3. ReceitaWS
+  if(!preencheu){
+    try{
+      const r=await fetch('https://receitaws.com.br/v1/cnpj/'+raw);
+      if(r.ok){
+        const d=await r.json();
+        if(d.status!=='ERROR'){
+          const end=[d.logradouro,d.numero,d.complemento,d.bairro].filter(Boolean).join(', ');
+          preencherCampos(d.nome,d.fantasia,end,d.municipio,d.uf,d.cep,d.email,(d.telefone||'').split('/')[0].trim());
+          if(d.nome){preencheu=true;showToast('✅ CNPJ encontrado!');}
+        }
+      }
+    }catch(e){console.warn('ReceitaWS:',e);}
+  }
+
+  if(!preencheu) showToast('CNPJ não encontrado em nenhuma base. Preencha manualmente.','err');
   if(btn){btn.disabled=false;btn.textContent='🔎 Buscar';}
 }
 
@@ -7085,6 +7369,433 @@ function transferirBarracao(itemId, localAtual){
   api('PATCH','estoque_itens',{localizacao:outro},'?id=eq.'+itemId)
     .then(()=>{ showToast('Transferido para ' + outro + '!'); loadAll().then(()=>{ estCatAtual=outro; renderEstoque(); }); })
     .catch(()=>showToast('Erro ao transferir','err'));
+}
+
+// ===== MOVIMENTAÇÕES DE ESTOQUE =====
+function renderMovEstoque(){
+  const busca=(document.getElementById('buscaMov')?.value||'').toLowerCase();
+  const filtTipo=document.getElementById('filtroMovTipo')?.value||'';
+  const filtDepto=document.getElementById('filtroMovDepto')?.value||'';
+  const filtDtDe=document.getElementById('filtroMovDtDe')?.value||'';
+  const filtDtAte=document.getElementById('filtroMovDtAte')?.value||'';
+  const tbody=document.getElementById('listaMovEstoque');
+  if(!tbody)return;
+
+  // Stats
+  const el=document.getElementById('statsMov');
+  const totalEntradas=estoqueMov.filter(m=>m.tipo==='entrada').length;
+  const totalSaidas=estoqueMov.filter(m=>m.tipo==='saida').length;
+  const hoje=new Date().toISOString().split('T')[0];
+  const hoje_e=estoqueMov.filter(m=>m.tipo==='entrada'&&(m.data||m.created_at||'').startsWith(hoje)).length;
+  const hoje_s=estoqueMov.filter(m=>m.tipo==='saida'&&(m.data||m.created_at||'').startsWith(hoje)).length;
+  if(el) el.innerHTML=`
+    <div class="stat" style="cursor:default"><div class="stat-label">Total Entradas</div><div class="stat-val" style="color:#2e7d32">${totalEntradas}</div></div>
+    <div class="stat yellow" style="cursor:default"><div class="stat-label">Total Saídas</div><div class="stat-val" style="color:#e65100">${totalSaidas}</div></div>
+    <div class="stat blue" style="cursor:default"><div class="stat-label">Entradas Hoje</div><div class="stat-val">${hoje_e}</div></div>
+    <div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">Saídas Hoje</div><div class="stat-val" style="color:#c62828">${hoje_s}</div></div>`;
+
+  let lista=[...estoqueMov].sort((a,b)=>{
+    const da=a.data||a.created_at||''; const db=b.data||b.created_at||'';
+    return db.localeCompare(da);
+  });
+
+  if(filtTipo) lista=lista.filter(m=>m.tipo===filtTipo);
+  if(filtDepto) lista=lista.filter(m=>(m.departamento||m.observacao||'').toUpperCase().includes(filtDepto));
+  if(filtDtDe) lista=lista.filter(m=>(m.data||m.created_at||'')>=filtDtDe);
+  if(filtDtAte) lista=lista.filter(m=>(m.data||m.created_at||'')<=filtDtAte+'T99');
+  if(busca){
+    lista=lista.filter(m=>{
+      const item=estoqueItens.find(i=>i.id===m.item_id);
+      return (item?.descricao+item?.tipo_peca+item?.material+m.observacao+'').toLowerCase().includes(busca);
+    });
+  }
+
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação encontrada</td></tr>`;return;}
+
+  tbody.innerHTML=lista.map(m=>{
+    const item=estoqueItens.find(i=>i.id===m.item_id);
+    const nome=item?.tipo_peca||item?.descricao||'Item removido';
+    const mat=item?.material||'—';
+    const dt=(m.data||m.created_at||'').substring(0,10);
+    const dtFmt=dt?new Date(dt+'T12:00').toLocaleDateString('pt-BR'):'—';
+    const isEntrada=m.tipo==='entrada';
+    const depto=m.departamento||'—';
+    return `<tr>
+      <td style="padding:7px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
+      <td style="padding:7px 10px">
+        ${isEntrada
+          ?'<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">📥 Entrada</span>'
+          :'<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">📤 Saída</span>'}
+      </td>
+      <td style="padding:7px 10px;font-weight:600;font-size:12px">${nome}</td>
+      <td style="padding:7px 10px;font-size:12px;color:var(--green)">${mat}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:700;color:${isEntrada?'#2e7d32':'#e65100'}">${isEntrada?'+':'−'}${m.quantidade||0}</td>
+      <td style="padding:7px 10px;font-size:12px">${m.unidade_saida||item?.unidade||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${depto!=='—'?`<span class="badge badge-blue" style="font-size:10px">${depto}</span>`:'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;color:#546e7a">${m.observacao||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${m.criado_por||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function limparFiltrosMov(){
+  ['buscaMov','filtroMovDtDe','filtroMovDtAte'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['filtroMovTipo','filtroMovDepto'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
+  renderMovEstoque();
+}
+
+function exportarExcelMov(){
+  const rows=[['Data','Tipo','Item','Material','Qtd','Und','Departamento','Referência','Registrado por']];
+  const sorted=[...estoqueMov].sort((a,b)=>(b.data||b.created_at||'').localeCompare(a.data||a.created_at||''));
+  sorted.forEach(m=>{
+    const item=estoqueItens.find(i=>i.id===m.item_id);
+    const dt=(m.data||m.created_at||'').substring(0,10);
+    rows.push([dt,m.tipo==='entrada'?'Entrada':'Saída',item?.tipo_peca||item?.descricao||'',item?.material||'',m.quantidade||0,m.unidade_saida||item?.unidade||'',m.departamento||'',m.observacao||'',m.criado_por||'']);
+  });
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='movimentacoes_estoque.xls';a.click();
+}
+
+// ===== REQUISIÇÕES DE MATERIAL =====
+let editReqId=null, reqItensLocal=[];
+
+function reqStatusBadge(s){
+  const m={'Aguardando Aprovação':'background:#fff3e0;color:#e65100','Atendida':'background:#e8f5e9;color:#2e7d32','Cancelada':'background:#ffebee;color:#c62828'};
+  return `<span style="${m[s]||''};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${s||'—'}</span>`;
+}
+
+function renderRequisicoes(){
+  const b=(document.getElementById('buscaReq')?.value||'').toLowerCase();
+  const fSt=document.getElementById('filtroReqStatus')?.value||'';
+  const fDp=document.getElementById('filtroReqDepto')?.value||'';
+  const tbody=document.getElementById('listaRequisicoes');
+  if(!tbody)return;
+
+  const el=document.getElementById('statsReq');
+  if(el){
+    const abertas=requisicoes.filter(r=>r.status==='Aberta').length;
+    const totalItens=requisicoes.reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
+    el.innerHTML=`
+      <div class="stat" style="cursor:default"><div class="stat-label">Total Requisições</div><div class="stat-val">${requisicoes.length}</div></div>
+      <div class="stat yellow" style="cursor:default"><div class="stat-label">Abertas</div><div class="stat-val">${abertas}</div></div>
+      <div class="stat" style="border-left-color:#4a148c;cursor:default"><div class="stat-label">Total Itens Retirados</div><div class="stat-val" style="color:#4a148c">${totalItens}</div></div>`;
+  }
+
+  let lista=[...requisicoes];
+  if(b) lista=lista.filter(r=>(r.numero+''+r.departamento+r.pdv_nome+r.solicitante+'').toLowerCase().includes(b));
+  if(fSt) lista=lista.filter(r=>r.status===fSt);
+  if(fDp) lista=lista.filter(r=>r.departamento===fDp);
+
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma requisição</td></tr>`;return;}
+
+  tbody.innerHTML=lista.map(r=>{
+    const itArr=Array.isArray(r.itens)?r.itens:[];
+    const resumo=itArr.slice(0,2).map(it=>it.descricao||it.nome||'').filter(Boolean).join(', ')+(itArr.length>2?` +${itArr.length-2}`:'');
+    return `<tr>
+      <td style="padding:7px 10px;font-weight:700;color:#4a148c">Nº ${r.numero||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:7px 10px"><span class="badge badge-blue" style="font-size:11px">${r.departamento||'—'}</span></td>
+      <td style="padding:7px 10px;font-size:12px">${r.pdv_nome||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${itArr.map(i=>i.descricao||'').join(', ')}">${resumo||'—'} <span style="color:#9e9e9e">(${itArr.length} item${itArr.length!==1?'s':''})</span></td>
+      <td style="padding:7px 10px;font-size:12px">${r.solicitante||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;color:#546e7a">${r.observacao||'—'}</td>
+      <td style="padding:7px 10px">${reqStatusBadge(r.status)}</td>
+      <td style="padding:7px 6px;white-space:nowrap">
+        <button class="btn btn-sm" onclick="verRequisicao('${r.id}')" title="Ver detalhes">🔍</button>
+        ${r.status==='Aguardando Aprovação'&&isAprovador()?`<button class="btn btn-sm" style="background:#4a148c;color:#fff;border-color:#4a148c" onclick="aprovarRequisicao('${r.id}')" title="Aprovar">✅ Aprovar</button>`:''}${(r.status==='Aguardando Aprovação'||r.status==='Aberta')?`<button class="btn btn-sm danger" onclick="cancelarRequisicao('${r.id}')" title="Recusar">❌</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalReq(id){
+  editReqId=id; reqItensLocal=[];
+  const r=id?requisicoes.find(x=>x.id===id):null;
+  const maxNum=requisicoes.length?Math.max(...requisicoes.map(x=>x.numero||0)):0;
+  document.getElementById('modalReqTitulo').textContent=id?`Requisição Nº ${r?.numero||''}`:'Nova Requisição de Material';
+  document.getElementById('req_numero').value=r?.numero||(maxNum+1);
+  if(document.getElementById('req_depto')) document.getElementById('req_depto').value=r?.departamento||'';
+  document.getElementById('req_solicitante').value=r?.solicitante||usuarioLogado?.nome||'';
+  document.getElementById('req_obs').value=r?.observacao||'';
+  document.getElementById('req_data').value=r?.data||new Date().toISOString().split('T')[0];
+  // Populate PDV select
+  const selPDV=document.getElementById('req_pdv_id');
+  if(selPDV){
+    selPDV.innerHTML='<option value="">— Selecionar PDV —</option>';
+    pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
+    selPDV.value=r?.pdv_id||'';
+  }
+  reqItensLocal=Array.isArray(r?.itens)?JSON.parse(JSON.stringify(r.itens)):[];
+  atualizarReqPDV();
+  renderReqItens();
+  abrirModal('modalReq');
+}
+
+function atualizarReqPDV(){
+  const depto=document.getElementById('req_depto')?.value;
+  const wrap=document.getElementById('req_pdv_wrap');
+  if(wrap) wrap.style.display=depto==='PDV'?'block':'none';
+}
+
+function addItemReq(){
+  document.getElementById('buscaItemReqModal').value='';
+  renderBuscaItemReq();
+  abrirModal('modalBuscaItemReq');
+}
+
+function renderBuscaItemReq(){
+  const b=(document.getElementById('buscaItemReqModal')?.value||'').toLowerCase();
+  const div=document.getElementById('listaItemReqModal');
+  if(!div)return;
+  let lista=estoqueItens.filter(i=>{
+    if(b&&!(i.descricao+i.tipo_peca+i.material+i.codigo+'').toLowerCase().includes(b)) return false;
+    return true;
+  });
+  if(!lista.length){div.innerHTML='<p style="color:#bdbdbd;padding:12px">Nenhum item</p>';return;}
+  div.innerHTML=lista.map(i=>{
+    const mov=estoqueMov.filter(m=>m.item_id===i.id);
+    const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
+    const saldoColor=saldo<=0?'color:#c62828':'color:#2e7d32';
+    return `<div onclick="selecionarItemReq('${i.id}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f4f0;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background='#f9f4ff'" onmouseout="this.style.background=''">
+      <div>
+        <div style="font-weight:600;font-size:13px">${i.tipo_peca||i.descricao||'—'}</div>
+        <div style="font-size:11px;color:#546e7a">${i.material||''}${i.codigo?' · Cód: '+i.codigo:''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="${saldoColor};font-weight:700;font-size:13px">${saldo.toLocaleString('pt-BR',{maximumFractionDigits:3})} ${i.unidade||''}</div>
+        <div style="font-size:10px;color:#9e9e9e">em estoque</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selecionarItemReq(itemId){
+  const item=estoqueItens.find(i=>i.id===itemId);
+  if(!item)return;
+  // Don't add duplicate
+  if(reqItensLocal.find(x=>x.item_id===itemId)){showToast('Item já adicionado','err');return;}
+  const mov=estoqueMov.filter(m=>m.item_id===itemId);
+  const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item.qtd_inicial||0));
+  reqItensLocal.push({item_id:itemId,descricao:item.tipo_peca||item.descricao||'',material:item.material||'',unidade:item.unidade||'PC',qtd:1,saldo_atual:saldo});
+  fecharModal('modalBuscaItemReq');
+  renderReqItens();
+}
+
+function renderReqItens(){
+  const tbody=document.getElementById('reqItensBody');
+  if(!tbody)return;
+  if(!reqItensLocal.length){
+    tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:16px;color:#bdbdbd;font-size:12px">Clique em "+ Adicionar Item do Estoque"</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=reqItensLocal.map((it,i)=>{
+    const saldoColor=it.saldo_atual<=0?'color:#c62828;font-weight:700':'color:#2e7d32';
+    return `<tr style="border-bottom:1px solid #f0f4f0">
+      <td style="padding:7px 10px;font-weight:600;font-size:12px">${it.descricao}</td>
+      <td style="padding:7px 10px;font-size:12px;color:var(--green)">${it.material||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;${saldoColor}">${(it.saldo_atual||0).toLocaleString('pt-BR',{maximumFractionDigits:3})} ${it.unidade}</td>
+      <td style="padding:4px 6px"><input type="number" value="${it.qtd||1}" min="0.001" step="0.001" onchange="reqItensLocal[${i}].qtd=parseFloat(this.value)||0" style="padding:5px 8px;border:1px solid #ce93d8;border-radius:6px;font-size:13px;width:75px;font-weight:600"></td>
+      <td style="padding:7px 10px;font-size:12px">${it.unidade}</td>
+      <td><button onclick="reqItensLocal.splice(${i},1);renderReqItens()" style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:2px 6px;cursor:pointer">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function salvarRequisicao(){
+  const depto=document.getElementById('req_depto')?.value;
+  if(!depto){showToast('Selecione o departamento','err');return;}
+  if(!reqItensLocal.length){showToast('Adicione pelo menos um item','err');return;}
+  // Check stock
+  for(const it of reqItensLocal){
+    if(it.qtd<=0){showToast(`Quantidade inválida: ${it.descricao}`,'err');return;}
+    if(it.qtd>it.saldo_atual&&it.saldo_atual>=0){
+      if(!confirm(`⚠️ ${it.descricao}: saldo atual ${it.saldo_atual} ${it.unidade}, você quer retirar ${it.qtd}. Continuar mesmo assim?`)) return;
+    }
+  }
+  const pdvSel=document.getElementById('req_pdv_id');
+  const pdvId=pdvSel?.value||null;
+  const pdv=pdvId?pdvs.find(p=>p.id===pdvId):null;
+  const numero=parseInt(document.getElementById('req_numero').value)||0;
+  const obj={
+    numero, status: isAprovador() ? 'Atendida' : 'Aguardando Aprovação',
+    departamento:depto,
+    pdv_id:pdvId||null,
+    pdv_nome:pdv?('PDV '+pdv.numero+(pdv.cliente?' — '+pdv.cliente:'')):(depto==='PDV'?'PDV Manual':null),
+    solicitante:document.getElementById('req_solicitante').value.trim()||null,
+    data:document.getElementById('req_data').value||new Date().toISOString().split('T')[0],
+    observacao:document.getElementById('req_obs').value.trim()||null,
+    itens:reqItensLocal,
+    criado_por:usuarioLogado?.nome||null
+  };
+  try{
+    // Save requisition
+    let savedId = editReqId;
+    if(editReqId) await api('PATCH','requisicoes_material',obj,`?id=eq.${editReqId}`);
+    else {
+      const res = await api('POST','requisicoes_material',obj);
+      if(res&&res[0]) savedId = res[0].id;
+    }
+    // Only baixar estoque if approved (admin creates directly as Atendida)
+    if(obj.status === 'Atendida'){
+      for(const it of reqItensLocal){
+        await api('POST','estoque_movimentacoes',{
+          item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
+          quantidade:it.qtd, unidade_saida:it.unidade, data:obj.data,
+          departamento:depto,
+          observacao:`Req. Nº ${numero} — ${depto}${pdv?' / PDV '+pdv.numero:''}`,
+          criado_por:usuarioLogado?.nome||null
+        });
+      }
+      showToast(`✅ Requisição Nº ${numero} aprovada e estoque atualizado!`);
+    } else {
+      showToast(`📋 Requisição Nº ${numero} enviada para aprovação!`);
+    }
+    fecharModal('modalReq');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar requisição','err');console.error(e);}
+}
+
+async function cancelarRequisicao(id){
+  if(!confirm('Cancelar esta requisição? O estoque NÃO será estornado automaticamente.'))return;
+  try{
+    await api('PATCH','requisicoes_material',{status:'Cancelada'},`?id=eq.${id}`);
+    showToast('Requisição cancelada!');
+    await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+function verRequisicao(id){
+  const r=requisicoes.find(x=>x.id===id);
+  if(!r)return;
+  const itArr=Array.isArray(r.itens)?r.itens:[];
+  const html=`<div style="font-family:Arial,sans-serif;font-size:12px;padding:20px;max-width:700px">
+    <div style="border-bottom:2px solid #4a148c;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between">
+      <div><div style="font-size:18px;font-weight:800;color:#4a148c">Requisição de Material Nº ${r.numero||'—'}</div>
+      <div style="font-size:11px;color:#546e7a">Emitida em ${r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'—'} por ${r.criado_por||'—'}</div></div>
+      <div style="text-align:right;font-size:11px"><b>M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</b><br>SL Óleos · Jaú - SP</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;font-size:12px">
+      <div><b>Departamento:</b> ${r.departamento||'—'}</div>
+      <div><b>PDV:</b> ${r.pdv_nome||'—'}</div>
+      <div><b>Solicitante:</b> ${r.solicitante||'—'}</div>
+      <div><b>Status:</b> ${r.status||'—'}</div>
+      ${r.observacao?`<div style="grid-column:1/-1"><b>Observação:</b> ${r.observacao}</div>`:''}
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#4a148c;color:#fff"><th style="padding:6px 8px;text-align:left;font-size:11px">Item</th><th style="padding:6px 8px;font-size:11px">Material</th><th style="padding:6px 8px;font-size:11px">Qtd</th><th style="padding:6px 8px;font-size:11px">Und</th></tr></thead>
+      <tbody>${itArr.map((it,i)=>`<tr style="${i%2===0?'background:#fafafa':''}"><td style="padding:6px 8px;font-size:11px">${it.descricao||'—'}</td><td style="padding:6px 8px;font-size:11px">${it.material||'—'}</td><td style="padding:6px 8px;font-size:11px;font-weight:700">${it.qtd||0}</td><td style="padding:6px 8px;font-size:11px">${it.unidade||'—'}</td></tr>`).join('')}</tbody>
+    </table>
+    <div style="margin-top:40px;display:flex;justify-content:space-between">
+      <div style="text-align:center;border-top:1px solid #000;padding-top:4px;width:200px">Solicitante</div>
+      <div style="text-align:center;border-top:1px solid #000;padding-top:4px;width:200px">Almoxarifado</div>
+    </div>
+  </div>`;
+  const w=window.open('','_blank','width=760,height=700');
+  w.document.write(html);w.document.close();w.print();
+}
+
+function exportarExcelReq(){
+  if(!requisicoes.length){showToast('Nenhuma requisição','err');return;}
+  const rows=[['Nº','Data','Departamento','PDV','Itens','Qtd Total','Solicitante','Observação','Status']];
+  requisicoes.forEach(r=>{
+    const itArr=Array.isArray(r.itens)?r.itens:[];
+    rows.push([r.numero||'',r.data||'',r.departamento||'',r.pdv_nome||'',itArr.map(i=>i.descricao||'').join('; '),itArr.reduce((s,i)=>s+(i.qtd||0),0),r.solicitante||'',r.observacao||'',r.status||'']);
+  });
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='requisicoes_material.xls';a.click();
+}
+
+// ===== APROVAÇÃO DE REQUISIÇÕES =====
+async function aprovarRequisicao(id){
+  const r=requisicoes.find(x=>x.id===id);
+  if(!r)return;
+  if(!isAprovador()){showToast('Sem permissão para aprovar','err');return;}
+  // Show approval modal
+  document.getElementById('aprovarReqId').value=id;
+  document.getElementById('aprovarReqInfo').innerHTML=`
+    <div style="background:#f3e5f5;border-radius:10px;padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:15px;font-weight:700;color:#4a148c;margin-bottom:8px">📋 Requisição Nº ${r.numero} — ${r.departamento}</div>
+      ${r.pdv_nome?`<div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>PDV:</b> ${r.pdv_nome}</div>`:''}
+      <div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>Solicitante:</b> ${r.solicitante||'—'}</div>
+      <div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>Data:</b> ${r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</div>
+      ${r.observacao?`<div style="font-size:12px;color:#546e7a"><b>Motivo:</b> ${r.observacao}</div>`:''}
+    </div>
+    <div style="font-size:13px;font-weight:600;color:#263238;margin-bottom:8px">📦 Materiais a retirar:</div>
+    ${(Array.isArray(r.itens)?r.itens:[]).map(it=>`
+      <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid #f0f4f0;font-size:13px">
+        <span><b>${it.descricao||'—'}</b> ${it.material?'— '+it.material:''}</span>
+        <span style="font-weight:700;color:#4a148c">${it.qtd} ${it.unidade||''}</span>
+      </div>`).join('')}`;
+  abrirModal('modalAprovarReq');
+}
+
+async function confirmarAprovacao(){
+  const id=document.getElementById('aprovarReqId').value;
+  const r=requisicoes.find(x=>x.id===id);
+  if(!r)return;
+  try{
+    await api('PATCH','requisicoes_material',{status:'Atendida',aprovado_por:usuarioLogado?.nome,aprovado_em:new Date().toISOString()},`?id=eq.${id}`);
+    // Baixar estoque
+    const itArr=Array.isArray(r.itens)?r.itens:[];
+    for(const it of itArr){
+      await api('POST','estoque_movimentacoes',{
+        item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
+        quantidade:it.qtd, unidade_saida:it.unidade,
+        data:r.data||new Date().toISOString().split('T')[0],
+        departamento:r.departamento,
+        observacao:`Req. Nº ${r.numero} — ${r.departamento}${r.pdv_nome?' / '+r.pdv_nome:''}`,
+        criado_por:usuarioLogado?.nome||null
+      });
+    }
+    fecharModal('modalAprovarReq');
+    showToast(`✅ Requisição Nº ${r.numero} aprovada! Estoque atualizado.`);
+    await loadAll();
+  }catch(e){showToast('Erro ao aprovar','err');console.error(e);}
+}
+
+async function recusarRequisicao(){
+  const id=document.getElementById('aprovarReqId').value;
+  const motivo=document.getElementById('motivoRecusa').value.trim();
+  if(!motivo){showToast('Informe o motivo da recusa','err');return;}
+  try{
+    await api('PATCH','requisicoes_material',{status:'Cancelada',observacao_aprovador:motivo,aprovado_por:usuarioLogado?.nome,aprovado_em:new Date().toISOString()},`?id=eq.${id}`);
+    fecharModal('modalAprovarReq');
+    showToast('Requisição recusada.');
+    await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+function verificarAprovacoesPendentes(){
+  if(!isAprovador()) return;
+  const pendentes=requisicoes.filter(r=>r.status==='Aguardando Aprovação');
+  const badge=document.getElementById('badgeAprovacoes');
+  if(!pendentes.length){if(badge)badge.style.display='none';return;}
+  // Show badge on dashboard
+  const dashNotifs=document.getElementById('dashNotifs');
+  if(dashNotifs){
+    const existing=document.getElementById('notifAprovacoes');
+    const html=`<div id="notifAprovacoes" style="background:#fff3e0;border:1px solid #ffe082;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="showTab(17)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">⏳</span>
+        <div>
+          <div style="font-weight:700;color:#e65100;font-size:13px">${pendentes.length} requisição${pendentes.length>1?'s':''} aguardando sua aprovação</div>
+          <div style="font-size:12px;color:#795548;margin-top:2px">${pendentes.map(r=>`Req. Nº ${r.numero} — ${r.departamento} (${r.solicitante||'?'})`).join(' · ')}</div>
+        </div>
+        <span style="margin-left:auto;background:#e65100;color:#fff;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600">Ver →</span>
+      </div>
+    </div>`;
+    if(existing) existing.outerHTML=html;
+    else dashNotifs.insertAdjacentHTML('afterbegin',html);
+  }
+  // Also check and auto-show popup if new pending appeared
+  const lastSeen=parseInt(sessionStorage.getItem('lastReqSeen')||'0');
+  const newest=Math.max(...pendentes.map(r=>new Date(r.created_at||0).getTime()));
+  if(newest>lastSeen){
+    sessionStorage.setItem('lastReqSeen',Date.now().toString());
+    // Show the most recent pending req
+    const latest=pendentes.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))[0];
+    if(latest) setTimeout(()=>aprovarRequisicao(latest.id),500);
+  }
 }
 </script>
 
