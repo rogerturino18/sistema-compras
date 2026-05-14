@@ -60,8 +60,8 @@ tr:hover td{background:#f9fbf9}
 .badge-blue{background:#e3f2fd;color:#1565c0}
 .badge-red{background:#ffebee;color:#c62828}
 .forn-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--green-pale);color:var(--green);font-weight:500}
-.modal-bg{display:none;position:fixed;inset:0;z-index:100}
-.modal-bg.open{display:flex;align-items:center;justify-content:center;pointer-events:all;background:rgba(0,0,0,0.5)}
+.modal-bg{display:none;position:fixed;inset:0;z-index:100;pointer-events:none}
+.modal-bg.open{display:flex!important;align-items:center;justify-content:center;pointer-events:all!important;background:rgba(0,0,0,0.5);z-index:500!important}
 .modal-bg.minimized{display:block}
 .modal{background:#fff;border-radius:14px;padding:0;width:560px;max-width:98vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(46,125,50,0.25);position:fixed;top:80px;left:50%;transform:translateX(-50%);pointer-events:all;cursor:default}
 .modal-bg.minimized .modal{max-height:48px;overflow:hidden;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.2)}
@@ -641,6 +641,11 @@ tr:hover td{background:#f9fbf9}
     <div class="form-group full"><label>Descrição do Item <span style="color:var(--gray);font-weight:400;text-transform:none;font-size:10px">(opcional — use para acessórios e equipamentos prontos)</span></label><textarea id="fi_descricao_item" rows="2" placeholder="Ex: Parafuso sextavado M8 x 30mm inox, Kit vedação bomba Rexroth..."></textarea></div>
     <div class="form-group"><label>Valor unitário (R$)</label><input id="fi_valor" type="number" step="0.01" min="0"></div>
     <div class="form-group"><label>Peso (kg)</label><input id="fi_peso" type="number" step="0.01" min="0"></div>
+    <div class="form-group full"><label>Fornecedor</label>
+      <select id="fi_fornecedor" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <option value="">— Selecionar fornecedor —</option>
+      </select>
+    </div>
   </div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
@@ -679,7 +684,7 @@ tr:hover td{background:#f9fbf9}
       <label>CNPJ <span style="color:var(--green);font-size:10px">(busca dados automaticamente)</span></label>
       <div style="display:flex;gap:6px">
         <input id="ff_cnpj" placeholder="00.000.000/0000-00" style="flex:1" oninput="formatarCNPJ(this)">
-        <button class="btn primary btn-sm" onclick="buscarCNPJ()">🔍 Buscar</button>
+        <button class="btn primary btn-sm" onclick="buscarCNPJFornecedor()">🔍 Buscar</button>
       </div>
       <div class="cnpj-loading" id="cnpjLoading"><span class="spinner"></span>Buscando dados...</div>
     </div>
@@ -1242,13 +1247,6 @@ tr:hover td{background:#f9fbf9}
       <select id="est_local">
         <option value="Barracão 1">Barracão 1</option>
         <option value="Barracão 2">Barracão 2</option>
-        <option value="CHAPA ANEL">CHAPA ANEL</option>
-        <option value="BARRA REDONDA">BARRA REDONDA</option>
-        <option value="TUBO MECÂNICO">TUBO MECÂNICO</option>
-        <option value="CHAVETAS">CHAVETAS</option>
-        <option value="CHAPAS">CHAPAS</option>
-        <option value="CHAPA DISCO">CHAPA DISCO</option>
-        <option value="ACESSÓRIOS COMERCIAIS">ACESSÓRIOS COMERCIAIS</option>
       </select>
     </div>
     <div class="form-group"><label>Quantidade Atual *</label><input id="est_qtd" type="number" step="0.001" min="0" value="0"></div>
@@ -2317,6 +2315,25 @@ function abrirModalItem(id){
   document.getElementById('fi_qtd').value=it?it.qtd:1;
   document.getElementById('fi_valor').value=it&&it.valor_unitario!=null?it.valor_unitario:'';
   document.getElementById('fi_peso').value=it&&it.peso!=null?it.peso:'';
+  const fiForn=document.getElementById('fi_fornecedor');
+  if(fiForn){
+    // Rebuild options with current fornecedores
+    fiForn.innerHTML='<option value="">— Selecionar fornecedor —</option>';
+    fornecedores.forEach(f=>{
+      const opt=document.createElement('option');
+      opt.value=f.razao_social||'';
+      opt.textContent=f.razao_social||'';
+      fiForn.appendChild(opt);
+    });
+    // Also add current value if not in list (manual entry)
+    const curVal=it?.fornecedor||'';
+    if(curVal&&![...fiForn.options].some(o=>o.value===curVal)){
+      const opt=document.createElement('option');
+      opt.value=curVal; opt.textContent=curVal;
+      fiForn.appendChild(opt);
+    }
+    fiForn.value=curVal;
+  }
   const undEl=document.getElementById('fi_und');
   const undVal=it?(it.und||''):'';
   const optExists=[...undEl.options].some(o=>o.value===undVal);
@@ -2516,7 +2533,7 @@ function formatarCNPJ(input){
   input.value=v;
 }
 
-async function buscarCNPJ(){
+async function buscarCNPJFornecedor(){
   const cnpj=document.getElementById('ff_cnpj').value.replace(/\D/g,'');
   if(cnpj.length!==14){showToast('CNPJ inválido — deve ter 14 dígitos','err');return;}
   document.getElementById('cnpjLoading').style.display='block';
@@ -3839,7 +3856,7 @@ function renderOrdens(){
             ${o.desenho?`<div style="font-size:10px;color:#546e7a;margin-top:2px">📐 ${o.desenho}${o.material?' · ⚙️ '+o.material:''}</div>`:''}
             ${tempo?.observacao?`<div class="kanban-card-obs">💬 ${tempo.observacao}</div>`:''}
             <div class="kanban-card-footer" style="margin-top:10px">
-              <div class="projetista-badge" style="background:${proj.cor||'#546e7a'}">${proj.inicial} ${tempo?.operador||'—'}</div>
+              <div class="projetista-badge" style="background:${proj.cor||'#546e7a'}">${tempo?.operador||'—'}</div>
               <button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:transparent;font-size:10px;padding:3px 10px" onclick="abrirFinalizarOp('${tempo?.id}')">⏹ Finalizar</button>
             </div>
           </div>`;
@@ -5249,7 +5266,7 @@ function renderEstoque(){
       <td style="padding:8px 8px;white-space:nowrap">
         <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirEstMovRapido('${i.id}','entrada')" title="Entrada">📥</button>
         <button class="btn btn-sm" style="background:#fff9c4;color:#f57f17;border-color:#ffe082" onclick="abrirEstMovRapido('${i.id}','saida')" title="Saída">📤</button>
-        <button class="btn btn-sm" onclick="abrirHistEstoque('${i.id}')" title="Histórico">📋</button>
+        <button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="transferirBarracao('${i.id}','${i.localizacao||''}')" title="Transferir barracão">🔄</button>
         <button class="btn btn-sm" onclick="abrirModalEstoque('mp','${i.id}')" title="Editar">✏️</button>
         <button class="btn btn-sm danger" onclick="deletarEstoqueItem('${i.id}')" title="Excluir">🗑</button>
       </td>
@@ -6495,9 +6512,11 @@ function toggleBody(el){el.nextElementSibling.classList.toggle('open');}
 let _modalZ=200;
 function abrirModal(id){
   const m=document.getElementById(id);
-  if(!m) return;
+  if(!m){console.warn('Modal not found:',id);return;}
   _modalZ+=10;
   m.style.zIndex=_modalZ;
+  m.style.display='flex';
+  m.style.pointerEvents='all';
   m.classList.add('open');
 }
 
@@ -6506,6 +6525,8 @@ function fecharModal(id){
   if(!m) return;
   m.classList.remove('open','minimized');
   m.style.zIndex='';
+  m.style.display='';
+  m.style.pointerEvents='';
   if(id==='modalCotacao'){
     delete m.dataset.editId;
     const h3=m.querySelector('h3');
@@ -6863,21 +6884,42 @@ async function buscarCNPJ(){
   const raw=(document.getElementById('cli_cnpj_busca')?.value||'').replace(/\D/g,'');
   if(raw.length!==14){showToast('CNPJ deve ter 14 dígitos','err');return;}
   const btn=document.getElementById('btnBuscaCNPJ');
-  if(btn)btn.disabled=true;
+  if(btn){btn.disabled=true;btn.textContent='🔄 Buscando...';}
   try{
-    const res=await fetch(`https://brasilapi.com.br/api/cnpj/v1/${raw}`);
-    if(!res.ok)throw new Error();
+    const res=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+raw);
+    if(!res.ok) throw new Error('não encontrado');
     const d=await res.json();
-    const set=(el,val)=>{const e=document.getElementById(el);if(e)e.value=val||'';};
-    set('cli_nome',d.razao_social);set('cli_fantasia',d.nome_fantasia);
-    set('cli_cnpj',raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'));
-    set('cli_end',[d.logradouro,d.numero,d.complemento,d.bairro].filter(Boolean).join(', '));
-    set('cli_cidade',d.municipio);set('cli_uf',d.uf);
-    set('cli_cep',(d.cep||'').replace(/(\d{5})(\d{3})/,'$1-$2'));
-    set('cli_email',d.email);set('cli_tel',d.ddd_telefone_1);
-    showToast('✅ Dados preenchidos da Receita Federal!');
-  }catch(e){showToast('CNPJ não encontrado','err');}
-  finally{if(btn)btn.disabled=false;}
+    document.getElementById('cli_nome').value    = d.razao_social||'';
+    document.getElementById('cli_fantasia').value= d.nome_fantasia||'';
+    document.getElementById('cli_cnpj').value    = raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+    const end=[(d.logradouro||''),(d.numero||''),(d.complemento||''),(d.bairro||'')].filter(Boolean).join(', ');
+    document.getElementById('cli_end').value     = end;
+    document.getElementById('cli_cidade').value  = d.municipio||'';
+    document.getElementById('cli_uf').value      = d.uf||'';
+    document.getElementById('cli_cep').value     = (d.cep||'').replace(/(\d{5})(\d{3})/,'$1-$2');
+    document.getElementById('cli_email').value   = d.email||'';
+    document.getElementById('cli_tel').value     = d.ddd_telefone_1||'';
+    showToast('✅ Dados preenchidos!');
+  }catch(e){
+    // Fallback ReceitaWS
+    try{
+      const r2=await fetch('https://receitaws.com.br/v1/cnpj/'+raw);
+      const d2=await r2.json();
+      if(d2.status==='ERROR') throw new Error(d2.message);
+      document.getElementById('cli_nome').value    = d2.nome||'';
+      document.getElementById('cli_fantasia').value= d2.fantasia||'';
+      document.getElementById('cli_cnpj').value    = raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+      const end2=[(d2.logradouro||''),(d2.numero||''),(d2.complemento||''),(d2.bairro||'')].filter(Boolean).join(', ');
+      document.getElementById('cli_end').value     = end2;
+      document.getElementById('cli_cidade').value  = d2.municipio||'';
+      document.getElementById('cli_uf').value      = d2.uf||'';
+      document.getElementById('cli_cep').value     = d2.cep||'';
+      document.getElementById('cli_email').value   = d2.email||'';
+      document.getElementById('cli_tel').value     = (d2.telefone||'').split('/')[0].trim();
+      showToast('✅ Dados preenchidos!');
+    }catch(e2){showToast('CNPJ não encontrado','err');}
+  }
+  if(btn){btn.disabled=false;btn.textContent='🔎 Buscar';}
 }
 
 async function salvarCliente(){
@@ -7034,6 +7076,16 @@ async function reprocessarOrdem(ordemId){
 
 
 
+
+function transferirBarracao(itemId, localAtual){
+  const outro = localAtual === 'Barracão 1' ? 'Barracão 2' : 'Barracão 1';
+  const item = estoqueItens.find(i=>i.id===itemId);
+  if(!item) return;
+  if(!confirm('Transferir "' + (item.tipo_peca||item.descricao||'item') + '" de ' + (localAtual||'sem local') + ' para ' + outro + '?')) return;
+  api('PATCH','estoque_itens',{localizacao:outro},'?id=eq.'+itemId)
+    .then(()=>{ showToast('Transferido para ' + outro + '!'); loadAll().then(()=>{ estCatAtual=outro; renderEstoque(); }); })
+    .catch(()=>showToast('Erro ao transferir','err'));
+}
 </script>
 
 <!-- MODAL PEDIDO DE VENDA -->
