@@ -345,6 +345,7 @@ tr:hover td{background:#f9fbf9}
     <div class="sbi" onclick="sbGo(11,'Estoque')">📦 Itens em Estoque</div>
     <div class="sbi" onclick="sbGo(16,'Movimentações de Estoque')">📋 Entradas e Saídas</div>
     <div class="sbi" onclick="sbGo(17,'Requisições de Material')">📤 Requisições de Material</div>
+    <div class="sbi" onclick="sbGo(18,'Departamentos')">🏢 Departamentos</div>
   </div>
 </div>
 <div id="sb_overlay" onclick="sbCloseAll()" style="display:none;position:fixed;inset:0;z-index:14"></div>
@@ -379,7 +380,7 @@ tr:hover td{background:#f9fbf9}
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🧾 Vendas</div>
   <div style="padding:6px 0">
     <div class="sbi" onclick="sbGo(14,'Clientes')">👤 Cadastro de Clientes</div>
-    <div class="sbi" onclick="sbGo(13,'Pedido de Venda')">🧾 Pedido de Venda</div>
+    <div class="sbi" onclick="sbGo(13,'PDV')">🧾 PDV</div>
     <div class="sbi" onclick="sbGo(12,'Fiscal / NF-e')">📄 Fiscal / NF-e</div>
   </div>
 </div>
@@ -1853,7 +1854,7 @@ tr:hover td{background:#f9fbf9}
       <option value="Entregue">📦 Entregue</option>
       <option value="Cancelado">❌ Cancelado</option>
     </select>
-    <button class="btn primary" onclick="abrirModalPV(null)">+ Novo Pedido</button>
+    <button class="btn primary" onclick="abrirModalPV(null)">+ Novo PDV</button>
     <button class="btn" onclick="exportarExcelPV()">📊 Excel</button>
   </div>
   <div class="tbl-wrap">
@@ -1905,7 +1906,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Nº</th><th>Data</th><th>Fornecedor</th><th>Categoria</th>
+        <th>Nº</th><th>Data</th><th>Fornecedor</th><th>Departamento</th><th>Categoria</th>
         <th>Total (R$)</th><th>Status</th><th style="width:110px">Ações</th>
       </tr></thead>
       <tbody id="listaPC"></tbody>
@@ -1970,7 +1971,6 @@ tr:hover td{background:#f9fbf9}
     </select>
     <select id="filtroReqDepto" onchange="renderRequisicoes()">
       <option value="">Todos departamentos</option>
-      <option value="PDV">PDV</option>
       <option value="INDUSTRIA">INDUSTRIA</option>
       <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
       <option value="COMERCIAL">COMERCIAL</option>
@@ -2013,7 +2013,6 @@ tr:hover td{background:#f9fbf9}
             <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento *</label>
             <select id="req_depto" onchange="atualizarReqPDV()" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
               <option value="">Selecionar...</option>
-              <option value="PDV">PDV</option>
               <option value="INDUSTRIA">INDUSTRIA</option>
               <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
               <option value="COMERCIAL">COMERCIAL</option>
@@ -2108,6 +2107,207 @@ tr:hover td{background:#f9fbf9}
     </div>
   </div>
 </div>
+
+<!-- MODAL PEDIDO DE COMPRA -->
+<div class="modal-bg" id="modalPC">
+  <div class="modal" style="width:940px;max-width:99vw">
+    <div class="modal-header" style="background:#0d47a1">
+      <h3 id="modalPCTitulo">Novo Pedido de Compra</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalPC')">_</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalPC')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <!-- Cabeçalho fixo -->
+      <div style="padding:14px 20px;background:#f3f6ff;border-bottom:1px solid #e0e0e0">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:2;min-width:200px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Fornecedor *</label>
+            <input id="pc_forn_nome" type="text" list="pc_forn_list" placeholder="Nome do fornecedor" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+            <datalist id="pc_forn_list"></datalist>
+          </div>
+          <div style="flex:0 0 80px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Nº</label>
+            <input id="pc_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
+          </div>
+          <div style="flex:0 0 120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Status</label>
+            <select id="pc_status" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:12px">
+              <option value="Rascunho">📝 Rascunho</option>
+              <option value="Enviado">📧 Enviado</option>
+              <option value="Confirmado">✅ Confirmado</option>
+              <option value="Recebido">📦 Recebido</option>
+              <option value="Cancelado">❌ Cancelado</option>
+            </select>
+          </div>
+          <div style="flex:0 0 140px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Prev. Entrega</label>
+            <input id="pc_prev_entrega" type="date" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Contato Forn.</label>
+            <input id="pc_forn_contato" type="text" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:flex-end">
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Categoria</label>
+            <input id="pc_categoria" type="text" placeholder="Ex: Matéria Prima" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:0 0 100px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Parcelas</label>
+            <select id="pcNumParcelas" onchange="gerarParcelasPC()" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+              <option value="1">À Vista</option><option value="2">2x</option><option value="3">3x</option>
+              <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Conta Corrente</label>
+            <input id="pc_conta" type="text" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:0 0 80px;text-align:right;align-self:flex-end">
+            <div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Total</div>
+            <div id="pc_tot_total" style="font-size:16px;font-weight:800;color:#0d47a1">R$ 0,00</div>
+          </div>
+        </div>
+      </div>
+      <!-- Sub-abas -->
+      <div style="display:flex;background:#fff;border-bottom:2px solid #e8eaf6;padding:0 20px">
+        <button id="pcTab_itens" onclick="showPCSubTab('itens')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#0d47a1;border-bottom:3px solid #0d47a1;margin-bottom:-2px">📦 Itens</button>
+        <button id="pcTab_pagto" onclick="showPCSubTab('pagto')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">💳 Parcelas</button>
+        <button id="pcTab_obs" onclick="showPCSubTab('obs')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📝 Obs</button>
+      </div>
+      <div style="padding:14px 20px;min-height:240px">
+        <!-- ITENS -->
+        <div id="pcSub_itens">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPC()">+ Novo Item</button>
+            <button class="btn" onclick="importarItensCotacaoPC()" style="font-size:12px;border-color:#1565c0;color:#1565c0">📋 Importar de Cotações</button>
+            <button class="btn" onclick="importarItensListaPC()" style="font-size:12px">📃 Lista de Compras</button>
+          </div>
+          <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+              <thead><tr style="background:#e8eaf6">
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:left">Código</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:left">Descrição</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:80px">NCM</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:65px">Qtd</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:50px">Und</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:90px">Vlr Unit</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:65px">Desc %</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:90px">Total</th>
+                <th style="width:30px"></th>
+              </tr></thead>
+              <tbody id="pcItensBody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <div style="min-width:220px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:2px solid #0d47a1;margin-top:4px"><span style="font-weight:700">TOTAL:</span><span id="pc_subtotal_inline" style="font-weight:800;font-size:14px;color:#0d47a1">R$ 0,00</span></div>
+            </div>
+          </div>
+        </div>
+        <!-- PARCELAS -->
+        <div id="pcSub_pagto" style="display:none">
+          <div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-end">
+            <div><label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">1º Vencimento</label>
+              <input type="date" id="pcPrimVenc" onchange="gerarParcelasPC()" style="padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+            </div>
+            <button class="btn btn-sm" onclick="gerarParcelasPC()">🔄 Gerar</button>
+          </div>
+          <div id="pcParcelasDiv"><p style="color:#bdbdbd;font-size:12px">Defina os itens e o 1º vencimento.</p></div>
+        </div>
+        <!-- OBS -->
+        <div id="pcSub_obs" style="display:none">
+          <div class="form-group full">
+            <label>Observações / Instruções para NF-e</label>
+            <textarea id="pc_obs_pc" rows="4" placeholder="Instruções especiais, condições, prazo de entrega..." style="width:100%;padding:8px;border:1px solid #bbdefb;border-radius:8px;font-size:13px;resize:vertical"></textarea>
+          </div>
+          <div style="background:#e8eaf6;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;color:#546e7a">
+            Ao emitir NF-e, informe o nº do pedido nos campos <b>xPed</b> e <b>nItemPed</b> do XML.<br>
+            E-mail NF-e: <b>sloleos@nfe.omie.com.br</b>
+          </div>
+        </div>
+      </div>
+      <!-- Rodapé -->
+      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f3f6ff">
+        <button class="btn" onclick="fecharModal('modalPC')">Fechar</button>
+        <button style="background:#0d47a1;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPC()">💾 Salvar PC</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 18: DEPARTAMENTOS -->
+<div class="panel" id="tab18">
+  <div class="toolbar" style="margin-bottom:12px">
+    <input type="text" id="buscaDepto" placeholder="Buscar departamento, PV, cliente..." oninput="renderDepartamentos()" style="flex:1">
+    <select id="filtroDeptoNome" onchange="renderDepartamentos()">
+      <option value="">Todos os departamentos</option>
+      <option value="INDUSTRIA">INDUSTRIA</option>
+      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+      <option value="COMERCIAL">COMERCIAL</option>
+      <option value="MANUTENCAO">MANUTENÇÃO</option>
+      <option value="EXPEDICAO">EXPEDIÇÃO</option>
+    </select>
+    <select id="filtroDeptoStatus" onchange="renderDepartamentos()">
+      <option value="">Todos os status</option>
+      <option value="Orçamento">📝 Orçamento</option>
+      <option value="Aprovado">✅ Aprovado</option>
+      <option value="Em Produção">🔧 Em Produção</option>
+      <option value="Faturado">💜 Faturado</option>
+      <option value="Entregue">📦 Entregue</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalDepto(null)">⚙️ Gerenciar Departamentos</button>
+  </div>
+
+  <!-- Stats por departamento -->
+  <div id="deptosStats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px"></div>
+
+  <!-- PVs agrupados por departamento -->
+  <div id="deptosGrupos"></div>
+</div>
+
+<!-- MODAL DEPARTAMENTO -->
+<div class="modal-bg" id="modalDepto">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <h3 id="modalDeptoTitulo">Novo Departamento</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalDepto')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-group"><label>Nome *</label>
+          <input id="depto_nome" type="text" placeholder="Ex: INDUSTRIA, ADMINISTRATIVO, PDV 10...">
+        </div>
+        <div class="form-group"><label>Descrição</label>
+          <input id="depto_desc" type="text" placeholder="Descrição opcional do departamento">
+        </div>
+        <div class="form-group"><label>Cor (identificação visual)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="deptoCorPicker">
+            <div onclick="selecionarCorDepto('#1565c0')" style="width:32px;height:32px;border-radius:8px;background:#1565c0;cursor:pointer;border:3px solid transparent" data-cor="#1565c0"></div>
+            <div onclick="selecionarCorDepto('#2e7d32')" style="width:32px;height:32px;border-radius:8px;background:#2e7d32;cursor:pointer;border:3px solid transparent" data-cor="#2e7d32"></div>
+            <div onclick="selecionarCorDepto('#6a1b9a')" style="width:32px;height:32px;border-radius:8px;background:#6a1b9a;cursor:pointer;border:3px solid transparent" data-cor="#6a1b9a"></div>
+            <div onclick="selecionarCorDepto('#e65100')" style="width:32px;height:32px;border-radius:8px;background:#e65100;cursor:pointer;border:3px solid transparent" data-cor="#e65100"></div>
+            <div onclick="selecionarCorDepto('#c62828')" style="width:32px;height:32px;border-radius:8px;background:#c62828;cursor:pointer;border:3px solid transparent" data-cor="#c62828"></div>
+            <div onclick="selecionarCorDepto('#00695c')" style="width:32px;height:32px;border-radius:8px;background:#00695c;cursor:pointer;border:3px solid transparent" data-cor="#00695c"></div>
+            <div onclick="selecionarCorDepto('#37474f')" style="width:32px;height:32px;border-radius:8px;background:#37474f;cursor:pointer;border:3px solid transparent" data-cor="#37474f"></div>
+            <div onclick="selecionarCorDepto('#f57f17')" style="width:32px;height:32px;border-radius:8px;background:#f57f17;cursor:pointer;border:3px solid transparent" data-cor="#f57f17"></div>
+          </div>
+          <input type="hidden" id="depto_cor" value="#1565c0">
+        </div>
+        <div class="form-group"><label>Responsável</label>
+          <input id="depto_resp" type="text" placeholder="Nome do responsável pelo departamento">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalDepto')">Cancelar</button>
+        <button class="btn primary" onclick="salvarDepartamento()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
 </div><!-- end appContent -->
 
 <script>
@@ -2118,7 +2318,7 @@ const APP_URL=window.location.origin;
 const SITE_URL=window.location.origin; // ← URL do sistema (automático)
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 let sortCol='', sortDir='asc';
@@ -2229,7 +2429,7 @@ async function api(method,table,data=null,filter=''){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos]=await Promise.all([
       api('GET','itens','','?order=created_at.asc'),
       api('GET','cotacoes','','?order=created_at.desc'),
       api('GET','fornecedores','','?order=razao_social.asc'),
@@ -2250,7 +2450,8 @@ async function loadAll(){
       api('GET','clientes','','?order=nome.asc').catch(()=>[]),
       api('GET','pedidos_venda','','?order=numero.desc').catch(()=>[]),
       api('GET','pedidos_compra','','?order=numero.desc').catch(()=>[]),
-      api('GET','requisicoes_material','','?order=created_at.desc').catch(()=>[])
+      api('GET','requisicoes_material','','?order=created_at.desc').catch(()=>[]),
+      api('GET','departamentos','','?order=nome.asc').catch(()=>[])
     ]);
     renderAll();
     verificarLembretes();
@@ -2288,7 +2489,7 @@ function renderDashboard(){
     <div class="stat blue" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Cotações recebidas</div><div class="stat-val">${cotResp}</div><div class="stat-sub">via formulário</div></div>
     <div class="stat" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div><div class="stat-sub">${total?Math.round(comp/total*100):0}% do total</div></div>
     <div class="stat red" onclick="showTab(10)" style="cursor:pointer"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>
-    <div class="stat" onclick="sbGo(13,'Pedido de Venda')" style="cursor:pointer;border-left-color:#6a1b9a;min-width:140px"><div class="stat-label">Pedidos de Venda</div><div class="stat-val" style="color:#6a1b9a">${(typeof pedidosVenda!=='undefined'?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0)}</div><div class="stat-sub">em aberto</div></div>`;
+    <div class="stat" onclick="sbGo(13,'PDV')" style="cursor:pointer;border-left-color:#6a1b9a;min-width:140px"><div class="stat-label">PDVs</div><div class="stat-val" style="color:#6a1b9a">${(typeof pedidosVenda!=='undefined'?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0)}</div><div class="stat-sub">em aberto</div></div>`;
 
   // Notificações
   const notifs=[];
@@ -4020,7 +4221,7 @@ function renderOrdens(){
     // Ordem concluída = todas as operações REAIS têm dt_hr_final
     // Ignora tempos placeholder (sem operacao = reprocessamento)
     const temposReais=t=>t.operacao&&t.operacao!=='REPROCESSAR';
-    const ordenConcluidas=ordensGrupo.filter(o=>{
+    const ordenConcluidas=ordensGrupoAll.filter(o=>{
       const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t));
       const placeholder=temposOP.filter(t=>t.ordem_id===o.id&&!temposReais(t));
       // Concluída se: tem operações reais E todas têm fim E não tem placeholder pendente
@@ -6619,7 +6820,7 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=17;i++){
+  for(let i=0;i<=18;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
@@ -6630,9 +6831,14 @@ function showTab(n){
   if(n===14) {if(typeof renderClientes==='function') renderClientes();}
   if(n===15) {if(typeof renderPedidosCompra==='function') renderPedidosCompra();
   if(typeof renderRequisicoes==='function') renderRequisicoes();
-  if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes();}
+  if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes();
+  if(typeof renderDepartamentos==='function') renderDepartamentos();
+  // Populate custom deptos in filters
+  const fdep=document.getElementById('filtroDeptoNome');
+  if(fdep&&departamentos.length){departamentos.forEach(d=>{if(![...fdep.options].some(o=>o.value===d.nome)){const o=document.createElement('option');o.value=d.nome;o.textContent=d.nome;fdep.appendChild(o);}});}}
   if(n===16) {if(typeof renderMovEstoque==='function') renderMovEstoque();}
   if(n===17) {if(typeof renderRequisicoes==='function') renderRequisicoes();}
+  if(n===18) {if(typeof renderDepartamentos==='function') renderDepartamentos();}
 }
 
 async function dispararEmailBemVindo(){
@@ -6948,7 +7154,17 @@ function abrirModalPV(id){
   const set=(el,val)=>{const e=document.getElementById(el);if(e)e.value=val||'';};
   set('pv_numero', p?.numero||(maxNum+1));
   if(document.getElementById('pv_status')) document.getElementById('pv_status').value=p?.status||'Orçamento';
-  if(document.getElementById('pv_departamento')) document.getElementById('pv_departamento').value=p?.departamento||'';
+  const pvDeptoSel=document.getElementById('pv_departamento');
+  if(pvDeptoSel){
+    pvDeptoSel.value=p?.departamento||'';
+    // Add custom deptos from DB
+    departamentos.forEach(d=>{
+      if(![...pvDeptoSel.options].some(o=>o.value===d.nome)){
+        const o=document.createElement('option');o.value=d.nome;o.textContent=d.nome;pvDeptoSel.appendChild(o);
+      }
+    });
+    pvDeptoSel.value=p?.departamento||'';
+  }
   set('pv_vendedor', p?.vendedor||usuarioLogado?.nome||'');
   set('pv_prev_fat', p?.prev_faturamento||'');
   set('pv_frete', p?.frete||0);
@@ -7022,6 +7238,8 @@ function gerarParcelasPV(){
 async function salvarPV(){
   const razao=document.getElementById('pv_cli_razao')?.value.trim();
   if(!razao){showToast('Informe a razão social do cliente','err');return;}
+  const depto=document.getElementById('pv_departamento')?.value;
+  if(!depto){showToast('Selecione o Departamento / Centro de Custo','err');document.getElementById('pv_departamento')?.focus();return;}
   const tot=recalcularTotaisPV();
   const obj={
     numero:parseInt(document.getElementById('pv_numero')?.value)||0,
@@ -7046,7 +7264,7 @@ async function salvarPV(){
   try{
     if(editPVId) await api('PATCH','pedidos_venda',obj,`?id=eq.${editPVId}`);
     else await api('POST','pedidos_venda',obj);
-    showToast(editPVId?'Pedido atualizado!':'Pedido criado!');
+    showToast(editPVId?'PDV atualizado!':'PDV criado!');
     fecharModal('modalPV'); await loadAll();
   }catch(e){showToast('Erro','err');}
 }
@@ -7071,7 +7289,7 @@ function imprimirPV(id){
   const sub=itArr.reduce((s,it)=>s+(it.total||0),0);
   const html=`<div style="font-family:Arial,sans-serif;font-size:12px;padding:20px">
     <div style="display:flex;justify-content:space-between;border-bottom:2px solid #2e7d32;padding-bottom:10px;margin-bottom:14px">
-      <div><div style="font-size:20px;font-weight:800;color:#2e7d32">Pedido de Venda Nº ${p.numero||'—'}</div>
+      <div><div style="font-size:20px;font-weight:800;color:#2e7d32">PDV Nº ${p.numero||'—'}</div>
       <div style="font-size:11px;color:#546e7a">Gerado em ${new Date().toLocaleDateString('pt-BR')} por ${usuarioLogado?.nome||'—'}</div></div>
       <div style="text-align:right;font-size:11px"><b>M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</b><br>CNPJ: 08.363.498/0001-69<br>Jaú - SP · (14) 3626-1777</div>
     </div>
@@ -7163,7 +7381,7 @@ async function buscarCNPJ(){
     const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+raw);
     if(r.ok){
       const d=await r.json();
-      const end=[d.logradouro,d.numero,d.complemento,d.bairro].filter(Boolean).join(', ');
+      const tipoLog=(d.descricao_tipo_de_logradouro||'').trim(); const end=[(tipoLog?tipoLog+' ':'')+( d.logradouro||''),d.numero,d.complemento,d.bairro].filter(Boolean).join(', ');
       const cep=(d.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
       preencherCampos(d.razao_social,d.nome_fantasia,end,d.municipio,d.uf,cep,d.email,d.ddd_telefone_1);
       if(d.razao_social||d.nome_fantasia){preencheu=true;showToast('✅ CNPJ encontrado!');}
@@ -7236,7 +7454,7 @@ function exportarExcelClientes(){
 }
 
 // ===== PEDIDOS DE COMPRA (básico) =====
-let editPCId=null, pcItensLocal=[], pcParcelasLocal=[];
+
 
 function renderPedidosCompra(){
   const b=(document.getElementById('buscaPC')?.value||'').toLowerCase();
@@ -7261,8 +7479,196 @@ function renderPedidosCompra(){
   </tr>`).join('');
 }
 
-function abrirModalPC(id){ showToast('Modal PC em desenvolvimento — use a versão completa no GitHub'); }
-function gerarPCdeCotacoes(){ showToast('Gerar PC de cotações em breve!'); }
+
+// ===== PEDIDO DE COMPRA COMPLETO =====
+let editPCId2=null, pcItensLocal=[], pcParcelasLocal=[];
+
+function abrirModalPC(id){
+  editPCId2=id; pcItensLocal=[]; pcParcelasLocal=[];
+  const p=id?pedidosCompra.find(x=>x.id===id):null;
+  const maxNum=pedidosCompra.length?Math.max(...pedidosCompra.map(x=>x.numero||0)):1184;
+  const setV=(el,v)=>{const e=document.getElementById(el);if(e)e.value=v||'';};
+  setV('pc_numero', p?.numero||(maxNum+1));
+  if(document.getElementById('pc_status')) document.getElementById('pc_status').value=p?.status||'Rascunho';
+  setV('pc_forn_nome', p?.fornecedor_nome);
+  setV('pc_forn_contato', p?.fornecedor_contato);
+  if(document.getElementById('pc_depto')) document.getElementById('pc_depto').value=p?.departamento||'';
+  setV('pc_prev_entrega', p?.prev_entrega);
+  setV('pc_categoria', p?.categoria);
+  setV('pc_conta', p?.conta_corrente);
+  setV('pc_obs_pc', p?.observacoes);
+  pcItensLocal=Array.isArray(p?.itens)?JSON.parse(JSON.stringify(p.itens)):[];
+  pcParcelasLocal=Array.isArray(p?.parcelas)?JSON.parse(JSON.stringify(p.parcelas)):[];
+  // Populate departamento select with custom ones from DB
+  const deptoSel=document.getElementById('pc_depto');
+  if(deptoSel){
+    // Keep base options, add custom ones
+    const customDeptos=departamentos.filter(d=>!['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO'].includes(d.nome));
+    customDeptos.forEach(d=>{
+      if(![...deptoSel.options].some(o=>o.value===d.nome)){
+        const o=document.createElement('option');o.value=d.nome;o.textContent=d.nome;deptoSel.appendChild(o);
+      }
+    });
+  }
+  // Populate fornecedor datalist
+  const dl=document.getElementById('pc_forn_list');
+  if(dl){dl.innerHTML='';fornecedores.forEach(f=>{const o=document.createElement('option');o.value=f.razao_social||'';dl.appendChild(o);});}
+  recalcularTotaisPC();
+  renderPCItens();
+  showPCSubTab('itens');
+  abrirModal('modalPC');
+}
+
+function showPCSubTab(sub){
+  ['itens','pagto','obs'].forEach(s=>{
+    const el=document.getElementById('pcSub_'+s);
+    if(el) el.style.display=s===sub?'block':'none';
+    const btn=document.getElementById('pcTab_'+s);
+    if(btn){
+      btn.style.color=s===sub?'#0d47a1':'#546e7a';
+      btn.style.fontWeight=s===sub?'700':'500';
+      btn.style.borderBottom=s===sub?'3px solid #0d47a1':'3px solid transparent';
+    }
+  });
+  if(sub==='itens') renderPCItens();
+  if(sub==='pagto') gerarParcelasPC();
+}
+
+function addItemPC(item=null){
+  pcItensLocal.push({codigo:item?.codigo||'',descricao:item?.descricao||'',ncm:item?.ncm||'',qtd:item?.qtd||1,und:item?.und||'PC',valor_unit:parseFloat(item?.valor_unit)||0,desconto:0,total:0});
+  renderPCItens();
+}
+
+function renderPCItens(){
+  const tbody=document.getElementById('pcItensBody');
+  if(!tbody)return;
+  if(!pcItensLocal.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:14px;color:#bdbdbd;font-size:12px">Nenhum item — clique em "+ Novo Item"</td></tr>';recalcularTotaisPC();return;}
+  tbody.innerHTML=pcItensLocal.map((it,i)=>{
+    const tot=(it.qtd||0)*(it.valor_unit||0)*(1-(it.desconto||0)/100);
+    it.total=tot;
+    return `<tr style="border-bottom:1px solid #f0f4f0">
+      <td style="padding:4px 6px"><input value="${it.codigo||''}" onchange="pcItensLocal[${i}].codigo=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:80px"></td>
+      <td style="padding:4px 6px"><input value="${(it.descricao||'').replace(/"/g,'&quot;')}" onchange="pcItensLocal[${i}].descricao=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;min-width:180px;width:100%"></td>
+      <td style="padding:4px 6px"><input value="${it.ncm||''}" onchange="pcItensLocal[${i}].ncm=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:80px"></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.qtd||1}" min="0.001" step="0.001" onchange="pcItensLocal[${i}].qtd=parseFloat(this.value)||0;recalcularTotaisPC()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:65px"></td>
+      <td style="padding:4px 6px"><select onchange="pcItensLocal[${i}].und=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px">${['PC','UN','KG','MT','M2','CX'].map(u=>`<option ${it.und===u?'selected':''}>${u}</option>`).join('')}</select></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.valor_unit||0}" min="0" step="0.0001" onchange="pcItensLocal[${i}].valor_unit=parseFloat(this.value)||0;recalcularTotaisPC()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:90px"></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.desconto||0}" min="0" max="100" step="0.01" onchange="pcItensLocal[${i}].desconto=parseFloat(this.value)||0;recalcularTotaisPC()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:60px"></td>
+      <td style="padding:4px 8px;font-weight:700;color:#0d47a1;font-size:12px;white-space:nowrap">R$ ${tot.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td><button onclick="pcItensLocal.splice(${i},1);renderPCItens()" style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:2px 6px;cursor:pointer">✕</button></td>
+    </tr>`;
+  }).join('');
+  recalcularTotaisPC();
+}
+
+function recalcularTotaisPC(){
+  const sub=pcItensLocal.reduce((s,it)=>(it.qtd||0)*(it.valor_unit||0)*(1-(it.desconto||0)/100)+s,0);
+  const fmt=v=>`R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  ['pc_tot_sub','pc_subtotal_inline'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=fmt(sub);});
+  ['pc_tot_total','pc_total_inline'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=fmt(sub);});
+  return sub;
+}
+
+function gerarParcelasPC(){
+  const n=parseInt(document.getElementById('pcNumParcelas')?.value)||1;
+  const pv=document.getElementById('pcPrimVenc')?.value;
+  const tot=recalcularTotaisPC();
+  if(!tot){document.getElementById('pcParcelasDiv').innerHTML='<p style="color:#bdbdbd;font-size:12px">Defina os itens primeiro.</p>';return;}
+  pcParcelasLocal=[];
+  for(let i=0;i<n;i++){
+    let v='';
+    if(pv){const d=new Date(pv+'T12:00');d.setMonth(d.getMonth()+i);v=d.toISOString().split('T')[0];}
+    pcParcelasLocal.push({parcela:i+1,vencimento:v,valor:parseFloat((tot/n).toFixed(2))});
+  }
+  const div=document.getElementById('pcParcelasDiv');
+  if(div) div.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:#e8eaf6"><th style="padding:5px 10px;color:#0d47a1;font-size:11px">Parcela</th><th style="padding:5px 10px;color:#0d47a1;font-size:11px">Vencimento</th><th style="padding:5px 10px;color:#0d47a1;font-size:11px">Valor</th></tr></thead>
+    <tbody>${pcParcelasLocal.map((p,i)=>`<tr style="text-align:center;border-bottom:1px solid #f0f4f0"><td style="padding:5px 10px;font-weight:700">${p.parcela}</td>
+      <td style="padding:4px 8px"><input type="date" value="${p.vencimento||''}" onchange="pcParcelasLocal[${i}].vencimento=this.value" style="padding:4px 8px;border:1px solid #dce4dc;border-radius:6px;font-size:12px"></td>
+      <td style="padding:5px 10px;font-weight:600;color:#0d47a1">R$ ${p.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function importarItensCotacaoPC(){
+  const forn=document.getElementById('pc_forn_nome')?.value.trim().toLowerCase();
+  const disponiveis=itens.filter(i=>i.fornecedor&&i.valor_unitario&&!i.comprado);
+  const filtrados=forn?disponiveis.filter(i=>(i.fornecedor||'').toLowerCase().includes(forn)):disponiveis;
+  if(!filtrados.length){showToast(forn?`Sem itens cotados para "${forn}"`:'Sem itens cotados','err');return;}
+  filtrados.forEach(i=>{
+    if(!pcItensLocal.find(x=>x.item_id===i.id)){
+      pcItensLocal.push({item_id:i.id,codigo:'',descricao:i.descritivo||i.descricao_peca||'',ncm:'',qtd:i.qtd||1,und:i.und||'PC',valor_unit:parseFloat(i.valor_unitario)||0,desconto:0,total:0});
+    }
+  });
+  if(!forn&&filtrados[0]?.fornecedor) document.getElementById('pc_forn_nome').value=filtrados[0].fornecedor;
+  renderPCItens();
+  showToast(`${filtrados.length} item(ns) importado(s)!`);
+}
+
+function importarItensListaPC(){
+  const pendentes=itens.filter(i=>!i.comprado);
+  if(!pendentes.length){showToast('Nenhum item pendente','err');return;}
+  pendentes.forEach(i=>{
+    if(!pcItensLocal.find(x=>x.item_id===i.id)){
+      pcItensLocal.push({item_id:i.id,codigo:'',descricao:i.descritivo||'',ncm:'',qtd:i.qtd||1,und:i.und||'PC',valor_unit:parseFloat(i.valor_unitario)||0,desconto:0,total:0});
+    }
+  });
+  renderPCItens();
+  showToast(`${pendentes.length} item(ns) importado(s)!`);
+}
+
+function gerarPCdeCotacoes(){
+  const porForn={};
+  itens.filter(i=>i.fornecedor&&i.valor_unitario&&!i.comprado).forEach(i=>{
+    if(!porForn[i.fornecedor]) porForn[i.fornecedor]=[];
+    porForn[i.fornecedor].push(i);
+  });
+  const lista=Object.keys(porForn);
+  if(!lista.length){showToast('Nenhum item cotado com fornecedor','err');return;}
+  abrirModalPC(null);
+  setTimeout(()=>{
+    document.getElementById('pc_forn_nome').value=lista[0];
+    importarItensCotacaoPC();
+  },300);
+}
+
+async function salvarPC(){
+  const forn=document.getElementById('pc_forn_nome')?.value.trim();
+  if(!forn){showToast('Informe o fornecedor','err');return;}
+  const tot=recalcularTotaisPC();
+  const obj={
+    numero:parseInt(document.getElementById('pc_numero')?.value)||0,
+    status:document.getElementById('pc_status')?.value||'Rascunho',
+    fornecedor_nome:forn,
+    fornecedor_contato:document.getElementById('pc_forn_contato')?.value.trim()||null,
+    prev_entrega:document.getElementById('pc_prev_entrega')?.value||null,
+    departamento:document.getElementById('pc_depto')?.value||null,
+    categoria:document.getElementById('pc_categoria')?.value.trim()||null,
+    conta_corrente:document.getElementById('pc_conta')?.value.trim()||null,
+    observacoes:document.getElementById('pc_obs_pc')?.value.trim()||null,
+    itens:pcItensLocal, parcelas:pcParcelasLocal, total:tot,
+    data_inclusao:editPCId2?(pedidosCompra.find(x=>x.id===editPCId2)?.data_inclusao||new Date().toISOString()):new Date().toISOString(),
+    criado_por:usuarioLogado?.nome||null
+  };
+  // Se Recebido: marcar itens como comprados
+  if(obj.status==='Recebido'){
+    for(const it of pcItensLocal.filter(x=>x.item_id)){
+      await api('PATCH','itens',{comprado:true,dt_compra:new Date().toISOString().split('T')[0]},`?id=eq.${it.item_id}`).catch(()=>{});
+    }
+  }
+  try{
+    if(editPCId2) await api('PATCH','pedidos_compra',obj,`?id=eq.${editPCId2}`);
+    else await api('POST','pedidos_compra',obj);
+    showToast(editPCId2?'PC atualizado!':'PC criado!');
+    fecharModal('modalPC');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar PC','err');console.error(e);}
+}
+
+async function deletarPC(id){
+  if(!confirm('Excluir este pedido de compra?'))return;
+  try{await api('DELETE','pedidos_compra','',`?id=eq.${id}`);showToast('PC removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
 async function deletarPC(id){
   if(!confirm('Excluir?'))return;
   try{await api('DELETE','pedidos_compra','',`?id=eq.${id}`);showToast('PC removido!');await loadAll();}catch(e){showToast('Erro','err');}
@@ -7537,9 +7943,9 @@ function abrirModalReq(id){
 }
 
 function atualizarReqPDV(){
-  const depto=document.getElementById('req_depto')?.value;
+  // PDV removed - PDV wrap always hidden in requisições
   const wrap=document.getElementById('req_pdv_wrap');
-  if(wrap) wrap.style.display=depto==='PDV'?'block':'none';
+  if(wrap) wrap.style.display='none';
 }
 
 function addItemReq(){
@@ -7792,23 +8198,128 @@ function verificarAprovacoesPendentes(){
     if(existing) existing.outerHTML=html;
     else dashNotifs.insertAdjacentHTML('afterbegin',html);
   }
-  // Also check and auto-show popup if new pending appeared
-  const lastSeen=parseInt(sessionStorage.getItem('lastReqSeen')||'0');
-  const newest=Math.max(...pendentes.map(r=>new Date(r.created_at||0).getTime()));
-  if(newest>lastSeen){
-    sessionStorage.setItem('lastReqSeen',Date.now().toString());
-    // Show the most recent pending req
-    const latest=pendentes.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))[0];
-    if(latest) setTimeout(()=>aprovarRequisicao(latest.id),500);
+  // Show popup for each pending req not yet seen this session
+  const seenIds=JSON.parse(sessionStorage.getItem('seenReqIds')||'[]');
+  const novas=pendentes.filter(r=>!seenIds.includes(r.id));
+  if(novas.length>0){
+    const latest=novas.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))[0];
+    seenIds.push(latest.id);
+    sessionStorage.setItem('seenReqIds',JSON.stringify(seenIds));
+    setTimeout(()=>aprovarRequisicao(latest.id),800);
   }
+}
+
+// ===== DEPARTAMENTOS =====
+let editDeptoId=null, _deptoCorSel='#1565c0';
+
+function selecionarCorDepto(cor){
+  _deptoCorSel=cor;
+  document.getElementById('depto_cor').value=cor;
+  document.querySelectorAll('#deptoCorPicker div').forEach(el=>{
+    el.style.border=el.dataset.cor===cor?'3px solid #fff':'3px solid transparent';
+  });
+}
+
+function renderDepartamentos(){
+  const busca=(document.getElementById('buscaDepto')?.value||'').toLowerCase();
+  const filtNome=document.getElementById('filtroDeptoNome')?.value||'';
+  const filtSt=document.getElementById('filtroDeptoStatus')?.value||'';
+
+  // Build departamento list: defaults + custom from DB
+  const deptoNames=['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO',
+    ...departamentos.map(d=>d.nome).filter(n=>!['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO'].includes(n))
+  ];
+  const deptoColors={'INDUSTRIA':'#1565c0','ADMINISTRATIVO':'#37474f','COMERCIAL':'#e65100','MANUTENCAO':'#6a1b9a','EXPEDICAO':'#00695c'};
+
+  // Filter PVs
+  let pvs_list=[...pedidosVenda];
+  if(filtNome) pvs_list=pvs_list.filter(p=>p.departamento===filtNome);
+  if(filtSt) pvs_list=pvs_list.filter(p=>p.status===filtSt);
+  if(busca) pvs_list=pvs_list.filter(p=>(p.cliente_nome+p.departamento+p.numero+'').toLowerCase().includes(busca));
+
+  // Stats cards
+  const statsEl=document.getElementById('deptosStats');
+  if(statsEl){
+    const activeDeptos=deptoNames.filter(n=>pvs_list.some(p=>p.departamento===n)||!filtNome);
+    statsEl.innerHTML=activeDeptos.map(n=>{
+      const pvsDept=pedidosVenda.filter(p=>p.departamento===n);
+      const abertos=pvsDept.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length;
+      const valor=pvsDept.filter(p=>['Aprovado','Em Produção'].includes(p.status)).reduce((s,p)=>s+(p.total||0),0);
+      const cor=deptoColors[n]||(departamentos.find(d=>d.nome===n)?.cor||'#546e7a');
+      return `<div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:14px 16px;border-left:4px solid ${cor};cursor:pointer" onclick="document.getElementById('filtroDeptoNome').value='${n}';renderDepartamentos()">
+        <div style="font-size:11px;font-weight:700;color:${cor};text-transform:uppercase;margin-bottom:6px">${n}</div>
+        <div style="font-size:22px;font-weight:800;color:#263238">${pvsDept.length}</div>
+        <div style="font-size:11px;color:#546e7a;margin-top:2px">${abertos} em aberto · ${fmtVal(valor)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Group PVs by departamento
+  const gruposEl=document.getElementById('deptosGrupos');
+  if(!gruposEl) return;
+
+  if(!pvs_list.length){
+    gruposEl.innerHTML='<div style="text-align:center;padding:40px;color:#bdbdbd"><div style="font-size:36px;margin-bottom:8px">🏢</div><div>Nenhum PDV encontrado</div></div>';
+    return;
+  }
+
+  // Group
+  const grupos={};
+  pvs_list.forEach(p=>{
+    const k=p.departamento||'Sem Departamento';
+    if(!grupos[k]) grupos[k]=[];
+    grupos[k].push(p);
+  });
+
+  gruposEl.innerHTML=Object.entries(grupos).map(([depto,pvs])=>{
+    const cor=deptoColors[depto]||(departamentos.find(d=>d.nome===depto)?.cor||'#546e7a');
+    const totalValor=pvs.reduce((s,p)=>s+(p.total||0),0);
+    return `<div style="margin-bottom:20px">
+      <div style="background:${cor};color:#fff;padding:10px 16px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:700;font-size:14px">🏢 ${depto}</div>
+        <div style="display:flex;gap:16px;font-size:12px">
+          <span>${pvs.length} pedido${pvs.length!==1?'s':''}</span>
+          <span style="font-weight:700">${fmtVal(totalValor)}</span>
+        </div>
+      </div>
+      <div style="border:1px solid #e0e0e0;border-top:none;border-radius:0 0 10px 10px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#f8f9f8">
+            <th style="padding:8px 12px;text-align:left;color:#546e7a;font-size:11px;font-weight:700">Nº</th>
+            <th style="padding:8px 12px;text-align:left;color:#546e7a;font-size:11px;font-weight:700">Cliente</th>
+            <th style="padding:8px 12px;text-align:left;color:#546e7a;font-size:11px;font-weight:700">Vendedor</th>
+            <th style="padding:8px 12px;color:#546e7a;font-size:11px;font-weight:700">Parcelas</th>
+            <th style="padding:8px 12px;text-align:right;color:#546e7a;font-size:11px;font-weight:700">Total</th>
+            <th style="padding:8px 12px;color:#546e7a;font-size:11px;font-weight:700">Status</th>
+            <th style="padding:8px 12px;color:#546e7a;font-size:11px;font-weight:700">Data</th>
+            <th style="width:60px"></th>
+          </tr></thead>
+          <tbody>${pvs.map(p=>{
+            const parcs=Array.isArray(p.parcelas)?p.parcelas:[];
+            const statusColors={'Orçamento':'background:#fff9c4;color:#795548','Aprovado':'background:#e8f5e9;color:#2e7d32','Em Produção':'background:#e3f2fd;color:#1565c0','Faturado':'background:#f3e5f5;color:#6a1b9a','Entregue':'background:#f5f5f5;color:#546e7a','Cancelado':'background:#ffebee;color:#c62828'};
+            return `<tr style="border-bottom:1px solid #f5f5f5" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background=''">
+              <td style="padding:8px 12px;font-weight:700;color:${cor}">Nº ${p.numero||'—'}</td>
+              <td style="padding:8px 12px;font-weight:600">${p.cliente_nome||'—'}</td>
+              <td style="padding:8px 12px;color:#546e7a">${p.vendedor||'—'}</td>
+              <td style="padding:8px 12px;text-align:center">${parcs.length?parcs.length+'x':'À vista'}</td>
+              <td style="padding:8px 12px;text-align:right;font-weight:700;color:${cor}">${fmtVal(p.total||0)}</td>
+              <td style="padding:8px 12px"><span style="${statusColors[p.status]||''};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${p.status||'—'}</span></td>
+              <td style="padding:8px 12px;color:#9e9e9e;font-size:11px">${p.data_inclusao?new Date(p.data_inclusao).toLocaleDateString('pt-BR'):'—'}</td>
+              <td style="padding:8px 8px"><button class="btn btn-sm" onclick="sbGo(13,'PDV');setTimeout(()=>abrirModalPV('${p.id}'),300)" title="Editar PV">✏️</button></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
 }
 </script>
 
-<!-- MODAL PEDIDO DE VENDA -->
+<!-- MODAL PDV -->
 <div class="modal-bg" id="modalPV">
   <div class="modal" style="width:900px;max-width:99vw">
     <div class="modal-header" style="background:#1a237e">
-      <h3 id="modalPVTitulo">Novo Pedido de Venda</h3>
+      <h3 id="modalPVTitulo">Novo PDV</h3>
       <div class="modal-header-actions">
         <button class="modal-header-btn" onclick="minimizarModal('modalPV')">_</button>
         <button class="modal-header-btn" onclick="fecharModal('modalPV')">✕</button>
@@ -7817,31 +8328,38 @@ function verificarAprovacoesPendentes(){
     <div class="modal-body" style="padding:0">
       <div style="padding:16px 20px;background:#f8f9ff;border-bottom:1px solid #e0e0e0">
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-          <div style="flex:2;min-width:220px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cliente *</label>
-            <div style="display:flex;gap:6px"><input id="pv_cli_razao" type="text" placeholder="Razão Social" style="flex:1;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-            <button class="btn btn-sm" onclick="abrirSelecionarClientePV()" style="white-space:nowrap">📋 Buscar</button></div>
+          <div style="flex:2;min-width:220px">
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cliente *</label>
+            <div style="display:flex;gap:6px">
+              <input id="pv_cli_razao" type="text" placeholder="Razão Social" style="flex:1;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+              <button class="btn btn-sm" onclick="abrirSelecionarClientePV()" style="white-space:nowrap">📋 Buscar</button>
+            </div>
           </div>
-          <div style="flex:0 0 80px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
-            <input id="pv_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700"></div>
-          <div style="flex:0 0 120px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Status</label>
+          <div style="flex:0 0 80px">
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
+            <input id="pv_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
+          </div>
+          <div style="flex:0 0 120px">
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Status</label>
             <select id="pv_status" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:12px">
               <option value="Orçamento">📝 Orçamento</option><option value="Aprovado">✅ Aprovado</option>
               <option value="Em Produção">🔧 Em Produção</option><option value="Faturado">💜 Faturado</option>
               <option value="Entregue">📦 Entregue</option><option value="Cancelado">❌ Cancelado</option>
-            </select></div>
+            </select>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px">
           <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Total Mercadorias</div><div id="pv_tot_merc" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
           <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Frete</div><div id="pv_frete_tot" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
           <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">IPI</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
           <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">ICMS ST</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#1a237e;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,0.8);font-weight:600;text-transform:uppercase;margin-bottom:3px">Total Pedido</div><div id="pv_tot_total" style="font-size:15px;font-weight:800;color:#fff">R$ 0,00</div></div>
+          <div style="background:#1a237e;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,0.8);font-weight:600;text-transform:uppercase;margin-bottom:3px">Total PDV</div><div id="pv_tot_total" style="font-size:15px;font-weight:800;color:#fff">R$ 0,00</div></div>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
           <div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Vendedor</label><input id="pv_vendedor" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-          <div style="flex:1;min-width:140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento</label>
-            <select id="pv_departamento" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-              <option value="">Selecionar...</option><option value="PDV">PDV</option><option value="INDUSTRIA">INDUSTRIA</option>
+          <div style="flex:1;min-width:140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento / C. Custo *</label>
+            <select id="pv_departamento" required style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+              <option value="">Selecionar...</option><option value="INDUSTRIA">INDUSTRIA</option>
               <option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option>
               <option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option>
             </select></div>
@@ -7858,7 +8376,6 @@ function verificarAprovacoesPendentes(){
             <input id="pv_cond_pag" type="text" placeholder="30/60/90" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
         </div>
       </div>
-      <!-- Sub-abas -->
       <div style="display:flex;background:#fff;border-bottom:2px solid #e8eaf6;padding:0 20px">
         <button onclick="showPVSubTab('itens')" id="pvTab_itens" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#1a237e;border-bottom:3px solid #1a237e;margin-bottom:-2px">📦 Itens da Venda</button>
         <button onclick="showPVSubTab('dados')" id="pvTab_dados" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">👤 Cliente</button>
@@ -7867,9 +8384,7 @@ function verificarAprovacoesPendentes(){
       </div>
       <div style="padding:16px 20px;min-height:240px">
         <div id="pvSubItens">
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPV()">+ Novo Item</button>
-          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px"><button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPV()">+ Novo Item</button></div>
           <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
             <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
               <thead><tr style="background:#e8eaf6"><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Código</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Descrição</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:80px">NCM</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:60px">Qtd</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:50px">Und</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Vlr Unit</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:70px">Desc %</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Total</th><th style="width:30px"></th></tr></thead>
@@ -7895,7 +8410,7 @@ function verificarAprovacoesPendentes(){
           </div>
         </div>
         <div id="pvSubPagto" style="display:none">
-          <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-end">
+          <div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-end">
             <div><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">1º Vencimento</label>
               <input type="date" id="pvPrimVenc" onchange="gerarParcelasPV()" style="padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
             <button class="btn btn-sm" onclick="gerarParcelasPV()">🔄 Gerar</button>
@@ -7910,14 +8425,14 @@ function verificarAprovacoesPendentes(){
         <button class="btn" onclick="fecharModal('modalPV')">Fechar</button>
         <div style="display:flex;gap:8px">
           <button class="btn" onclick="imprimirPV(editPVId)" style="font-size:12px">🖨️ Imprimir</button>
-          <button style="background:#1a237e;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPV()">💾 Salvar</button>
+          <button style="background:#1a237e;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPV()">💾 Salvar PDV</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- MODAL SELECIONAR CLIENTE PV -->
+<!-- MODAL SELECIONAR CLIENTE PDV -->
 <div class="modal-bg" id="modalSelecionarClientePV">
   <div class="modal" style="width:520px">
     <div class="modal-header"><h3>👤 Selecionar Cliente</h3>
@@ -7966,7 +8481,6 @@ function verificarAprovacoesPendentes(){
 </div>
 
 <div id="pvPrintArea" style="display:none"></div>
-
 
 </body>
 </html>
