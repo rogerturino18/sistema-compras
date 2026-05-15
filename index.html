@@ -380,7 +380,7 @@ tr:hover td{background:#f9fbf9}
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🧾 Vendas</div>
   <div style="padding:6px 0">
     <div class="sbi" onclick="sbGo(14,'Clientes')">👤 Cadastro de Clientes</div>
-    <div class="sbi" onclick="sbGo(13,'PDV')">🧾 PDV</div>
+    <div class="sbi" onclick="sbGo(13,'PDV')">🧾 Pedido de Venda (PDV)</div>
     <div class="sbi" onclick="sbGo(12,'Fiscal / NF-e')">📄 Fiscal / NF-e</div>
   </div>
 </div>
@@ -1360,26 +1360,6 @@ tr:hover td{background:#f9fbf9}
   </div>
 </div>
 </div>
-
-<!-- MODAL RELATÓRIOS DO GRUPO -->
-<div class="modal-bg" id="modalRelatoriosGrupo">
-<div class="modal" style="max-width:960px">
-  <div class="modal-header">
-    <h3 id="modalRelGrupoTitulo">📊 Ordens Concluídas</h3>
-    <div class="modal-header-actions">
-      <button class="modal-header-btn" onclick="minimizarModal('modalRelatoriosGrupo')">−</button>
-      <button class="modal-header-btn" onclick="fecharModal('modalRelatoriosGrupo')">✕</button>
-    </div>
-  </div>
-  <div class="modal-body">
-    <div id="relGrupoConteudo"></div>
-  </div>
-  <div class="modal-actions" style="padding:0 22px 22px">
-    <button class="btn" onclick="fecharModal('modalRelatoriosGrupo')">Fechar</button>
-  </div>
-</div>
-</div>
-
 <!-- MODAL PEÇAS CONCLUÍDAS -->
 <div class="modal-bg" id="modalConcluidosPDV">
 <div class="modal" style="max-width:700px">
@@ -2009,21 +1989,18 @@ tr:hover td{background:#f9fbf9}
             <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
             <input id="req_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
           </div>
-          <div style="flex:0 0 130px">
-            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento *</label>
-            <select id="req_depto" onchange="atualizarReqPDV()" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
-              <option value="">Selecionar...</option>
-              <option value="INDUSTRIA">INDUSTRIA</option>
-              <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
-              <option value="COMERCIAL">COMERCIAL</option>
-              <option value="MANUTENCAO">MANUTENÇÃO</option>
-              <option value="EXPEDICAO">EXPEDIÇÃO</option>
-            </select>
-          </div>
-          <div style="flex:1;min-width:160px" id="req_pdv_wrap">
-            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">PDV (se for PDV)</label>
-            <select id="req_pdv_id" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
-              <option value="">— Selecionar PDV —</option>
+          <div style="flex:2;min-width:220px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Destino (PDV ou Departamento) *</label>
+            <select id="req_destino" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+              <option value="">— Selecionar destino —</option>
+              <optgroup label="── PDVs ──" id="req_destino_pdvs"></optgroup>
+              <optgroup label="── Departamentos ──">
+                <option value="depto:INDUSTRIA">🏭 INDUSTRIA</option>
+                <option value="depto:ADMINISTRATIVO">🏢 ADMINISTRATIVO</option>
+                <option value="depto:COMERCIAL">💼 COMERCIAL</option>
+                <option value="depto:MANUTENCAO">🔧 MANUTENÇÃO</option>
+                <option value="depto:EXPEDICAO">📦 EXPEDIÇÃO</option>
+              </optgroup>
             </select>
           </div>
           <div style="flex:1;min-width:140px">
@@ -2241,15 +2218,14 @@ tr:hover td{background:#f9fbf9}
 
 <!-- TAB 18: DEPARTAMENTOS -->
 <div class="panel" id="tab18">
-  <div class="toolbar" style="margin-bottom:12px">
-    <input type="text" id="buscaDepto" placeholder="Buscar departamento, PV, cliente..." oninput="renderDepartamentos()" style="flex:1">
-    <select id="filtroDeptoNome" onchange="renderDepartamentos()">
-      <option value="">Todos os departamentos</option>
-      <option value="INDUSTRIA">INDUSTRIA</option>
-      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
-      <option value="COMERCIAL">COMERCIAL</option>
-      <option value="MANUTENCAO">MANUTENÇÃO</option>
-      <option value="EXPEDICAO">EXPEDIÇÃO</option>
+
+  <!-- Filtros toolbar -->
+  <div class="toolbar" style="margin-bottom:16px">
+    <input type="text" id="buscaDepto" placeholder="Buscar PDV, cliente, departamento..." oninput="renderDepartamentos()" style="flex:1">
+    <select id="filtroDeptoTipo" onchange="renderDepartamentos()">
+      <option value="">Todos</option>
+      <option value="pdv">📋 PDVs</option>
+      <option value="fixo">🏢 Departamentos Fixos</option>
     </select>
     <select id="filtroDeptoStatus" onchange="renderDepartamentos()">
       <option value="">Todos os status</option>
@@ -2259,14 +2235,51 @@ tr:hover td{background:#f9fbf9}
       <option value="Faturado">💜 Faturado</option>
       <option value="Entregue">📦 Entregue</option>
     </select>
-    <button class="btn primary" onclick="abrirModalDepto(null)">⚙️ Gerenciar Departamentos</button>
+    <button class="btn" onclick="abrirModalDepto(null)" style="font-size:12px">⚙️ Novo Departamento</button>
   </div>
 
-  <!-- Stats por departamento -->
-  <div id="deptosStats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px"></div>
+  <!-- Cards de resumo -->
+  <div id="deptoResumoCards" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px"></div>
 
-  <!-- PVs agrupados por departamento -->
-  <div id="deptosGrupos"></div>
+  <!-- Lista de centros de custo -->
+  <div id="deptoLista"></div>
+
+</div>
+
+<!-- MODAL DETALHE CENTRO DE CUSTO -->
+<div class="modal-bg" id="modalCentroCusto">
+  <div class="modal" style="width:860px;max-width:99vw">
+    <div class="modal-header" style="background:#37474f">
+      <h3 id="modalCCTitulo">Centro de Custo</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalCentroCusto')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <!-- Stats do CC -->
+      <div id="modalCCStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid #e0e0e0"></div>
+      <!-- Sub-abas -->
+      <div style="display:flex;background:#fff;border-bottom:2px solid #e0e0e0;padding:0 20px">
+        <button onclick="showCCTab('req')" id="ccTab_req" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#37474f;border-bottom:3px solid #37474f;margin-bottom:-2px">📦 Materiais Usados</button>
+        <button onclick="showCCTab('op')" id="ccTab_op" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">⚙️ Ordens de Produção</button>
+        <button onclick="showCCTab('info')" id="ccTab_info" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📋 Dados do PDV</button>
+      </div>
+      <div style="padding:16px 20px;min-height:300px;max-height:60vh;overflow-y:auto">
+        <!-- Materiais -->
+        <div id="ccSub_req">
+          <div id="ccReqConteudo"></div>
+        </div>
+        <!-- Ordens de Produção -->
+        <div id="ccSub_op" style="display:none">
+          <div id="ccOPConteudo"></div>
+        </div>
+        <!-- Info PDV -->
+        <div id="ccSub_info" style="display:none">
+          <div id="ccInfoConteudo"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL DEPARTAMENTO -->
@@ -4314,13 +4327,29 @@ function renderOrdens(){
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           ${emProducao?`<span class="badge" style="background:#a5d6a7;color:#1b5e20">⚙️ ${emProducao} em produção</span>`:''}
-          ${ordenConcluidas.length?`<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:transparent;font-size:11px" onclick="event.stopPropagation();abrirRelatoriosGrupo('${pdvId}')">📊 ${ordenConcluidas.length} concluída${ordenConcluidas.length!==1?'s':''}</button>`:''}
+          ${ordenConcluidas.length?`<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:transparent;font-size:11px" onclick="event.stopPropagation();toggleConcluidasInline('conc_${pdvId}')">📊 ${ordenConcluidas.length} concluída${ordenConcluidas.length!==1?'s':''}</button>`:''}
           <span style="color:rgba(255,255,255,0.8);font-size:12px">${ordenAtivas.length} ativa${ordenAtivas.length!==1?'s':''}</span>
           <span style="color:rgba(255,255,255,0.7);font-size:11px" id="arrow_kprod_${pdvId}">▼</span>
         </div>
       </div>
       <div id="kprod_${pdvId}">
         <div class="kanban-wrap"><div class="kanban-board">${kanbanCols}</div></div>
+      </div>
+      <div id="conc_${pdvId}" style="display:none;border-top:2px dashed #546e7a;background:#1c2c35;padding:14px 16px;border-radius:0 0 10px 10px">
+        <div style="font-size:12px;font-weight:700;color:#90a4ae;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📊 Ordens Concluídas — ${ordenConcluidas.length} ordem${ordenConcluidas.length!==1?'s':''}</div>
+        ${ordenConcluidas.length?`<div style="display:flex;flex-direction:column;gap:8px">${ordenConcluidas.map(o=>{
+          const tops=temposOP.filter(t=>t.ordem_id===o.id&&t.dt_hr_final&&t.dt_hr_inicio);
+          const minTot=tops.reduce((s,t)=>s+(new Date(t.dt_hr_final)-new Date(t.dt_hr_inicio))/60000,0);
+          const hh=Math.floor(minTot/60),mm=Math.round(minTot%60);
+          const tempo=minTot>0?hh+'h '+String(mm).padStart(2,'0')+'min':'—';
+          const ops=[...new Set(tops.map(t=>t.operacao).filter(Boolean))].join(' · ');
+          return '<div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
+            '<div style="flex:0 0 60px"><div style="font-size:10px;color:#78909c;text-transform:uppercase">Ordem</div><div style="font-size:15px;font-weight:700;color:#fff">Nº '+(o.numero||'—')+'</div></div>'+
+            '<div style="flex:1;min-width:120px"><div style="font-size:13px;font-weight:600;color:#eceff1">'+(o.descricao||'—')+'</div><div style="font-size:11px;color:#78909c;margin-top:2px">'+(o.material||'')+(ops?' · '+ops:'')+'</div></div>'+
+            '<div style="text-align:center;min-width:80px"><div style="font-size:10px;color:#78909c;text-transform:uppercase">Tempo Total</div><div style="font-size:15px;font-weight:700;color:#a5d6a7">'+tempo+'</div></div>'+
+            '<div style="text-align:center;min-width:60px"><div style="font-size:10px;color:#78909c;text-transform:uppercase">Ops</div><div style="font-size:14px;font-weight:600;color:#eceff1">'+tops.length+'</div></div>'+
+            '<span style="background:#a5d6a7;color:#1b5e20;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700">✅ Concluída</span>'+
+          '</div>';}).join('')}</div>`:'<div style="color:#78909c;font-size:12px">Nenhuma ordem concluída ainda.</div>'}
       </div>
     </div>`;
   }).join('');
@@ -7360,72 +7389,129 @@ async function buscarCNPJ(){
   const btn=document.getElementById('btnBuscaCNPJ');
   if(btn){btn.disabled=true;btn.textContent='🔄 Buscando...';}
 
-  function preencherCampos(nome,fantasia,end,cidade,uf,cep,email,tel){
-    const cnpjFmt=raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
-    const setEl=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};
-    setEl('cli_nome',nome);
-    setEl('cli_fantasia',fantasia);
-    setEl('cli_cnpj',cnpjFmt);
-    setEl('cli_end',end);
-    setEl('cli_cidade',cidade);
-    setEl('cli_uf',uf);
-    setEl('cli_cep',cep);
-    setEl('cli_email',email);
-    setEl('cli_tel',tel);
+  function fill(nome,fantasia,end,cidade,uf,cep,email,tel){
+    const fmt=raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+    // Clear all fields first, then fill with new data
+    ['cli_nome','cli_fantasia','cli_cnpj','cli_end','cli_cidade','cli_uf','cli_cep','cli_email','cli_tel'].forEach(id=>{
+      const e=document.getElementById(id); if(e) e.value='';
+    });
+    const s=(id,v)=>{
+      const e=document.getElementById(id);
+      if(e) e.value=String(v||'').trim();
+    };
+    s('cli_nome',   nome||fantasia||'');
+    s('cli_fantasia',fantasia||'');
+    s('cli_cnpj',   fmt);
+    s('cli_end',    end||'');
+    s('cli_cidade', cidade||'');
+    s('cli_uf',     (uf||'').substring(0,2).toUpperCase());
+    s('cli_cep',    (cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2'));
+    s('cli_email',  email||'');
+    s('cli_tel',    (tel||'').replace(/\D/g,'').replace(/^(\d{2})(\d{4,5})(\d{4})$/,'($1) $2-$3'));
+    console.log('Filled: nome='+nome+' cidade='+cidade+' uf='+uf+' cep='+cep);
   }
 
-  let preencheu=false;
+  function buildEnd(logradouro,tipo,numero,complemento,bairro){
+    const rua=[tipo,logradouro].filter(Boolean).join(' ').trim();
+    return [rua,numero,complemento,bairro].filter(Boolean).join(', ');
+  }
 
-  // 1. BrasilAPI
+  let ok=false;
+
+  // API 1 — BrasilAPI
   try{
-    const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+raw);
+    const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+raw,{signal:AbortSignal.timeout(6000)});
     if(r.ok){
       const d=await r.json();
-      const tipoLog=(d.descricao_tipo_de_logradouro||'').trim(); const end=[(tipoLog?tipoLog+' ':'')+( d.logradouro||''),d.numero,d.complemento,d.bairro].filter(Boolean).join(', ');
-      const cep=(d.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
-      preencherCampos(d.razao_social,d.nome_fantasia,end,d.municipio,d.uf,cep,d.email,d.ddd_telefone_1);
-      if(d.razao_social||d.nome_fantasia){preencheu=true;showToast('✅ CNPJ encontrado!');}
-    }
-  }catch(e){console.warn('BrasilAPI:',e);}
-
-  // 2. cnpj.ws (sem CORS)
-  if(!preencheu){
-    try{
-      const r=await fetch('https://publica.cnpj.ws/cnpj/'+raw);
-      if(r.ok){
-        const d=await r.json();
-        const rs=d.razao_social||'';
-        const ft=d.estabelecimento?.nome_fantasia||'';
-        const logr=d.estabelecimento?.logradouro||'';
-        const num=d.estabelecimento?.numero||'';
-        const bairro=d.estabelecimento?.bairro||'';
-        const cidade=d.estabelecimento?.cidade?.nome||'';
-        const uf=d.estabelecimento?.estado?.sigla||'';
-        const cep=(d.estabelecimento?.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
-        const tel=d.estabelecimento?.ddd1?(d.estabelecimento.ddd1+(d.estabelecimento.telefone1||'')):'';
-        const end=[logr,num,bairro].filter(Boolean).join(', ');
-        preencherCampos(rs,ft,end,cidade,uf,cep,'',tel);
-        if(rs||ft){preencheu=true;showToast('✅ CNPJ encontrado!');}
+      console.log('BrasilAPI fields:', Object.entries(d).filter(([k,v])=>v&&typeof v!=='object').map(([k,v])=>k+'='+v).join(' | '));
+      if(d&&(d.razao_social||d.nome_fantasia||d.nome)){
+        // BrasilAPI address fields - log exact values
+        console.log('Address fields:', {logradouro:d.logradouro, tipo:d.descricao_tipo_de_logradouro, numero:d.numero, bairro:d.bairro, municipio:d.municipio, uf:d.uf, cep:d.cep});
+        fill(
+          d.razao_social||d.nome||'',
+          d.nome_fantasia||'',
+          buildEnd(d.logradouro,d.descricao_tipo_de_logradouro,d.numero,d.complemento,d.bairro),
+          d.municipio||d.cidade||'',
+          d.uf||d.estado||'',
+          d.cep||'',
+          d.email||d.emails?.[0]||'',
+          d.ddd_telefone_1||d.telefone||''
+        );
+        ok=true;
       }
-    }catch(e){console.warn('cnpj.ws:',e);}
-  }
+    }
+  }catch(e){console.warn('API1:',e.message);}
 
-  // 3. ReceitaWS
-  if(!preencheu){
+  // API 2 — cnpj.ws
+  if(!ok){
     try{
-      const r=await fetch('https://receitaws.com.br/v1/cnpj/'+raw);
+      const r=await fetch('https://publica.cnpj.ws/cnpj/'+raw,{signal:AbortSignal.timeout(6000)});
       if(r.ok){
         const d=await r.json();
-        if(d.status!=='ERROR'){
-          const end=[d.logradouro,d.numero,d.complemento,d.bairro].filter(Boolean).join(', ');
-          preencherCampos(d.nome,d.fantasia,end,d.municipio,d.uf,d.cep,d.email,(d.telefone||'').split('/')[0].trim());
-          if(d.nome){preencheu=true;showToast('✅ CNPJ encontrado!');}
+        const e=d.estabelecimento||{};
+        const nome=d.razao_social||e.nome_fantasia||'';
+        if(nome){
+          fill(
+            nome, e.nome_fantasia||'',
+            buildEnd(e.logradouro,'',e.numero,e.complemento,e.bairro),
+            e.cidade?.nome||'', e.estado?.sigla||'', e.cep||'', e.email||'',
+            e.ddd1&&e.telefone1?(e.ddd1+e.telefone1):''
+          );
+          ok=true;
         }
       }
-    }catch(e){console.warn('ReceitaWS:',e);}
+    }catch(e){console.warn('API2:',e.message);}
   }
 
-  if(!preencheu) showToast('CNPJ não encontrado em nenhuma base. Preencha manualmente.','err');
+  // API 3 — ReceitaWS
+  if(!ok){
+    try{
+      const r=await fetch('https://receitaws.com.br/v1/cnpj/'+raw,{signal:AbortSignal.timeout(8000)});
+      if(r.ok){
+        const d=await r.json();
+        if(d.status!=='ERROR'&&(d.nome||d.fantasia)){
+          fill(
+            d.nome||d.fantasia||'', d.fantasia||'',
+            buildEnd(d.logradouro,'',d.numero,d.complemento,d.bairro),
+            d.municipio||'', d.uf||'', d.cep||'', d.email||'',
+            (d.telefone||'').split('/')[0].trim()
+          );
+          ok=true;
+        }
+      }
+    }catch(e){console.warn('API3:',e.message);}
+  }
+
+  // API 4 — minhareceita
+  if(!ok){
+    try{
+      const r=await fetch('https://minhareceita.org/'+raw,{signal:AbortSignal.timeout(6000)});
+      if(r.ok){
+        const d=await r.json();
+        if(d.razao_social||d.nome_fantasia){
+          fill(
+            d.razao_social||'', d.nome_fantasia||'',
+            buildEnd(d.logradouro,d.descricao_tipo_de_logradouro,d.numero,d.complemento,d.bairro),
+            d.municipio||'', d.uf||'', d.cep||'', d.email||'', d.ddd_telefone_1||''
+          );
+          ok=true;
+        }
+      }
+    }catch(e){console.warn('API4:',e.message);}
+  }
+
+  if(ok){
+    // If razao_social ended up empty but fantasia filled, move fantasia to razao
+    const nomeEl=document.getElementById('cli_nome');
+    const fantEl=document.getElementById('cli_fantasia');
+    if(nomeEl&&!nomeEl.value&&fantEl&&fantEl.value){
+      nomeEl.value=fantEl.value;
+    }
+    showToast('✅ CNPJ encontrado! Verifique e complete os dados.');
+  } else {
+    showToast('CNPJ não encontrado. Verifique o número ou preencha manualmente.','err');
+  }
+
   if(btn){btn.disabled=false;btn.textContent='🔎 Buscar';}
 }
 
@@ -7722,9 +7808,12 @@ function abrirRelatoriosGrupo(pdvId){
   const pdv=pdvs.find(p=>p.id===pdvId);
   const ordenConcluidas=ordens.filter(o=>{
     if(o.pdv_id!==pdvId) return false;
-    const tops=temposOP.filter(t=>t.ordem_id===o.id);
+    // Check by tempos OR by status field
+    if(o.status==='concluido') return true;
+    const tops=temposOP.filter(t=>t.ordem_id===o.id&&t.operacao&&t.operacao!=='REPROCESSAR');
     return tops.length>0&&tops.every(t=>t.dt_hr_final);
   });
+  console.log('abrirRelatoriosGrupo: pdvId=',pdvId,'ordens total=',ordens.length,'concluidas=',ordenConcluidas.length);
   document.getElementById('modalRelGrupoTitulo').textContent=`📊 Ordens Concluídas — PDV ${pdv?.numero||''} ${pdv?.cliente||''}`;
   document.getElementById('relGrupoConteudo').innerHTML=ordenConcluidas.length?
     ordenConcluidas.map(o=>`
@@ -7929,24 +8018,43 @@ function abrirModalReq(id){
   document.getElementById('req_solicitante').value=r?.solicitante||usuarioLogado?.nome||'';
   document.getElementById('req_obs').value=r?.observacao||'';
   document.getElementById('req_data').value=r?.data||new Date().toISOString().split('T')[0];
-  // Populate PDV select
-  const selPDV=document.getElementById('req_pdv_id');
-  if(selPDV){
-    selPDV.innerHTML='<option value="">— Selecionar PDV —</option>';
-    pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
-    selPDV.value=r?.pdv_id||'';
+  // Populate unified destino select with PDVs
+  const selDest=document.getElementById('req_destino');
+  if(selDest){
+    // Remove old PDV options
+    const optGroup=selDest.querySelector('#req_destino_pdvs') || 
+      [...selDest.querySelectorAll('optgroup')].find(g=>g.label.includes('PDV'));
+    if(optGroup){
+      optGroup.innerHTML='';
+      [...pedidosVenda].sort((a,b)=>b.numero-a.numero).forEach(p=>{
+        const o=document.createElement('option');
+        o.value='pdv:'+p.id;
+        o.textContent='PDV '+p.numero+(p.cliente_nome?' — '+p.cliente_nome.substring(0,25):'');
+        optGroup.appendChild(o);
+      });
+    }
+    // Add custom departamentos from DB
+    const deptoGroup=[...selDest.querySelectorAll('optgroup')].find(g=>g.label.includes('Departamentos'));
+    if(deptoGroup){
+      departamentos.forEach(d=>{
+        if(!['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO'].includes(d.nome)){
+          if(![...deptoGroup.options].some(o=>o.value==='depto:'+d.nome)){
+            const o=document.createElement('option');o.value='depto:'+d.nome;o.textContent=d.nome;deptoGroup.appendChild(o);
+          }
+        }
+      });
+    }
+    // Set current value
+    if(r?.pdv_id) selDest.value='pdv:'+r.pdv_id;
+    else if(r?.departamento) selDest.value='depto:'+r.departamento;
+    else selDest.value='';
   }
   reqItensLocal=Array.isArray(r?.itens)?JSON.parse(JSON.stringify(r.itens)):[];
-  atualizarReqPDV();
   renderReqItens();
   abrirModal('modalReq');
 }
 
-function atualizarReqPDV(){
-  // PDV removed - PDV wrap always hidden in requisições
-  const wrap=document.getElementById('req_pdv_wrap');
-  if(wrap) wrap.style.display='none';
-}
+function atualizarReqPDV(){ /* unified into req_destino */ }
 
 function addItemReq(){
   document.getElementById('buscaItemReqModal').value='';
@@ -8013,9 +8121,14 @@ function renderReqItens(){
 }
 
 async function salvarRequisicao(){
-  const depto=document.getElementById('req_depto')?.value;
-  if(!depto){showToast('Selecione o departamento','err');return;}
+  const destinoVal=document.getElementById('req_destino')?.value||'';
+  if(!destinoVal){showToast('Selecione o destino (PDV ou Departamento)','err');return;}
   if(!reqItensLocal.length){showToast('Adicione pelo menos um item','err');return;}
+  // Parse destino
+  const isPdvDest=destinoVal.startsWith('pdv:');
+  const depto=isPdvDest?'PDV':destinoVal.replace('depto:','');
+  const pvDestId=isPdvDest?destinoVal.replace('pdv:',''):null;
+  const pvDest=pvDestId?pedidosVenda.find(p=>p.id===pvDestId):null;
   // Check stock
   for(const it of reqItensLocal){
     if(it.qtd<=0){showToast(`Quantidade inválida: ${it.descricao}`,'err');return;}
@@ -8023,15 +8136,14 @@ async function salvarRequisicao(){
       if(!confirm(`⚠️ ${it.descricao}: saldo atual ${it.saldo_atual} ${it.unidade}, você quer retirar ${it.qtd}. Continuar mesmo assim?`)) return;
     }
   }
-  const pdvSel=document.getElementById('req_pdv_id');
-  const pdvId=pdvSel?.value||null;
-  const pdv=pdvId?pdvs.find(p=>p.id===pdvId):null;
+  const pdvId=pvDestId||null;
+  const pdv=pvDest||null;
   const numero=parseInt(document.getElementById('req_numero').value)||0;
   const obj={
     numero, status: isAprovador() ? 'Atendida' : 'Aguardando Aprovação',
     departamento:depto,
     pdv_id:pdvId||null,
-    pdv_nome:pdv?('PDV '+pdv.numero+(pdv.cliente?' — '+pdv.cliente:'')):(depto==='PDV'?'PDV Manual':null),
+    pdv_nome:pdv?('PDV '+pdv.numero+(pdv.cliente_nome?' — '+pdv.cliente_nome:'')):(isPdvDest?'PDV':null),
     solicitante:document.getElementById('req_solicitante').value.trim()||null,
     data:document.getElementById('req_data').value||new Date().toISOString().split('T')[0],
     observacao:document.getElementById('req_obs').value.trim()||null,
@@ -8053,7 +8165,7 @@ async function salvarRequisicao(){
           item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
           quantidade:it.qtd, unidade_saida:it.unidade, data:obj.data,
           departamento:depto,
-          observacao:`Req. Nº ${numero} — ${depto}${pdv?' / PDV '+pdv.numero:''}`,
+          observacao:`Req. Nº ${numero} — ${isPdvDest&&pdv?'PDV '+pdv.numero:depto}`,
           criado_por:usuarioLogado?.nome||null
         });
       }
@@ -8154,7 +8266,7 @@ async function confirmarAprovacao(){
         quantidade:it.qtd, unidade_saida:it.unidade,
         data:r.data||new Date().toISOString().split('T')[0],
         departamento:r.departamento,
-        observacao:`Req. Nº ${r.numero} — ${r.departamento}${r.pdv_nome?' / '+r.pdv_nome:''}`,
+        observacao:`Req. Nº ${r.numero} — ${r.pdv_id?'PDV '+(pedidosVenda.find(p=>p.id===r.pdv_id)?.numero||''):r.departamento}`,
         criado_por:usuarioLogado?.nome||null
       });
     }
@@ -8313,7 +8425,336 @@ function renderDepartamentos(){
     </div>`;
   }).join('');
 }
+
+function abrirModalDepto(id){
+  editDeptoId=id;
+  const d=id?departamentos.find(x=>x.id===id):null;
+  document.getElementById('modalDeptoTitulo').textContent=id?'Editar Departamento':'Novo Departamento';
+  document.getElementById('depto_nome').value=d?.nome||'';
+  document.getElementById('depto_desc').value=d?.descricao||'';
+  document.getElementById('depto_resp').value=d?.responsavel||'';
+  selecionarCorDepto(d?.cor||'#1565c0');
+  abrirModal('modalDepto');
+}
+
+async function salvarDepartamento(){
+  const nome=document.getElementById('depto_nome').value.trim().toUpperCase();
+  if(!nome){showToast('Informe o nome','err');return;}
+  const obj={
+    nome,
+    descricao:document.getElementById('depto_desc').value.trim()||null,
+    cor:document.getElementById('depto_cor').value||'#1565c0',
+    responsavel:document.getElementById('depto_resp').value.trim()||null
+  };
+  try{
+    if(editDeptoId) await api('PATCH','departamentos',obj,`?id=eq.${editDeptoId}`);
+    else await api('POST','departamentos',obj);
+    showToast(editDeptoId?'Departamento atualizado!':'Departamento criado!');
+    fecharModal('modalDepto');
+    await loadAll();
+    renderDepartamentos();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+}
+
+async function deletarDepartamento(id){
+  if(!confirm('Excluir este departamento?'))return;
+  try{
+    await api('DELETE','departamentos','',`?id=eq.${id}`);
+    showToast('Removido!');
+    await loadAll();
+    renderDepartamentos();
+  }catch(e){showToast('Erro','err');}
+}
+
+// ===== DEPARTAMENTOS / CENTROS DE CUSTO =====
+let _ccAtual=null;
+
+const DEPTOS_FIXOS=[
+  {id:'_ind',nome:'INDUSTRIA',cor:'#1565c0',tipo:'fixo'},
+  {id:'_adm',nome:'ADMINISTRATIVO',cor:'#37474f',tipo:'fixo'},
+  {id:'_com',nome:'COMERCIAL',cor:'#e65100',tipo:'fixo'},
+  {id:'_man',nome:'MANUTENÇÃO',cor:'#6a1b9a',tipo:'fixo'},
+  {id:'_exp',nome:'EXPEDIÇÃO',cor:'#00695c',tipo:'fixo'},
+];
+
+function getCor(nome){
+  const cores={'INDUSTRIA':'#1565c0','ADMINISTRATIVO':'#37474f','COMERCIAL':'#e65100','MANUTENÇÃO':'#6a1b9a','EXPEDIÇÃO':'#00695c'};
+  return cores[nome]||(departamentos.find(d=>d.nome===nome)?.cor)||'#546e7a';
+}
+
+function renderDepartamentos(){
+  const busca=(document.getElementById('buscaDepto')?.value||'').toLowerCase();
+  const filtTipo=document.getElementById('filtroDeptoTipo')?.value||'';
+  const filtSt=document.getElementById('filtroDeptoStatus')?.value||'';
+
+  // Build all cost centers:
+  // 1. Each PDV = one cost center
+  // 2. Fixed departments (for requisitions NOT linked to a PDV)
+  let centros=[];
+
+  // PDVs
+  if(!filtTipo||filtTipo==='pdv'){
+    pedidosVenda.forEach(p=>{
+      if(filtSt&&p.status!==filtSt) return;
+      const label=`PDV ${p.numero}${p.cliente_nome?' — '+p.cliente_nome.substring(0,30):''}`;
+      if(busca&&!label.toLowerCase().includes(busca)) return;
+      // Count requisitions for this PDV
+      const reqs=requisicoes.filter(r=>r.pdv_id===p.id||(r.departamento==='PDV'&&r.pdv_id===p.id));
+      const matUsados=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
+      // Count ordens
+      const opsCount=ordens.filter(o=>o.pdv_id===p.id).length;
+      centros.push({id:p.id,tipo:'pdv',nome:`PDV ${p.numero}`,cliente:p.cliente_nome||'',status:p.status,cor:getCor(p.departamento||'COMERCIAL'),total:p.total||0,matUsados,opsCount,pvData:p});
+    });
+  }
+
+  // Departamentos fixos
+  if(!filtTipo||filtTipo==='fixo'){
+    const todos=[...DEPTOS_FIXOS,...departamentos.map(d=>({...d,tipo:'fixo'}))];
+    todos.forEach(d=>{
+      if(busca&&!d.nome.toLowerCase().includes(busca)) return;
+      const reqs=requisicoes.filter(r=>r.departamento===d.nome&&!r.pdv_id&&r.status==='Atendida');
+      const matUsados=reqs.reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
+      centros.push({id:d.id,tipo:'fixo',nome:d.nome,cor:d.cor||getCor(d.nome),matUsados,opsCount:0,reqs});
+    });
+  }
+
+  // Summary cards
+  const cardsEl=document.getElementById('deptoResumoCards');
+  if(cardsEl){
+    const totalPVs=pedidosVenda.length;
+    const emAberto=pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length;
+    const totalVal=pedidosVenda.filter(p=>['Aprovado','Em Produção'].includes(p.status)).reduce((s,p)=>s+(p.total||0),0);
+    const totalReqs=requisicoes.filter(r=>r.status==='Atendida').length;
+    cardsEl.innerHTML=`
+      <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 16px;border-left:4px solid #1a237e;min-width:160px">
+        <div style="font-size:11px;font-weight:700;color:#1a237e;text-transform:uppercase;margin-bottom:4px">Total PDVs</div>
+        <div style="font-size:24px;font-weight:800;color:#263238">${totalPVs}</div>
+        <div style="font-size:11px;color:#546e7a">${emAberto} em aberto</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 16px;border-left:4px solid #2e7d32;min-width:160px">
+        <div style="font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;margin-bottom:4px">Valor em Produção</div>
+        <div style="font-size:20px;font-weight:800;color:#263238">${fmtVal(totalVal)}</div>
+        <div style="font-size:11px;color:#546e7a">PDVs aprovados/produção</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 16px;border-left:4px solid #6a1b9a;min-width:160px">
+        <div style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;margin-bottom:4px">Requisições Atendidas</div>
+        <div style="font-size:24px;font-weight:800;color:#263238">${totalReqs}</div>
+        <div style="font-size:11px;color:#546e7a">saídas de estoque</div>
+      </div>`;
+  }
+
+  // List
+  const listaEl=document.getElementById('deptoLista');
+  if(!listaEl) return;
+  if(!centros.length){listaEl.innerHTML='<div style="text-align:center;padding:40px;color:#bdbdbd">Nenhum centro de custo encontrado</div>';return;}
+
+  listaEl.innerHTML=centros.map(c=>`
+    <div onclick="abrirCentroCusto('${c.id}','${c.tipo}')" style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px 18px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow=''">
+      <div style="width:44px;height:44px;border-radius:10px;background:${c.cor};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${c.tipo==='pdv'?'📋':'🏢'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px;color:#263238">${c.nome}</div>
+        <div style="font-size:12px;color:#546e7a;margin-top:2px">${c.cliente||c.tipo==='fixo'?`${c.tipo==='fixo'?'Departamento fixo':c.cliente}`:'—'}</div>
+      </div>
+      ${c.tipo==='pdv'?`
+        <div style="text-align:center;min-width:80px">
+          <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Total PDV</div>
+          <div style="font-size:14px;font-weight:700;color:${c.cor}">${fmtVal(c.total)}</div>
+        </div>
+        <div style="text-align:center;min-width:70px">
+          <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Status</div>
+          <div style="font-size:12px;font-weight:600;color:#263238">${c.status||'—'}</div>
+        </div>`:``}
+      <div style="text-align:center;min-width:70px">
+        <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Materiais</div>
+        <div style="font-size:18px;font-weight:700;color:#6a1b9a">${c.matUsados}</div>
+      </div>
+      ${c.tipo==='pdv'?`
+      <div style="text-align:center;min-width:70px">
+        <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Ordens</div>
+        <div style="font-size:18px;font-weight:700;color:#e65100">${c.opsCount}</div>
+      </div>`:''}
+      <div style="color:#bdbdbd;font-size:18px">›</div>
+    </div>`).join('');
+}
+
+function abrirCentroCusto(id, tipo){
+  _ccAtual={id,tipo};
+  let titulo='', cor='#37474f';
+  if(tipo==='pdv'){
+    const p=pedidosVenda.find(x=>x.id===id);
+    if(!p) return;
+    titulo=`PDV ${p.numero} — ${p.cliente_nome||''}`;
+    cor=getCor(p.departamento||'COMERCIAL');
+    // Stats
+    const reqs=requisicoes.filter(r=>r.pdv_id===p.id);
+    const opsLocal=ordens.filter(o=>o.pdv_id===p.id);
+    const matTotal=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.reduce((ss,it)=>ss+(it.qtd||0),0):0),0);
+    document.getElementById('modalCCStats').innerHTML=`
+      <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
+        <div style="font-size:10px;color:#546e7a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Valor PDV</div>
+        <div style="font-size:18px;font-weight:800;color:${cor}">${fmtVal(p.total||0)}</div>
+      </div>
+      <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
+        <div style="font-size:10px;color:#546e7a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Status</div>
+        <div style="font-size:14px;font-weight:700;color:#263238">${p.status||'—'}</div>
+      </div>
+      <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
+        <div style="font-size:10px;color:#6a1b9a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Materiais Retirados</div>
+        <div style="font-size:18px;font-weight:800;color:#6a1b9a">${matTotal}</div>
+      </div>
+      <div style="padding:14px 16px;text-align:center">
+        <div style="font-size:10px;color:#e65100;font-weight:700;text-transform:uppercase;margin-bottom:4px">Ordens de Produção</div>
+        <div style="font-size:18px;font-weight:800;color:#e65100">${opsLocal.length}</div>
+      </div>`;
+    // Materiais tab
+    document.getElementById('ccReqConteudo').innerHTML=renderCCMateriais(reqs);
+    // Ordens tab
+    document.getElementById('ccOPConteudo').innerHTML=renderCCOrdens(opsLocal);
+    // Info tab
+    document.getElementById('ccInfoConteudo').innerHTML=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+        <div><b>Cliente:</b> ${p.cliente_nome||'—'}</div>
+        <div><b>CNPJ:</b> ${p.cliente_cnpj||'—'}</div>
+        <div><b>Vendedor:</b> ${p.vendedor||'—'}</div>
+        <div><b>Departamento:</b> ${p.departamento||'—'}</div>
+        <div><b>Prev. Faturamento:</b> ${p.prev_faturamento?new Date(p.prev_faturamento+'T12:00').toLocaleDateString('pt-BR'):'—'}</div>
+        <div><b>Data inclusão:</b> ${p.data_inclusao?new Date(p.data_inclusao).toLocaleDateString('pt-BR'):'—'}</div>
+        <div style="grid-column:1/-1"><b>Endereço:</b> ${[p.cliente_endereco,p.cliente_cidade].filter(Boolean).join(', ')||'—'}</div>
+        ${p.observacoes?`<div style="grid-column:1/-1"><b>Obs:</b> ${p.observacoes}</div>`:''}
+      </div>`;
+  } else {
+    // Fixed department
+    const nome=DEPTOS_FIXOS.find(d=>d.id===id)?.nome||departamentos.find(d=>d.id===id)?.nome||id;
+    titulo=nome; cor=getCor(nome);
+    const reqs=requisicoes.filter(r=>r.departamento===nome&&r.status==='Atendida');
+    const matTotal=reqs.reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.reduce((ss,it)=>ss+(it.qtd||0),0):0),0);
+    document.getElementById('modalCCStats').innerHTML=`
+      <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
+        <div style="font-size:10px;color:#546e7a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Requisições</div>
+        <div style="font-size:18px;font-weight:800;color:${cor}">${reqs.length}</div>
+      </div>
+      <div style="padding:14px 16px;text-align:center">
+        <div style="font-size:10px;color:#6a1b9a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Materiais Retirados</div>
+        <div style="font-size:18px;font-weight:800;color:#6a1b9a">${matTotal}</div>
+      </div>`;
+    document.getElementById('ccReqConteudo').innerHTML=renderCCMateriais(reqs);
+    document.getElementById('ccOPConteudo').innerHTML='<p style="color:#bdbdbd;font-size:13px">Ordens de produção não vinculadas a departamentos fixos.</p>';
+    document.getElementById('ccInfoConteudo').innerHTML=`<div style="font-size:13px"><b>Departamento:</b> ${nome}</div>`;
+  }
+  document.getElementById('modalCCTitulo').textContent=titulo;
+  document.getElementById('modalCCTitulo').parentElement.style.background=cor;
+  showCCTab('req');
+  abrirModal('modalCentroCusto');
+}
+
+function renderCCMateriais(reqs){
+  const atendidas=reqs.filter(r=>r.status==='Atendida');
+  if(!atendidas.length) return '<p style="color:#bdbdbd;padding:20px;text-align:center">Nenhum material retirado ainda.</p>';
+  let rows='';
+  atendidas.forEach(r=>{
+    const itArr=Array.isArray(r.itens)?r.itens:[];
+    itArr.forEach(it=>{
+      rows+=`<tr style="border-bottom:1px solid #f5f5f5">
+        <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+        <td style="padding:7px 10px;font-weight:600;font-size:13px">${it.descricao||'—'}</td>
+        <td style="padding:7px 10px;font-size:12px;color:var(--green)">${it.material||'—'}</td>
+        <td style="padding:7px 10px;font-weight:700;color:#6a1b9a;font-size:13px">${it.qtd||0} ${it.unidade||''}</td>
+        <td style="padding:7px 10px;font-size:12px;color:#546e7a">Req.Nº ${r.numero||'—'}</td>
+        <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${r.solicitante||'—'}</td>
+      </tr>`;
+    });
+  });
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#f3e5f5">
+      <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;text-align:left">Data</th>
+      <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;text-align:left">Material</th>
+      <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Especificação</th>
+      <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Quantidade</th>
+      <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Requisição</th>
+      <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Solicitante</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderCCOrdens(opsLocal){
+  if(!opsLocal.length) return '<p style="color:#bdbdbd;padding:20px;text-align:center">Nenhuma ordem de produção neste PDV.</p>';
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#fff3e0">
+      <th style="padding:7px 10px;color:#e65100;font-size:11px;text-align:left">Nº</th>
+      <th style="padding:7px 10px;color:#e65100;font-size:11px;text-align:left">Descrição</th>
+      <th style="padding:7px 10px;color:#e65100;font-size:11px">Operação</th>
+      <th style="padding:7px 10px;color:#e65100;font-size:11px">Status</th>
+      <th style="padding:7px 10px;color:#e65100;font-size:11px">Tempo</th>
+    </tr></thead>
+    <tbody>${opsLocal.map(o=>{
+      const tops=temposOP.filter(t=>t.ordem_id===o.id&&t.dt_hr_final);
+      const minutos=tops.reduce((s,t)=>{
+        if(!t.dt_hr_inicio||!t.dt_hr_final) return s;
+        return s+(new Date(t.dt_hr_final)-new Date(t.dt_hr_inicio))/60000;
+      },0);
+      const tempo=minutos>0?`${Math.floor(minutos/60)}h ${Math.round(minutos%60)}min`:'—';
+      return `<tr style="border-bottom:1px solid #f5f5f5">
+        <td style="padding:7px 10px;font-weight:700;color:#e65100">Nº${o.numero||'—'}</td>
+        <td style="padding:7px 10px;font-weight:600">${o.descricao||'—'}</td>
+        <td style="padding:7px 10px;font-size:12px;color:#546e7a">${o.operacao||'—'}</td>
+        <td style="padding:7px 10px"><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${o.status==='concluido'?'#e8f5e9;color:#2e7d32':o.status==='em_producao'?'#e3f2fd;color:#1565c0':'#f5f5f5;color:#546e7a'}">${o.status||'—'}</span></td>
+        <td style="padding:7px 10px;font-weight:600;color:#263238">${tempo}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function showCCTab(tab){
+  ['req','op','info'].forEach(t=>{
+    const el=document.getElementById('ccSub_'+t);
+    if(el) el.style.display=t===tab?'block':'none';
+    const btn=document.getElementById('ccTab_'+t);
+    if(btn){
+      btn.style.color=t===tab?'#37474f':'#546e7a';
+      btn.style.fontWeight=t===tab?'700':'500';
+      btn.style.borderBottom=t===tab?'3px solid #37474f':'3px solid transparent';
+    }
+  });
+}
+
+function selecionarCorDepto(cor){
+  _deptoCorSel=cor;
+  const el=document.getElementById('depto_cor');
+  if(el) el.value=cor;
+  document.querySelectorAll('#deptoCorPicker div').forEach(el=>{
+    el.style.border=el.dataset.cor===cor?'3px solid #263238':'3px solid transparent';
+  });
+}
+
+function toggleConcluidasInline(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.style.display=el.style.display==='none'?'block':'none';
+}
 </script>
+
+
+<!-- MODAL RELATÓRIOS DO GRUPO -->
+<div class="modal-bg" id="modalRelatoriosGrupo">
+<div class="modal" style="max-width:960px">
+  <div class="modal-header">
+    <h3 id="modalRelGrupoTitulo">📊 Ordens Concluídas</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="minimizarModal('modalRelatoriosGrupo')">−</button>
+      <button class="modal-header-btn" onclick="fecharModal('modalRelatoriosGrupo')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <div id="relGrupoConteudo"></div>
+  </div>
+  <div class="modal-actions" style="padding:0 22px 22px">
+    <button class="btn" onclick="fecharModal('modalRelatoriosGrupo')">Fechar</button>
+  </div>
+</div>
+</div>
+
+
 
 <!-- MODAL PDV -->
 <div class="modal-bg" id="modalPV">
