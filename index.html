@@ -8921,7 +8921,15 @@ function abrirRelatorioOrdem(ordemId){
         <div class="form-group full"><label>Razão Social *</label><input id="nc_cli_nome" type="text"></div>
         <div class="form-group"><label>Nome Fantasia</label><input id="nc_cli_fantasia" type="text"></div>
         <div class="form-group"><label>CNPJ/CPF</label><input id="nc_cli_cnpj" type="text"></div>
-        <div class="form-group"><label>Inscrição Estadual</label><input id="nc_cli_ie" type="text"></div>
+        <div class="form-group"><label>Inscrição Estadual <span style="font-size:10px;color:#546e7a;font-weight:400">(preencha manualmente)</span></label>
+          <div style="display:flex;gap:6px">
+            <input id="nc_cli_ie" type="text" style="flex:1">
+            <button type="button" onclick="
+              const cnpj=(document.getElementById('nc_cli_cnpj')?.value||'').replace(/\D/g,'');
+              window.open('https://www.fazenda.sp.gov.br/cadastro/cadesp_consulta.aspx'+(cnpj?'?CNPJ='+cnpj:''),'_blank');
+            " class="btn btn-sm" style="font-size:11px;white-space:nowrap" title="Consultar IE na SEFAZ-SP">🔍 SEFAZ-SP</button>
+          </div>
+        </div>
         <div class="form-group full"><label>Endereço</label><input id="nc_cli_end" type="text"></div>
         <div class="form-group"><label>Cidade</label><input id="nc_cli_cidade" type="text"></div>
         <div class="form-group"><label>UF</label><input id="nc_cli_uf" type="text" maxlength="2" style="text-transform:uppercase"></div>
