@@ -7384,143 +7384,51 @@ function abrirModalCliente(id){
 }
 
 async function buscarCNPJ(){
-  const raw=(document.getElementById('cli_cnpj_busca')?.value||'').replace(/\D/g,'');
-  if(raw.length!==14){showToast('CNPJ deve ter 14 dígitos','err');return;}
+  const cnpj=(document.getElementById('cli_cnpj_busca')?.value||'').replace(/\D/g,'');
+  if(cnpj.length!==14){showToast('CNPJ deve ter 14 dígitos','err');return;}
   const btn=document.getElementById('btnBuscaCNPJ');
   if(btn){btn.disabled=true;btn.textContent='🔄 Buscando...';}
-
-  function fill(nome,fantasia,end,cidade,uf,cep,email,tel){
-    const fmt=raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
-    // Clear all fields first, then fill with new data
-    ['cli_nome','cli_fantasia','cli_cnpj','cli_end','cli_cidade','cli_uf','cli_cep','cli_email','cli_tel'].forEach(id=>{
-      const e=document.getElementById(id); if(e) e.value='';
-    });
-    const s=(id,v)=>{
-      const e=document.getElementById(id);
-      if(e) e.value=String(v||'').trim();
-    };
-    s('cli_nome',   nome||fantasia||'');
-    s('cli_fantasia',fantasia||'');
-    s('cli_cnpj',   fmt);
-    s('cli_end',    end||'');
-    s('cli_cidade', cidade||'');
-    s('cli_uf',     (uf||'').substring(0,2).toUpperCase());
-    s('cli_cep',    (cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2'));
-    s('cli_email',  email||'');
-    s('cli_tel',    (tel||'').replace(/\D/g,'').replace(/^(\d{2})(\d{4,5})(\d{4})$/,'($1) $2-$3'));
-    console.log('Filled: nome='+nome+' cidade='+cidade+' uf='+uf+' cep='+cep);
-  }
-
-  function buildEnd(logradouro,tipo,numero,complemento,bairro){
-    const rua=[tipo,logradouro].filter(Boolean).join(' ').trim();
-    return [rua,numero,complemento,bairro].filter(Boolean).join(', ');
-  }
-
-  let ok=false;
-
-  // API 1 — BrasilAPI
   try{
-    const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+raw,{signal:AbortSignal.timeout(6000)});
-    if(r.ok){
-      const d=await r.json();
-      console.log('BrasilAPI fields:', Object.entries(d).filter(([k,v])=>v&&typeof v!=='object').map(([k,v])=>k+'='+v).join(' | '));
-      if(d&&(d.razao_social||d.nome_fantasia||d.nome)){
-        // BrasilAPI address fields - log exact values
-        console.log('Address fields:', {logradouro:d.logradouro, tipo:d.descricao_tipo_de_logradouro, numero:d.numero, bairro:d.bairro, municipio:d.municipio, uf:d.uf, cep:d.cep});
-        // Set fields DIRECTLY - no abstraction
-        const cnpjFmt2=raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
-        const setF=(id,v)=>{const e=document.getElementById(id);if(e)e.value=String(v||'');};
-        const nomeVal=d.razao_social||d.nome||d.nome_fantasia||'';
-        const endVal=[d.descricao_tipo_de_logradouro,d.logradouro,d.numero,d.complemento,d.bairro].filter(Boolean).join(' ');
-        const cidadeVal=d.municipio||'';
-        const ufVal=d.uf||'';
-        const cepVal=(d.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
-        const telVal=d.ddd_telefone_1||'';
-        console.log('SETTING: nome='+nomeVal+' cidade='+cidadeVal+' uf='+ufVal+' cep='+cepVal+' end='+endVal);
-        setF('cli_nome',    nomeVal);
-        setF('cli_fantasia',d.nome_fantasia||'');
-        setF('cli_cnpj',    cnpjFmt2);
-        setF('cli_end',     endVal);
-        setF('cli_cidade',  cidadeVal);
-        setF('cli_uf',      ufVal);
-        setF('cli_cep',     cepVal);
-        setF('cli_email',   d.email||'');
-        setF('cli_tel',     telVal);
-        ok=true;
-      }
+    const res=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+cnpj);
+    if(!res.ok) throw new Error('não encontrado');
+    const d=await res.json();
+    const fmt=cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+    const tel=d.ddd_telefone_1?'('+d.ddd_telefone_1.substring(0,2)+') '+d.ddd_telefone_1.substring(2):'';
+    const end=[(d.descricao_tipo_de_logradouro||''),(d.logradouro||''),(d.numero||''),(d.bairro||'')].filter(Boolean).join(', ');
+    const cep=(d.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
+    document.getElementById('cli_nome').value    = d.razao_social||d.nome_fantasia||'';
+    document.getElementById('cli_fantasia').value= d.nome_fantasia||'';
+    document.getElementById('cli_cnpj').value    = fmt;
+    document.getElementById('cli_end').value     = end;
+    document.getElementById('cli_cidade').value  = d.municipio||'';
+    document.getElementById('cli_uf').value      = d.uf||'';
+    document.getElementById('cli_cep').value     = cep;
+    document.getElementById('cli_email').value   = d.email||'';
+    document.getElementById('cli_tel').value     = tel;
+    showToast('✅ Dados preenchidos!');
+  }catch(e){
+    // Fallback: ReceitaWS
+    try{
+      const res2=await fetch('https://receitaws.com.br/v1/cnpj/'+cnpj);
+      if(!res2.ok) throw new Error();
+      const d2=await res2.json();
+      if(d2.status==='ERROR') throw new Error(d2.message);
+      const fmt2=cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+      const end2=[(d2.logradouro||''),(d2.numero||''),(d2.bairro||'')].filter(Boolean).join(', ');
+      document.getElementById('cli_nome').value    = d2.nome||d2.fantasia||'';
+      document.getElementById('cli_fantasia').value= d2.fantasia||'';
+      document.getElementById('cli_cnpj').value    = fmt2;
+      document.getElementById('cli_end').value     = end2;
+      document.getElementById('cli_cidade').value  = d2.municipio||'';
+      document.getElementById('cli_uf').value      = d2.uf||'';
+      document.getElementById('cli_cep').value     = d2.cep||'';
+      document.getElementById('cli_email').value   = d2.email||'';
+      document.getElementById('cli_tel').value     = (d2.telefone||'').split('/')[0].trim();
+      showToast('✅ Dados preenchidos!');
+    }catch(e2){
+      showToast('CNPJ não encontrado. Preencha manualmente.','err');
     }
-  }catch(e){console.warn('API1:',e.message);}
-
-  // API 2 — cnpj.ws
-  if(!ok){
-    try{
-      const r=await fetch('https://publica.cnpj.ws/cnpj/'+raw,{signal:AbortSignal.timeout(6000)});
-      if(r.ok){
-        const d=await r.json();
-        const e=d.estabelecimento||{};
-        const nome=d.razao_social||e.nome_fantasia||'';
-        if(nome){
-          fill(
-            nome, e.nome_fantasia||'',
-            buildEnd(e.logradouro,'',e.numero,e.complemento,e.bairro),
-            e.cidade?.nome||'', e.estado?.sigla||'', e.cep||'', e.email||'',
-            e.ddd1&&e.telefone1?(e.ddd1+e.telefone1):''
-          );
-          ok=true;
-        }
-      }
-    }catch(e){console.warn('API2:',e.message);}
   }
-
-  // API 3 — ReceitaWS
-  if(!ok){
-    try{
-      const r=await fetch('https://receitaws.com.br/v1/cnpj/'+raw,{signal:AbortSignal.timeout(8000)});
-      if(r.ok){
-        const d=await r.json();
-        if(d.status!=='ERROR'&&(d.nome||d.fantasia)){
-          fill(
-            d.nome||d.fantasia||'', d.fantasia||'',
-            buildEnd(d.logradouro,'',d.numero,d.complemento,d.bairro),
-            d.municipio||'', d.uf||'', d.cep||'', d.email||'',
-            (d.telefone||'').split('/')[0].trim()
-          );
-          ok=true;
-        }
-      }
-    }catch(e){console.warn('API3:',e.message);}
-  }
-
-  // API 4 — minhareceita
-  if(!ok){
-    try{
-      const r=await fetch('https://minhareceita.org/'+raw,{signal:AbortSignal.timeout(6000)});
-      if(r.ok){
-        const d=await r.json();
-        if(d.razao_social||d.nome_fantasia){
-          fill(
-            d.razao_social||'', d.nome_fantasia||'',
-            buildEnd(d.logradouro,d.descricao_tipo_de_logradouro,d.numero,d.complemento,d.bairro),
-            d.municipio||'', d.uf||'', d.cep||'', d.email||'', d.ddd_telefone_1||''
-          );
-          ok=true;
-        }
-      }
-    }catch(e){console.warn('API4:',e.message);}
-  }
-
-  if(ok){
-    // If razao_social ended up empty but fantasia filled, move fantasia to razao
-    const nomeEl=document.getElementById('cli_nome');
-    const fantEl=document.getElementById('cli_fantasia');
-    if(nomeEl&&!nomeEl.value&&fantEl&&fantEl.value){
-      nomeEl.value=fantEl.value;
-    }
-    showToast('✅ CNPJ encontrado! Verifique e complete os dados.');
-  } else {
-    showToast('CNPJ não encontrado. Verifique o número ou preencha manualmente.','err');
-  }
-
   if(btn){btn.disabled=false;btn.textContent='🔎 Buscar';}
 }
 
