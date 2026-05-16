@@ -6565,29 +6565,29 @@ function abrirModalClienteFiscal(id){
   clienteFiscalAtualId = id||null;
   document.getElementById('modalClienteFiscalTitulo').textContent = c?'Editar Cliente':'Novo Cliente';
   document.getElementById('cli_doc').value = c?.cnpj_cpf||'';
-  document.getElementById('cli_ie').value = c?.ie||'';
-  document.getElementById('cli_nome').value = c?.nome||'';
-  document.getElementById('cli_end').value = c?.endereco||'';
-  document.getElementById('cli_cidade').value = c?.cidade||'';
-  document.getElementById('cli_uf').value = c?.uf||'';
-  document.getElementById('cli_cep').value = c?.cep||'';
+  document.getElementById('nc_cli_ie').value = c?.ie||'';
+  document.getElementById('nc_cli_nome').value = c?.nome||'';
+  document.getElementById('nc_cli_end').value = c?.endereco||'';
+  document.getElementById('nc_cli_cidade').value = c?.cidade||'';
+  document.getElementById('nc_cli_uf').value = c?.uf||'';
+  document.getElementById('nc_cli_cep').value = c?.cep||'';
   document.getElementById('cli_fone').value = c?.telefone||'';
-  document.getElementById('cli_email').value = c?.email||'';
+  document.getElementById('nc_cli_email').value = c?.email||'';
   abrirModal('modalClienteFiscal');
 }
 
 async function salvarClienteFiscalModal(){
-  const nome = document.getElementById('cli_nome').value.trim();
+  const nome = document.getElementById('nc_cli_nome').value.trim();
   const doc  = document.getElementById('cli_doc').value.replace(/\D/g,'');
   if(!nome||!doc){showToast('Informe nome e CNPJ/CPF','err');return;}
   const obj={
-    cnpj_cpf:doc, ie:document.getElementById('cli_ie').value.trim()||null,
-    nome, endereco:document.getElementById('cli_end').value.trim()||null,
-    cidade:document.getElementById('cli_cidade').value.trim()||null,
-    uf:document.getElementById('cli_uf').value.trim().toUpperCase()||null,
-    cep:document.getElementById('cli_cep').value.replace(/\D/g,'')||null,
+    cnpj_cpf:doc, ie:document.getElementById('nc_cli_ie').value.trim()||null,
+    nome, endereco:document.getElementById('nc_cli_end').value.trim()||null,
+    cidade:document.getElementById('nc_cli_cidade').value.trim()||null,
+    uf:document.getElementById('nc_cli_uf').value.trim().toUpperCase()||null,
+    cep:document.getElementById('nc_cli_cep').value.replace(/\D/g,'')||null,
     telefone:document.getElementById('cli_fone').value.trim()||null,
-    email:document.getElementById('cli_email').value.trim()||null,
+    email:document.getElementById('nc_cli_email').value.trim()||null,
   };
   try{
     if(clienteFiscalAtualId) await api('PATCH','clientes_fiscal',obj,`?id=eq.${clienteFiscalAtualId}`);
@@ -7375,19 +7375,19 @@ function abrirModalCliente(id){
   const c=id?clientes.find(x=>x.id===id):null;
   const t=document.getElementById('modalClienteTitulo');if(t)t.textContent=id?'Editar Cliente':'Novo Cliente';
   const set=(el,val)=>{const e=document.getElementById(el);if(e)e.value=val||'';};
-  set('cli_nome',c?.nome);set('cli_fantasia',c?.fantasia);set('cli_cnpj',c?.cnpj_cpf);
-  set('cli_ie',c?.ie);set('cli_end',c?.endereco);set('cli_cidade',c?.cidade);
-  set('cli_uf',c?.uf);set('cli_cep',c?.cep);set('cli_tel',c?.telefone);
-  set('cli_email',c?.email);set('cli_contato',c?.contato);set('cli_obs',c?.obs);
-  document.getElementById('cli_cnpj_busca').value='';
+  set('nc_cli_nome',c?.nome);set('nc_cli_fantasia',c?.fantasia);set('nc_cli_cnpj',c?.cnpj_cpf);
+  set('nc_cli_ie',c?.ie);set('nc_cli_end',c?.endereco);set('nc_cli_cidade',c?.cidade);
+  set('nc_cli_uf',c?.uf);set('nc_cli_cep',c?.cep);set('nc_cli_tel',c?.telefone);
+  set('nc_cli_email',c?.email);set('nc_cli_contato',c?.contato);set('nc_cli_obs',c?.obs);
+  document.getElementById('nc_cli_cnpj_busca').value='';
   abrirModal('modalCliente');
 }
 
 async function buscarCNPJ(){
-  const cnpjInput=document.getElementById('cli_cnpj_busca');
+  const cnpjInput=document.getElementById('nc_cli_cnpj_busca');
   const cnpj=(cnpjInput?.value||'').replace(/\D/g,'');
   if(cnpj.length!==14){showToast('CNPJ deve ter 14 dígitos','err');return;}
-  const btn=document.getElementById('btnBuscaCNPJ');
+  const btn=document.getElementById('nc_btnBuscaCNPJ');
   if(btn){btn.disabled=true;btn.textContent='🔄 Buscando...';}
   
   function preencherCampos(dados){
@@ -7397,15 +7397,15 @@ async function buscarCNPJ(){
         const el=document.getElementById(id);
         if(el){ el.value=String(v||''); el.dispatchEvent(new Event('input')); }
       };
-      s('cli_nome',    dados.nome);
-      s('cli_fantasia',dados.fantasia);
-      s('cli_cnpj',    dados.cnpj);
-      s('cli_end',     dados.end);
-      s('cli_cidade',  dados.cidade);
-      s('cli_uf',      dados.uf);
-      s('cli_cep',     dados.cep);
-      s('cli_email',   dados.email);
-      s('cli_tel',     dados.tel);
+      s('nc_cli_nome',    dados.nome);
+      s('nc_cli_fantasia',dados.fantasia);
+      s('nc_cli_cnpj',    dados.cnpj);
+      s('nc_cli_end',     dados.end);
+      s('nc_cli_cidade',  dados.cidade);
+      s('nc_cli_uf',      dados.uf);
+      s('nc_cli_cep',     dados.cep);
+      s('nc_cli_email',   dados.email);
+      s('nc_cli_tel',     dados.tel);
       showToast('✅ CNPJ encontrado!');
       if(btn){btn.disabled=false;btn.textContent='🔎 Buscar';}
     }, 100);
@@ -7458,9 +7458,9 @@ async function buscarCNPJ(){
 }
 
 async function salvarCliente(){
-  const nome=document.getElementById('cli_nome')?.value.trim();
+  const nome=document.getElementById('nc_cli_nome')?.value.trim();
   if(!nome){showToast('Informe a razão social','err');return;}
-  const obj={nome,fantasia:document.getElementById('cli_fantasia')?.value.trim()||null,cnpj_cpf:document.getElementById('cli_cnpj')?.value.trim()||null,ie:document.getElementById('cli_ie')?.value.trim()||null,endereco:document.getElementById('cli_end')?.value.trim()||null,cidade:document.getElementById('cli_cidade')?.value.trim()||null,uf:document.getElementById('cli_uf')?.value.trim().toUpperCase()||null,cep:document.getElementById('cli_cep')?.value.trim()||null,telefone:document.getElementById('cli_tel')?.value.trim()||null,email:document.getElementById('cli_email')?.value.trim()||null,contato:document.getElementById('cli_contato')?.value.trim()||null,obs:document.getElementById('cli_obs')?.value.trim()||null};
+  const obj={nome,fantasia:document.getElementById('nc_cli_fantasia')?.value.trim()||null,cnpj_cpf:document.getElementById('nc_cli_cnpj')?.value.trim()||null,ie:document.getElementById('nc_cli_ie')?.value.trim()||null,endereco:document.getElementById('nc_cli_end')?.value.trim()||null,cidade:document.getElementById('nc_cli_cidade')?.value.trim()||null,uf:document.getElementById('nc_cli_uf')?.value.trim().toUpperCase()||null,cep:document.getElementById('nc_cli_cep')?.value.trim()||null,telefone:document.getElementById('nc_cli_tel')?.value.trim()||null,email:document.getElementById('nc_cli_email')?.value.trim()||null,contato:document.getElementById('nc_cli_contato')?.value.trim()||null,obs:document.getElementById('nc_cli_obs')?.value.trim()||null};
   try{
     if(editClienteId) await api('PATCH','clientes',obj,`?id=eq.${editClienteId}`);
     else await api('POST','clientes',obj);
@@ -8907,29 +8907,29 @@ function abrirRelatorioOrdem(ordemId){
     <div class="modal-body">
       <div style="background:#e8f5e9;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-end">
         <div style="flex:1"><label style="font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;display:block;margin-bottom:4px">🔍 Buscar CNPJ na Receita Federal</label>
-          <input id="cli_cnpj_busca" type="text" placeholder="00.000.000/0001-00" style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600"></div>
-        <button id="btnBuscaCNPJ" class="btn primary" onclick="buscarCNPJ()" style="white-space:nowrap">🔎 Buscar</button>
+          <input id="nc_cli_cnpj_busca" type="text" placeholder="00.000.000/0001-00" style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600"></div>
+        <button id="nc_btnBuscaCNPJ" class="btn primary" onclick="buscarCNPJ()" style="white-space:nowrap">🔎 Buscar</button>
         <button class="btn" onclick="
-          document.getElementById('cli_nome').value='TESTE EMPRESA LTDA';
-          document.getElementById('cli_cidade').value='JAÚ';
-          document.getElementById('cli_uf').value='SP';
-          document.getElementById('cli_cep').value='17200-445';
+          document.getElementById('nc_cli_nome').value='TESTE EMPRESA LTDA';
+          document.getElementById('nc_cli_cidade').value='JAÚ';
+          document.getElementById('nc_cli_uf').value='SP';
+          document.getElementById('nc_cli_cep').value='17200-445';
           showToast('Campos preenchidos com dados de teste!');
         " style="font-size:11px;color:#546e7a;background:transparent;border:1px dashed #ccc" title="Teste: preenche campos direto">🧪</button>
       </div>
       <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
-        <div class="form-group full"><label>Razão Social *</label><input id="cli_nome" type="text"></div>
-        <div class="form-group"><label>Nome Fantasia</label><input id="cli_fantasia" type="text"></div>
-        <div class="form-group"><label>CNPJ/CPF</label><input id="cli_cnpj" type="text"></div>
-        <div class="form-group"><label>Inscrição Estadual</label><input id="cli_ie" type="text"></div>
-        <div class="form-group full"><label>Endereço</label><input id="cli_end" type="text"></div>
-        <div class="form-group"><label>Cidade</label><input id="cli_cidade" type="text"></div>
-        <div class="form-group"><label>UF</label><input id="cli_uf" type="text" maxlength="2" style="text-transform:uppercase"></div>
-        <div class="form-group"><label>CEP</label><input id="cli_cep" type="text"></div>
-        <div class="form-group"><label>Telefone</label><input id="cli_tel" type="text"></div>
-        <div class="form-group"><label>E-mail</label><input id="cli_email" type="email"></div>
-        <div class="form-group"><label>Contato</label><input id="cli_contato" type="text"></div>
-        <div class="form-group full"><label>Observações</label><textarea id="cli_obs" rows="2" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
+        <div class="form-group full"><label>Razão Social *</label><input id="nc_cli_nome" type="text"></div>
+        <div class="form-group"><label>Nome Fantasia</label><input id="nc_cli_fantasia" type="text"></div>
+        <div class="form-group"><label>CNPJ/CPF</label><input id="nc_cli_cnpj" type="text"></div>
+        <div class="form-group"><label>Inscrição Estadual</label><input id="nc_cli_ie" type="text"></div>
+        <div class="form-group full"><label>Endereço</label><input id="nc_cli_end" type="text"></div>
+        <div class="form-group"><label>Cidade</label><input id="nc_cli_cidade" type="text"></div>
+        <div class="form-group"><label>UF</label><input id="nc_cli_uf" type="text" maxlength="2" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>CEP</label><input id="nc_cli_cep" type="text"></div>
+        <div class="form-group"><label>Telefone</label><input id="nc_cli_tel" type="text"></div>
+        <div class="form-group"><label>E-mail</label><input id="nc_cli_email" type="email"></div>
+        <div class="form-group"><label>Contato</label><input id="nc_cli_contato" type="text"></div>
+        <div class="form-group full"><label>Observações</label><textarea id="nc_cli_obs" rows="2" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="fecharModal('modalCliente')">Cancelar</button>
