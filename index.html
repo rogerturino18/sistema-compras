@@ -4327,7 +4327,7 @@ function renderOrdens(){
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           ${emProducao?`<span class="badge" style="background:#a5d6a7;color:#1b5e20">⚙️ ${emProducao} em produção</span>`:''}
-          ${ordenConcluidas.length?`<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:transparent;font-size:11px" onclick="event.stopPropagation();toggleConcluidasInline('conc_${pdvId}')">📊 ${ordenConcluidas.length} concluída${ordenConcluidas.length!==1?'s':''}</button>`:''}
+          ${ordenConcluidas.length?`<button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:transparent;font-size:11px" onclick="event.stopPropagation();abrirRelatoriosGrupo('${pdvId}')">📊 ${ordenConcluidas.length} concluída${ordenConcluidas.length!==1?'s':''}</button>`:''}
           <span style="color:rgba(255,255,255,0.8);font-size:12px">${ordenAtivas.length} ativa${ordenAtivas.length!==1?'s':''}</span>
           <span style="color:rgba(255,255,255,0.7);font-size:11px" id="arrow_kprod_${pdvId}">▼</span>
         </div>
@@ -4341,7 +4341,7 @@ function renderOrdens(){
           const tops=temposOP.filter(t=>t.ordem_id===o.id&&t.dt_hr_final&&t.dt_hr_inicio);
           const minTot=tops.reduce((s,t)=>s+(new Date(t.dt_hr_final)-new Date(t.dt_hr_inicio))/60000,0);
           const hh=Math.floor(minTot/60),mm=Math.round(minTot%60);
-          const tempo=minTot>0?hh+'h '+String(mm).padStart(2,'0')+'min':'—';
+          const tempo=tops.length>0?(minTot>0?hh+'h '+String(mm).padStart(2,'0')+'min':'< 1min'):'Sem registro';
           const ops=[...new Set(tops.map(t=>t.operacao).filter(Boolean))].join(' · ');
           return '<div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
             '<div style="flex:0 0 60px"><div style="font-size:10px;color:#78909c;text-transform:uppercase">Ordem</div><div style="font-size:15px;font-weight:700;color:#fff">Nº '+(o.numero||'—')+'</div></div>'+
@@ -7427,16 +7427,25 @@ async function buscarCNPJ(){
       if(d&&(d.razao_social||d.nome_fantasia||d.nome)){
         // BrasilAPI address fields - log exact values
         console.log('Address fields:', {logradouro:d.logradouro, tipo:d.descricao_tipo_de_logradouro, numero:d.numero, bairro:d.bairro, municipio:d.municipio, uf:d.uf, cep:d.cep});
-        fill(
-          d.razao_social||d.nome||'',
-          d.nome_fantasia||'',
-          buildEnd(d.logradouro,d.descricao_tipo_de_logradouro,d.numero,d.complemento,d.bairro),
-          d.municipio||d.cidade||'',
-          d.uf||d.estado||'',
-          d.cep||'',
-          d.email||d.emails?.[0]||'',
-          d.ddd_telefone_1||d.telefone||''
-        );
+        // Set fields DIRECTLY - no abstraction
+        const cnpjFmt2=raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+        const setF=(id,v)=>{const e=document.getElementById(id);if(e)e.value=String(v||'');};
+        const nomeVal=d.razao_social||d.nome||d.nome_fantasia||'';
+        const endVal=[d.descricao_tipo_de_logradouro,d.logradouro,d.numero,d.complemento,d.bairro].filter(Boolean).join(' ');
+        const cidadeVal=d.municipio||'';
+        const ufVal=d.uf||'';
+        const cepVal=(d.cep||'').replace(/\D/g,'').replace(/(\d{5})(\d{3})/,'$1-$2');
+        const telVal=d.ddd_telefone_1||'';
+        console.log('SETTING: nome='+nomeVal+' cidade='+cidadeVal+' uf='+ufVal+' cep='+cepVal+' end='+endVal);
+        setF('cli_nome',    nomeVal);
+        setF('cli_fantasia',d.nome_fantasia||'');
+        setF('cli_cnpj',    cnpjFmt2);
+        setF('cli_end',     endVal);
+        setF('cli_cidade',  cidadeVal);
+        setF('cli_uf',      ufVal);
+        setF('cli_cep',     cepVal);
+        setF('cli_email',   d.email||'');
+        setF('cli_tel',     telVal);
         ok=true;
       }
     }
@@ -8732,6 +8741,75 @@ function toggleConcluidasInline(id){
   if(!el) return;
   el.style.display=el.style.display==='none'?'block':'none';
 }
+
+function gerarConteudoRelatorio(ordemId){
+  const o=ordens.find(x=>x.id===ordemId);
+  const pdv=pdvs.find(p=>p.id===o?.pdv_id);
+  const tops=temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao&&t.operacao!=='REPROCESSAR').sort((a,b)=>new Date(a.dt_hr_inicial||0)-new Date(b.dt_hr_inicial||0));
+  const totalMin=tops.reduce((acc,t)=>acc+(t.duracao_minutos||0),0);
+  const totalH=Math.floor(totalMin/60), totalM=totalMin%60;
+  const fmtDt=dt=>dt?new Date(dt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const fmtDur=t=>{
+    if(t.duracao_minutos){const h=Math.floor(t.duracao_minutos/60),m=t.duracao_minutos%60;return `${h}h ${String(m).padStart(2,'0')}min`;}
+    if(t.dt_hr_inicial&&t.dt_hr_final){return calcularHorasUteis(new Date(t.dt_hr_inicial),new Date(t.dt_hr_final)).texto;}
+    return '—';
+  };
+  return `
+    <div style="background:#e8f5e9;border-radius:10px;padding:14px 18px;margin-bottom:18px">
+      <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px">
+        <div><span style="color:var(--gray)">Ordem:</span> <b>Nº ${o?.numero||'—'}</b></div>
+        <div><span style="color:var(--gray)">Peça:</span> <b>${o?.descricao||'—'}</b></div>
+        ${o?.desenho?`<div><span style="color:var(--gray)">Desenho:</span> <b>${o.desenho}</b></div>`:''}
+        ${o?.material?`<div><span style="color:var(--gray)">Material:</span> <b>${o.material}</b></div>`:''}
+        <div><span style="color:var(--gray)">Qtd:</span> <b>${o?.quantidade||1}</b></div>
+        ${pdv?`<div><span style="color:var(--gray)">PDV:</span> <b>${pdv.numero} — ${pdv.cliente||''}</b></div>`:''}
+      </div>
+      ${totalMin>0?`<div style="margin-top:10px;font-size:16px;font-weight:700;color:#2e7d32">⏱ Tempo total útil: ${totalH}h ${String(totalM).padStart(2,'0')}min</div>`:''}
+    </div>
+    ${tops.length?`<div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
+      <thead><tr style="background:#f5f7f5">
+        <th style="padding:7px 10px;text-align:left;color:var(--green);font-size:11px;text-transform:uppercase">Operação</th>
+        <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Operador</th>
+        <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Início</th>
+        <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Fim</th>
+        <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Tempo Útil</th>
+        <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Ações</th>
+      </tr></thead>
+      <tbody>${tops.map(t=>{
+        const cor=COR_OPERACAO[t.operacao]||'#546e7a';
+        const concluido=!!t.dt_hr_final;
+        return `<tr style="border-bottom:1px solid #f0f4f0">
+          <td style="padding:7px 10px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cor};margin-right:6px"></span>
+            <b>${t.operacao||'—'}</b>
+            ${t.observacao?`<div style="font-size:10px;color:var(--gray)">💬 ${t.observacao}</div>`:''}
+            ${concluido?'<span class="badge badge-green" style="font-size:10px;margin-left:4px">✅</span>':'<span class="badge badge-yellow" style="font-size:10px;margin-left:4px">⚙️</span>'}
+          </td>
+          <td style="padding:7px 10px;font-size:12px">👤 ${t.operador||'—'}</td>
+          <td style="padding:7px 10px;font-size:11px">${fmtDt(t.dt_hr_inicial)}</td>
+          <td style="padding:7px 10px;font-size:11px">${fmtDt(t.dt_hr_final)}</td>
+          <td style="padding:7px 10px;font-weight:700;color:#2e7d32;font-size:13px">${fmtDur(t)}</td>
+          <td style="padding:7px 10px;white-space:nowrap">
+            <button class="btn btn-sm" onclick="editarTempoOp('${t.id}')" title="Editar">✏️</button>
+            <button class="btn btn-sm danger" onclick="deletarTempoOp('${t.id}')" title="Excluir">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`:'<div class="empty">Nenhuma operação registrada</div>'}`;
+}
+
+
+function abrirRelatorioOrdem(ordemId){
+  const o=ordens.find(x=>x.id===ordemId);
+  // Fecha outros modais para evitar sobreposição
+  fecharModal('modalRelatoriosGrupo');
+  document.getElementById('modalRelatorioTitulo').textContent=`📊 Ordem Nº ${o?.numero} — ${o?.descricao||''}`;
+  document.getElementById('relatorioOrdemConteudo').innerHTML=gerarConteudoRelatorio(ordemId);
+  document.getElementById('modalRelatorioOrdem').dataset.ordemId=ordemId;
+  abrirModal('modalRelatorioOrdem');
+}
+
 </script>
 
 
