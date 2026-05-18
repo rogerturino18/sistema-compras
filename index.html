@@ -9047,146 +9047,103 @@ async function salvarCP(){
   const valor=parseFloat(document.getElementById('cp_valor')?.value)||0;
   const vencimento=document.getElementById('cp_vencimento')?.value;
   if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
-  const obj={
-    descricao, valor, vencimento,
-    categoria:document.getElementById('cp_categoria')?.value||null,
-    num_doc:document.getElementById('cp_num_doc')?.value.trim()||null,
-    conta_corrente:document.getElementById('cp_conta')?.value.trim()||null,
-    pedido_compra_id:document.getElementById('cp_pc_id')?.value||null,
-    status:document.getElementById('cp_status')?.value||'Aberta',
-    dt_pagamento:document.getElementById('cp_dt_pagto')?.value||null,
-    valor_pago:parseFloat(document.getElementById('cp_valor_pago')?.value)||null,
-    observacao:document.getElementById('cp_obs')?.value.trim()||null,
-    criado_por:usuarioLogado?.nome||null
-  };
+
+  const n=parseInt(document.getElementById('cp_parcelas')?.value)||1;
+  const recorr=document.getElementById('cp_recorrencia')?.value||'';
+  const recorrMeses=parseInt(document.getElementById('cp_recorr_meses')?.value)||12;
+  const categoria=document.getElementById('cp_categoria')?.value||null;
+  const num_doc=document.getElementById('cp_num_doc')?.value.trim()||null;
+  const conta_corrente=document.getElementById('cp_conta')?.value.trim()||null;
+  const obs=document.getElementById('cp_obs')?.value.trim()||null;
+  const pc_id=document.getElementById('cp_pc_id')?.value||null;
+
+  // Build list of installments
+  let parcelas=[];
+  if(recorr){
+    const intervalo={'mensal':1,'bimestral':2,'trimestral':3,'anual':12}[recorr]||1;
+    const total=Math.floor(recorrMeses/intervalo)||1;
+    for(let i=0;i<total;i++){
+      const d=new Date(vencimento+'T12:00');
+      d.setMonth(d.getMonth()+i*intervalo);
+      parcelas.push({vencimento:d.toISOString().split('T')[0],valor});
+    }
+  } else if(n>1){
+    parcelas=gerarParcelas(vencimento,n,valor);
+  } else {
+    parcelas=[{vencimento,valor}];
+  }
+
   try{
-    if(editCPId) await api('PATCH','contas_pagar',obj,`?id=eq.${editCPId}`);
-    else await api('POST','contas_pagar',obj);
-    showToast(editCPId?'Conta atualizada!':'Conta criada!');
+    if(editCPId&&parcelas.length===1){
+      // Edit existing
+      const obj={descricao,valor:parcelas[0].valor,vencimento:parcelas[0].vencimento,
+        categoria,num_doc,conta_corrente,pedido_compra_id:pc_id,
+        status:document.getElementById('cp_status')?.value||'Aberta',
+        dt_pagamento:document.getElementById('cp_dt_pagto')?.value||null,
+        valor_pago:parseFloat(document.getElementById('cp_valor_pago')?.value)||null,
+        recorrencia:recorr||null,observacao:obs,criado_por:usuarioLogado?.nome||null};
+      await api('PATCH','contas_pagar',obj,`?id=eq.${editCPId}`);
+      showToast('Conta atualizada!');
+    } else {
+      // Create multiple
+      for(let i=0;i<parcelas.length;i++){
+        const p=parcelas[i];
+        await api('POST','contas_pagar',{
+          descricao:descricao+(parcelas.length>1?` (${i+1}/${parcelas.length})`:'')+(recorr?` [${recorr}]`:''),
+          valor:p.valor,vencimento:p.vencimento,
+          categoria,num_doc,conta_corrente,pedido_compra_id:pc_id,
+          status:'Aberta',recorrencia:recorr||null,
+          observacao:obs,criado_por:usuarioLogado?.nome||null
+        });
+      }
+      showToast(`✅ ${parcelas.length} conta(s) criada(s)!`);
+    }
     fecharModal('modalCP');
     await loadAll();
   }catch(e){showToast('Erro ao salvar','err');console.error(e);}
 }
 
-async function pagarConta(id, tipo){
-  const dtPagto=prompt('Data do pagamento (AAAA-MM-DD):',hoje());
-  if(!dtPagto) return;
-  try{
-    await api('PATCH','contas_pagar',{status:'Paga',dt_pagamento:dtPagto},`?id=eq.${id}`);
-    showToast('✅ Conta marcada como Paga!');
-    await loadAll();
-  }catch(e){showToast('Erro','err');}
-}
-
-async function deletarCP(id){
-  if(!confirm('Excluir esta conta?'))return;
-  try{await api('DELETE','contas_pagar','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
-  catch(e){showToast('Erro','err');}
-}
-
-function exportarExcelCP(){
-  const rows=[['Vencimento','Descrição','Categoria','Nº Doc','Valor','Status','Conta','Dt Pagamento','Valor Pago']];
-  contasPagar.forEach(c=>rows.push([c.vencimento||'',c.descricao||'',c.categoria||'',c.num_doc||'',c.valor||0,c.status||'',c.conta_corrente||'',c.dt_pagamento||'',c.valor_pago||'']));
-  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='contas_pagar.xls';a.click();
-}
-
-// ── CONTAS A RECEBER ──────────────────────────────────────────────────────
-function renderContasReceber(){
-  const b=(document.getElementById('buscaCR')?.value||'').toLowerCase();
-  const fSt=document.getElementById('filtroCR_status')?.value||'';
-  const fDe=document.getElementById('filtroCR_de')?.value||'';
-  const fAte=document.getElementById('filtroCR_ate')?.value||'';
-  const tbody=document.getElementById('listaCR');
-  if(!tbody)return;
-
-  const abertas=contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada');
-  const vencidas=abertas.filter(c=>isVencida(c.vencimento));
-  const recebidas=contasReceber.filter(c=>c.status==='Recebida');
-  const el=document.getElementById('statsCR');
-  if(el) el.innerHTML=`
-    <div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Total a Receber</div><div class="stat-val" style="color:#1565c0">${fmtMoeda(abertas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
-    <div class="stat yellow" style="cursor:default"><div class="stat-label">Vencidas</div><div class="stat-val" style="color:#e65100">${vencidas.length}</div><div style="font-size:11px;color:#e65100">${fmtMoeda(vencidas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
-    <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Recebido (mês)</div><div class="stat-val" style="color:#2e7d32">${fmtMoeda(recebidas.filter(c=>(c.dt_recebimento||'').startsWith(new Date().toISOString().substring(0,7))).reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0))}</div></div>`;
-
-  let lista=[...contasReceber].sort((a,b)=>a.vencimento?.localeCompare(b.vencimento||'')||0);
-  if(b) lista=lista.filter(c=>(c.descricao+c.num_doc+'').toLowerCase().includes(b));
-  if(fSt==='Vencida') lista=lista.filter(c=>isVencida(c.vencimento)&&c.status!=='Recebida'&&c.status!=='Cancelada');
-  else if(fSt) lista=lista.filter(c=>c.status===fSt);
-  if(fDe) lista=lista.filter(c=>(c.vencimento||'')>=fDe);
-  if(fAte) lista=lista.filter(c=>(c.vencimento||'')<=fAte);
-
-  if(!lista.length){tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:#bdbdbd">
-    <div style="font-size:32px;margin-bottom:8px">💰</div>
-    <div style="font-weight:600;margin-bottom:4px">Nenhuma conta a receber</div>
-    <div style="font-size:12px">Clique em "+ Nova Conta" ou use o botão 💰 no PDV faturado</div>
-  </td></tr>`;return;}
-  const pvMap=Object.fromEntries(pedidosVenda.map(p=>[p.id,'PDV '+p.numero+(p.cliente_nome?' — '+p.cliente_nome.substring(0,20):'')]));
-  tbody.innerHTML=lista.map(c=>{
-    const atrasado=isVencida(c.vencimento)&&c.status!=='Recebida'&&c.status!=='Cancelada';
-    return `<tr style="${atrasado?'background:#fffde7':''}">
-      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#e65100;font-weight:600':''}">${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
-      <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#1565c0">${c.pdv_id?pvMap[c.pdv_id]||'—':'—'}</td>
-      <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
-      <td style="padding:8px 10px;font-weight:700;color:#1565c0;font-size:13px">${fmtMoeda(c.valor)}</td>
-      <td style="padding:8px 10px">${statusBadgeCR(c.status,c.vencimento)}</td>
-      <td style="padding:8px 10px;font-size:12px">${c.forma_pagamento||'—'}</td>
-      <td style="padding:8px 6px;white-space:nowrap">
-        ${c.status!=='Recebida'&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="receberConta('${c.id}')" title="Marcar como Recebida">✅ Receber</button>`:''}
-        <button class="btn btn-sm" onclick="abrirModalCR('${c.id}')" title="Editar">✏️</button>
-        <button class="btn btn-sm danger" onclick="deletarCR('${c.id}')" title="Excluir">🗑</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function abrirModalCR(id){
-  editCRId=id;
-  const c=id?contasReceber.find(x=>x.id===id):null;
-  document.getElementById('modalCRTitulo').textContent=id?'Editar Conta a Receber':'Nova Conta a Receber';
-  const s=(el,v)=>{const e=document.getElementById(el);if(e)e.value=v||'';};
-  s('cr_descricao',c?.descricao); s('cr_valor',c?.valor);
-  s('cr_vencimento',c?.vencimento); s('cr_num_doc',c?.num_doc);
-  s('cr_forma_pgto',c?.forma_pagamento); s('cr_status',c?.status||'Aberta');
-  s('cr_obs',c?.observacao); s('cr_dt_recebto',c?.dt_recebimento);
-  s('cr_valor_recebido',c?.valor_recebido);
-  // Cliente datalist
-  const dl=document.getElementById('cr_cli_list');
-  if(dl){dl.innerHTML='';clientes.forEach(cl=>{const o=document.createElement('option');o.value=cl.nome||'';dl.appendChild(o);});}
-  // PDV select
-  const pvSel=document.getElementById('cr_pdv_id');
-  if(pvSel){
-    pvSel.innerHTML='<option value="">— Nenhum —</option>';
-    [...pedidosVenda].sort((a,b)=>b.numero-a.numero).forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PDV '+p.numero+(p.cliente_nome?' — '+p.cliente_nome.substring(0,20):'');if(c?.pdv_id===p.id)o.selected=true;pvSel.appendChild(o);});
-  }
-  abrirModal('modalCR');
-}
 
 async function salvarCR(){
   const descricao=document.getElementById('cr_descricao')?.value.trim();
   const valor=parseFloat(document.getElementById('cr_valor')?.value)||0;
   const vencimento=document.getElementById('cr_vencimento')?.value;
   if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
-  const obj={
-    descricao, valor, vencimento,
-    pdv_id:document.getElementById('cr_pdv_id')?.value||null,
-    num_doc:document.getElementById('cr_num_doc')?.value.trim()||null,
-    forma_pagamento:document.getElementById('cr_forma_pgto')?.value||null,
-    status:document.getElementById('cr_status')?.value||'Aberta',
-    dt_recebimento:document.getElementById('cr_dt_recebto')?.value||null,
-    valor_recebido:parseFloat(document.getElementById('cr_valor_recebido')?.value)||null,
-    observacao:document.getElementById('cr_obs')?.value.trim()||null,
-    criado_por:usuarioLogado?.nome||null
-  };
+
+  const n=parseInt(document.getElementById('cr_parcelas')?.value)||1;
+  const pdv_id=document.getElementById('cr_pdv_id')?.value||null;
+  const forma=document.getElementById('cr_forma_pgto')?.value||null;
+  const obs=document.getElementById('cr_obs')?.value.trim()||null;
+
+  let parcelas=n>1?gerarParcelas(vencimento,n,valor):[{vencimento,valor}];
+
   try{
-    if(editCRId) await api('PATCH','contas_receber',obj,`?id=eq.${editCRId}`);
-    else await api('POST','contas_receber',obj);
-    showToast(editCRId?'Conta atualizada!':'Conta criada!');
+    if(editCRId&&parcelas.length===1){
+      const obj={descricao,valor:parcelas[0].valor,vencimento:parcelas[0].vencimento,
+        pdv_id,num_doc:document.getElementById('cr_num_doc')?.value.trim()||null,
+        forma_pagamento:forma,status:document.getElementById('cr_status')?.value||'Aberta',
+        dt_recebimento:document.getElementById('cr_dt_recebto')?.value||null,
+        valor_recebido:parseFloat(document.getElementById('cr_valor_recebido')?.value)||null,
+        observacao:obs,criado_por:usuarioLogado?.nome||null};
+      await api('PATCH','contas_receber',obj,`?id=eq.${editCRId}`);
+      showToast('Conta atualizada!');
+    } else {
+      for(let i=0;i<parcelas.length;i++){
+        const p=parcelas[i];
+        await api('POST','contas_receber',{
+          descricao:descricao+(parcelas.length>1?` (${i+1}/${parcelas.length})`:''),
+          valor:p.valor,vencimento:p.vencimento,
+          pdv_id,forma_pagamento:forma,status:'Aberta',
+          observacao:obs,criado_por:usuarioLogado?.nome||null
+        });
+      }
+      showToast(`✅ ${parcelas.length} parcela(s) criada(s)!`);
+    }
     fecharModal('modalCR');
     await loadAll();
   }catch(e){showToast('Erro ao salvar','err');console.error(e);}
 }
+
 
 async function receberConta(id){
   const dtRecebto=prompt('Data do recebimento (AAAA-MM-DD):',hoje());
@@ -9412,88 +9369,8 @@ function previewParcelasCR(){
 }
 
 // Override salvarCP to handle parcelas and recorrencia
-const _salvarCPOriginal=salvarCP;
-salvarCP=async function(){
-  const n=parseInt(document.getElementById('cp_parcelas')?.value)||1;
-  const recorr=document.getElementById('cp_recorrencia')?.value||'';
-  const recorrMeses=parseInt(document.getElementById('cp_recorr_meses')?.value)||12;
-
-  if(n===1&&!recorr){ await _salvarCPOriginal(); return; }
-
-  const descricao=document.getElementById('cp_descricao')?.value.trim();
-  const valor=parseFloat(document.getElementById('cp_valor')?.value)||0;
-  const vencimento=document.getElementById('cp_vencimento')?.value;
-  if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
-
-  const categoria=document.getElementById('cp_categoria')?.value||null;
-  const num_doc=document.getElementById('cp_num_doc')?.value.trim()||null;
-  const conta_corrente=document.getElementById('cp_conta')?.value.trim()||null;
-  const obs=document.getElementById('cp_obs')?.value.trim()||null;
-  const pc_id=document.getElementById('cp_pc_id')?.value||null;
-
-  // Determine installments
-  let parcelas=gerarParcelas(vencimento,n,valor);
-
-  // If recorrente, generate monthly series
-  if(recorr){
-    const intervalo={'mensal':1,'bimestral':2,'trimestral':3,'anual':12}[recorr]||1;
-    parcelas=[];
-    for(let i=0;i<recorrMeses/intervalo;i++){
-      const d=new Date(vencimento+'T12:00');
-      d.setMonth(d.getMonth()+i*intervalo);
-      parcelas.push({vencimento:d.toISOString().split('T')[0],valor});
-    }
-  }
-
-  try{
-    for(let i=0;i<parcelas.length;i++){
-      const p=parcelas[i];
-      await api('POST','contas_pagar',{
-        descricao: descricao+(parcelas.length>1?` (${i+1}/${parcelas.length})`:'')+(recorr?` [${recorr}]`:''),
-        valor:p.valor, vencimento:p.vencimento,
-        categoria, num_doc, conta_corrente,
-        pedido_compra_id:pc_id,
-        status:'Aberta',
-        recorrencia:recorr||null,
-        observacao:obs,
-        criado_por:usuarioLogado?.nome||null
-      });
-    }
-    showToast(`✅ ${parcelas.length} conta(s) criada(s)!`);
-    fecharModal('modalCP');
-    await loadAll();
-  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
-};
 
 // Override salvarCR to handle parcelas
-const _salvarCROriginal=salvarCR;
-salvarCR=async function(){
-  const n=parseInt(document.getElementById('cr_parcelas')?.value)||1;
-  if(n===1){ await _salvarCROriginal(); return; }
-
-  const descricao=document.getElementById('cr_descricao')?.value.trim();
-  const valor=parseFloat(document.getElementById('cr_valor')?.value)||0;
-  const vencimento=document.getElementById('cr_vencimento')?.value;
-  if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
-
-  const parcelas=gerarParcelas(vencimento,n,valor);
-  try{
-    for(let i=0;i<parcelas.length;i++){
-      const p=parcelas[i];
-      await api('POST','contas_receber',{
-        descricao:descricao+(parcelas.length>1?` (${i+1}/${parcelas.length})`:''),
-        valor:p.valor, vencimento:p.vencimento,
-        pdv_id:document.getElementById('cr_pdv_id')?.value||null,
-        forma_pagamento:document.getElementById('cr_forma_pgto')?.value||null,
-        status:'Aberta',
-        criado_por:usuarioLogado?.nome||null
-      });
-    }
-    showToast(`✅ ${parcelas.length} parcela(s) criada(s)!`);
-    fecharModal('modalCR');
-    await loadAll();
-  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
-};
 
 // ===== CONTAS CORRENTES =====
 let editCCId=null, ccSelecionada=null;
