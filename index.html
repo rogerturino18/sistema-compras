@@ -1505,6 +1505,7 @@ tr:hover td{background:#f9fbf9}
 </div>
 </div>
 
+</div><!-- fix tab10 balance -->
 <!-- TAB 11: ESTOQUE -->
 <div class="panel" id="tab11">
 
@@ -2654,6 +2655,7 @@ async function loadAll(){
 }
 
 function renderAll(){
+  console.log('renderAll starting');
   renderDashboard();
   renderStats(); renderItens(); populaFiltros();
   renderFornecedores();
@@ -8971,6 +8973,7 @@ function statusBadgeCR(s,venc){
 
 // ── CONTAS A PAGAR ────────────────────────────────────────────────────────
 function renderContasPagar(){
+  console.log('renderContasPagar called, contasPagar:', contasPagar?.length);
   const b=(document.getElementById('buscaCP')?.value||'').toLowerCase();
   const fSt=document.getElementById('filtroCP_status')?.value||'';
   const fDe=document.getElementById('filtroCP_de')?.value||'';
