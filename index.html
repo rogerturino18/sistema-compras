@@ -336,9 +336,20 @@ tr:hover td{background:#f9fbf9}
   <div class="sb-icon" id="sbico_producao" onclick="sbToggle('producao')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🔧<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Produção</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
   <div class="sb-icon" id="sbico_vendas" onclick="sbToggle('vendas')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🧾<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Vendas</span></div>
+  <div class="sb-icon" id="sbico_financeiro" onclick="sbToggle('financeiro')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">💰<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Financeiro</span></div>
   <div class="sb-icon" id="sbico_estoque" onclick="sbToggle('estoque')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">📦<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Estoque</span></div>
 </div>
 <!-- Painéis sidebar -->
+<div id="sbpanel_financeiro" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
+  <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#1b5e20;text-transform:uppercase;border-bottom:1px solid #e8f5e9">💰 Financeiro</div>
+  <div style="padding:6px 0">
+    <div class="sbi" onclick="sbGo(19,'Contas a Pagar')">📤 Contas a Pagar</div>
+    <div class="sbi" onclick="sbGo(20,'Contas a Receber')">📥 Contas a Receber</div>
+    <div class="sbi" onclick="sbGo(21,'Fluxo de Caixa')">📊 Fluxo de Caixa</div>
+    <div class="sbi" onclick="sbGo(22,'Contas Correntes')">🏦 Contas Correntes</div>
+    <div class="sbi" onclick="sbGo(23,'DRE')">📈 DRE</div>
+  </div>
+</div>
 <div id="sbpanel_estoque" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid var(--border);z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">📦 Estoque</div>
   <div style="padding:6px 0">
@@ -1428,15 +1439,7 @@ tr:hover td{background:#f9fbf9}
   <div class="modal-body">
     <div class="form-grid">
       <div class="form-group"><label>CNPJ / CPF *</label><input id="cli_doc" placeholder="00.000.000/0001-00"></div>
-      <div class="form-group"><label>Inscrição Estadual</label><input id="cli_ie" placeholder="Isento ou nº IE"></div>
-      <div class="form-group full"><label>Razão Social / Nome *</label><input id="cli_nome" placeholder="Nome completo"></div>
-      <div class="form-group full"><label>Endereço *</label><input id="cli_end" placeholder="Rua, número, bairro"></div>
-      <div class="form-group"><label>Cidade *</label><input id="cli_cidade" placeholder="Cidade"></div>
-      <div class="form-group"><label>UF *</label><input id="cli_uf" placeholder="SP" maxlength="2" style="text-transform:uppercase"></div>
-      <div class="form-group"><label>CEP</label><input id="cli_cep" placeholder="00000-000"></div>
-      <div class="form-group"><label>Telefone</label><input id="cli_fone" placeholder="(00) 00000-0000"></div>
-      <div class="form-group full"><label>E-mail</label><input id="cli_email" placeholder="email@empresa.com" type="email"></div>
-    </div>
+      <div class="form-group"><label>Inscrição Estadual</label><input id="nc_cli_ie" type="text"></div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalClienteFiscal')">Cancelar</button>
@@ -2321,6 +2324,97 @@ tr:hover td{background:#f9fbf9}
     </div>
   </div>
 </div>
+
+<!-- TAB 19: CONTAS A PAGAR -->
+<div class="panel" id="tab19">
+  <div class="stat-row" id="statsCP"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaCP" placeholder="Buscar fornecedor, descrição, nº doc..." oninput="renderContasPagar()" style="flex:1">
+    <select id="filtroCP_status" onchange="renderContasPagar()">
+      <option value="">Todos os status</option>
+      <option value="Aberta">🔴 Aberta</option>
+      <option value="Paga">✅ Paga</option>
+      <option value="Vencida">⚠️ Vencida</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <input type="date" id="filtroCP_de" onchange="renderContasPagar()" title="Vencimento de">
+    <input type="date" id="filtroCP_ate" onchange="renderContasPagar()" title="Vencimento até">
+    <button class="btn primary" onclick="abrirModalCP(null)">+ Nova Conta</button>
+    <button class="btn" onclick="exportarExcelCP()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Categoria</th>
+        <th>Nº Doc</th><th>Valor</th><th>Status</th><th>Conta</th>
+        <th style="width:100px">Ações</th>
+      </tr></thead>
+      <tbody id="listaCP"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 20: CONTAS A RECEBER -->
+<div class="panel" id="tab20">
+  <div class="stat-row" id="statsCR"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaCR" placeholder="Buscar cliente, descrição, PDV..." oninput="renderContasReceber()" style="flex:1">
+    <select id="filtroCR_status" onchange="renderContasReceber()">
+      <option value="">Todos os status</option>
+      <option value="Aberta">🔵 Aberta</option>
+      <option value="Recebida">✅ Recebida</option>
+      <option value="Vencida">⚠️ Vencida</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <input type="date" id="filtroCR_de" onchange="renderContasReceber()" title="Vencimento de">
+    <input type="date" id="filtroCR_ate" onchange="renderContasReceber()" title="Vencimento até">
+    <button class="btn primary" onclick="abrirModalCR(null)">+ Nova Conta</button>
+    <button class="btn" onclick="exportarExcelCR()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Vencimento</th><th>Cliente / Descrição</th><th>PDV</th>
+        <th>Nº Doc</th><th>Valor</th><th>Status</th><th>Forma Pgto</th>
+        <th style="width:100px">Ações</th>
+      </tr></thead>
+      <tbody id="listaCR"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 21: FLUXO DE CAIXA -->
+<div class="panel" id="tab21">
+  <div class="stat-row" id="statsFC"></div>
+  <div class="toolbar">
+    <select id="filtroFC_periodo" onchange="renderFluxoCaixa()">
+      <option value="mes">Este mês</option>
+      <option value="3m">Últimos 3 meses</option>
+      <option value="6m">Últimos 6 meses</option>
+      <option value="ano">Este ano</option>
+      <option value="todos">Todos</option>
+    </select>
+    <select id="filtroFC_tipo" onchange="renderFluxoCaixa()">
+      <option value="">Entradas e Saídas</option>
+      <option value="entrada">📥 Só Entradas</option>
+      <option value="saida">📤 Só Saídas</option>
+    </select>
+    <button class="btn" onclick="exportarExcelFC()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <!-- Gráfico de barras simples -->
+  <div id="fcGrafico" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:20px;margin-bottom:16px;min-height:200px"></div>
+  <!-- Tabela detalhada -->
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th>
+        <th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th>
+        <th style="text-align:right">Saldo</th>
+      </tr></thead>
+      <tbody id="listaFC"></tbody>
+    </table>
+  </div>
+</div>
 </div><!-- end appContent -->
 
 <script>
@@ -2331,7 +2425,7 @@ const APP_URL=window.location.origin;
 const SITE_URL=window.location.origin; // ← URL do sistema (automático)
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 let sortCol='', sortDir='asc';
@@ -2442,7 +2536,7 @@ async function api(method,table,data=null,filter=''){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente]=await Promise.all([
       api('GET','itens','','?order=created_at.asc'),
       api('GET','cotacoes','','?order=created_at.desc'),
       api('GET','fornecedores','','?order=razao_social.asc'),
@@ -2464,7 +2558,10 @@ async function loadAll(){
       api('GET','pedidos_venda','','?order=numero.desc').catch(()=>[]),
       api('GET','pedidos_compra','','?order=numero.desc').catch(()=>[]),
       api('GET','requisicoes_material','','?order=created_at.desc').catch(()=>[]),
-      api('GET','departamentos','','?order=nome.asc').catch(()=>[])
+      api('GET','departamentos','','?order=nome.asc').catch(()=>[]),
+      api('GET','contas_pagar','','?order=vencimento.asc').catch(()=>[]),
+      api('GET','contas_receber','','?order=vencimento.asc').catch(()=>[]),
+      api('GET','contas_corrente','','?order=nome.asc').catch(()=>[])
     ]);
     renderAll();
     verificarLembretes();
@@ -2502,7 +2599,10 @@ function renderDashboard(){
     <div class="stat blue" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Cotações recebidas</div><div class="stat-val">${cotResp}</div><div class="stat-sub">via formulário</div></div>
     <div class="stat" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div><div class="stat-sub">${total?Math.round(comp/total*100):0}% do total</div></div>
     <div class="stat red" onclick="showTab(10)" style="cursor:pointer"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>
-    <div class="stat" onclick="sbGo(13,'PDV')" style="cursor:pointer;border-left-color:#6a1b9a;min-width:140px"><div class="stat-label">PDVs</div><div class="stat-val" style="color:#6a1b9a">${(typeof pedidosVenda!=='undefined'?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0)}</div><div class="stat-sub">em aberto</div></div>`;
+    <div class="stat" onclick="sbGo(13,'PDV')" style="cursor:pointer;border-left-color:#6a1b9a;min-width:140px"><div class="stat-label">PDVs</div><div class="stat-val" style="color:#6a1b9a">${(typeof pedidosVenda!=='undefined'?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0)}</div><div class="stat-sub">em aberto</div></div>
+    <div class="stat" onclick="showTab(19)" style="cursor:pointer;border-left-color:#c62828;min-width:140px"><div class="stat-label">💸 A Pagar</div><div class="stat-val" style="color:#c62828;font-size:14px">${typeof contasPagar!=='undefined'?fmtMoeda(contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasPagar!=='undefined'?contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
+    <div class="stat" onclick="showTab(20)" style="cursor:pointer;border-left-color:#1565c0;min-width:140px"><div class="stat-label">💰 A Receber</div><div class="stat-val" style="color:#1565c0;font-size:14px">${typeof contasReceber!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasReceber!=='undefined'?contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
+    <div class="stat" onclick="showTab(21)" style="cursor:pointer;border-left-color:#2e7d32;min-width:140px"><div class="stat-label">📊 Saldo Previsto</div><div class="stat-val" style="color:#2e7d32;font-size:13px">${typeof contasReceber!=='undefined'&&typeof contasPagar!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)-contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">receber − pagar</div></div>`;
 
   // Notificações
   const notifs=[];
@@ -2513,6 +2613,17 @@ function renderDashboard(){
   if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,tab:8});
   const semCotacao=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado);
   if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,tab:4});
+  // Financial alerts
+  if(typeof contasPagar!=='undefined'){
+    const cpVencidas=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento));
+    if(cpVencidas.length) notifs.push({tipo:'red',icon:'📤',msg:`${cpVencidas.length} conta(s) a pagar VENCIDA(S) — ${fmtMoeda(cpVencidas.reduce((s,c)=>s+(c.valor||0),0))}`,tab:19});
+    const cpHoje=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&c.vencimento===hoje());
+    if(cpHoje.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${cpHoje.length} conta(s) a pagar vencem HOJE`,tab:19});
+  }
+  if(typeof contasReceber!=='undefined'){
+    const crVencidas=contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada'&&isVencida(c.vencimento));
+    if(crVencidas.length) notifs.push({tipo:'yellow',icon:'📥',msg:`${crVencidas.length} conta(s) a receber VENCIDA(S) — ${fmtMoeda(crVencidas.reduce((s,c)=>s+(c.valor||0),0))}`,tab:20});
+  }
 
   const divN=document.getElementById('dashNotifs');
   divN.innerHTML=notifs.length?notifs.map((n,i)=>`
@@ -6849,7 +6960,7 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=18;i++){
+  for(let i=0;i<=23;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
@@ -6868,6 +6979,11 @@ function showTab(n){
   if(n===16) {if(typeof renderMovEstoque==='function') renderMovEstoque();}
   if(n===17) {if(typeof renderRequisicoes==='function') renderRequisicoes();}
   if(n===18) {if(typeof renderDepartamentos==='function') renderDepartamentos();}
+  if(n===19) {if(typeof renderContasPagar==='function') renderContasPagar();}
+  if(n===20) {if(typeof renderContasReceber==='function') renderContasReceber();}
+  if(n===21) {if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();}
+  if(n===22) {if(typeof renderContasCorrente==='function') renderContasCorrente();}
+  if(n===23) {if(typeof renderDRE==='function') renderDRE();}
 }
 
 async function dispararEmailBemVindo(){
@@ -7091,7 +7207,7 @@ window.addEventListener('load',()=>{
 
 // ===== SIDEBAR =====
 function sbCloseAll(){
-  ['compras','projetos','producao','vendas','estoque'].forEach(function(g){
+  ['compras','projetos','producao','vendas','estoque','financeiro'].forEach(function(g){
     var p=document.getElementById('sbpanel_'+g);
     if(p) p.style.display='none';
     var i=document.getElementById('sbico_'+g);
@@ -8743,6 +8859,744 @@ function abrirRelatorioOrdem(ordemId){
   abrirModal('modalRelatorioOrdem');
 }
 
+
+// ===== FINANCEIRO =====
+let editCPId=null, editCRId=null;
+
+function fmtMoeda(v){ return 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function hoje(){ return new Date().toISOString().split('T')[0]; }
+function isVencida(dt){ return dt && dt < hoje(); }
+
+function statusBadgeCP(s,venc){
+  if(s==='Paga') return '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✅ Paga</span>';
+  if(s==='Cancelada') return '<span style="background:#f5f5f5;color:#9e9e9e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">❌ Cancelada</span>';
+  if(isVencida(venc)) return '<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⚠️ Vencida</span>';
+  return '<span style="background:#ffebee;color:#c62828;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🔴 Aberta</span>';
+}
+function statusBadgeCR(s,venc){
+  if(s==='Recebida') return '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✅ Recebida</span>';
+  if(s==='Cancelada') return '<span style="background:#f5f5f5;color:#9e9e9e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">❌ Cancelada</span>';
+  if(isVencida(venc)) return '<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⚠️ Vencida</span>';
+  return '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🔵 Aberta</span>';
+}
+
+// ── CONTAS A PAGAR ────────────────────────────────────────────────────────
+function renderContasPagar(){
+  const b=(document.getElementById('buscaCP')?.value||'').toLowerCase();
+  const fSt=document.getElementById('filtroCP_status')?.value||'';
+  const fDe=document.getElementById('filtroCP_de')?.value||'';
+  const fAte=document.getElementById('filtroCP_ate')?.value||'';
+  const tbody=document.getElementById('listaCP');
+  if(!tbody)return;
+
+  // Stats
+  const total=contasPagar.filter(c=>c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0);
+  const abertas=contasPagar.filter(c=>c.status==='Aberta'||(!c.status));
+  const vencidas=abertas.filter(c=>isVencida(c.vencimento));
+  const pagas=contasPagar.filter(c=>c.status==='Paga');
+  const el=document.getElementById('statsCP');
+  if(el) el.innerHTML=`
+    <div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">Total a Pagar</div><div class="stat-val" style="color:#c62828">${fmtMoeda(abertas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
+    <div class="stat yellow" style="cursor:default"><div class="stat-label">Vencidas</div><div class="stat-val" style="color:#e65100">${vencidas.length}</div><div style="font-size:11px;color:#e65100">${fmtMoeda(vencidas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
+    <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Pagas (mês)</div><div class="stat-val" style="color:#2e7d32">${fmtMoeda(pagas.filter(c=>(c.dt_pagamento||'').startsWith(new Date().toISOString().substring(0,7))).reduce((s,c)=>s+(c.valor_pago||c.valor||0),0))}</div></div>`;
+
+  let lista=[...contasPagar].sort((a,b)=>a.vencimento?.localeCompare(b.vencimento||'')||0);
+  if(b) lista=lista.filter(c=>(c.descricao+c.num_doc+c.categoria+'').toLowerCase().includes(b));
+  if(fSt==='Vencida') lista=lista.filter(c=>isVencida(c.vencimento)&&c.status!=='Paga'&&c.status!=='Cancelada');
+  else if(fSt) lista=lista.filter(c=>c.status===fSt);
+  if(fDe) lista=lista.filter(c=>(c.vencimento||'')>=fDe);
+  if(fAte) lista=lista.filter(c=>(c.vencimento||'')<=fAte);
+
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma conta a pagar</td></tr>`;return;}
+  tbody.innerHTML=lista.map(c=>{
+    const atrasado=isVencida(c.vencimento)&&c.status!=='Paga'&&c.status!=='Cancelada';
+    return `<tr style="${atrasado?'background:#fff8f6':''}">
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#c62828;font-weight:600':''}">${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${c.categoria||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#c62828;font-size:13px">${fmtMoeda(c.valor)}</td>
+      <td style="padding:8px 10px">${statusBadgeCP(c.status,c.vencimento)}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${c.conta_corrente||'—'}</td>
+      <td style="padding:8px 6px;white-space:nowrap">
+        ${c.status!=='Paga'&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="pagarConta('${c.id}','pagar')" title="Marcar como Paga">✅ Pagar</button>`:''}
+        <button class="btn btn-sm" onclick="abrirModalCP('${c.id}')" title="Editar">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarCP('${c.id}')" title="Excluir">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalCP(id){
+  editCPId=id;
+  const c=id?contasPagar.find(x=>x.id===id):null;
+  document.getElementById('modalCPTitulo').textContent=id?'Editar Conta a Pagar':'Nova Conta a Pagar';
+  const s=(el,v)=>{const e=document.getElementById(el);if(e)e.value=v||'';};
+  s('cp_descricao',c?.descricao); s('cp_categoria',c?.categoria);
+  s('cp_valor',c?.valor); s('cp_vencimento',c?.vencimento);
+  s('cp_num_doc',c?.num_doc); s('cp_conta',c?.conta_corrente);
+  s('cp_status',c?.status||'Aberta'); s('cp_obs',c?.observacao);
+  s('cp_dt_pagto',c?.dt_pagamento); s('cp_valor_pago',c?.valor_pago);
+  // Populate fornecedor datalist
+  const dl=document.getElementById('cp_forn_list');
+  if(dl){dl.innerHTML='';fornecedores.forEach(f=>{const o=document.createElement('option');o.value=f.razao_social||'';dl.appendChild(o);});}
+  // Populate PC select
+  const pcSel=document.getElementById('cp_pc_id');
+  if(pcSel){
+    pcSel.innerHTML='<option value="">— Nenhum —</option>';
+    pedidosCompra.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PC Nº '+p.numero+(p.fornecedor_nome?' — '+p.fornecedor_nome.substring(0,20):'');if(c?.pedido_compra_id===p.id)o.selected=true;pcSel.appendChild(o);});
+  }
+  abrirModal('modalCP');
+}
+
+async function salvarCP(){
+  const descricao=document.getElementById('cp_descricao')?.value.trim();
+  const valor=parseFloat(document.getElementById('cp_valor')?.value)||0;
+  const vencimento=document.getElementById('cp_vencimento')?.value;
+  if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
+  const obj={
+    descricao, valor, vencimento,
+    categoria:document.getElementById('cp_categoria')?.value||null,
+    num_doc:document.getElementById('cp_num_doc')?.value.trim()||null,
+    conta_corrente:document.getElementById('cp_conta')?.value.trim()||null,
+    pedido_compra_id:document.getElementById('cp_pc_id')?.value||null,
+    status:document.getElementById('cp_status')?.value||'Aberta',
+    dt_pagamento:document.getElementById('cp_dt_pagto')?.value||null,
+    valor_pago:parseFloat(document.getElementById('cp_valor_pago')?.value)||null,
+    observacao:document.getElementById('cp_obs')?.value.trim()||null,
+    criado_por:usuarioLogado?.nome||null
+  };
+  try{
+    if(editCPId) await api('PATCH','contas_pagar',obj,`?id=eq.${editCPId}`);
+    else await api('POST','contas_pagar',obj);
+    showToast(editCPId?'Conta atualizada!':'Conta criada!');
+    fecharModal('modalCP');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+}
+
+async function pagarConta(id, tipo){
+  const dtPagto=prompt('Data do pagamento (AAAA-MM-DD):',hoje());
+  if(!dtPagto) return;
+  try{
+    await api('PATCH','contas_pagar',{status:'Paga',dt_pagamento:dtPagto},`?id=eq.${id}`);
+    showToast('✅ Conta marcada como Paga!');
+    await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+async function deletarCP(id){
+  if(!confirm('Excluir esta conta?'))return;
+  try{await api('DELETE','contas_pagar','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+function exportarExcelCP(){
+  const rows=[['Vencimento','Descrição','Categoria','Nº Doc','Valor','Status','Conta','Dt Pagamento','Valor Pago']];
+  contasPagar.forEach(c=>rows.push([c.vencimento||'',c.descricao||'',c.categoria||'',c.num_doc||'',c.valor||0,c.status||'',c.conta_corrente||'',c.dt_pagamento||'',c.valor_pago||'']));
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='contas_pagar.xls';a.click();
+}
+
+// ── CONTAS A RECEBER ──────────────────────────────────────────────────────
+function renderContasReceber(){
+  const b=(document.getElementById('buscaCR')?.value||'').toLowerCase();
+  const fSt=document.getElementById('filtroCR_status')?.value||'';
+  const fDe=document.getElementById('filtroCR_de')?.value||'';
+  const fAte=document.getElementById('filtroCR_ate')?.value||'';
+  const tbody=document.getElementById('listaCR');
+  if(!tbody)return;
+
+  const abertas=contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada');
+  const vencidas=abertas.filter(c=>isVencida(c.vencimento));
+  const recebidas=contasReceber.filter(c=>c.status==='Recebida');
+  const el=document.getElementById('statsCR');
+  if(el) el.innerHTML=`
+    <div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Total a Receber</div><div class="stat-val" style="color:#1565c0">${fmtMoeda(abertas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
+    <div class="stat yellow" style="cursor:default"><div class="stat-label">Vencidas</div><div class="stat-val" style="color:#e65100">${vencidas.length}</div><div style="font-size:11px;color:#e65100">${fmtMoeda(vencidas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
+    <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Recebido (mês)</div><div class="stat-val" style="color:#2e7d32">${fmtMoeda(recebidas.filter(c=>(c.dt_recebimento||'').startsWith(new Date().toISOString().substring(0,7))).reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0))}</div></div>`;
+
+  let lista=[...contasReceber].sort((a,b)=>a.vencimento?.localeCompare(b.vencimento||'')||0);
+  if(b) lista=lista.filter(c=>(c.descricao+c.num_doc+'').toLowerCase().includes(b));
+  if(fSt==='Vencida') lista=lista.filter(c=>isVencida(c.vencimento)&&c.status!=='Recebida'&&c.status!=='Cancelada');
+  else if(fSt) lista=lista.filter(c=>c.status===fSt);
+  if(fDe) lista=lista.filter(c=>(c.vencimento||'')>=fDe);
+  if(fAte) lista=lista.filter(c=>(c.vencimento||'')<=fAte);
+
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma conta a receber</td></tr>`;return;}
+  const pvMap=Object.fromEntries(pedidosVenda.map(p=>[p.id,'PDV '+p.numero+(p.cliente_nome?' — '+p.cliente_nome.substring(0,20):'')]));
+  tbody.innerHTML=lista.map(c=>{
+    const atrasado=isVencida(c.vencimento)&&c.status!=='Recebida'&&c.status!=='Cancelada';
+    return `<tr style="${atrasado?'background:#fffde7':''}">
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#e65100;font-weight:600':''}">${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#1565c0">${c.pdv_id?pvMap[c.pdv_id]||'—':'—'}</td>
+      <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#1565c0;font-size:13px">${fmtMoeda(c.valor)}</td>
+      <td style="padding:8px 10px">${statusBadgeCR(c.status,c.vencimento)}</td>
+      <td style="padding:8px 10px;font-size:12px">${c.forma_pagamento||'—'}</td>
+      <td style="padding:8px 6px;white-space:nowrap">
+        ${c.status!=='Recebida'&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="receberConta('${c.id}')" title="Marcar como Recebida">✅ Receber</button>`:''}
+        <button class="btn btn-sm" onclick="abrirModalCR('${c.id}')" title="Editar">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarCR('${c.id}')" title="Excluir">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalCR(id){
+  editCRId=id;
+  const c=id?contasReceber.find(x=>x.id===id):null;
+  document.getElementById('modalCRTitulo').textContent=id?'Editar Conta a Receber':'Nova Conta a Receber';
+  const s=(el,v)=>{const e=document.getElementById(el);if(e)e.value=v||'';};
+  s('cr_descricao',c?.descricao); s('cr_valor',c?.valor);
+  s('cr_vencimento',c?.vencimento); s('cr_num_doc',c?.num_doc);
+  s('cr_forma_pgto',c?.forma_pagamento); s('cr_status',c?.status||'Aberta');
+  s('cr_obs',c?.observacao); s('cr_dt_recebto',c?.dt_recebimento);
+  s('cr_valor_recebido',c?.valor_recebido);
+  // Cliente datalist
+  const dl=document.getElementById('cr_cli_list');
+  if(dl){dl.innerHTML='';clientes.forEach(cl=>{const o=document.createElement('option');o.value=cl.nome||'';dl.appendChild(o);});}
+  // PDV select
+  const pvSel=document.getElementById('cr_pdv_id');
+  if(pvSel){
+    pvSel.innerHTML='<option value="">— Nenhum —</option>';
+    [...pedidosVenda].sort((a,b)=>b.numero-a.numero).forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PDV '+p.numero+(p.cliente_nome?' — '+p.cliente_nome.substring(0,20):'');if(c?.pdv_id===p.id)o.selected=true;pvSel.appendChild(o);});
+  }
+  abrirModal('modalCR');
+}
+
+async function salvarCR(){
+  const descricao=document.getElementById('cr_descricao')?.value.trim();
+  const valor=parseFloat(document.getElementById('cr_valor')?.value)||0;
+  const vencimento=document.getElementById('cr_vencimento')?.value;
+  if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
+  const obj={
+    descricao, valor, vencimento,
+    pdv_id:document.getElementById('cr_pdv_id')?.value||null,
+    num_doc:document.getElementById('cr_num_doc')?.value.trim()||null,
+    forma_pagamento:document.getElementById('cr_forma_pgto')?.value||null,
+    status:document.getElementById('cr_status')?.value||'Aberta',
+    dt_recebimento:document.getElementById('cr_dt_recebto')?.value||null,
+    valor_recebido:parseFloat(document.getElementById('cr_valor_recebido')?.value)||null,
+    observacao:document.getElementById('cr_obs')?.value.trim()||null,
+    criado_por:usuarioLogado?.nome||null
+  };
+  try{
+    if(editCRId) await api('PATCH','contas_receber',obj,`?id=eq.${editCRId}`);
+    else await api('POST','contas_receber',obj);
+    showToast(editCRId?'Conta atualizada!':'Conta criada!');
+    fecharModal('modalCR');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+}
+
+async function receberConta(id){
+  const dtRecebto=prompt('Data do recebimento (AAAA-MM-DD):',hoje());
+  if(!dtRecebto) return;
+  try{
+    await api('PATCH','contas_receber',{status:'Recebida',dt_recebimento:dtRecebto},`?id=eq.${id}`);
+    showToast('✅ Conta marcada como Recebida!');
+    await loadAll();
+  }catch(e){showToast('Erro','err');}
+}
+
+async function deletarCR(id){
+  if(!confirm('Excluir esta conta?'))return;
+  try{await api('DELETE','contas_receber','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+function exportarExcelCR(){
+  const rows=[['Vencimento','Descrição','PDV','Nº Doc','Valor','Status','Forma Pgto','Dt Recebimento','Valor Recebido']];
+  contasReceber.forEach(c=>{const p=pedidosVenda.find(x=>x.id===c.pdv_id);rows.push([c.vencimento||'',c.descricao||'',p?'PDV '+p.numero:'',c.num_doc||'',c.valor||0,c.status||'',c.forma_pagamento||'',c.dt_recebimento||'',c.valor_recebido||'']);});
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='contas_receber.xls';a.click();
+}
+
+// ── INTEGRAÇÃO: PC aprovado → Conta a Pagar ────────────────────────────
+async function gerarCPdoPC(pcId){
+  const pc=pedidosCompra.find(p=>p.id===pcId);
+  if(!pc)return;
+  // Check if already has CP
+  if(contasPagar.some(c=>c.pedido_compra_id===pcId)){showToast('Já existe conta para este PC','err');return;}
+  const parcelas=Array.isArray(pc.parcelas)&&pc.parcelas.length?pc.parcelas:[{vencimento:pc.prev_entrega||hoje(),valor:pc.total}];
+  for(let i=0;i<parcelas.length;i++){
+    const p=parcelas[i];
+    await api('POST','contas_pagar',{
+      descricao:pc.fornecedor_nome||'Pedido de Compra Nº '+pc.numero,
+      valor:p.valor||pc.total,
+      vencimento:p.vencimento||hoje(),
+      categoria:pc.categoria||'Matéria Prima',
+      num_doc:'PC Nº '+pc.numero+(parcelas.length>1?' - Parcela '+(i+1)+'/'+parcelas.length:''),
+      conta_corrente:pc.conta_corrente||null,
+      pedido_compra_id:pcId,
+      status:'Aberta',
+      criado_por:usuarioLogado?.nome||null
+    });
+  }
+  showToast('✅ '+parcelas.length+' conta(s) a pagar gerada(s) do PC Nº '+pc.numero+'!');
+  await loadAll();
+}
+
+// ── INTEGRAÇÃO: PDV faturado → Conta a Receber ─────────────────────────
+async function gerarCRdoPDV(pvId){
+  const pv=pedidosVenda.find(p=>p.id===pvId);
+  if(!pv)return;
+  if(contasReceber.some(c=>c.pdv_id===pvId)){showToast('Já existe conta para este PDV','err');return;}
+  const parcelas=Array.isArray(pv.parcelas)&&pv.parcelas.length?pv.parcelas:[{vencimento:pv.prev_faturamento||hoje(),valor:pv.total}];
+  for(let i=0;i<parcelas.length;i++){
+    const p=parcelas[i];
+    await api('POST','contas_receber',{
+      descricao:pv.cliente_nome||'PDV Nº '+pv.numero,
+      valor:p.valor||pv.total,
+      vencimento:p.vencimento||hoje(),
+      pdv_id:pvId,
+      num_doc:'PDV Nº '+pv.numero+(parcelas.length>1?' - Parcela '+(i+1)+'/'+parcelas.length:''),
+      forma_pagamento:pv.cond_pagamento||null,
+      status:'Aberta',
+      criado_por:usuarioLogado?.nome||null
+    });
+  }
+  showToast('✅ '+parcelas.length+' conta(s) a receber gerada(s) do PDV Nº '+pv.numero+'!');
+  await loadAll();
+}
+
+// ── FLUXO DE CAIXA ────────────────────────────────────────────────────────
+function renderFluxoCaixa(){
+  const periodo=document.getElementById('filtroFC_periodo')?.value||'mes';
+  const filtTipo=document.getElementById('filtroFC_tipo')?.value||'';
+  const hoje2=hoje();
+  const ano=hoje2.substring(0,4);
+  const mes=hoje2.substring(0,7);
+
+  // Build unified list of realized transactions
+  let entradas=contasReceber.filter(c=>c.status==='Recebida'&&c.dt_recebimento);
+  let saidas=contasPagar.filter(c=>c.status==='Paga'&&c.dt_pagamento);
+
+  // Apply period filter
+  const filtrarPeriodo=(dt)=>{
+    if(periodo==='mes') return (dt||'').startsWith(mes);
+    if(periodo==='3m') return (dt||'')>=(new Date(Date.now()-90*86400000).toISOString().split('T')[0]);
+    if(periodo==='6m') return (dt||'')>=(new Date(Date.now()-180*86400000).toISOString().split('T')[0]);
+    if(periodo==='ano') return (dt||'').startsWith(ano);
+    return true;
+  };
+  entradas=entradas.filter(c=>filtrarPeriodo(c.dt_recebimento));
+  saidas=saidas.filter(c=>filtrarPeriodo(c.dt_pagamento));
+
+  const totalEnt=entradas.reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0);
+  const totalSai=saidas.reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
+  const saldo=totalEnt-totalSai;
+  const aReceber=contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0);
+  const aPagar=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0);
+
+  const el=document.getElementById('statsFC');
+  if(el) el.innerHTML=`
+    <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Entradas Realizadas</div><div class="stat-val" style="color:#2e7d32">${fmtMoeda(totalEnt)}</div></div>
+    <div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">Saídas Realizadas</div><div class="stat-val" style="color:#c62828">${fmtMoeda(totalSai)}</div></div>
+    <div class="stat" style="border-left-color:${saldo>=0?'#1565c0':'#e65100'};cursor:default"><div class="stat-label">Saldo do Período</div><div class="stat-val" style="color:${saldo>=0?'#1565c0':'#c62828'}">${fmtMoeda(saldo)}</div></div>
+    <div class="stat" style="border-left-color:#546e7a;cursor:default"><div class="stat-label">Previsto Líquido</div><div class="stat-val" style="color:#546e7a">${fmtMoeda(aReceber-aPagar)}</div></div>`;
+
+  // Simple bar chart by month
+  const byMes={};
+  entradas.forEach(c=>{const m=(c.dt_recebimento||'').substring(0,7);if(m){if(!byMes[m])byMes[m]={ent:0,sai:0};byMes[m].ent+=(c.valor_recebido||c.valor||0);}});
+  saidas.forEach(c=>{const m=(c.dt_pagamento||'').substring(0,7);if(m){if(!byMes[m])byMes[m]={ent:0,sai:0};byMes[m].sai+=(c.valor_pago||c.valor||0);}});
+  const meses=Object.keys(byMes).sort();
+  const maxVal=Math.max(...meses.map(m=>Math.max(byMes[m].ent,byMes[m].sai)),1);
+
+  const graf=document.getElementById('fcGrafico');
+  if(graf){
+    if(!meses.length){graf.innerHTML='<div style="text-align:center;color:#bdbdbd;padding:40px">Nenhuma movimentação no período</div>';} 
+    else {
+      graf.innerHTML=`<div style="font-size:12px;font-weight:700;color:#263238;margin-bottom:12px">Entradas vs Saídas por Mês</div>
+      <div style="display:flex;gap:4px;align-items:flex-end;height:160px;padding-bottom:20px;overflow-x:auto">
+        ${meses.map(m=>{
+          const pctE=Math.round((byMes[m].ent/maxVal)*140);
+          const pctS=Math.round((byMes[m].sai/maxVal)*140);
+          const label=new Date(m+'-15').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:60px">
+            <div style="display:flex;gap:2px;align-items:flex-end;height:140px">
+              <div style="width:22px;background:#a5d6a7;border-radius:4px 4px 0 0;height:${pctE}px" title="Entradas: ${fmtMoeda(byMes[m].ent)}"></div>
+              <div style="width:22px;background:#ef9a9a;border-radius:4px 4px 0 0;height:${pctS}px" title="Saídas: ${fmtMoeda(byMes[m].sai)}"></div>
+            </div>
+            <div style="font-size:10px;color:#546e7a;text-align:center">${label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:16px;margin-top:4px;font-size:11px">
+        <span><span style="display:inline-block;width:12px;height:12px;background:#a5d6a7;border-radius:2px;margin-right:4px"></span>Entradas</span>
+        <span><span style="display:inline-block;width:12px;height:12px;background:#ef9a9a;border-radius:2px;margin-right:4px"></span>Saídas</span>
+      </div>`;
+    }
+  }
+
+  // Table
+  const tbody=document.getElementById('listaFC');
+  if(!tbody)return;
+  let movs=[];
+  if(!filtTipo||filtTipo==='entrada') entradas.forEach(c=>movs.push({dt:c.dt_recebimento,tipo:'entrada',desc:c.descricao,cat:'Recebimento',val:c.valor_recebido||c.valor||0}));
+  if(!filtTipo||filtTipo==='saida') saidas.forEach(c=>movs.push({dt:c.dt_pagamento,tipo:'saida',desc:c.descricao,cat:c.categoria||'Pagamento',val:c.valor_pago||c.valor||0}));
+  movs.sort((a,b)=>a.dt?.localeCompare(b.dt||'')||0);
+  let saldoAcc=0;
+  tbody.innerHTML=movs.map(m=>{
+    saldoAcc+=m.tipo==='entrada'?m.val:-m.val;
+    return `<tr>
+      <td style="padding:7px 10px;font-size:12px;white-space:nowrap">${m.dt?new Date(m.dt+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${m.desc||'—'}</td>
+      <td style="padding:7px 10px"><span style="background:${m.tipo==='entrada'?'#e8f5e9;color:#2e7d32':'#ffebee;color:#c62828'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${m.tipo==='entrada'?'📥 Entrada':'📤 Saída'}</span></td>
+      <td style="padding:7px 10px;font-size:12px;color:#546e7a">${m.cat}</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:600;color:#2e7d32">${m.tipo==='entrada'?fmtMoeda(m.val):'—'}</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:600;color:#c62828">${m.tipo==='saida'?fmtMoeda(m.val):'—'}</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:700;color:${saldoAcc>=0?'#1565c0':'#c62828'}">${fmtMoeda(saldoAcc)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação realizada no período</td></tr>`;
+}
+
+function exportarExcelFC(){
+  const rows=[['Data','Descrição','Tipo','Categoria','Entrada','Saída','Saldo']];
+  let saldo=0;
+  document.querySelectorAll('#listaFC tr').forEach(tr=>{
+    const cols=[...tr.querySelectorAll('td')].map(td=>td.textContent.trim());
+    if(cols.length) rows.push(cols);
+  });
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fluxo_caixa.xls';a.click();
+}
+
+// ===== PARCELAMENTO AUTOMÁTICO =====
+function gerarParcelas(dtInicio, n, valor){
+  const parcelas=[];
+  for(let i=0;i<n;i++){
+    const d=new Date(dtInicio+'T12:00');
+    d.setMonth(d.getMonth()+i);
+    parcelas.push({vencimento:d.toISOString().split('T')[0], valor:parseFloat((valor/n).toFixed(2))});
+  }
+  // Ajuste de centavos na última parcela
+  const totalGerado=parcelas.reduce((s,p)=>s+p.valor,0);
+  parcelas[parcelas.length-1].valor+=parseFloat((valor-totalGerado).toFixed(2));
+  return parcelas;
+}
+
+function previewParcelasCP(){
+  const n=parseInt(document.getElementById('cp_parcelas')?.value)||1;
+  const venc=document.getElementById('cp_vencimento')?.value;
+  const valor=parseFloat(document.getElementById('cp_valor')?.value)||0;
+  const prev=document.getElementById('cp_parcelas_preview');
+  const lista=document.getElementById('cp_parcelas_lista');
+  if(!prev||!lista) return;
+  if(n<=1){prev.style.display='none';return;}
+  if(!venc||!valor){prev.style.display='none';return;}
+  const parcelas=gerarParcelas(venc,n,valor);
+  prev.style.display='block';
+  lista.innerHTML='<div style="font-weight:700;color:#c62828;margin-bottom:6px">Preview das parcelas:</div>'+
+    parcelas.map((p,i)=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #ffebee">
+      <span style="color:#546e7a">${i+1}/${n} — ${new Date(p.vencimento+'T12:00').toLocaleDateString('pt-BR')}</span>
+      <span style="font-weight:600;color:#c62828">${fmtMoeda(p.valor)}</span>
+    </div>`).join('');
+}
+
+function previewParcelasCR(){
+  const n=parseInt(document.getElementById('cr_parcelas')?.value)||1;
+  const venc=document.getElementById('cr_vencimento')?.value;
+  const valor=parseFloat(document.getElementById('cr_valor')?.value)||0;
+  const prev=document.getElementById('cr_parcelas_preview');
+  const lista=document.getElementById('cr_parcelas_lista');
+  if(!prev||!lista) return;
+  if(n<=1){prev.style.display='none';return;}
+  if(!venc||!valor){prev.style.display='none';return;}
+  const parcelas=gerarParcelas(venc,n,valor);
+  prev.style.display='block';
+  lista.innerHTML='<div style="font-weight:700;color:#1565c0;margin-bottom:6px">Preview das parcelas:</div>'+
+    parcelas.map((p,i)=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e3f2fd">
+      <span style="color:#546e7a">${i+1}/${n} — ${new Date(p.vencimento+'T12:00').toLocaleDateString('pt-BR')}</span>
+      <span style="font-weight:600;color:#1565c0">${fmtMoeda(p.valor)}</span>
+    </div>`).join('');
+}
+
+// Override salvarCP to handle parcelas and recorrencia
+const _salvarCPOriginal=salvarCP;
+salvarCP=async function(){
+  const n=parseInt(document.getElementById('cp_parcelas')?.value)||1;
+  const recorr=document.getElementById('cp_recorrencia')?.value||'';
+  const recorrMeses=parseInt(document.getElementById('cp_recorr_meses')?.value)||12;
+
+  if(n===1&&!recorr){ await _salvarCPOriginal(); return; }
+
+  const descricao=document.getElementById('cp_descricao')?.value.trim();
+  const valor=parseFloat(document.getElementById('cp_valor')?.value)||0;
+  const vencimento=document.getElementById('cp_vencimento')?.value;
+  if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
+
+  const categoria=document.getElementById('cp_categoria')?.value||null;
+  const num_doc=document.getElementById('cp_num_doc')?.value.trim()||null;
+  const conta_corrente=document.getElementById('cp_conta')?.value.trim()||null;
+  const obs=document.getElementById('cp_obs')?.value.trim()||null;
+  const pc_id=document.getElementById('cp_pc_id')?.value||null;
+
+  // Determine installments
+  let parcelas=gerarParcelas(vencimento,n,valor);
+
+  // If recorrente, generate monthly series
+  if(recorr){
+    const intervalo={'mensal':1,'bimestral':2,'trimestral':3,'anual':12}[recorr]||1;
+    parcelas=[];
+    for(let i=0;i<recorrMeses/intervalo;i++){
+      const d=new Date(vencimento+'T12:00');
+      d.setMonth(d.getMonth()+i*intervalo);
+      parcelas.push({vencimento:d.toISOString().split('T')[0],valor});
+    }
+  }
+
+  try{
+    for(let i=0;i<parcelas.length;i++){
+      const p=parcelas[i];
+      await api('POST','contas_pagar',{
+        descricao: descricao+(parcelas.length>1?` (${i+1}/${parcelas.length})`:'')+(recorr?` [${recorr}]`:''),
+        valor:p.valor, vencimento:p.vencimento,
+        categoria, num_doc, conta_corrente,
+        pedido_compra_id:pc_id,
+        status:'Aberta',
+        recorrencia:recorr||null,
+        observacao:obs,
+        criado_por:usuarioLogado?.nome||null
+      });
+    }
+    showToast(`✅ ${parcelas.length} conta(s) criada(s)!`);
+    fecharModal('modalCP');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+};
+
+// Override salvarCR to handle parcelas
+const _salvarCROriginal=salvarCR;
+salvarCR=async function(){
+  const n=parseInt(document.getElementById('cr_parcelas')?.value)||1;
+  if(n===1){ await _salvarCROriginal(); return; }
+
+  const descricao=document.getElementById('cr_descricao')?.value.trim();
+  const valor=parseFloat(document.getElementById('cr_valor')?.value)||0;
+  const vencimento=document.getElementById('cr_vencimento')?.value;
+  if(!descricao||!valor||!vencimento){showToast('Preencha Descrição, Valor e Vencimento','err');return;}
+
+  const parcelas=gerarParcelas(vencimento,n,valor);
+  try{
+    for(let i=0;i<parcelas.length;i++){
+      const p=parcelas[i];
+      await api('POST','contas_receber',{
+        descricao:descricao+(parcelas.length>1?` (${i+1}/${parcelas.length})`:''),
+        valor:p.valor, vencimento:p.vencimento,
+        pdv_id:document.getElementById('cr_pdv_id')?.value||null,
+        forma_pagamento:document.getElementById('cr_forma_pgto')?.value||null,
+        status:'Aberta',
+        criado_por:usuarioLogado?.nome||null
+      });
+    }
+    showToast(`✅ ${parcelas.length} parcela(s) criada(s)!`);
+    fecharModal('modalCR');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+};
+
+// ===== CONTAS CORRENTES =====
+let editCCId=null, ccSelecionada=null;
+
+function renderContasCorrente(){
+  const cards=document.getElementById('ccSaldoCards');
+  if(!cards) return;
+
+  if(!contasCorrente.length){
+    cards.innerHTML='<div style="text-align:center;width:100%;padding:20px;color:#bdbdbd">Nenhuma conta cadastrada. Clique em "+ Nova Conta".</div>';
+    return;
+  }
+
+  cards.innerHTML=contasCorrente.map(cc=>{
+    // Calculate balance: saldo_inicial + entradas - saidas
+    const entradas=contasPagar.filter(c=>c.conta_corrente===cc.nome&&c.status==='Paga').reduce((s,c)=>s-(c.valor_pago||c.valor||0),0);
+    const saidas=contasReceber.filter(c=>c.status==='Recebida').reduce((s,c)=>0,0);
+    // Simple: saldo_inicial + movs from CP/CR linked to this account
+    const pagosDessa=contasPagar.filter(c=>c.conta_corrente===cc.nome&&c.status==='Paga').reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
+    const recebidosDessa=contasReceber.filter(c=>c.status==='Recebida').reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0);
+    const saldoCalc=(cc.saldo_inicial||0)+recebidosDessa-pagosDessa;
+    const saldoColor=saldoCalc>=0?'#2e7d32':'#c62828';
+    const ativo=ccSelecionada===cc.id;
+    return `<div onclick="selecionarCC('${cc.id}')" style="background:#fff;border:2px solid ${ativo?'#1b5e20':'#e0e0e0'};border-radius:12px;padding:16px 20px;cursor:pointer;min-width:200px;transition:all 0.15s;${ativo?'box-shadow:0 2px 12px rgba(27,94,32,0.2)':''}">
+      <div style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;margin-bottom:4px">🏦 ${cc.banco||'Banco'}</div>
+      <div style="font-size:15px;font-weight:700;color:#263238;margin-bottom:6px">${cc.nome}</div>
+      <div style="font-size:22px;font-weight:800;color:${saldoColor}">${fmtMoeda(saldoCalc)}</div>
+      <div style="font-size:11px;color:#9e9e9e;margin-top:4px">${cc.agencia?'Ag '+cc.agencia+' ':''} ${cc.numero||''}</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-sm" onclick="event.stopPropagation();abrirModalCC('${cc.id}')" style="font-size:10px">✏️ Editar</button>
+        <button class="btn btn-sm danger" onclick="event.stopPropagation();deletarCC('${cc.id}')" style="font-size:10px">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selecionarCC(id){
+  ccSelecionada=id;
+  renderContasCorrente();
+  const cc=contasCorrente.find(c=>c.id===id);
+  if(!cc) return;
+  // Show transactions for this account
+  const pagos=contasPagar.filter(c=>c.conta_corrente===cc.nome&&c.status==='Paga').map(c=>({dt:c.dt_pagamento,desc:c.descricao,tipo:'saida',val:c.valor_pago||c.valor||0}));
+  const recebidos=contasReceber.filter(c=>c.status==='Recebida').map(c=>({dt:c.dt_recebimento,desc:c.descricao,tipo:'entrada',val:c.valor_recebido||c.valor||0}));
+  const movs=[...pagos,...recebidos].sort((a,b)=>(a.dt||'').localeCompare(b.dt||''));
+  let saldo=cc.saldo_inicial||0;
+  const area=document.getElementById('ccExtratoArea');
+  if(!area) return;
+  area.innerHTML=`<div style="font-size:14px;font-weight:700;color:#1b5e20;margin-bottom:12px">Extrato — ${cc.nome}</div>
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#e8f5e9"><th style="padding:8px 12px;text-align:left;color:#1b5e20;font-size:11px">Data</th><th style="padding:8px 12px;text-align:left;color:#1b5e20;font-size:11px">Descrição</th><th style="padding:8px 12px;color:#1b5e20;font-size:11px">Tipo</th><th style="padding:8px 12px;text-align:right;color:#1b5e20;font-size:11px">Valor</th><th style="padding:8px 12px;text-align:right;color:#1b5e20;font-size:11px">Saldo</th></tr></thead>
+        <tbody>
+          <tr style="background:#f9fff9"><td style="padding:7px 12px" colspan="4"><b>Saldo Inicial</b></td><td style="padding:7px 12px;text-align:right;font-weight:700;color:#1b5e20">${fmtMoeda(saldo)}</td></tr>
+          ${movs.map(m=>{saldo+=m.tipo==='entrada'?m.val:-m.val;return `<tr style="border-bottom:1px solid #f5f5f5">
+            <td style="padding:7px 12px;white-space:nowrap">${m.dt?new Date(m.dt+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+            <td style="padding:7px 12px">${m.desc||'—'}</td>
+            <td style="padding:7px 12px"><span style="background:${m.tipo==='entrada'?'#e8f5e9;color:#2e7d32':'#ffebee;color:#c62828'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${m.tipo==='entrada'?'📥 Entrada':'📤 Saída'}</span></td>
+            <td style="padding:7px 12px;text-align:right;font-weight:600;color:${m.tipo==='entrada'?'#2e7d32':'#c62828'}">${fmtMoeda(m.val)}</td>
+            <td style="padding:7px 12px;text-align:right;font-weight:700;color:${saldo>=0?'#1565c0':'#c62828'}">${fmtMoeda(saldo)}</td>
+          </tr>`;}).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function abrirModalCC(id){
+  editCCId=id;
+  const c=id?contasCorrente.find(x=>x.id===id):null;
+  document.getElementById('modalCCTitulo').textContent=id?'Editar Conta':'Nova Conta Corrente';
+  const s=(el,v)=>{const e=document.getElementById(el);if(e)e.value=v||'';};
+  s('cc_nome',c?.nome); s('cc_banco',c?.banco);
+  s('cc_saldo_inicial',c?.saldo_inicial||0);
+  s('cc_agencia',c?.agencia); s('cc_numero',c?.numero); s('cc_obs',c?.observacao);
+  abrirModal('modalCC');
+}
+
+async function salvarCC(){
+  const nome=document.getElementById('cc_nome')?.value.trim();
+  if(!nome){showToast('Informe o nome da conta','err');return;}
+  const obj={
+    nome, banco:document.getElementById('cc_banco')?.value||null,
+    saldo_inicial:parseFloat(document.getElementById('cc_saldo_inicial')?.value)||0,
+    agencia:document.getElementById('cc_agencia')?.value.trim()||null,
+    numero:document.getElementById('cc_numero')?.value.trim()||null,
+    observacao:document.getElementById('cc_obs')?.value.trim()||null
+  };
+  try{
+    if(editCCId) await api('PATCH','contas_corrente',obj,`?id=eq.${editCCId}`);
+    else await api('POST','contas_corrente',obj);
+    showToast(editCCId?'Conta atualizada!':'Conta criada!');
+    fecharModal('modalCC');
+    await loadAll();
+  }catch(e){showToast('Erro','err');console.error(e);}
+}
+
+async function deletarCC(id){
+  if(!confirm('Excluir esta conta?'))return;
+  try{await api('DELETE','contas_corrente','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+// ===== DRE =====
+function renderDRE(){
+  const periodo=document.getElementById('drePeriodo')?.value||'mes';
+  const hoje2=hoje(), ano=hoje2.substring(0,4), mes=hoje2.substring(0,7);
+  const filtrar=(dt)=>{
+    if(periodo==='mes') return (dt||'').startsWith(mes);
+    if(periodo==='3m') return (dt||'')>=(new Date(Date.now()-90*86400000).toISOString().split('T')[0]);
+    if(periodo==='6m') return (dt||'')>=(new Date(Date.now()-180*86400000).toISOString().split('T')[0]);
+    if(periodo==='ano') return (dt||'').startsWith(ano);
+    return true;
+  };
+
+  // RECEITAS: contas receber recebidas + PDVs faturados
+  const recRecebidas=contasReceber.filter(c=>c.status==='Recebida'&&filtrar(c.dt_recebimento));
+  const totalReceitas=recRecebidas.reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0);
+
+  // Receitas por categoria (PDV ou direta)
+  const receitasPorTipo={};
+  recRecebidas.forEach(c=>{
+    const tipo=c.pdv_id?'Faturamento PDVs':'Outros Recebimentos';
+    receitasPorTipo[tipo]=(receitasPorTipo[tipo]||0)+(c.valor_recebido||c.valor||0);
+  });
+
+  // CUSTOS/DESPESAS: contas pagar pagas
+  const cpPagas=contasPagar.filter(c=>c.status==='Paga'&&filtrar(c.dt_pagamento));
+  const totalDespesas=cpPagas.reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
+
+  // Despesas por categoria
+  const despesasPorCat={};
+  cpPagas.forEach(c=>{
+    const cat=c.categoria||'Outros';
+    despesasPorCat[cat]=(despesasPorCat[cat]||0)+(c.valor_pago||c.valor||0);
+  });
+
+  const resultado=totalReceitas-totalDespesas;
+  const pct=totalReceitas>0?Math.round((resultado/totalReceitas)*100):0;
+
+  const el=document.getElementById('dreConteudo');
+  if(!el) return;
+
+  const row=(label,val,bold,color,indent)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:${indent?'5px 20px':'8px 12px'};${bold?'font-weight:700;background:#f8f9f8;':''}border-bottom:1px solid #f0f4f0">
+      <span style="font-size:${bold?'13':'12'}px;color:${indent?'#546e7a':'#263238'}">${indent?'└ '+label:label}</span>
+      <span style="font-size:${bold?'14':'12'}px;font-weight:${bold?'700':'500'};color:${color||'#263238'}">${fmtMoeda(val)}</span>
+    </div>`;
+
+  el.innerHTML=`
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden;margin-bottom:16px">
+      <!-- Header -->
+      <div style="background:#1b5e20;color:#fff;padding:12px 16px;font-weight:700;font-size:14px">
+        📈 DRE — ${periodo==='mes'?'Mês Atual':periodo==='3m'?'Últimos 3 Meses':periodo==='6m'?'Últimos 6 Meses':periodo==='ano'?'Ano Atual':'Todos os Períodos'}
+      </div>
+      <!-- Receitas -->
+      ${row('(+) RECEITAS BRUTAS', totalReceitas, true, '#2e7d32')}
+      ${Object.entries(receitasPorTipo).map(([k,v])=>row(k,v,false,null,true)).join('')}
+      <!-- Despesas -->
+      ${row('(−) DESPESAS TOTAIS', totalDespesas, true, '#c62828')}
+      ${Object.entries(despesasPorCat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>row(k,v,false,null,true)).join('')}
+      <!-- Resultado -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:${resultado>=0?'#e8f5e9':'#ffebee'};border-top:2px solid ${resultado>=0?'#2e7d32':'#c62828'}">
+        <span style="font-size:16px;font-weight:800;color:${resultado>=0?'#1b5e20':'#c62828'}">= RESULTADO LÍQUIDO</span>
+        <div style="text-align:right">
+          <div style="font-size:20px;font-weight:800;color:${resultado>=0?'#1b5e20':'#c62828'}">${fmtMoeda(resultado)}</div>
+          <div style="font-size:11px;color:${resultado>=0?'#2e7d32':'#c62828'}">${resultado>=0?'Lucro':'Prejuízo'} de ${Math.abs(pct)}% sobre receita</div>
+        </div>
+      </div>
+    </div>
+    <!-- Indicadores -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px;text-align:center;border-left:4px solid #2e7d32">
+        <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">A Receber</div>
+        <div style="font-size:18px;font-weight:800;color:#2e7d32;margin-top:4px">${fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0))}</div>
+        <div style="font-size:11px;color:#9e9e9e">previsto</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px;text-align:center;border-left:4px solid #c62828">
+        <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">A Pagar</div>
+        <div style="font-size:18px;font-weight:800;color:#c62828;margin-top:4px">${fmtMoeda(contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0))}</div>
+        <div style="font-size:11px;color:#9e9e9e">previsto</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px;text-align:center;border-left:4px solid #1565c0">
+        <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Saldo Livre</div>
+        <div style="font-size:18px;font-weight:800;color:#1565c0;margin-top:4px">${fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)-contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0))}</div>
+        <div style="font-size:11px;color:#9e9e9e">previsto líquido</div>
+      </div>
+    </div>`;
+}
+
+function exportarDRE(){
+  const el=document.getElementById('dreConteudo');
+  if(!el){showToast('Gere o DRE primeiro','err');return;}
+  const rows=[['Item','Valor']];
+  el.querySelectorAll('[style*="justify-content:space-between"]').forEach(row=>{
+    const spans=row.querySelectorAll('span');
+    if(spans.length>=2) rows.push([spans[0].textContent.trim(),spans[1].textContent.trim()]);
+  });
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='DRE.xls';a.click();
+}
 </script>
 
 
@@ -8909,27 +9763,13 @@ function abrirRelatorioOrdem(ordemId){
         <div style="flex:1"><label style="font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;display:block;margin-bottom:4px">🔍 Buscar CNPJ na Receita Federal</label>
           <input id="nc_cli_cnpj_busca" type="text" placeholder="00.000.000/0001-00" style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600"></div>
         <button id="nc_btnBuscaCNPJ" class="btn primary" onclick="buscarCNPJ()" style="white-space:nowrap">🔎 Buscar</button>
-        <button class="btn" onclick="
-          document.getElementById('nc_cli_nome').value='TESTE EMPRESA LTDA';
-          document.getElementById('nc_cli_cidade').value='JAÚ';
-          document.getElementById('nc_cli_uf').value='SP';
-          document.getElementById('nc_cli_cep').value='17200-445';
-          showToast('Campos preenchidos com dados de teste!');
-        " style="font-size:11px;color:#546e7a;background:transparent;border:1px dashed #ccc" title="Teste: preenche campos direto">🧪</button>
+
       </div>
       <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
         <div class="form-group full"><label>Razão Social *</label><input id="nc_cli_nome" type="text"></div>
         <div class="form-group"><label>Nome Fantasia</label><input id="nc_cli_fantasia" type="text"></div>
         <div class="form-group"><label>CNPJ/CPF</label><input id="nc_cli_cnpj" type="text"></div>
-        <div class="form-group"><label>Inscrição Estadual <span style="font-size:10px;color:#546e7a;font-weight:400">(preencha manualmente)</span></label>
-          <div style="display:flex;gap:6px">
-            <input id="nc_cli_ie" type="text" style="flex:1">
-            <button type="button" onclick="
-              const cnpj=(document.getElementById('nc_cli_cnpj')?.value||'').replace(/\D/g,'');
-              window.open('https://www.fazenda.sp.gov.br/cadastro/cadesp_consulta.aspx'+(cnpj?'?CNPJ='+cnpj:''),'_blank');
-            " class="btn btn-sm" style="font-size:11px;white-space:nowrap" title="Consultar IE na SEFAZ-SP">🔍 SEFAZ-SP</button>
-          </div>
-        </div>
+        <div class="form-group"><label>Inscrição Estadual</label><input id="nc_cli_ie" type="text"></div>
         <div class="form-group full"><label>Endereço</label><input id="nc_cli_end" type="text"></div>
         <div class="form-group"><label>Cidade</label><input id="nc_cli_cidade" type="text"></div>
         <div class="form-group"><label>UF</label><input id="nc_cli_uf" type="text" maxlength="2" style="text-transform:uppercase"></div>
@@ -8949,5 +9789,247 @@ function abrirRelatorioOrdem(ordemId){
 
 <div id="pvPrintArea" style="display:none"></div>
 
+
+<!-- MODAL CONTA A PAGAR -->
+<div class="modal-bg" id="modalCP">
+  <div class="modal" style="width:640px;max-width:99vw">
+    <div class="modal-header" style="background:#c62828">
+      <h3 id="modalCPTitulo">Nova Conta a Pagar</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCP')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group"><label>Fornecedor / Descrição *</label>
+          <input id="cp_descricao" type="text" placeholder="Nome do fornecedor ou descrição" list="cp_forn_list">
+          <datalist id="cp_forn_list"></datalist>
+        </div>
+        <div class="form-group"><label>Categoria</label>
+          <select id="cp_categoria">
+            <option value="">Selecionar...</option>
+            <option>Matéria Prima</option><option>Serviços</option><option>Aluguel</option>
+            <option>Utilities</option><option>Salários</option><option>Impostos</option>
+            <option>Manutenção</option><option>Equipamentos</option><option>Outros</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Valor *</label>
+          <input id="cp_valor" type="number" step="0.01" min="0" placeholder="0,00">
+        </div>
+        <div class="form-group"><label>Vencimento 1ª Parcela *</label>
+          <input id="cp_vencimento" type="date">
+        </div>
+        <div class="form-group"><label>Parcelas</label>
+          <select id="cp_parcelas" onchange="previewParcelasCP()">
+            <option value="1">À vista (1x)</option>
+            <option value="2">2x</option><option value="3">3x</option>
+            <option value="4">4x</option><option value="5">5x</option>
+            <option value="6">6x</option><option value="12">12x</option>
+          </select>
+        </div>
+        <div id="cp_parcelas_preview" class="form-group full" style="display:none">
+          <div id="cp_parcelas_lista" style="background:#fff8f6;border:1px solid #ffcdd2;border-radius:8px;padding:10px;font-size:12px"></div>
+        </div>
+        <div class="form-group"><label>Nº Documento / NF</label>
+          <input id="cp_num_doc" type="text" placeholder="Ex: NF-001234">
+        </div>
+        <div class="form-group"><label>Conta Corrente</label>
+          <input id="cp_conta" type="text" placeholder="Ex: Bradesco, Caixa...">
+        </div>
+        <div class="form-group"><label>Pedido de Compra vinculado</label>
+          <select id="cp_pc_id">
+            <option value="">— Nenhum —</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="cp_status">
+            <option value="Aberta">🔴 Aberta</option>
+            <option value="Paga">✅ Paga</option>
+            <option value="Cancelada">❌ Cancelada</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Data Pagamento</label>
+          <input id="cp_dt_pagto" type="date">
+        </div>
+        <div class="form-group"><label>Valor Pago</label>
+          <input id="cp_valor_pago" type="number" step="0.01" min="0" placeholder="0,00">
+        </div>
+        <div class="form-group"><label>Recorrência</label>
+          <select id="cp_recorrencia">
+            <option value="">Não recorrente</option>
+            <option value="mensal">🔄 Mensal</option>
+            <option value="bimestral">🔄 Bimestral</option>
+            <option value="trimestral">🔄 Trimestral</option>
+            <option value="anual">🔄 Anual</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Repetir por (meses)</label>
+          <input id="cp_recorr_meses" type="number" min="1" max="60" placeholder="Ex: 12" value="12">
+        </div>
+        <div class="form-group full"><label>Observação</label>
+          <textarea id="cp_obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCP')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCP()" style="background:#c62828;border-color:#c62828">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONTA A RECEBER -->
+<div class="modal-bg" id="modalCR">
+  <div class="modal" style="width:640px;max-width:99vw">
+    <div class="modal-header" style="background:#1565c0">
+      <h3 id="modalCRTitulo">Nova Conta a Receber</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCR')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group"><label>Cliente / Descrição *</label>
+          <input id="cr_descricao" type="text" placeholder="Nome do cliente ou descrição" list="cr_cli_list">
+          <datalist id="cr_cli_list"></datalist>
+        </div>
+        <div class="form-group"><label>PDV vinculado</label>
+          <select id="cr_pdv_id">
+            <option value="">— Nenhum —</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Valor *</label>
+          <input id="cr_valor" type="number" step="0.01" min="0" placeholder="0,00">
+        </div>
+        <div class="form-group"><label>Vencimento 1ª Parcela *</label>
+          <input id="cr_vencimento" type="date">
+        </div>
+        <div class="form-group"><label>Parcelas</label>
+          <select id="cr_parcelas" onchange="previewParcelasCR()">
+            <option value="1">À vista (1x)</option>
+            <option value="2">2x</option><option value="3">3x</option>
+            <option value="4">4x</option><option value="5">5x</option>
+            <option value="6">6x</option><option value="12">12x</option>
+          </select>
+        </div>
+        <div id="cr_parcelas_preview" class="form-group full" style="display:none">
+          <div id="cr_parcelas_lista" style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:10px;font-size:12px"></div>
+        </div>
+        <div class="form-group"><label>Nº Documento / NF</label>
+          <input id="cr_num_doc" type="text" placeholder="Ex: NF-001234">
+        </div>
+        <div class="form-group"><label>Forma de Pagamento</label>
+          <select id="cr_forma_pgto">
+            <option value="">Selecionar...</option>
+            <option>Boleto</option><option>PIX</option><option>Transferência</option>
+            <option>Cheque</option><option>Dinheiro</option><option>Cartão</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="cr_status">
+            <option value="Aberta">🔵 Aberta</option>
+            <option value="Recebida">✅ Recebida</option>
+            <option value="Cancelada">❌ Cancelada</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Data Recebimento</label>
+          <input id="cr_dt_recebto" type="date">
+        </div>
+        <div class="form-group"><label>Valor Recebido</label>
+          <input id="cr_valor_recebido" type="number" step="0.01" min="0" placeholder="0,00">
+        </div>
+        <div class="form-group full"><label>Observação</label>
+          <textarea id="cr_obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCR')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCR()" style="background:#1565c0;border-color:#1565c0">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- TAB 22: CONTAS CORRENTES -->
+<div class="panel" id="tab22">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🏦 Contas Correntes</h2>
+      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Saldos e movimentações por conta bancária.</p>
+    </div>
+    <button class="btn primary" onclick="abrirModalCC(null)">+ Nova Conta</button>
+  </div>
+  <!-- Saldo cards -->
+  <div id="ccSaldoCards" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px"></div>
+  <!-- Extrato da conta selecionada -->
+  <div id="ccExtratoArea">
+    <div style="text-align:center;padding:40px;color:#bdbdbd">
+      <div style="font-size:36px;margin-bottom:8px">🏦</div>
+      <div>Selecione uma conta para ver o extrato</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONTA CORRENTE -->
+<div class="modal-bg" id="modalCC">
+  <div class="modal" style="width:480px">
+    <div class="modal-header" style="background:#1b5e20">
+      <h3 id="modalCCTitulo">Nova Conta Corrente</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCC')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group full"><label>Nome da Conta *</label>
+          <input id="cc_nome" type="text" placeholder="Ex: Bradesco CC, Caixa, PIX...">
+        </div>
+        <div class="form-group"><label>Banco</label>
+          <select id="cc_banco">
+            <option value="">Selecionar...</option>
+            <option>Bradesco</option><option>Itaú</option><option>Santander</option>
+            <option>Banco do Brasil</option><option>Caixa Econômica</option>
+            <option>Nubank</option><option>Inter</option><option>Sicoob</option>
+            <option>Caixa Interna</option><option>Outro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Saldo Inicial (R$)</label>
+          <input id="cc_saldo_inicial" type="number" step="0.01" placeholder="0,00" value="0">
+        </div>
+        <div class="form-group"><label>Agência</label>
+          <input id="cc_agencia" type="text" placeholder="0000">
+        </div>
+        <div class="form-group"><label>Conta</label>
+          <input id="cc_numero" type="text" placeholder="00000-0">
+        </div>
+        <div class="form-group full"><label>Observação</label>
+          <input id="cc_obs" type="text" placeholder="Observações sobre a conta">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCC')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCC()" style="background:#1b5e20;border-color:#1b5e20">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 23: DRE -->
+<div class="panel" id="tab23">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📈 DRE — Demonstrativo de Resultado</h2>
+      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Resultado financeiro do período.</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <select id="drePeriodo" onchange="renderDRE()" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <option value="mes">Este mês</option>
+        <option value="3m">Últimos 3 meses</option>
+        <option value="6m">Últimos 6 meses</option>
+        <option value="ano">Este ano</option>
+        <option value="todos">Tudo</option>
+      </select>
+      <button class="btn" onclick="exportarDRE()" style="font-size:12px">📊 Excel</button>
+    </div>
+  </div>
+  <div id="dreConteudo" style="max-width:700px"></div>
+</div>
+
+</div><!-- balance fix -->
 </body>
 </html>
