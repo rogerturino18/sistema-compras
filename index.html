@@ -513,6 +513,7 @@ tr:hover td{background:#f9fbf9}
   <div style="padding:6px 0">
     <div style="font-size:10px;font-weight:600;color:#9e9e9e;text-transform:uppercase;padding:6px 14px 2px">Matéria Prima</div>
     <div class="sbi" onclick="sbGo(1,'Lista de Compras')">📋 Lista de Compras</div>
+    <div class="sbi" onclick="sbGo(24,'Entrada NF-e')">🧾 Entrada NF-e</div>
     <div class="sbi" onclick="sbGo(2,'Fornecedores')">🏢 Fornecedores</div>
     <div class="sbi" onclick="sbGo(6,'Cotações')">💰 Cotações</div>
     <div class="sbi" onclick="sbGo(7,'Comparar')">📊 Comparar</div>
@@ -2648,6 +2649,59 @@ tr:hover td{background:#f9fbf9}
   <div id="dreConteudo" style="max-width:700px"></div>
 </div>
 
+
+<!-- TAB 24: ENTRADA DE NF-e -->
+<div class="panel" id="tab24">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🧾 Entrada de NF-e</h2>
+      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Recebimento de notas fiscais — automático via SEFAZ ou importação de XML.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="buscarNFeSEFAZ()" style="background:#1565c0;color:#fff;border-color:#1565c0">🔍 Buscar NF-e na SEFAZ</button>
+      <label class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;cursor:pointer">
+        📂 Importar XML
+        <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
+      </label>
+      <button class="btn" onclick="abrirModalNFe(null)" style="background:#546e7a;color:#fff;border-color:#546e7a">+ Lançar Manual</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-row" id="statsNFe" style="margin-bottom:16px"></div>
+
+  <!-- Filters -->
+  <div class="toolbar" style="margin-bottom:12px">
+    <input type="text" id="buscaNFe" placeholder="Buscar fornecedor, nº NF, chave..." oninput="renderEntradaNFe()" style="flex:1">
+    <select id="filtroNFe_status" onchange="renderEntradaNFe()">
+      <option value="">Todos os status</option>
+      <option value="Pendente">🟡 Pendente</option>
+      <option value="Entrada Realizada">✅ Entrada Realizada</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <input type="date" id="filtroNFe_de" onchange="renderEntradaNFe()" title="Emissão de">
+    <input type="date" id="filtroNFe_ate" onchange="renderEntradaNFe()" title="Emissão até">
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data Emissão</th>
+        <th>Nº NF</th>
+        <th>Fornecedor</th>
+        <th>CNPJ</th>
+        <th style="text-align:right">Valor Total</th>
+        <th>Vencimento</th>
+        <th>Status</th>
+        <th>Dept / PDV</th>
+        <th style="width:120px">Ações</th>
+      </tr></thead>
+      <tbody id="listaNFe"></tbody>
+    </table>
+  </div>
+</div>
+
 </div><!-- end appContent -->
 
 <script>
@@ -2658,7 +2712,7 @@ const APP_URL=window.location.origin;
 const SITE_URL=window.location.origin; // ← URL do sistema (automático)
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 let sortCol='', sortDir='asc';
@@ -2769,7 +2823,7 @@ async function api(method,table,data=null,filter=''){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente,entradasNFe]=await Promise.all([
       api('GET','itens','','?order=created_at.asc'),
       api('GET','cotacoes','','?order=created_at.desc'),
       api('GET','fornecedores','','?order=razao_social.asc'),
@@ -2794,7 +2848,8 @@ async function loadAll(){
       api('GET','departamentos','','?order=nome.asc').catch(()=>[]),
       api('GET','contas_pagar','','?order=vencimento.asc').catch(()=>[]),
       api('GET','contas_receber','','?order=vencimento.asc').catch(()=>[]),
-      api('GET','contas_corrente','','?order=nome.asc').catch(()=>[])
+      api('GET','contas_corrente','','?order=nome.asc').catch(()=>[]),
+      api('GET','entradas_nfe','','?order=created_at.desc').catch(()=>[])
     ]);
     renderAll();
     verificarLembretes();
@@ -7221,7 +7276,7 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=23;i++){
+  for(let i=0;i<=24;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
@@ -7245,6 +7300,7 @@ function showTab(n){
   if(n===21) {if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();}
   if(n===22) {if(typeof renderContasCorrente==='function') renderContasCorrente();}
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
+  if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe();}
 }
 
 async function dispararEmailBemVindo(){
@@ -9842,6 +9898,409 @@ function exportarDRE(){
   const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='DRE.xls';a.click();
 }
+
+// ===== ENTRADA DE NF-e =====
+let editNFeId = null, nfeItensLocal = [];
+
+// ── Render list ──────────────────────────────────────────────────────────
+function renderEntradaNFe(){
+  const b=(document.getElementById('buscaNFe')?.value||'').toLowerCase();
+  const fSt=document.getElementById('filtroNFe_status')?.value||'';
+  const fDe=document.getElementById('filtroNFe_de')?.value||'';
+  const fAte=document.getElementById('filtroNFe_ate')?.value||'';
+  const tbody=document.getElementById('listaNFe');
+  if(!tbody) return;
+
+  // Stats
+  const total=entradasNFe.length;
+  const pendentes=entradasNFe.filter(n=>n.status==='Pendente'||!n.status);
+  const realizadas=entradasNFe.filter(n=>n.status==='Entrada Realizada');
+  const vlTotal=entradasNFe.reduce((s,n)=>s+(n.valor_total||0),0);
+  const el=document.getElementById('statsNFe');
+  if(el) el.innerHTML=`
+    <div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Total NF-e</div><div class="stat-val" style="color:#1565c0">${total}</div><div class="stat-sub">${fmtMoeda(vlTotal)}</div></div>
+    <div class="stat yellow" style="cursor:default"><div class="stat-label">Pendentes</div><div class="stat-val" style="color:#e65100">${pendentes.length}</div><div class="stat-sub">${fmtMoeda(pendentes.reduce((s,n)=>s+(n.valor_total||0),0))}</div></div>
+    <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Entradas Realizadas</div><div class="stat-val" style="color:#2e7d32">${realizadas.length}</div><div class="stat-sub">${fmtMoeda(realizadas.reduce((s,n)=>s+(n.valor_total||0),0))}</div></div>`;
+
+  let lista=[...entradasNFe];
+  if(b) lista=lista.filter(n=>(n.fornecedor+n.numero_nfe+n.chave_nfe+'').toLowerCase().includes(b));
+  if(fSt) lista=lista.filter(n=>n.status===fSt);
+  if(fDe) lista=lista.filter(n=>(n.dt_emissao||'')>=fDe);
+  if(fAte) lista=lista.filter(n=>(n.dt_emissao||'')<=fAte);
+
+  if(!lista.length){
+    tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:32px;color:#bdbdbd">
+      <div style="font-size:32px;margin-bottom:8px">🧾</div>
+      <div style="font-weight:600">Nenhuma NF-e encontrada</div>
+      <div style="font-size:12px;margin-top:4px">Use "Buscar na SEFAZ" ou "Importar XML" para adicionar</div>
+    </td></tr>`;
+    return;
+  }
+
+  const pvMap=Object.fromEntries((pedidosVenda||[]).map(p=>[p.id,'PDV '+p.numero]));
+  tbody.innerHTML=lista.map(n=>{
+    const statusColors={
+      'Pendente':'background:#fff3e0;color:#e65100',
+      'Entrada Realizada':'background:#e8f5e9;color:#2e7d32',
+      'Cancelada':'background:#f5f5f5;color:#9e9e9e'
+    };
+    const sc=statusColors[n.status]||statusColors['Pendente'];
+    return `<tr>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${n.dt_emissao?new Date(n.dt_emissao+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:8px 10px;font-weight:700;font-size:13px">${n.numero_nfe||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${n.fornecedor||''}">${n.fornecedor||'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#546e7a">${n.cnpj_fornecedor||'—'}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#c62828;text-align:right">${fmtMoeda(n.valor_total)}</td>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${n.vencimento?new Date(n.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="padding:8px 10px"><span style="${sc};padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">${n.status||'Pendente'}</span></td>
+      <td style="padding:8px 10px;font-size:12px">${[n.departamento,n.pdv_id?pvMap[n.pdv_id]:''].filter(Boolean).join(' / ')||'—'}</td>
+      <td style="padding:8px 6px;white-space:nowrap">
+        ${n.status!=='Entrada Realizada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="abrirModalNFe('${n.id}')">✏️ Editar</button>`:''}
+        ${n.status==='Pendente'||!n.status?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="confirmarEntradaRapida('${n.id}')">✅ Entrada</button>`:''}
+        <button class="btn btn-sm danger" onclick="deletarNFe('${n.id}')" title="Excluir">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Open modal ────────────────────────────────────────────────────────────
+function abrirModalNFe(id){
+  editNFeId=id||null;
+  const n=id?entradasNFe.find(x=>x.id===id):null;
+  document.getElementById('modalNFeTitulo').textContent=id?'✏️ Editar NF-e':'📥 Lançar NF-e Manual';
+  const s=(el,v)=>{const e=document.getElementById(el);if(e)e.value=v||'';};
+  s('nfe_numero',n?.numero_nfe);
+  s('nfe_serie',n?.serie||'1');
+  s('nfe_dt_emissao',n?.dt_emissao||hoje());
+  s('nfe_fornecedor',n?.fornecedor);
+  s('nfe_cnpj_forn',n?.cnpj_fornecedor);
+  s('nfe_valor_total',n?.valor_total);
+  s('nfe_chave',n?.chave_nfe);
+  s('nfe_departamento',n?.departamento);
+  s('nfe_categoria',n?.categoria||'Matéria Prima');
+  s('nfe_vencimento',n?.vencimento||hoje());
+  s('nfe_parcelas','1');
+  s('nfe_obs',n?.observacao);
+
+  // Populate PDV select
+  const pvSel=document.getElementById('nfe_pdv_id');
+  if(pvSel){
+    pvSel.innerHTML='<option value="">— Nenhum —</option>';
+    [...(pedidosVenda||[])].sort((a,b)=>b.numero-a.numero).forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.id; o.textContent='PDV '+p.numero+(p.cliente_nome?' — '+p.cliente_nome.substring(0,25):'');
+      if(n?.pdv_id===p.id) o.selected=true;
+      pvSel.appendChild(o);
+    });
+  }
+
+  // Populate PC select
+  const pcSel=document.getElementById('nfe_pc_id');
+  if(pcSel){
+    pcSel.innerHTML='<option value="">— Nenhum —</option>';
+    [...(pedidosCompra||[])].sort((a,b)=>b.numero-a.numero).forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.id; o.textContent='PC Nº '+p.numero+(p.fornecedor_nome?' — '+p.fornecedor_nome.substring(0,20):'');
+      if(n?.pedido_compra_id===p.id) o.selected=true;
+      pcSel.appendChild(o);
+    });
+  }
+
+  // Populate conta corrente
+  const ccSel=document.getElementById('nfe_conta_corrente');
+  if(ccSel){
+    ccSel.innerHTML='<option value="">Selecionar...</option>';
+    (contasCorrente||[]).forEach(cc=>{
+      const o=document.createElement('option');
+      o.value=cc.nome; o.textContent=cc.nome+(cc.banco?' — '+cc.banco:'');
+      if(n?.conta_corrente===cc.nome) o.selected=true;
+      ccSel.appendChild(o);
+    });
+  }
+
+  // Show itens
+  nfeItensLocal=n?.itens||[];
+  renderItensNFe();
+
+  // Add departamentos from DB
+  const deptSel=document.getElementById('nfe_departamento');
+  if(deptSel&&departamentos?.length){
+    (departamentos||[]).forEach(d=>{
+      if(!['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO'].includes(d.nome)){
+        if(![...deptSel.options].some(o=>o.value===d.nome)){
+          const o=document.createElement('option');o.value=d.nome;o.textContent=d.nome;deptSel.appendChild(o);
+        }
+      }
+    });
+    if(n?.departamento) deptSel.value=n.departamento;
+  }
+
+  document.getElementById('nfe_parcelas_preview').style.display='none';
+  abrirModal('modalNFe');
+}
+
+function renderItensNFe(){
+  const el=document.getElementById('nfe_itens_lista');
+  if(!el) return;
+  if(!nfeItensLocal.length){
+    el.innerHTML='<div style="color:#9e9e9e;text-align:center;padding:8px">Nenhum item — importados do XML ou adicionados manualmente</div>';
+    return;
+  }
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse">
+    <tr style="background:#e3f2fd"><th style="padding:4px 8px;text-align:left;font-size:11px">Cód</th><th style="padding:4px 8px;text-align:left;font-size:11px">Descrição</th><th style="padding:4px 8px;text-align:right;font-size:11px">Qtd</th><th style="padding:4px 8px;text-align:right;font-size:11px">Valor Unit.</th><th style="padding:4px 8px;text-align:right;font-size:11px">Total</th></tr>
+    ${nfeItensLocal.map(it=>`<tr style="border-bottom:1px solid #e0e0e0">
+      <td style="padding:4px 8px;font-size:11px">${it.codigo||'—'}</td>
+      <td style="padding:4px 8px;font-size:12px">${it.descricao||'—'}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:11px">${it.qtd||1} ${it.unidade||''}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:11px">${fmtMoeda(it.valor_unitario||0)}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:11px;font-weight:600">${fmtMoeda((it.qtd||1)*(it.valor_unitario||0))}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+function previewParcelasNFe(){
+  const n=parseInt(document.getElementById('nfe_parcelas')?.value)||1;
+  const venc=document.getElementById('nfe_vencimento')?.value;
+  const valor=parseFloat(document.getElementById('nfe_valor_total')?.value)||0;
+  const prev=document.getElementById('nfe_parcelas_preview');
+  if(!prev) return;
+  if(n<=1){prev.style.display='none';return;}
+  if(!venc||!valor){prev.style.display='none';return;}
+  const parcelas=gerarParcelas(venc,n,valor);
+  prev.style.display='block';
+  prev.innerHTML='<div style="font-weight:700;color:#1565c0;margin-bottom:6px">Parcelas:</div>'+
+    parcelas.map((p,i)=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e3f2fd">
+      <span style="color:#546e7a">${i+1}/${n} — ${new Date(p.vencimento+'T12:00').toLocaleDateString('pt-BR')}</span>
+      <span style="font-weight:600;color:#1565c0">${fmtMoeda(p.valor)}</span>
+    </div>`).join('');
+}
+
+// ── Save draft ───────────────────────────────────────────────────────────
+async function salvarNFeRascunho(){
+  await _salvarNFe('Pendente');
+}
+
+// ── Confirm entry ─────────────────────────────────────────────────────────
+async function confirmarEntradaNFe(){
+  await _salvarNFe('Entrada Realizada');
+}
+
+async function _salvarNFe(status){
+  const numero=document.getElementById('nfe_numero')?.value.trim();
+  const valorTotal=parseFloat(document.getElementById('nfe_valor_total')?.value)||0;
+  const vencimento=document.getElementById('nfe_vencimento')?.value;
+  if(!numero||!valorTotal){showToast('Preencha Nº NF-e e Valor Total','err');return;}
+
+  const obj={
+    numero_nfe:numero,
+    serie:document.getElementById('nfe_serie')?.value||'1',
+    dt_emissao:document.getElementById('nfe_dt_emissao')?.value||hoje(),
+    fornecedor:document.getElementById('nfe_fornecedor')?.value.trim()||null,
+    cnpj_fornecedor:document.getElementById('nfe_cnpj_forn')?.value.replace(/\D/g,'')||null,
+    valor_total:valorTotal,
+    chave_nfe:document.getElementById('nfe_chave')?.value.trim()||null,
+    departamento:document.getElementById('nfe_departamento')?.value||null,
+    pdv_id:document.getElementById('nfe_pdv_id')?.value||null,
+    pedido_compra_id:document.getElementById('nfe_pc_id')?.value||null,
+    categoria:document.getElementById('nfe_categoria')?.value||null,
+    vencimento:vencimento||null,
+    conta_corrente:document.getElementById('nfe_conta_corrente')?.value||null,
+    observacao:document.getElementById('nfe_obs')?.value.trim()||null,
+    status,
+    itens:nfeItensLocal.length?JSON.stringify(nfeItensLocal):null,
+    criado_por:usuarioLogado?.nome||null
+  };
+
+  try{
+    let nfeId=editNFeId;
+    if(editNFeId) await api('PATCH','entradas_nfe',obj,`?id=eq.${editNFeId}`);
+    else{
+      const res=await api('POST','entradas_nfe',obj,'?select=id');
+      nfeId=Array.isArray(res)?res[0]?.id:res?.id;
+    }
+
+    if(status==='Entrada Realizada'){
+      await _processarEntradaNFe(nfeId||editNFeId, obj);
+    }
+
+    showToast(status==='Entrada Realizada'?'✅ Entrada confirmada! CP + Estoque gerados.':'Rascunho salvo!');
+    fecharModal('modalNFe');
+    await loadAll();
+  }catch(e){showToast('Erro ao salvar NF-e','err');console.error(e);}
+}
+
+async function confirmarEntradaRapida(id){
+  const n=entradasNFe.find(x=>x.id===id);
+  if(!n) return;
+  if(!confirm(`Confirmar entrada da NF-e Nº ${n.numero_nfe} — ${fmtMoeda(n.valor_total)}?\n\nIsso irá gerar:\n✅ Conta(s) a Pagar\n📦 Movimentação de Estoque`)) return;
+  try{
+    await api('PATCH','entradas_nfe',{status:'Entrada Realizada'},`?id=eq.${id}`);
+    await _processarEntradaNFe(id, n);
+    showToast('✅ Entrada realizada!');
+    await loadAll();
+  }catch(e){showToast('Erro','err');console.error(e);}
+}
+
+// ── Process: generate CP + stock movement ─────────────────────────────────
+async function _processarEntradaNFe(nfeId, n){
+  // 1. Generate Contas a Pagar
+  const n_parcelas=parseInt(document.getElementById('nfe_parcelas')?.value)||1;
+  const venc=n.vencimento||hoje();
+  const parcelas=n_parcelas>1?gerarParcelas(venc,n_parcelas,n.valor_total):[{vencimento:venc,valor:n.valor_total}];
+
+  for(let i=0;i<parcelas.length;i++){
+    const p=parcelas[i];
+    // Check if CP already exists for this NF-e
+    const existing=contasPagar.filter(c=>c.nfe_id===nfeId);
+    if(existing.length===0){
+      await api('POST','contas_pagar',{
+        descricao:(n.fornecedor||'Fornecedor')+(parcelas.length>1?` — Parcela ${i+1}/${parcelas.length}`:''),
+        valor:p.valor,
+        vencimento:p.vencimento,
+        categoria:n.categoria||'Matéria Prima',
+        num_doc:'NF-e '+n.numero_nfe,
+        conta_corrente:n.conta_corrente||null,
+        pedido_compra_id:n.pedido_compra_id||null,
+        status:'Aberta',
+        nfe_id:nfeId||null,
+        observacao:n.observacao||null,
+        criado_por:usuarioLogado?.nome||null
+      }).catch(()=>{});
+    }
+  }
+
+  // 2. Stock movements for each item
+  const itens=typeof n.itens==='string'?JSON.parse(n.itens||'[]'):n.itens||[];
+  const darEntrada=document.getElementById('nfe_dar_entrada_estoque')?.checked!==false;
+  if(darEntrada&&itens.length){
+    for(const it of itens){
+      // Find matching estoque item by code or description
+      const match=estoqueItens.find(e=>
+        (it.codigo&&e.codigo===it.codigo)||
+        (it.descricao&&e.nome?.toLowerCase().includes(it.descricao.toLowerCase().substring(0,10)))
+      );
+      if(match){
+        await api('POST','estoque_movimentacoes',{
+          item_id:match.id,
+          tipo:'entrada',
+          quantidade:it.qtd||1,
+          valor_unitario:it.valor_unitario||null,
+          origem:'NF-e '+n.numero_nfe,
+          departamento:n.departamento||null,
+          observacao:`Entrada NF-e ${n.numero_nfe} — ${n.fornecedor||''}`,
+          criado_por:usuarioLogado?.nome||null
+        }).catch(()=>{});
+      }
+    }
+  }
+
+  // 3. Update PC status if linked
+  if(n.pedido_compra_id){
+    await api('PATCH','pedidos_compra',{status:'Recebido',nfe_numero:n.numero_nfe},`?id=eq.${n.pedido_compra_id}`).catch(()=>{});
+  }
+}
+
+// ── Delete ───────────────────────────────────────────────────────────────
+async function deletarNFe(id){
+  if(!confirm('Excluir esta NF-e?')) return;
+  try{await api('DELETE','entradas_nfe','',`?id=eq.${id}`);showToast('NF-e removida!');await loadAll();}
+  catch(e){showToast('Erro','err');}
+}
+
+// ── Import XML ────────────────────────────────────────────────────────────
+async function importarXMLNFe(input){
+  const file=input.files[0];
+  if(!file) return;
+  const text=await file.text();
+
+  try{
+    const parser=new DOMParser();
+    const xml=parser.parseFromString(text,'application/xml');
+    const ns='http://www.portalfiscal.inf.br/nfe';
+
+    const g=(tag)=>xml.getElementsByTagNameNS(ns,tag)[0]?.textContent||
+                   xml.getElementsByTagName(tag)[0]?.textContent||'';
+
+    const numero=g('nNF');
+    const serie=g('serie');
+    const dtEmissao=g('dhEmi').substring(0,10)||g('dEmi');
+    const fornecedor=g('xNome');
+    const cnpj=g('CNPJ');
+    const chave=xml.getElementsByTagName('infNFe')[0]?.getAttribute('Id')?.replace('NFe','')||g('chNFe');
+    const valorTotal=parseFloat(g('vNF'))||0;
+
+    // Parse itens
+    const dets=xml.getElementsByTagNameNS(ns,'det');
+    const detsFallback=xml.getElementsByTagName('det');
+    const detList=dets.length?dets:detsFallback;
+    const itensXML=[];
+    for(const det of detList){
+      const gd=(t)=>det.getElementsByTagNameNS(ns,t)[0]?.textContent||det.getElementsByTagName(t)[0]?.textContent||'';
+      itensXML.push({
+        codigo:gd('cProd'),
+        descricao:gd('xProd'),
+        ncm:gd('NCM'),
+        qtd:parseFloat(gd('qCom'))||1,
+        unidade:gd('uCom'),
+        valor_unitario:parseFloat(gd('vUnCom'))||0
+      });
+    }
+
+    if(!numero){showToast('XML inválido — NF-e não encontrada','err');return;}
+
+    // Pre-fill modal
+    nfeItensLocal=itensXML;
+    abrirModalNFe(null);
+    setTimeout(()=>{
+      const s=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};
+      s('nfe_numero',numero);
+      s('nfe_serie',serie);
+      s('nfe_dt_emissao',dtEmissao);
+      s('nfe_fornecedor',fornecedor);
+      s('nfe_cnpj_forn',cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'));
+      s('nfe_valor_total',valorTotal);
+      s('nfe_chave',chave);
+      renderItensNFe();
+      showToast(`✅ XML importado! ${itensXML.length} item(s) carregado(s).`);
+    },200);
+
+    // Reset file input
+    input.value='';
+  }catch(e){
+    showToast('Erro ao ler XML — verifique o arquivo','err');
+    console.error(e);
+    input.value='';
+  }
+}
+
+// ── SEFAZ search (placeholder — requires certificate) ────────────────────
+async function buscarNFeSEFAZ(){
+  // Real SEFAZ integration requires digital certificate
+  // For now: open a dialog explaining the limitation and offer XML import
+  const cnpj=prompt('Informe o CNPJ da empresa para buscar NF-e na SEFAZ:\n(Ex: 08363498000169)');
+  if(!cnpj) return;
+  const cnpjClean=cnpj.replace(/\D/g,'');
+  if(cnpjClean.length!==14){showToast('CNPJ inválido','err');return;}
+
+  showToast('🔍 Consultando base pública...');
+  
+  // Try to find pending NF-e via public API (limited)
+  try{
+    // Use BrasilAPI or similar to verify CNPJ is active
+    const r=await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjClean}`);
+    if(r.ok){
+      const d=await r.json();
+      showToast(`CNPJ encontrado: ${d.razao_social||d.nome_fantasia}. Para buscar NF-e automaticamente, é necessário certificado digital A1/A3. Use "Importar XML" para notas recebidas.`,'info');
+    }
+  }catch(e){}
+  
+  // Show import option
+  setTimeout(()=>{
+    if(confirm('Para buscar NF-e automaticamente da SEFAZ é necessário certificado digital A1/A3.\n\nDeseja importar um XML de NF-e manualmente?')){
+      document.getElementById('xmlNFeInput')?.click();
+    }
+  },1500);
+}
 </script>
 
 
@@ -10192,5 +10651,111 @@ function exportarDRE(){
 
 
 </div><!-- balance fix -->
+
+<!-- MODAL ENTRADA NF-e -->
+<div class="modal-bg" id="modalNFe">
+  <div class="modal" style="width:780px;max-width:99vw">
+    <div class="modal-header" style="background:#1565c0">
+      <h3 id="modalNFeTitulo">📥 Dar Entrada — NF-e</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalNFe')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- NF-e Data (read-only) -->
+      <div style="background:#e3f2fd;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:10px">📄 Dados da Nota Fiscal</div>
+        <div class="form-grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="form-group"><label>Nº NF-e</label><input id="nfe_numero" type="text" readonly style="background:#e3f2fd;font-weight:700"></div>
+          <div class="form-group"><label>Série</label><input id="nfe_serie" type="text" readonly style="background:#e3f2fd"></div>
+          <div class="form-group"><label>Data Emissão</label><input id="nfe_dt_emissao" type="date" readonly style="background:#e3f2fd"></div>
+          <div class="form-group" style="grid-column:span 2"><label>Fornecedor</label><input id="nfe_fornecedor" type="text" readonly style="background:#e3f2fd;font-weight:600"></div>
+          <div class="form-group"><label>CNPJ Fornecedor</label><input id="nfe_cnpj_forn" type="text" readonly style="background:#e3f2fd"></div>
+          <div class="form-group"><label>Valor Total (R$)</label><input id="nfe_valor_total" type="number" step="0.01" style="font-weight:700;color:#c62828"></div>
+          <div class="form-group"><label>Chave NF-e</label><input id="nfe_chave" type="text" style="font-size:11px"></div>
+          <div class="form-group"><label>Nº Pedido Compra</label>
+            <select id="nfe_pc_id">
+              <option value="">— Nenhum —</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry details -->
+      <div style="font-size:11px;font-weight:700;color:#263238;text-transform:uppercase;margin-bottom:10px">⚙️ Configuração de Entrada</div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="form-group"><label>Departamento *</label>
+          <select id="nfe_departamento">
+            <option value="">Selecionar...</option>
+            <option value="INDUSTRIA">🏭 INDUSTRIA</option>
+            <option value="ADMINISTRATIVO">🏢 ADMINISTRATIVO</option>
+            <option value="COMERCIAL">💼 COMERCIAL</option>
+            <option value="MANUTENCAO">🔧 MANUTENÇÃO</option>
+            <option value="EXPEDICAO">📦 EXPEDIÇÃO</option>
+          </select>
+        </div>
+        <div class="form-group"><label>PDV Vinculado</label>
+          <select id="nfe_pdv_id">
+            <option value="">— Nenhum —</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Categoria (Conta a Pagar)</label>
+          <select id="nfe_categoria">
+            <option value="">Selecionar...</option>
+            <option>Matéria Prima</option>
+            <option>Serviços</option>
+            <option>Equipamentos</option>
+            <option>Manutenção</option>
+            <option>Utilities</option>
+            <option>Outros</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Vencimento *</label>
+          <input id="nfe_vencimento" type="date">
+        </div>
+        <div class="form-group"><label>Parcelas</label>
+          <select id="nfe_parcelas" onchange="previewParcelasNFe()">
+            <option value="1">À vista (1x)</option>
+            <option value="2">2x</option><option value="3">3x</option>
+            <option value="4">4x</option><option value="5">5x</option>
+            <option value="6">6x</option><option value="12">12x</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Conta Corrente</label>
+          <select id="nfe_conta_corrente">
+            <option value="">Selecionar...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Parcelas preview -->
+      <div id="nfe_parcelas_preview" style="display:none;background:#e3f2fd;border-radius:8px;padding:10px;margin:8px 0;font-size:12px"></div>
+
+      <!-- Itens da nota -->
+      <div style="font-size:11px;font-weight:700;color:#263238;text-transform:uppercase;margin:12px 0 8px">📦 Itens da NF-e</div>
+      <div id="nfe_itens_lista" style="background:#f5f5f5;border-radius:8px;padding:10px;font-size:12px;max-height:200px;overflow-y:auto">
+        <div style="color:#9e9e9e;text-align:center">Nenhum item carregado</div>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:#546e7a">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="nfe_dar_entrada_estoque" checked>
+          <span>📦 Dar entrada no estoque dos itens desta NF-e</span>
+        </label>
+      </div>
+
+      <!-- Observação -->
+      <div class="form-group full" style="margin-top:12px"><label>Observação</label>
+        <textarea id="nfe_obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical" placeholder="Observações sobre esta nota..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalNFe')">Cancelar</button>
+        <button class="btn" onclick="salvarNFeRascunho()" style="background:#546e7a;color:#fff;border-color:#546e7a">💾 Salvar Rascunho</button>
+        <button class="btn primary" onclick="confirmarEntradaNFe()" style="background:#1565c0;border-color:#1565c0">✅ Confirmar Entrada</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
