@@ -10273,489 +10273,175 @@ async function importarXMLNFe(input){
   }
 }
 
-// ── SEFAZ search (placeholder — requires certificate) ────────────────────
-async function buscarNFeSEFAZ(){
-  // Real SEFAZ integration requires digital certificate
-  // For now: open a dialog explaining the limitation and offer XML import
-  const cnpj=prompt('Informe o CNPJ da empresa para buscar NF-e na SEFAZ:\n(Ex: 08363498000169)');
-  if(!cnpj) return;
-  const cnpjClean=cnpj.replace(/\D/g,'');
-  if(cnpjClean.length!==14){showToast('CNPJ inválido','err');return;}
+// ── SEFAZ search via backend seguro ──────────────────────────────────────
 
-  showToast('🔍 Consultando base pública...');
-  
-  // Try to find pending NF-e via public API (limited)
+// Config: salvo no localStorage (preenchido em Configurações)
+function getNFeBackendConfig(){
   try{
-    // Use BrasilAPI or similar to verify CNPJ is active
-    const r=await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjClean}`);
-    if(r.ok){
-      const d=await r.json();
-      showToast(`CNPJ encontrado: ${d.razao_social||d.nome_fantasia}. Para buscar NF-e automaticamente, é necessário certificado digital A1/A3. Use "Importar XML" para notas recebidas.`,'info');
-    }
-  }catch(e){}
-  
-  // Show import option
-  setTimeout(()=>{
-    if(confirm('Para buscar NF-e automaticamente da SEFAZ é necessário certificado digital A1/A3.\n\nDeseja importar um XML de NF-e manualmente?')){
-      document.getElementById('xmlNFeInput')?.click();
-    }
-  },1500);
+    return JSON.parse(localStorage.getItem('nfe_backend_config')||'{}');
+  }catch(e){return {};}
 }
-</script>
 
+async function buscarNFeSEFAZ(){
+  const cfg=getNFeBackendConfig();
+  if(!cfg.url||!cfg.apiKey){
+    // Show config modal
+    abrirModalNFeConfig();
+    return;
+  }
 
-<!-- MODAL RELATÓRIOS DO GRUPO -->
-<div class="modal-bg" id="modalRelatoriosGrupo">
-<div class="modal" style="max-width:960px">
-  <div class="modal-header">
-    <h3 id="modalRelGrupoTitulo">📊 Ordens Concluídas</h3>
-    <div class="modal-header-actions">
-      <button class="modal-header-btn" onclick="minimizarModal('modalRelatoriosGrupo')">−</button>
-      <button class="modal-header-btn" onclick="fecharModal('modalRelatoriosGrupo')">✕</button>
-    </div>
-  </div>
-  <div class="modal-body">
-    <div id="relGrupoConteudo"></div>
-  </div>
-  <div class="modal-actions" style="padding:0 22px 22px">
-    <button class="btn" onclick="fecharModal('modalRelatoriosGrupo')">Fechar</button>
-  </div>
-</div>
-</div>
+  const btn=document.querySelector('[onclick="buscarNFeSEFAZ()"]');
+  if(btn){btn.disabled=true;btn.textContent='🔄 Consultando SEFAZ...';}
+  showToast('🔍 Consultando NF-e na SEFAZ...');
 
+  try{
+    // Get last NSU from localStorage
+    const ultNSU=localStorage.getItem('nfe_ult_nsu')||'000000000000000';
+    const cnpj=(process?.env?.CNPJ_EMPRESA||'08363498000169').replace(/\D/g,'');
 
+    const resp=await fetch(cfg.url+'/api/consultar-nfe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':cfg.apiKey},
+      body:JSON.stringify({cnpj,ultNSU})
+    });
 
-<!-- MODAL PDV -->
-<div class="modal-bg" id="modalPV">
-  <div class="modal" style="width:900px;max-width:99vw">
-    <div class="modal-header" style="background:#1a237e">
-      <h3 id="modalPVTitulo">Novo PDV</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="minimizarModal('modalPV')">_</button>
-        <button class="modal-header-btn" onclick="fecharModal('modalPV')">✕</button>
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({erro:'Erro no servidor'}));
+      throw new Error(err.erro||'Erro '+resp.status);
+    }
+
+    const data=await resp.json();
+
+    if(!data.sucesso) throw new Error(data.erro||'Erro desconhecido');
+
+    // Save last NSU
+    if(data.ultNSU) localStorage.setItem('nfe_ult_nsu',data.ultNSU);
+
+    if(!data.notas?.length){
+      showToast('Nenhuma NF-e nova encontrada na SEFAZ.');
+      return;
+    }
+
+    // Save new NF-e to Supabase
+    let salvas=0, duplicadas=0;
+    for(const nota of data.notas){
+      // Check if already exists
+      const existe=entradasNFe.some(n=>n.chave_nfe===nota.chave_nfe||
+        (n.numero_nfe===nota.numero_nfe&&n.cnpj_fornecedor===nota.cnpj_fornecedor));
+      if(existe){duplicadas++;continue;}
+
+      // Auto-set vencimento from first duplicata if available
+      const primVenc=nota.vencimentos?.[0]?.vencimento||null;
+
+      await api('POST','entradas_nfe',{
+        numero_nfe:nota.numero_nfe,
+        serie:nota.serie,
+        dt_emissao:nota.dt_emissao,
+        fornecedor:nota.fornecedor,
+        cnpj_fornecedor:nota.cnpj_fornecedor,
+        valor_total:nota.valor_total,
+        chave_nfe:nota.chave_nfe,
+        vencimento:primVenc,
+        status:'Pendente',
+        itens:JSON.stringify(nota.itens||[]),
+        criado_por:'SEFAZ Auto'
+      }).catch(e=>console.warn('Erro ao salvar NF-e:',e));
+      salvas++;
+    }
+
+    showToast(`✅ ${salvas} NF-e(s) novas importadas da SEFAZ!${duplicadas?' ('+duplicadas+' já existiam)':''}`);
+    await loadAll();
+
+  }catch(e){
+    console.error('SEFAZ error:',e);
+    if(e.message.includes('Failed to fetch')||e.message.includes('NetworkError')){
+      showToast('❌ Não foi possível conectar ao backend. Verifique a URL nas configurações.','err');
+    } else {
+      showToast('❌ Erro SEFAZ: '+e.message,'err');
+    }
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='🔍 Buscar NF-e na SEFAZ';}
+  }
+}
+
+// ── Config modal for backend URL and API key ──────────────────────────────
+function abrirModalNFeConfig(){
+  const cfg=getNFeBackendConfig();
+  // Create inline config dialog
+  const existing=document.getElementById('modalNFeConfig');
+  if(existing) existing.remove();
+
+  const div=document.createElement('div');
+  div.id='modalNFeConfig';
+  div.className='modal-bg';
+  div.style.cssText='display:flex;z-index:9999';
+  div.innerHTML=`
+    <div class="modal" style="width:520px;max-width:95vw">
+      <div class="modal-header" style="background:#263238">
+        <h3>⚙️ Configurar Backend NF-e</h3>
+        <div class="modal-header-actions"><button class="modal-header-btn" onclick="document.getElementById('modalNFeConfig').remove()">✕</button></div>
       </div>
-    </div>
-    <div class="modal-body" style="padding:0">
-      <div style="padding:16px 20px;background:#f8f9ff;border-bottom:1px solid #e0e0e0">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-          <div style="flex:2;min-width:220px">
-            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cliente *</label>
-            <div style="display:flex;gap:6px">
-              <input id="pv_cli_razao" type="text" placeholder="Razão Social" style="flex:1;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-              <button class="btn btn-sm" onclick="abrirSelecionarClientePV()" style="white-space:nowrap">📋 Buscar</button>
-            </div>
-          </div>
-          <div style="flex:0 0 80px">
-            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
-            <input id="pv_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
-          </div>
-          <div style="flex:0 0 120px">
-            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Status</label>
-            <select id="pv_status" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:12px">
-              <option value="Orçamento">📝 Orçamento</option><option value="Aprovado">✅ Aprovado</option>
-              <option value="Em Produção">🔧 Em Produção</option><option value="Faturado">💜 Faturado</option>
-              <option value="Entregue">📦 Entregue</option><option value="Cancelado">❌ Cancelado</option>
-            </select>
-          </div>
+      <div class="modal-body">
+        <div style="background:#e8f5e9;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px">
+          <b>Como configurar:</b><br>
+          1. Faça o deploy do backend (pasta <code>backend-nfe</code>)<br>
+          2. Cole aqui a URL e a API Key geradas
         </div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px">
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Total Mercadorias</div><div id="pv_tot_merc" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Frete</div><div id="pv_frete_tot" style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">IPI</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">ICMS ST</div><div style="font-size:14px;font-weight:700">R$ 0,00</div></div>
-          <div style="background:#1a237e;border-radius:8px;padding:8px 12px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,0.8);font-weight:600;text-transform:uppercase;margin-bottom:3px">Total PDV</div><div id="pv_tot_total" style="font-size:15px;font-weight:800;color:#fff">R$ 0,00</div></div>
-        </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
-          <div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Vendedor</label><input id="pv_vendedor" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-          <div style="flex:1;min-width:140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento / C. Custo *</label>
-            <select id="pv_departamento" required style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-              <option value="">Selecionar...</option><option value="INDUSTRIA">INDUSTRIA</option>
-              <option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option>
-              <option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option>
-            </select></div>
-          <div style="flex:0 0 100px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Parcelas</label>
-            <select id="pvNumParcelas" onchange="gerarParcelasPV()" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
-              <option value="1">À Vista</option><option value="2">2x</option><option value="3" selected>3x</option>
-              <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
-            </select></div>
-          <div style="flex:0 0 110px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Frete R$</label>
-            <input id="pv_frete" type="number" step="0.01" value="0" oninput="recalcularTotaisPV()" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-          <div style="flex:0 0 140px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Prev. Faturamento</label>
-            <input id="pv_prev_fat" type="date" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-          <div style="flex:1;min-width:100px"><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Cond. Pagamento</label>
-            <input id="pv_cond_pag" type="text" placeholder="30/60/90" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-        </div>
-      </div>
-      <div style="display:flex;background:#fff;border-bottom:2px solid #e8eaf6;padding:0 20px">
-        <button onclick="showPVSubTab('itens')" id="pvTab_itens" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#1a237e;border-bottom:3px solid #1a237e;margin-bottom:-2px">📦 Itens da Venda</button>
-        <button onclick="showPVSubTab('dados')" id="pvTab_dados" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">👤 Cliente</button>
-        <button onclick="showPVSubTab('pagto')" id="pvTab_pagto" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">💳 Parcelas</button>
-        <button onclick="showPVSubTab('obs')" id="pvTab_obs" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:600;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📝 Obs</button>
-      </div>
-      <div style="padding:16px 20px;min-height:240px">
-        <div id="pvSubItens">
-          <div style="display:flex;gap:8px;margin-bottom:10px"><button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPV()">+ Novo Item</button></div>
-          <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
-              <thead><tr style="background:#e8eaf6"><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Código</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:left">Descrição</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:80px">NCM</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:60px">Qtd</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;width:50px">Und</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Vlr Unit</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:70px">Desc %</th><th style="padding:7px 8px;color:#1a237e;font-size:11px;text-align:right;width:95px">Total</th><th style="width:30px"></th></tr></thead>
-              <tbody id="pvItensBody"></tbody>
-            </table>
+        <div class="form-grid" style="grid-template-columns:1fr">
+          <div class="form-group">
+            <label>URL do Backend</label>
+            <input id="cfg_nfe_url" type="text" placeholder="https://sl-oleos-nfe-backend.vercel.app" value="${cfg.url||''}">
           </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:10px">
-            <div style="min-width:260px;font-size:13px">
-              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0"><span style="color:#546e7a">Subtotal:</span><span id="pv_subtotal">R$ 0,00</span></div>
-              <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:2px solid #1a237e;margin-top:4px"><span style="font-weight:700;font-size:14px">TOTAL:</span><span id="pv_total" style="font-weight:800;font-size:15px;color:#1a237e">R$ 0,00</span></div>
-            </div>
-          </div>
-        </div>
-        <div id="pvSubDados" style="display:none">
-          <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="form-group"><label>Contato</label><input id="pv_cli_contato" type="text"></div>
-            <div class="form-group"><label>CNPJ/CPF</label><input id="pv_cli_cnpj" type="text"></div>
-            <div class="form-group"><label>Inscrição Estadual</label><input id="pv_cli_ie" type="text"></div>
-            <div class="form-group full"><label>Endereço</label><input id="pv_cli_end" type="text"></div>
-            <div class="form-group"><label>Cidade / UF / CEP</label><input id="pv_cli_cidade" type="text"></div>
-            <div class="form-group"><label>Telefone</label><input id="pv_cli_tel" type="text"></div>
-            <div class="form-group"><label>E-mail</label><input id="pv_cli_email" type="email"></div>
+          <div class="form-group">
+            <label>API Key (API_SECRET_KEY)</label>
+            <input id="cfg_nfe_key" type="password" placeholder="sua-api-key-secreta" value="${cfg.apiKey||''}">
           </div>
         </div>
-        <div id="pvSubPagto" style="display:none">
-          <div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-end">
-            <div><label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">1º Vencimento</label>
-              <input type="date" id="pvPrimVenc" onchange="gerarParcelasPV()" style="padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px"></div>
-            <button class="btn btn-sm" onclick="gerarParcelasPV()">🔄 Gerar</button>
-          </div>
-          <div id="pvParcelasDiv"></div>
+        <div style="font-size:12px;color:#546e7a;margin-bottom:12px">
+          💡 CNPJ configurado automaticamente: <b>08.363.498/0001-69</b>
         </div>
-        <div id="pvSubObs" style="display:none">
-          <div class="form-group full"><label>Observações</label><textarea id="pv_obs" rows="4" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
+        <div class="modal-actions" style="padding:0">
+          <button class="btn" onclick="document.getElementById('modalNFeConfig').remove()">Cancelar</button>
+          <button class="btn" onclick="testarConexaoNFe()" style="background:#546e7a;color:#fff;border-color:#546e7a">🔌 Testar Conexão</button>
+          <button class="btn primary" onclick="salvarConfigNFe()">💾 Salvar</button>
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f8f9ff">
-        <button class="btn" onclick="fecharModal('modalPV')">Fechar</button>
-        <div style="display:flex;gap:8px">
-          <button class="btn" onclick="imprimirPV(editPVId)" style="font-size:12px">🖨️ Imprimir</button>
-          <button style="background:#1a237e;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPV()">💾 Salvar PDV</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+    </div>`;
+  document.body.appendChild(div);
+}
 
-<!-- MODAL SELECIONAR CLIENTE PDV -->
-<div class="modal-bg" id="modalSelecionarClientePV">
-  <div class="modal" style="width:520px">
-    <div class="modal-header"><h3>👤 Selecionar Cliente</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalSelecionarClientePV')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <input type="text" id="buscaClientePVModal" placeholder="Buscar..." oninput="filtrarClientesPVModal()" style="width:100%;padding:8px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;margin-bottom:10px">
-      <div id="listaClientesPVModal" style="max-height:360px;overflow-y:auto"></div>
-    </div>
-  </div>
-</div>
+async function testarConexaoNFe(){
+  const url=document.getElementById('cfg_nfe_url')?.value.trim();
+  const key=document.getElementById('cfg_nfe_key')?.value.trim();
+  if(!url||!key){showToast('Preencha URL e API Key','err');return;}
+  const btn=document.querySelector('#modalNFeConfig .btn');
+  showToast('🔌 Testando conexão...');
+  try{
+    const r=await fetch(url+'/api/validar-certificado',{
+      headers:{'x-api-key':key}
+    });
+    const d=await r.json();
+    if(d.configurado&&d.valido){
+      const dias=d.certificado?.dias_restantes||'?';
+      showToast(`✅ Certificado OK! Válido por ${dias} dias — ${d.certificado?.titular||''}`);
+    } else if(d.configurado&&!d.valido){
+      showToast(`⚠️ Certificado configurado mas ${d.erro||'inválido'}. Verifique a senha.`,'err');
+    } else {
+      showToast('⚠️ Backend OK mas certificado não configurado ainda.','err');
+    }
+  }catch(e){
+    showToast('❌ Não conectou: '+e.message,'err');
+  }
+}
 
-<!-- MODAL NOVO CLIENTE -->
-<div class="modal-bg" id="modalCliente">
-  <div class="modal" style="width:720px;max-width:99vw">
-    <div class="modal-header">
-      <h3 id="modalClienteTitulo">Novo Cliente</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCliente')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <div style="background:#e8f5e9;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-end">
-        <div style="flex:1"><label style="font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;display:block;margin-bottom:4px">🔍 Buscar CNPJ na Receita Federal</label>
-          <input id="nc_cli_cnpj_busca" type="text" placeholder="00.000.000/0001-00" style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600"></div>
-        <button id="nc_btnBuscaCNPJ" class="btn primary" onclick="buscarCNPJ()" style="white-space:nowrap">🔎 Buscar</button>
-
-      </div>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
-        <div class="form-group full"><label>Razão Social *</label><input id="nc_cli_nome" type="text"></div>
-        <div class="form-group"><label>Nome Fantasia</label><input id="nc_cli_fantasia" type="text"></div>
-        <div class="form-group"><label>CNPJ/CPF</label><input id="nc_cli_cnpj" type="text"></div>
-        <div class="form-group"><label>Inscrição Estadual</label><input id="nc_cli_ie" type="text"></div>
-        <div class="form-group full"><label>Endereço</label><input id="nc_cli_end" type="text"></div>
-        <div class="form-group"><label>Cidade</label><input id="nc_cli_cidade" type="text"></div>
-        <div class="form-group"><label>UF</label><input id="nc_cli_uf" type="text" maxlength="2" style="text-transform:uppercase"></div>
-        <div class="form-group"><label>CEP</label><input id="nc_cli_cep" type="text"></div>
-        <div class="form-group"><label>Telefone</label><input id="nc_cli_tel" type="text"></div>
-        <div class="form-group"><label>E-mail</label><input id="nc_cli_email" type="email"></div>
-        <div class="form-group"><label>Contato</label><input id="nc_cli_contato" type="text"></div>
-        <div class="form-group full"><label>Observações</label><textarea id="nc_cli_obs" rows="2" style="width:100%;padding:8px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="fecharModal('modalCliente')">Cancelar</button>
-        <button class="btn primary" onclick="salvarCliente()">💾 Salvar Cliente</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="pvPrintArea" style="display:none"></div>
+function salvarConfigNFe(){
+  const url=document.getElementById('cfg_nfe_url')?.value.trim();
+  const key=document.getElementById('cfg_nfe_key')?.value.trim();
+  if(!url||!key){showToast('Preencha todos os campos','err');return;}
+  localStorage.setItem('nfe_backend_config',JSON.stringify({url,apiKey:key}));
+  document.getElementById('modalNFeConfig')?.remove();
+  showToast('✅ Configuração salva!');
+  buscarNFeSEFAZ();
+}
 
 
-<!-- MODAL CONTA A PAGAR -->
-<div class="modal-bg" id="modalCP">
-  <div class="modal" style="width:640px;max-width:99vw">
-    <div class="modal-header" style="background:#c62828">
-      <h3 id="modalCPTitulo">Nova Conta a Pagar</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCP')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid" style="grid-template-columns:1fr 1fr">
-        <div class="form-group"><label>Fornecedor / Descrição *</label>
-          <input id="cp_descricao" type="text" placeholder="Nome do fornecedor ou descrição" list="cp_forn_list">
-          <datalist id="cp_forn_list"></datalist>
-        </div>
-        <div class="form-group"><label>Categoria</label>
-          <select id="cp_categoria">
-            <option value="">Selecionar...</option>
-            <option>Matéria Prima</option><option>Serviços</option><option>Aluguel</option>
-            <option>Utilities</option><option>Salários</option><option>Impostos</option>
-            <option>Manutenção</option><option>Equipamentos</option><option>Outros</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Valor *</label>
-          <input id="cp_valor" type="number" step="0.01" min="0" placeholder="0,00">
-        </div>
-        <div class="form-group"><label>Vencimento 1ª Parcela *</label>
-          <input id="cp_vencimento" type="date">
-        </div>
-        <div class="form-group"><label>Parcelas</label>
-          <select id="cp_parcelas" onchange="previewParcelasCP()">
-            <option value="1">À vista (1x)</option>
-            <option value="2">2x</option><option value="3">3x</option>
-            <option value="4">4x</option><option value="5">5x</option>
-            <option value="6">6x</option><option value="12">12x</option>
-          </select>
-        </div>
-        <div id="cp_parcelas_preview" class="form-group full" style="display:none">
-          <div id="cp_parcelas_lista" style="background:#fff8f6;border:1px solid #ffcdd2;border-radius:8px;padding:10px;font-size:12px"></div>
-        </div>
-        <div class="form-group"><label>Nº Documento / NF</label>
-          <input id="cp_num_doc" type="text" placeholder="Ex: NF-001234">
-        </div>
-        <div class="form-group"><label>Conta Corrente</label>
-          <input id="cp_conta" type="text" placeholder="Ex: Bradesco, Caixa...">
-        </div>
-        <div class="form-group"><label>Pedido de Compra vinculado</label>
-          <select id="cp_pc_id">
-            <option value="">— Nenhum —</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Status</label>
-          <select id="cp_status">
-            <option value="Aberta">🔴 Aberta</option>
-            <option value="Paga">✅ Paga</option>
-            <option value="Cancelada">❌ Cancelada</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Data Pagamento</label>
-          <input id="cp_dt_pagto" type="date">
-        </div>
-        <div class="form-group"><label>Valor Pago</label>
-          <input id="cp_valor_pago" type="number" step="0.01" min="0" placeholder="0,00">
-        </div>
-        <div class="form-group"><label>Recorrência</label>
-          <select id="cp_recorrencia">
-            <option value="">Não recorrente</option>
-            <option value="mensal">🔄 Mensal</option>
-            <option value="bimestral">🔄 Bimestral</option>
-            <option value="trimestral">🔄 Trimestral</option>
-            <option value="anual">🔄 Anual</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Repetir por (meses)</label>
-          <input id="cp_recorr_meses" type="number" min="1" max="60" placeholder="Ex: 12" value="12">
-        </div>
-        <div class="form-group full"><label>Observação</label>
-          <textarea id="cp_obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical"></textarea>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="fecharModal('modalCP')">Cancelar</button>
-        <button class="btn primary" onclick="salvarCP()" style="background:#c62828;border-color:#c62828">💾 Salvar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL CONTA A RECEBER -->
-<div class="modal-bg" id="modalCR">
-  <div class="modal" style="width:640px;max-width:99vw">
-    <div class="modal-header" style="background:#1565c0">
-      <h3 id="modalCRTitulo">Nova Conta a Receber</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCR')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid" style="grid-template-columns:1fr 1fr">
-        <div class="form-group"><label>Cliente / Descrição *</label>
-          <input id="cr_descricao" type="text" placeholder="Nome do cliente ou descrição" list="cr_cli_list">
-          <datalist id="cr_cli_list"></datalist>
-        </div>
-        <div class="form-group"><label>PDV vinculado</label>
-          <select id="cr_pdv_id">
-            <option value="">— Nenhum —</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Valor *</label>
-          <input id="cr_valor" type="number" step="0.01" min="0" placeholder="0,00">
-        </div>
-        <div class="form-group"><label>Vencimento 1ª Parcela *</label>
-          <input id="cr_vencimento" type="date">
-        </div>
-        <div class="form-group"><label>Parcelas</label>
-          <select id="cr_parcelas" onchange="previewParcelasCR()">
-            <option value="1">À vista (1x)</option>
-            <option value="2">2x</option><option value="3">3x</option>
-            <option value="4">4x</option><option value="5">5x</option>
-            <option value="6">6x</option><option value="12">12x</option>
-          </select>
-        </div>
-        <div id="cr_parcelas_preview" class="form-group full" style="display:none">
-          <div id="cr_parcelas_lista" style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:10px;font-size:12px"></div>
-        </div>
-        <div class="form-group"><label>Nº Documento / NF</label>
-          <input id="cr_num_doc" type="text" placeholder="Ex: NF-001234">
-        </div>
-        <div class="form-group"><label>Forma de Pagamento</label>
-          <select id="cr_forma_pgto">
-            <option value="">Selecionar...</option>
-            <option>Boleto</option><option>PIX</option><option>Transferência</option>
-            <option>Cheque</option><option>Dinheiro</option><option>Cartão</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Status</label>
-          <select id="cr_status">
-            <option value="Aberta">🔵 Aberta</option>
-            <option value="Recebida">✅ Recebida</option>
-            <option value="Cancelada">❌ Cancelada</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Data Recebimento</label>
-          <input id="cr_dt_recebto" type="date">
-        </div>
-        <div class="form-group"><label>Valor Recebido</label>
-          <input id="cr_valor_recebido" type="number" step="0.01" min="0" placeholder="0,00">
-        </div>
-        <div class="form-group full"><label>Observação</label>
-          <textarea id="cr_obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical"></textarea>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="fecharModal('modalCR')">Cancelar</button>
-        <button class="btn primary" onclick="salvarCR()" style="background:#1565c0;border-color:#1565c0">💾 Salvar</button>
-      </div>
-    </div>
-  </div>
-
-
-</div><!-- balance fix -->
-
-<!-- MODAL ENTRADA NF-e -->
-<div class="modal-bg" id="modalNFe">
-  <div class="modal" style="width:780px;max-width:99vw">
-    <div class="modal-header" style="background:#1565c0">
-      <h3 id="modalNFeTitulo">📥 Dar Entrada — NF-e</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="fecharModal('modalNFe')">✕</button>
-      </div>
-    </div>
-    <div class="modal-body">
-      <!-- NF-e Data (read-only) -->
-      <div style="background:#e3f2fd;border-radius:10px;padding:14px;margin-bottom:14px">
-        <div style="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:10px">📄 Dados da Nota Fiscal</div>
-        <div class="form-grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
-          <div class="form-group"><label>Nº NF-e</label><input id="nfe_numero" type="text" readonly style="background:#e3f2fd;font-weight:700"></div>
-          <div class="form-group"><label>Série</label><input id="nfe_serie" type="text" readonly style="background:#e3f2fd"></div>
-          <div class="form-group"><label>Data Emissão</label><input id="nfe_dt_emissao" type="date" readonly style="background:#e3f2fd"></div>
-          <div class="form-group" style="grid-column:span 2"><label>Fornecedor</label><input id="nfe_fornecedor" type="text" readonly style="background:#e3f2fd;font-weight:600"></div>
-          <div class="form-group"><label>CNPJ Fornecedor</label><input id="nfe_cnpj_forn" type="text" readonly style="background:#e3f2fd"></div>
-          <div class="form-group"><label>Valor Total (R$)</label><input id="nfe_valor_total" type="number" step="0.01" style="font-weight:700;color:#c62828"></div>
-          <div class="form-group"><label>Chave NF-e</label><input id="nfe_chave" type="text" style="font-size:11px"></div>
-          <div class="form-group"><label>Nº Pedido Compra</label>
-            <select id="nfe_pc_id">
-              <option value="">— Nenhum —</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Entry details -->
-      <div style="font-size:11px;font-weight:700;color:#263238;text-transform:uppercase;margin-bottom:10px">⚙️ Configuração de Entrada</div>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
-        <div class="form-group"><label>Departamento *</label>
-          <select id="nfe_departamento">
-            <option value="">Selecionar...</option>
-            <option value="INDUSTRIA">🏭 INDUSTRIA</option>
-            <option value="ADMINISTRATIVO">🏢 ADMINISTRATIVO</option>
-            <option value="COMERCIAL">💼 COMERCIAL</option>
-            <option value="MANUTENCAO">🔧 MANUTENÇÃO</option>
-            <option value="EXPEDICAO">📦 EXPEDIÇÃO</option>
-          </select>
-        </div>
-        <div class="form-group"><label>PDV Vinculado</label>
-          <select id="nfe_pdv_id">
-            <option value="">— Nenhum —</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Categoria (Conta a Pagar)</label>
-          <select id="nfe_categoria">
-            <option value="">Selecionar...</option>
-            <option>Matéria Prima</option>
-            <option>Serviços</option>
-            <option>Equipamentos</option>
-            <option>Manutenção</option>
-            <option>Utilities</option>
-            <option>Outros</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Vencimento *</label>
-          <input id="nfe_vencimento" type="date">
-        </div>
-        <div class="form-group"><label>Parcelas</label>
-          <select id="nfe_parcelas" onchange="previewParcelasNFe()">
-            <option value="1">À vista (1x)</option>
-            <option value="2">2x</option><option value="3">3x</option>
-            <option value="4">4x</option><option value="5">5x</option>
-            <option value="6">6x</option><option value="12">12x</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Conta Corrente</label>
-          <select id="nfe_conta_corrente">
-            <option value="">Selecionar...</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Parcelas preview -->
-      <div id="nfe_parcelas_preview" style="display:none;background:#e3f2fd;border-radius:8px;padding:10px;margin:8px 0;font-size:12px"></div>
-
-      <!-- Itens da nota -->
-      <div style="font-size:11px;font-weight:700;color:#263238;text-transform:uppercase;margin:12px 0 8px">📦 Itens da NF-e</div>
-      <div id="nfe_itens_lista" style="background:#f5f5f5;border-radius:8px;padding:10px;font-size:12px;max-height:200px;overflow-y:auto">
-        <div style="color:#9e9e9e;text-align:center">Nenhum item carregado</div>
-      </div>
-      <div style="margin-top:8px;font-size:12px;color:#546e7a">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="nfe_dar_entrada_estoque" checked>
-          <span>📦 Dar entrada no estoque dos itens desta NF-e</span>
-        </label>
-      </div>
-
-      <!-- Observação -->
-      <div class="form-group full" style="margin-top:12px"><label>Observação</label>
-        <textarea id="nfe_obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical" placeholder="Observações sobre esta nota..."></textarea>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn" onclick="fecharModal('modalNFe')">Cancelar</button>
-        <button class="btn" onclick="salvarNFeRascunho()" style="background:#546e7a;color:#fff;border-color:#546e7a">💾 Salvar Rascunho</button>
-        <button class="btn primary" onclick="confirmarEntradaNFe()" style="background:#1565c0;border-color:#1565c0">✅ Confirmar Entrada</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
