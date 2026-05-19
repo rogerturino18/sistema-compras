@@ -223,7 +223,7 @@ tr:hover td{background:#f9fbf9}
 
 
 /* LOGIN */
-.login-bg{position:fixed;inset:0;background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#388e3c 100%);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
+.login-bg{position:fixed;inset:0;background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#388e3c 100%);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
 .login-box{background:#fff;border-radius:16px;padding:36px 32px;width:380px;max-width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.25)}
 .login-logo{text-align:center;margin-bottom:24px}
 .login-logo .logo-circle{width:64px;height:64px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;margin:0 auto 12px}
@@ -7502,23 +7502,29 @@ function showToast(msg,type='ok'){
 
 // Verificar sessão ao carregar
 window.addEventListener('load',()=>{
+  // Safety: ensure login is visible first
+  const loginEl=document.getElementById('loginBg');
+  const appEl=document.getElementById('appContent');
+  if(loginEl) loginEl.style.display='flex';
+  if(appEl) appEl.style.display='none';
+  
   const saved=sessionStorage.getItem('sl_usuario');
   if(saved){
     try{
       usuarioLogado=JSON.parse(saved);
-      document.getElementById('loginBg').style.display='none';
+      if(loginEl) loginEl.style.display='none';
       document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
       document.getElementById('userName').textContent=usuarioLogado.nome;
       mostrarApp();
       loadAll();
     }catch(e){
       sessionStorage.removeItem('sl_usuario');
-      document.getElementById('appContent').style.display='none';
-      document.getElementById('loginBg').style.display='flex';
+      if(appEl) appEl.style.display='none';
+      if(loginEl) loginEl.style.display='flex';
     }
   } else {
-    document.getElementById('appContent').style.display='none';
-    document.getElementById('loginBg').style.display='flex';
+    if(appEl) appEl.style.display='none';
+    if(loginEl) loginEl.style.display='flex';
   }
 });
 
