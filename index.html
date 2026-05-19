@@ -10297,7 +10297,7 @@ async function buscarNFeSEFAZ(){
   try{
     // Get last NSU from localStorage
     const ultNSU=localStorage.getItem('nfe_ult_nsu')||'000000000000000';
-    const cnpj=(process?.env?.CNPJ_EMPRESA||'08363498000169').replace(/\D/g,'');
+    const cnpj='08363498000169';
 
     const resp=await fetch(cfg.url+'/api/consultar-nfe',{
       method:'POST',
