@@ -4668,6 +4668,7 @@ function renderOrdens(){
             <div style="margin-top:8px;display:flex;gap:4px">
               <button class="btn btn-sm" onclick="abrirRelatorioOrdem('${o.id}')" style="font-size:11px;padding:3px 8px" title="Relatório">📊</button>
               <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" style="font-size:11px;padding:3px 8px">🖨️</button>
+              <button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px;padding:3px 8px" onclick="abrirModalOrdem('${o.id}')">✏️</button>
               <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" style="font-size:11px;padding:3px 8px">🗑</button>
             </div>
           </div>`).join('');
@@ -4956,6 +4957,9 @@ async function dragDropOp(e, novaOp){
 }
 
 function abrirModalOrdem(id){
+  editOrdemId = id || null;
+  const o = id ? ordens.find(x=>x.id===id) : null;
+  document.getElementById('modalOrdemTitulo').textContent = id ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção';
   // Popula select de PDVs
   const selPDV=document.getElementById('ord_pdv_sel');
   selPDV.innerHTML='<option value="">Selecione um PDV...</option>';
@@ -4966,13 +4970,16 @@ function abrirModalOrdem(id){
     o.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'')+(temPecas?' ✓':'');
     selPDV.appendChild(o);
   });
-  // Reset
+  // Reset / prefill
   document.getElementById('ord_produto').innerHTML='<option value="">Selecione uma peça...</option>';
   document.getElementById('grp_ord_peca').style.display='none';
-  document.getElementById('grp_ord_detalhes').style.display='none';
-  ['ord_descricao','ord_desenho','ord_material'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ord_qtd').value=1;
-  document.getElementById('ord_data').value=new Date().toISOString().split('T')[0];
+  document.getElementById('grp_ord_detalhes').style.display=o?'block':'none';
+  document.getElementById('ord_descricao').value=o?.descricao||'';
+  document.getElementById('ord_desenho').value=o?.desenho||'';
+  document.getElementById('ord_material').value=o?.material||'';
+  document.getElementById('ord_qtd').value=o?.quantidade||1;
+  document.getElementById('ord_data').value=o?.dt_abertura||new Date().toISOString().split('T')[0];
+  if(o?.pdv_id) selPDV.value=o.pdv_id;
   abrirModal('modalOrdem');
 }
 
@@ -5057,6 +5064,16 @@ function preencherDadosOrdem(){
     <span style="color:var(--gray)">📁 Setor: ${opt.dataset.setor||'—'} · Peça: <b>${opt.dataset.descricao||'—'}</b>${opt.dataset.desenho?' · Nº '+opt.dataset.desenho:''}</span>`;
 }
 
+async function deletarOrdem(id){
+  if(!confirm('Excluir esta ordem de produção?')) return;
+  try{
+    await api('DELETE','tempos_op','',`?ordem_id=eq.${id}`).catch(()=>{});
+    await api('DELETE','ordens_producao','',`?id=eq.${id}`);
+    showToast('Ordem excluída!');
+    await loadAll();
+  }catch(e){showToast('Erro ao excluir','err');console.error(e);}
+}
+
 async function salvarOrdem(){
   const descricao=document.getElementById('ord_descricao').value.trim();
   if(!descricao){showToast('Informe a descrição da peça','err');return;}
@@ -5074,8 +5091,14 @@ async function salvarOrdem(){
     criado_por:usuarioLogado?.nome||null
   };
   try{
-    const res=await api('POST','ordens_producao',obj);
-    showToast('Ordem criada!');
+    let res;
+    if(editOrdemId){
+      res=await api('PATCH','ordens_producao',obj,`?id=eq.${editOrdemId}`);
+      showToast('Ordem atualizada!');
+    } else {
+      res=await api('POST','ordens_producao',obj);
+      showToast('Ordem criada!');
+    }
     fecharModal('modalOrdem');
     await loadAll();
     if(res&&res[0]){
@@ -9907,7 +9930,7 @@ function exportarDRE(){
 }
 
 // ===== ENTRADA DE NF-e =====
-let editNFeId = null, nfeItensLocal = [];
+let editNFeId = null, nfeItensLocal = [], editOrdemId = null;
 
 // ── Render list ──────────────────────────────────────────────────────────
 function renderEntradaNFe(){
@@ -10568,5 +10591,330 @@ async function buscarTodasNFe(){
   }
 }
 </script>
+
+<!-- MODAL CLIENTE -->
+<div class="modal-bg" id="modalCliente">
+  <div class="modal" style="width:680px;max-width:99vw">
+    <div class="modal-header">
+      <h3 id="modalClienteTitulo">Novo Cliente</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalCliente')">−</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalCliente')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;background:#e3f2fd;padding:12px;border-radius:10px">
+        <div class="form-group full" style="grid-column:span 2">
+          <label>Buscar por CNPJ (preenche automaticamente)</label>
+          <div style="display:flex;gap:8px">
+            <input id="nc_cli_cnpj_busca" type="text" placeholder="Digite o CNPJ (14 dígitos)" style="flex:1">
+            <button id="nc_btnBuscaCNPJ" class="btn primary" onclick="buscarCNPJ()">🔎 Buscar</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group full"><label>Razão Social *</label><input id="nc_cli_nome" type="text" placeholder="Nome completo ou razão social"></div>
+        <div class="form-group"><label>Nome Fantasia</label><input id="nc_cli_fantasia" type="text"></div>
+        <div class="form-group"><label>CNPJ / CPF</label><input id="nc_cli_cnpj" type="text" placeholder="00.000.000/0000-00"></div>
+        <div class="form-group"><label>Inscrição Estadual</label><input id="nc_cli_ie" type="text"></div>
+        <div class="form-group full"><label>Endereço</label><input id="nc_cli_end" type="text" placeholder="Rua, número, bairro"></div>
+        <div class="form-group"><label>Cidade</label><input id="nc_cli_cidade" type="text"></div>
+        <div class="form-group"><label>UF</label><input id="nc_cli_uf" type="text" maxlength="2" placeholder="SP"></div>
+        <div class="form-group"><label>CEP</label><input id="nc_cli_cep" type="text" placeholder="00000-000"></div>
+        <div class="form-group"><label>Telefone</label><input id="nc_cli_tel" type="text"></div>
+        <div class="form-group"><label>E-mail</label><input id="nc_cli_email" type="email"></div>
+        <div class="form-group"><label>Contato</label><input id="nc_cli_contato" type="text"></div>
+        <div class="form-group full"><label>Observações</label><textarea id="nc_cli_obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical"></textarea></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCliente')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCliente()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONTAS A PAGAR -->
+<div class="modal-bg" id="modalCP">
+  <div class="modal" style="width:620px;max-width:99vw">
+    <div class="modal-header" style="background:#c62828">
+      <h3 id="modalCPTitulo">Nova Conta a Pagar</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalCP')">−</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalCP')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group full"><label>Descrição / Fornecedor *</label>
+          <input id="cp_descricao" type="text" placeholder="Ex: ACOVISA — Barras de Aço" list="cp_forn_list">
+          <datalist id="cp_forn_list"></datalist>
+        </div>
+        <div class="form-group"><label>Categoria</label>
+          <select id="cp_categoria">
+            <option value="">Selecionar...</option>
+            <option>Matéria Prima</option><option>Serviços</option>
+            <option>Equipamentos</option><option>Manutenção</option>
+            <option>Utilities</option><option>Salários</option><option>Outros</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Valor (R$) *</label><input id="cp_valor" type="number" step="0.01" min="0" oninput="previewParcelasCP()"></div>
+        <div class="form-group"><label>Vencimento *</label><input id="cp_vencimento" type="date" oninput="previewParcelasCP()"></div>
+        <div class="form-group"><label>Parcelas</label>
+          <select id="cp_parcelas" onchange="previewParcelasCP()">
+            <option value="1">À vista (1x)</option>
+            <option value="2">2x</option><option value="3">3x</option>
+            <option value="4">4x</option><option value="6">6x</option><option value="12">12x</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Recorrência</label>
+          <select id="cp_recorrencia">
+            <option value="">Sem recorrência</option>
+            <option value="mensal">Mensal</option><option value="bimestral">Bimestral</option>
+            <option value="trimestral">Trimestral</option><option value="anual">Anual</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Meses de recorrência</label>
+          <input id="cp_recorr_meses" type="number" value="12" min="1" max="60">
+        </div>
+        <div class="form-group"><label>Nº Documento</label><input id="cp_num_doc" type="text" placeholder="NF, boleto, etc."></div>
+        <div class="form-group"><label>Conta Corrente</label>
+          <select id="cp_conta"><option value="">Selecionar...</option></select>
+        </div>
+        <div class="form-group"><label>Pedido de Compra</label>
+          <select id="cp_pc_id"><option value="">— Nenhum —</option></select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="cp_status">
+            <option value="Aberta">Aberta</option>
+            <option value="Paga">Paga</option>
+            <option value="Cancelada">Cancelada</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Data Pagamento</label><input id="cp_dt_pagto" type="date"></div>
+        <div class="form-group"><label>Valor Pago (R$)</label><input id="cp_valor_pago" type="number" step="0.01"></div>
+        <div class="form-group full"><label>Observação</label><input id="cp_obs" type="text"></div>
+      </div>
+      <div id="cp_parcelas_preview" style="display:none;background:#fff3e0;border-radius:8px;padding:10px;margin:8px 0">
+        <div id="cp_parcelas_lista"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCP')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCP()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONTAS A RECEBER -->
+<div class="modal-bg" id="modalCR">
+  <div class="modal" style="width:580px;max-width:99vw">
+    <div class="modal-header" style="background:#1565c0">
+      <h3 id="modalCRTitulo">Nova Conta a Receber</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalCR')">−</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalCR')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group full"><label>Descrição / Cliente *</label>
+          <input id="cr_descricao" type="text" placeholder="Ex: PDV 66 — Palmaplan" list="cr_cli_list">
+          <datalist id="cr_cli_list"></datalist>
+        </div>
+        <div class="form-group"><label>Valor (R$) *</label><input id="cr_valor" type="number" step="0.01" oninput="previewParcelasCR()"></div>
+        <div class="form-group"><label>Vencimento *</label><input id="cr_vencimento" type="date" oninput="previewParcelasCR()"></div>
+        <div class="form-group"><label>Parcelas</label>
+          <select id="cr_parcelas" onchange="previewParcelasCR()">
+            <option value="1">À vista (1x)</option>
+            <option value="2">2x</option><option value="3">3x</option>
+            <option value="4">4x</option><option value="6">6x</option><option value="12">12x</option>
+          </select>
+        </div>
+        <div class="form-group"><label>PDV Vinculado</label>
+          <select id="cr_pdv_id"><option value="">— Nenhum —</option></select>
+        </div>
+        <div class="form-group"><label>Forma de Pagamento</label>
+          <select id="cr_forma_pgto">
+            <option value="">Selecionar...</option>
+            <option>Boleto</option><option>PIX</option><option>Transferência</option>
+            <option>Cheque</option><option>Dinheiro</option><option>Cartão</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Nº Documento</label><input id="cr_num_doc" type="text"></div>
+        <div class="form-group"><label>Status</label>
+          <select id="cr_status">
+            <option value="Aberta">Aberta</option>
+            <option value="Recebida">Recebida</option>
+            <option value="Cancelada">Cancelada</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Data Recebimento</label><input id="cr_dt_recebto" type="date"></div>
+        <div class="form-group"><label>Valor Recebido (R$)</label><input id="cr_valor_recebido" type="number" step="0.01"></div>
+        <div class="form-group full"><label>Observação</label><input id="cr_obs" type="text"></div>
+      </div>
+      <div id="cr_parcelas_preview" style="display:none;background:#e3f2fd;border-radius:8px;padding:10px;margin:8px 0">
+        <div id="cr_parcelas_lista"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCR')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCR()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PEDIDO DE VENDA -->
+<div class="modal-bg" id="modalPV">
+  <div class="modal" style="width:860px;max-width:99vw">
+    <div class="modal-header" style="background:#4a148c">
+      <h3>🧾 Pedido de Venda</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalPV')">−</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalPV')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Sub-tabs -->
+      <div style="display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:14px">
+        <button id="pvTab_itens" onclick="showPVSubTab('itens')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:700;font-size:13px;color:#1a237e;border-bottom:3px solid #1a237e;margin-bottom:-2px">Itens</button>
+        <button id="pvTab_dados" onclick="showPVSubTab('dados')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">Dados do Cliente</button>
+        <button id="pvTab_pagto" onclick="showPVSubTab('pagto')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">Pagamento</button>
+        <button id="pvTab_obs" onclick="showPVSubTab('obs')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">Observações</button>
+      </div>
+
+      <!-- Header fields -->
+      <div class="form-grid" style="grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+        <div class="form-group"><label>Nº PDV</label><input id="pv_numero" type="number"></div>
+        <div class="form-group"><label>Status</label>
+          <select id="pv_status">
+            <option>Orçamento</option><option>Aprovado</option>
+            <option>Em Produção</option><option>Faturado</option>
+            <option>Entregue</option><option>Cancelado</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Depto / Centro de Custo *</label>
+          <select id="pv_departamento">
+            <option value="">Selecionar...</option>
+            <option>INDUSTRIA</option><option>ADMINISTRATIVO</option>
+            <option>COMERCIAL</option><option>MANUTENCAO</option><option>EXPEDICAO</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Vendedor</label><input id="pv_vendedor" type="text"></div>
+      </div>
+
+      <!-- Itens sub-tab -->
+      <div id="pvSubItens">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:600">Itens do Pedido</span>
+          <button class="btn btn-sm primary" onclick="addItemPV()">+ Item</button>
+        </div>
+        <div class="tbl-wrap" style="max-height:240px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:#f3e5f5">
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">Código</th>
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">Descrição</th>
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">NCM</th>
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">Qtd</th>
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">Und</th>
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">Val. Unit.</th>
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">Desc %</th>
+              <th style="padding:6px 6px;color:#6a1b9a;font-size:11px">Total</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="pvItensBody"><tr><td colspan="9" style="text-align:center;padding:16px;color:#bdbdbd;font-size:12px">Nenhum item</td></tr></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:16px;padding:10px 0;font-size:13px">
+          <span>Subtotal: <b id="pv_subtotal">R$ 0,00</b></span>
+          <span>Frete: <b id="pv_frete_tot">R$ 0,00</b></span>
+          <span style="font-size:15px;font-weight:700;color:#4a148c">Total: <b id="pv_total">R$ 0,00</b></span>
+        </div>
+      </div>
+
+      <!-- Dados sub-tab -->
+      <div id="pvSubDados" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-sm" onclick="abrirSelecionarClientePV()">👤 Selecionar Cliente</button>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr">
+          <div class="form-group full"><label>Razão Social *</label><input id="pv_cli_razao" type="text"></div>
+          <div class="form-group"><label>Contato</label><input id="pv_cli_contato" type="text"></div>
+          <div class="form-group"><label>CNPJ</label><input id="pv_cli_cnpj" type="text"></div>
+          <div class="form-group"><label>IE</label><input id="pv_cli_ie" type="text"></div>
+          <div class="form-group full"><label>Endereço</label><input id="pv_cli_end" type="text"></div>
+          <div class="form-group"><label>Cidade / UF</label><input id="pv_cli_cidade" type="text"></div>
+          <div class="form-group"><label>Telefone</label><input id="pv_cli_tel" type="text"></div>
+          <div class="form-group"><label>E-mail</label><input id="pv_cli_email" type="email"></div>
+        </div>
+      </div>
+
+      <!-- Pagamento sub-tab -->
+      <div id="pvSubPagto" style="display:none">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="form-group"><label>Prev. Faturamento</label><input id="pv_prev_fat" type="date"></div>
+          <div class="form-group"><label>Frete (R$)</label><input id="pv_frete" type="number" step="0.01" oninput="recalcularTotaisPV()"></div>
+          <div class="form-group"><label>Condição de Pagamento</label><input id="pv_cond_pag" type="text" placeholder="Ex: 30/60/90 dias"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin:10px 0">
+          <div class="form-group" style="flex:1"><label>Nº de Parcelas</label>
+            <select id="pvNumParcelas">
+              <option value="1">À vista</option><option value="2">2x</option>
+              <option value="3">3x</option><option value="4">4x</option>
+              <option value="6">6x</option><option value="12">12x</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1"><label>1º Vencimento</label><input id="pvPrimVenc" type="date"></div>
+          <button class="btn btn-sm primary" onclick="gerarParcelasPV()" style="margin-top:18px">Gerar Parcelas</button>
+        </div>
+        <div id="pvParcelasDiv"></div>
+      </div>
+
+      <!-- Obs sub-tab -->
+      <div id="pvSubObs" style="display:none">
+        <div class="form-group full">
+          <label>Observações</label>
+          <textarea id="pv_obs" rows="5" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical" placeholder="Informações adicionais, condições especiais..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <span style="font-size:14px;font-weight:700;color:#4a148c">Total: <b id="pv_tot_total">R$ 0,00</b></span>
+        <button class="btn" onclick="fecharModal('modalPV')">Cancelar</button>
+        <button class="btn" onclick="imprimirPV(editPVId)" style="background:#546e7a;color:#fff">🖨️</button>
+        <button class="btn primary" onclick="salvarPV()">💾 Salvar PDV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SELECIONAR CLIENTE PV -->
+<div class="modal-bg" id="modalSelecionarClientePV">
+  <div class="modal" style="width:500px;max-width:95vw">
+    <div class="modal-header" style="background:#4a148c">
+      <h3>👤 Selecionar Cliente</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalSelecionarClientePV')">✕</button></div>
+    </div>
+    <div class="modal-body" style="padding:12px">
+      <input id="buscaClientePVModal" type="text" placeholder="Buscar por nome ou CNPJ..." oninput="filtrarClientesPVModal()" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:10px">
+      <div id="listaClientesPVModal" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RELATÓRIOS GRUPO (ordens concluídas por PDV) -->
+<div class="modal-bg" id="modalRelatoriosGrupo">
+  <div class="modal" style="width:860px;max-width:99vw">
+    <div class="modal-header" style="background:#263238">
+      <h3 id="modalRelGrupoTitulo">📊 Ordens Concluídas</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalRelatoriosGrupo')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="relGrupoConteudo"></div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
