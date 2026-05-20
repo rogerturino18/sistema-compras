@@ -2659,7 +2659,8 @@ tr:hover td{background:#f9fbf9}
       <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Recebimento de notas fiscais — automático via SEFAZ ou importação de XML.</p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" onclick="buscarNFeSEFAZ()" style="background:#1565c0;color:#fff;border-color:#1565c0">🔍 Buscar NF-e na SEFAZ</button>
+      <button class="btn" onclick="buscarNFeSEFAZ()" style="background:#1565c0;color:#fff;border-color:#1565c0">🔍 Buscar Novas</button>
+      <button class="btn" onclick="buscarTodasNFe()" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a">📥 Buscar Histórico</button>
       <label class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;cursor:pointer">
         📂 Importar XML
         <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
@@ -10450,6 +10451,122 @@ function salvarConfigNFe(){
   buscarNFeSEFAZ();
 }
 
+
+// ── Busca histórico completo de NF-e (retroativo) ────────────────────────
+async function buscarTodasNFe(){
+  const cfg=getNFeBackendConfig();
+  if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
+
+  const total_notas_antes = entradasNFe.length;
+  let ultNSU = '000000000000000';
+  let lote = 1;
+  let totalImportadas = 0;
+  let totalDuplicadas = 0;
+  let continuar = true;
+
+  // Show progress modal
+  const progDiv = document.createElement('div');
+  progDiv.id = 'modalBuscaTodas';
+  progDiv.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  progDiv.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:32px;min-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+      <div style="font-size:32px;margin-bottom:12px">📥</div>
+      <div style="font-size:16px;font-weight:700;color:#263238;margin-bottom:8px">Buscando Histórico na SEFAZ</div>
+      <div id="progTexto" style="font-size:13px;color:#546e7a;margin-bottom:16px">Iniciando consulta...</div>
+      <div style="background:#e3f2fd;border-radius:8px;padding:10px;font-size:13px;color:#1565c0;margin-bottom:16px">
+        <b id="progNotas">0</b> notas importadas
+      </div>
+      <div style="background:#f5f5f5;border-radius:8px;height:8px;overflow:hidden">
+        <div id="progBarra" style="background:#1565c0;height:100%;width:0%;transition:width 0.3s;border-radius:8px"></div>
+      </div>
+      <button onclick="document.getElementById('modalBuscaTodas').remove();window._cancelarBusca=true" 
+        style="margin-top:20px;padding:8px 24px;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-size:13px">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(progDiv);
+  window._cancelarBusca = false;
+
+  const setProgresso = (texto, notas, pct) => {
+    const el = document.getElementById('progTexto');
+    const elN = document.getElementById('progNotas');
+    const elB = document.getElementById('progBarra');
+    if(el) el.textContent = texto;
+    if(elN) elN.textContent = notas;
+    if(elB) elB.style.width = pct + '%';
+  };
+
+  try{
+    while(continuar && !window._cancelarBusca){
+      setProgresso(`Consultando lote ${lote}... (NSU ${ultNSU})`, totalImportadas, Math.min(lote*5, 90));
+
+      const resp = await fetch(cfg.url + '/api/buscar-todas-nfe', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','x-api-key':cfg.apiKey},
+        body: JSON.stringify({cnpj:'08363498000169', ultNSU})
+      });
+
+      if(!resp.ok){
+        const err = await resp.json().catch(()=>({erro:'Erro '+resp.status}));
+        throw new Error(err.erro||'Erro no servidor');
+      }
+
+      const data = await resp.json();
+      if(!data.sucesso) throw new Error(data.erro||'Erro desconhecido');
+
+      // Save notes
+      for(const nota of data.notas||[]){
+        const existe = entradasNFe.some(n=>n.chave_nfe===nota.chave_nfe&&nota.chave_nfe);
+        if(existe){ totalDuplicadas++; continue; }
+        const primVenc = nota.vencimentos?.[0]?.vencimento||null;
+        await api('POST','entradas_nfe',{
+          numero_nfe:nota.numero_nfe, serie:nota.serie,
+          dt_emissao:nota.dt_emissao, fornecedor:nota.fornecedor,
+          cnpj_fornecedor:nota.cnpj_fornecedor, valor_total:nota.valor_total,
+          chave_nfe:nota.chave_nfe, vencimento:primVenc,
+          status:'Pendente', itens:JSON.stringify(nota.itens||[]),
+          criado_por:'SEFAZ Histórico'
+        }).catch(e=>console.warn('Erro salvar:',e));
+        totalImportadas++;
+      }
+
+      // Update NSU for next batch
+      if(data.ultNSU) {
+        ultNSU = data.ultNSU;
+        localStorage.setItem('nfe_ult_nsu', ultNSU);
+      }
+
+      // Check if there are more
+      continuar = data.hasMore && data.notas?.length > 0;
+      lote++;
+
+      // Reload to show progress
+      if(totalImportadas > 0 && lote % 3 === 0){
+        await loadAll();
+        setProgresso(`Consultando lote ${lote}...`, totalImportadas, Math.min(lote*5, 90));
+      }
+
+      // Small delay to not overload SEFAZ
+      if(continuar) await new Promise(r=>setTimeout(r,500));
+    }
+
+    // Final reload
+    await loadAll();
+    document.getElementById('modalBuscaTodas')?.remove();
+
+    if(window._cancelarBusca){
+      showToast(`Cancelado. ${totalImportadas} notas importadas até agora.`);
+    } else {
+      showToast(`✅ Concluído! ${totalImportadas} nota(s) importada(s)${totalDuplicadas?' ('+totalDuplicadas+' já existiam)':''}.`);
+    }
+
+  }catch(e){
+    document.getElementById('modalBuscaTodas')?.remove();
+    console.error('Erro buscar todas:', e);
+    showToast('❌ Erro: '+e.message,'err');
+    if(totalImportadas>0) await loadAll();
+  }
+}
 </script>
 </body>
 </html>
