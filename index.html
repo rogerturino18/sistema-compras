@@ -2961,9 +2961,9 @@ function renderDashboard(){
   if(novasCot.length) notifs.push({tipo:'green',icon:'✅',msg:`${novasCot.length} cotação(ões) recebida(s) nas últimas 48h`,tab:4});
   const semForn=itens.filter(i=>!i.fornecedor&&!i.comprado);
   if(semForn.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${semForn.length} item(ns) sem fornecedor definido`,tab:1});
-  if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,tab:8});
+  if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,tab:10});
   const semCotacao=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado);
-  if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,tab:4});
+  if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,tab:6});
   // Financial alerts
   if(typeof contasPagar!=='undefined'){
     const cpVencidas=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento));
@@ -8827,6 +8827,18 @@ function verificarAprovacoesPendentes(){
     // Remove card do dashboard se não tiver mais pendências
     const existing=document.getElementById('notifAprovacoes');
     if(existing) existing.remove();
+    // Mostra info de que o admin tem aprovação automática (só se não houver outras notificações de aprovação)
+    const dashNotifs=document.getElementById('dashNotifs');
+    if(dashNotifs && !document.getElementById('notifAdminAutoAprova')){
+      const totalReqs=requisicoes.filter(r=>r.status==='Atendida').length;
+      if(totalReqs>0){
+        const info=`<div id="notifAdminAutoAprova" style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:12px;color:#1b5e20">
+          ℹ️ Suas requisições são <b>aprovadas automaticamente</b> por ser administrador. Quando outro usuário criar uma requisição, ela aparecerá aqui.
+        </div>`;
+        // Só insere se dashNotifs não estiver "vazio/placeholder"
+        if(!dashNotifs.querySelector('.empty')) dashNotifs.insertAdjacentHTML('beforeend',info);
+      }
+    }
     return;
   }
   // Atualiza badge numérico no sidebar
@@ -8834,6 +8846,9 @@ function verificarAprovacoesPendentes(){
     badge.style.display='block';
     badge.textContent=pendentes.length>9?'9+':pendentes.length;
   }
+  // Remove info de admin
+  const infoAdmin=document.getElementById('notifAdminAutoAprova');
+  if(infoAdmin) infoAdmin.remove();
   // Mostra card no dashboard
   const dashNotifs=document.getElementById('dashNotifs');
   if(dashNotifs){
