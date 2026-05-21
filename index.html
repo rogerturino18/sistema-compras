@@ -9212,6 +9212,96 @@ function gerarConteudoRelatorio(ordemId){
 }
 
 
+async function deletarTempoOp(tempoId){
+  if(!confirm('Excluir este registro de operação?')) return;
+  try{
+    await api('DELETE','tempos_op','',`?id=eq.${tempoId}`);
+    showToast('Operação excluída!');
+    await loadAll();
+    // Atualiza o conteúdo do relatório se o modal estiver aberto
+    const modal = document.getElementById('modalRelatorioOrdem');
+    if(modal && modal.classList.contains('open') || document.getElementById('relatorioOrdemConteudo')){
+      const ordemId = modal?.dataset?.ordemId;
+      if(ordemId){
+        document.getElementById('relatorioOrdemConteudo').innerHTML = gerarConteudoRelatorio(ordemId);
+      }
+    }
+  }catch(e){showToast('Erro ao excluir','err');console.error(e);}
+}
+
+async function editarTempoOp(tempoId){
+  const t = temposOP.find(x=>x.id===tempoId);
+  if(!t){showToast('Registro não encontrado','err');return;}
+  const fmtInput = dt => {
+    if(!dt) return '';
+    const d = new Date(dt);
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const iniVal = fmtInput(t.dt_hr_inicial);
+  const fimVal = fmtInput(t.dt_hr_final);
+  const html = `
+    <div style="background:#fff;border-radius:14px;padding:24px;width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+      <div style="font-size:15px;font-weight:700;margin-bottom:16px;color:#263238">✏️ Editar Operação — ${t.operacao||''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Data/Hora Início</label>
+          <input id="editTempoIni" type="datetime-local" value="${iniVal}" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Data/Hora Fim</label>
+          <input id="editTempoFim" type="datetime-local" value="${fimVal}" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Operador</label>
+        <input id="editTempoOper" type="text" value="${t.operador||''}" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Observação</label>
+        <input id="editTempoObs" type="text" value="${t.observacao||''}" placeholder="Opcional" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="document.getElementById('editTempoOpBg').remove()">Cancelar</button>
+        <button class="btn primary" onclick="confirmarEditarTempoOp('${tempoId}')">💾 Salvar</button>
+      </div>
+    </div>`;
+  const bg = document.createElement('div');
+  bg.id = 'editTempoOpBg';
+  bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;display:flex;align-items:center;justify-content:center';
+  bg.innerHTML = html;
+  bg.onclick = e => { if(e.target===bg) bg.remove(); };
+  document.body.appendChild(bg);
+}
+
+async function confirmarEditarTempoOp(tempoId){
+  const ini = document.getElementById('editTempoIni')?.value;
+  const fim = document.getElementById('editTempoFim')?.value;
+  const oper = document.getElementById('editTempoOper')?.value.trim();
+  const obs = document.getElementById('editTempoObs')?.value.trim();
+  if(!ini){showToast('Informe a data/hora de início','err');return;}
+  const obj = {
+    dt_hr_inicial: ini ? new Date(ini).toISOString() : null,
+    dt_hr_final: fim ? new Date(fim).toISOString() : null,
+    operador: oper||null,
+    observacao: obs||null
+  };
+  // Recalcula duração se tiver início e fim
+  if(ini && fim){
+    const diffMs = new Date(fim) - new Date(ini);
+    if(diffMs > 0) obj.duracao_minutos = Math.round(diffMs/60000);
+  }
+  try{
+    await api('PATCH','tempos_op',obj,`?id=eq.${tempoId}`);
+    showToast('Operação atualizada!');
+    document.getElementById('editTempoOpBg')?.remove();
+    await loadAll();
+    const modal = document.getElementById('modalRelatorioOrdem');
+    const ordemId = modal?.dataset?.ordemId;
+    if(ordemId) document.getElementById('relatorioOrdemConteudo').innerHTML = gerarConteudoRelatorio(ordemId);
+  }catch(e){showToast('Erro ao salvar','err');console.error(e);}
+}
+
 function abrirRelatorioOrdem(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
   // Fecha outros modais para evitar sobreposição
