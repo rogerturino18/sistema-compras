@@ -11697,8 +11697,9 @@ async function buscarTodasNFe(){
   if(!cotacaoId&&!fornNome&&!itensParam) return; // acesso normal ao sistema
 
   // Conecta ao Supabase e carrega os itens
-  const SUPA_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
-  const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6a3Fjd3NyYWN2b3NkaHFrbWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU3ODEyMDQsImV4cCI6MjA2MTM1NzIwNH0.K7ZFYnrBRovqxB6P0YxhR-LB22hI6fzXkzUkLPlxqkE';
+  // Usa as mesmas credenciais do sistema principal
+  const SUPA_URL=window.SB_URL||'https://kzkqcwsracvosdhqkmaf.supabase.co';
+  const SUPA_KEY=window.SB_KEY||'sb_publishable_5Q5yuv9FvOVwNQ8B19Fv3w_vXG0VXqe';
 
   async function apiPub(method,table,body,query=''){
     const r=await fetch(`${SUPA_URL}/rest/v1/${table}${query}`,{
