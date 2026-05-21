@@ -11737,47 +11737,107 @@ async function buscarTodasNFe(){
       const hoje=new Date().toLocaleDateString('pt-BR');
 
       el.innerHTML=`
-        <div style="background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px">
+        <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px">
           <h2 style="color:#2e7d32;font-size:18px;margin-bottom:4px">📋 Solicitação de Cotação</h2>
           <p style="color:#546e7a;font-size:13px">Olá, <b>${forn}</b>! Por favor, informe os preços para os itens abaixo.</p>
           <p style="color:#9e9e9e;font-size:12px;margin-top:4px">Data: ${hoje}</p>
         </div>
 
-        <div style="background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px">
-          <h3 style="font-size:14px;font-weight:700;color:#263238;margin-bottom:16px">Itens para cotação</h3>
-          <div id="fornItensForm">
-          ${(itensList||[]).map((it,i)=>`
-            <div style="border:1px solid #e8f5e9;border-radius:10px;padding:16px;margin-bottom:12px;background:#fafffe">
-              <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-                <div style="flex:1;min-width:200px">
-                  <div style="font-weight:700;font-size:14px;color:#263238">${it.descritivo||it.tipo_peca||it.descricao||'—'}</div>
-                  <div style="font-size:12px;color:#546e7a;margin-top:4px">
-                    ${it.material?'Material: <b>'+it.material+'</b> · ':''}
-                    ${it.desenho?'Desenho: <b>'+it.desenho+'</b> · ':''}
-                    ${it.espessura?'Esp: <b>'+it.espessura+'</b> · ':''}
-                    ${it.medida1?'Med: <b>'+it.medida1+(it.medida2?' x'+it.medida2:'')+'</b> · ':''}
-                    Qtd: <b>${it.qtd||1} ${it.und||'un'}</b>
-                  </div>
-                  ${it.descricao_peca?`<div style="font-size:11px;color:#78909c;margin-top:4px">${it.descricao_peca}</div>`:''}
-                </div>
-                <div style="min-width:180px">
-                  <label style="font-size:11px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px">PREÇO UNITÁRIO (R$) *</label>
-                  <input type="number" id="preco_${it.id}" step="0.01" min="0" placeholder="0,00"
-                    style="width:100%;padding:10px 12px;border:2px solid #a5d6a7;border-radius:8px;font-size:15px;font-weight:700;color:#2e7d32;text-align:right">
-                </div>
-                <div style="min-width:160px">
-                  <label style="font-size:11px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px">PRAZO DE ENTREGA</label>
-                  <input type="text" id="prazo_${it.id}" placeholder="Ex: 5 dias úteis"
-                    style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px">
-                </div>
+        ${(itensList||[]).map((it,i)=>`
+        <div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:14px;overflow:hidden">
+          <!-- Cabeçalho do item -->
+          <div style="background:#e8f5e9;padding:12px 20px;border-bottom:1px solid #c8e6c9">
+            <div style="font-weight:700;font-size:15px;color:#1b5e20">${i+1}. ${it.descritivo||it.tipo_peca||it.descricao||'Item'}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;font-size:12px;color:#2e7d32">
+              <span><b>QUANTIDADE</b> ${it.qtd||1} ${it.und||'PC'}</span>
+              ${it.espessura?`<span><b>ESPESSURA</b> ${it.espessura}</span>`:''}
+              ${it.medida1?`<span><b>MEDIDA 1</b> ${it.medida1}</span>`:''}
+              ${it.medida2?`<span><b>MEDIDA 2</b> ${it.medida2}</span>`:''}
+              ${it.material?`<span><b>MATERIAL</b> ${it.material}</span>`:''}
+              ${it.desenho?`<span><b>DESENHO</b> ${it.desenho}</span>`:''}
+            </div>
+            ${it.descricao_peca?`<div style="font-size:11px;color:#546e7a;margin-top:4px">${it.descricao_peca}</div>`:''}
+          </div>
+          <!-- Campos de cotação -->
+          <div style="padding:16px 20px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Valor Unitário (R$) *</label>
+                <input type="number" id="preco_${it.id}" step="0.01" min="0" placeholder="0,00"
+                  oninput="calcTotal_${it.id}()"
+                  style="width:100%;padding:10px 12px;border:2px solid #a5d6a7;border-radius:8px;font-size:16px;font-weight:700;color:#2e7d32;text-align:right">
               </div>
-            </div>`).join('')}
+              <div>
+                <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Unidade</label>
+                <select id="und_${it.id}" style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-weight:600;color:#263238">
+                  ${['PC','KG','METRO','BARRA','UN','CX','PAR','M²','M³'].map(u=>`<option ${(it.und||'PC')===u?'selected':''}>${u}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Quantidade</label>
+                <input type="number" id="qtd_${it.id}" step="0.001" min="0" value="${it.qtd||1}"
+                  oninput="calcTotal_${it.id}()"
+                  style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;color:#263238">
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Peso (KG)</label>
+                <input type="number" id="peso_${it.id}" step="0.001" min="0" placeholder="0,000"
+                  style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;color:#263238">
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Valor Total (R$)</label>
+                <input type="text" id="total_${it.id}" readonly placeholder="—"
+                  style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-weight:700;color:#2e7d32;background:#f1f8f1;text-align:right">
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Prazo (Dias)</label>
+                <input type="number" id="prazo_${it.id}" min="0" placeholder="Ex: 7"
+                  style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;color:#263238">
+              </div>
+            </div>
+            <div style="margin-top:12px">
+              <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Observação</label>
+              <input type="text" id="obs_${it.id}" placeholder="Ex: sujeito ao estoque, frete por conta do comprador..."
+                style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;color:#263238">
+            </div>
           </div>
-          <div style="margin-top:16px">
-            <label style="font-size:12px;font-weight:700;color:#546e7a;display:block;margin-bottom:6px">OBSERVAÇÕES / CONDIÇÕES COMERCIAIS</label>
-            <textarea id="fornObs" rows="3" placeholder="Condições de pagamento, validade da proposta, etc."
-              style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical"></textarea>
+        </div>
+        <script>
+          function calcTotal_${it.id}(){
+            const p=parseFloat(document.getElementById('preco_${it.id}').value)||0;
+            const q=parseFloat(document.getElementById('qtd_${it.id}').value)||0;
+            const t=document.getElementById('total_${it.id}');
+            t.value=p&&q?(p*q).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+          }
+        <\/script>`).join('')}
+
+        <!-- Upload de orçamento em arquivo -->
+        <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span style="font-size:20px">📎</span>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#263238">Orçamento em arquivo</div>
+              <div style="font-size:12px;color:#546e7a">Opcional — anexe seu orçamento com papel timbrado (PDF, imagem ou documento).</div>
+            </div>
           </div>
+          <label id="dropZone" style="display:block;border:2px dashed #a5d6a7;border-radius:10px;padding:24px;text-align:center;cursor:pointer;background:#fafffe;transition:background 0.2s"
+            ondragover="event.preventDefault();this.style.background='#e8f5e9'"
+            ondragleave="this.style.background='#fafffe'"
+            ondrop="event.preventDefault();this.style.background='#fafffe';handleArquivoCotacao(event.dataTransfer.files[0])">
+            <input type="file" id="arquivoCotacao" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" style="display:none" onchange="handleArquivoCotacao(this.files[0])">
+            <div id="dropZoneContent">
+              <div style="font-size:32px;margin-bottom:8px">📄</div>
+              <div style="font-size:13px;color:#546e7a">Arraste o arquivo aqui ou <span style="color:#2e7d32;font-weight:700;text-decoration:underline">clique para selecionar</span></div>
+              <div style="font-size:11px;color:#9e9e9e;margin-top:4px">PDF, PNG, JPG, DOC — máx. 5MB</div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Observações gerais -->
+        <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px">
+          <label style="font-size:12px;font-weight:700;color:#546e7a;display:block;margin-bottom:8px;text-transform:uppercase">Observações Gerais / Condições Comerciais</label>
+          <textarea id="fornObs" rows="3" placeholder="Condições de pagamento, validade da proposta, frete, ICMS, etc."
+            style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;color:#263238"></textarea>
         </div>
 
         <div id="fornMsgErro" style="display:none;background:#ffebee;border:1px solid #ffcdd2;border-radius:8px;padding:12px;color:#c62828;font-size:13px;margin-bottom:12px"></div>
@@ -11786,7 +11846,23 @@ async function buscarTodasNFe(){
           style="width:100%;padding:16px;background:#2e7d32;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(46,125,50,0.3)">
           ✅ Enviar Cotação
         </button>
-        <p style="text-align:center;font-size:11px;color:#9e9e9e;margin-top:12px">* Campos de preço obrigatórios</p>`;
+        <p style="text-align:center;font-size:11px;color:#9e9e9e;margin-top:12px">* Campo obrigatório</p>`;
+
+      // Função de arquivo
+      window.handleArquivoCotacao=function(file){
+        if(!file) return;
+        if(file.size>5*1024*1024){ alert('Arquivo muito grande. Máximo 5MB.'); return; }
+        const reader=new FileReader();
+        reader.onload=function(e){
+          window._arquivoCotacaoB64=e.target.result;
+          window._arquivoCotacaoNome=file.name;
+          document.getElementById('dropZoneContent').innerHTML=`
+            <div style="font-size:28px;margin-bottom:6px">✅</div>
+            <div style="font-size:13px;color:#2e7d32;font-weight:700">${file.name}</div>
+            <div style="font-size:11px;color:#9e9e9e">${(file.size/1024).toFixed(0)} KB · <span onclick="window._arquivoCotacaoB64=null;window._arquivoCotacaoNome=null;document.getElementById('arquivoCotacao').value='';document.getElementById('dropZoneContent').innerHTML='<div style=font-size:32px>📄</div><div>Arraste ou clique para selecionar</div>'" style="color:#c62828;cursor:pointer;text-decoration:underline">Remover</span></div>`;
+        };
+        reader.readAsDataURL(file);
+      };
 
     }catch(err){
       console.error(err);
@@ -11799,19 +11875,34 @@ async function buscarTodasNFe(){
     const erroEl=document.getElementById('fornMsgErro');
     erroEl.style.display='none';
 
-    // Valida preços
+    // Valida preços e coleta todos os campos
     const resultados=[];
     for(const id of itemIds){
       const precoEl=document.getElementById('preco_'+id);
       const prazoEl=document.getElementById('prazo_'+id);
+      const qtdEl=document.getElementById('qtd_'+id);
+      const undEl=document.getElementById('und_'+id);
+      const pesoEl=document.getElementById('peso_'+id);
+      const obsEl=document.getElementById('obs_'+id);
       const preco=parseFloat(precoEl?.value||'0')||0;
       if(!preco||preco<=0){
         erroEl.style.display='block';
-        erroEl.textContent='Por favor, preencha o preço de todos os itens.';
+        erroEl.textContent='Por favor, preencha o preço unitário de todos os itens.';
+        precoEl?.scrollIntoView({behavior:'smooth',block:'center'});
         precoEl?.focus();
         return;
       }
-      resultados.push({item_id:id, preco, prazo:prazoEl?.value||''});
+      const qtd=parseFloat(qtdEl?.value||'1')||1;
+      resultados.push({
+        item_id:id,
+        preco,
+        qtd,
+        unidade:undEl?.value||'PC',
+        peso:parseFloat(pesoEl?.value||'0')||null,
+        prazo:prazoEl?.value||null,
+        obs:obsEl?.value||null,
+        total:parseFloat((preco*qtd).toFixed(2))
+      });
     }
 
     const obs=document.getElementById('fornObs').value;
@@ -11819,14 +11910,21 @@ async function buscarTodasNFe(){
     if(btn){ btn.disabled=true; btn.textContent='Enviando...'; }
 
     try{
-      // Salva cada cotação no Supabase
+      // Salva cada cotação no Supabase com todos os campos
       for(const r of resultados){
         await apiPub('POST','cotacoes',{
           item_id:r.item_id,
           fornecedor:forn,
           preco:r.preco,
-          prazo_entrega:r.prazo||null,
-          observacao:obs||null,
+          qtd:r.qtd,
+          unidade:r.unidade,
+          peso:r.peso,
+          prazo_entrega:r.prazo?String(r.prazo):null,
+          valor_total:r.total,
+          observacao:r.obs||obs||null,
+          obs_gerais:obs||null,
+          arquivo_orcamento:window._arquivoCotacaoB64||null,
+          arquivo_nome:window._arquivoCotacaoNome||null,
           origem:'formulario_web',
           criado_em:new Date().toISOString()
         });
