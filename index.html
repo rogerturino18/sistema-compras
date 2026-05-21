@@ -768,6 +768,733 @@ tr:hover td{background:#f9fbf9}
 </div>
 
 <!-- MODAIS -->
+
+
+
+
+
+
+
+</div><!-- fix tab10 balance -->
+<!-- TAB 11: ESTOQUE -->
+<div class="panel" id="tab11">
+
+  <!-- Stats -->
+  <div class="stat-row" id="statsEstoque"></div>
+
+  <!-- Layout: filtro lateral + tabela -->
+  <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;min-height:500px">
+
+    <!-- FILTRO LATERAL por categoria -->
+    <div style="width:200px;flex-shrink:0;background:#f8f9f8;border-right:1px solid var(--border);display:flex;flex-direction:column">
+      <div style="padding:10px 14px;font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border)">Categorias</div>
+      <div id="estCategoriaLista" style="flex:1;overflow-y:auto;padding:4px 0"></div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+      <!-- Toolbar interno -->
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
+        <button class="btn primary" style="font-size:12px;white-space:nowrap" onclick="abrirModalEstoque('mp',null)">+ Novo Item</button>
+        <input type="text" id="buscaEstoque" placeholder="Buscar código, descrição, material..." oninput="renderEstoque()" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <select id="filtroEstMaterial" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-width:120px">
+          <option value="">Todos materiais</option>
+        </select>
+        <select id="filtroEstBarracao" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
+          <option value="">Ambos barracões</option>
+          <option value="Barracão 1">Barracão 1</option>
+          <option value="Barracão 2">Barracão 2</option>
+        </select>
+        <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
+        <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
+        <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
+        <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
+      </div>
+
+      <!-- Tabela -->
+      <div style="flex:1;overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px">
+          <thead>
+            <tr style="background:#f0f4f0;position:sticky;top:0;z-index:2">
+              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Código</th>
+              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Tipo</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">NCM</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Saldo</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Custo Unit.</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Preço Venda</th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Peso Unit.</th>
+              <th style="width:120px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyEstoque"></tbody>
+        </table>
+        <div id="estVazio" style="display:none;text-align:center;padding:48px;color:#bdbdbd">
+          <div style="font-size:36px;margin-bottom:8px">📦</div>
+          <div style="font-size:14px">Selecione uma categoria</div>
+        </div>
+      </div>
+      <div id="estRodape" style="padding:7px 14px;border-top:1px solid var(--border);font-size:11px;color:#9e9e9e;background:#fafbfa"></div>
+    </div>
+  </div>
+
+  <!-- Modal movimentação rápida -->
+  <div id="estMovRapidoBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:24px;width:360px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+      <div id="estMovTitulo" style="font-size:15px;font-weight:700;margin-bottom:12px;color:#263238"></div>
+      <div id="estMovInfo" style="font-size:12px;color:#546e7a;margin-bottom:12px;padding:8px 12px;background:#f5f7f5;border-radius:8px"></div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Quantidade *</label>
+        <div style="display:flex;gap:8px">
+          <input id="estMovQtd" type="number" step="1" min="1" placeholder="0" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:600">
+          <select id="estMovUnd" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+            <option>PC</option><option>KG</option><option>UN</option><option>MT</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento</label>
+        <select id="estMovDepto" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"><option value="">Selecionar (opcional)</option><option value="PDV">PDV</option><option value="INDUSTRIA">INDUSTRIA</option><option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option><option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option></select>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Referência / Obs</label>
+        <input id="estMovObs" type="text" placeholder="PDV nº, ordem de produção, NF..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="fecharEstMovRapido()">Cancelar</button>
+        <button id="estMovBtn" class="btn primary" onclick="confirmarEstMov()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TAB 12: FISCAL -->
+<div class="panel" id="tab12">
+  <!-- Sub-abas -->
+  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);align-items:flex-end">
+    <button id="fiscalSubNFe"   onclick="showFiscalSub('nfe')"     style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:700;font-size:13px;color:var(--green);border-bottom:3px solid var(--green);margin-bottom:-2px">📄 Emitir NF-e</button>
+    <button id="fiscalSubLista" onclick="showFiscalSub('lista')"   style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px">📋 Notas Emitidas</button>
+    <button id="fiscalSubClientes" onclick="showFiscalSub('clientes')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px">👥 Clientes</button>
+    <div style="margin-left:auto;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;color:var(--gray)">Ambiente:</span>
+      <button id="btnAmbiente" onclick="toggleAmbiente()" 
+        style="padding:4px 12px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:#fff3e0;color:#e65100">
+        🧪 Homologação
+      </button>
+    </div>
+  </div>
+
+  <!-- EMITIR NF-e -->
+  <div id="fiscalNFe">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <!-- Coluna esquerda: dados da nota -->
+      <div>
+        <div style="background:#e3f2fd;border-radius:10px;padding:14px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:13px;color:#1565c0;margin-bottom:10px">📋 Dados da Nota</div>
+          <div class="form-grid" style="gap:8px">
+            <div class="form-group">
+              <label>Tipo *</label>
+              <select id="nfe_tipo" onchange="onNFeTipoChange()">
+                <option value="venda">🛒 Venda de Produto</option>
+                <option value="servico">🔧 Serviço de Industrialização</option>
+                <option value="devolucao_compra">↩ Devolução de Compra</option>
+                <option value="devolucao_venda">↩ Devolução de Venda</option>
+                <option value="exportacao">🌍 Exportação</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Natureza da Operação *</label>
+              <input id="nfe_natureza" value="VENDA DE MERCADORIA">
+            </div>
+            <div class="form-group">
+              <label>Data de Emissão *</label>
+              <input id="nfe_dt_emissao" type="date">
+            </div>
+            <div class="form-group">
+              <label>Data Saída/Entrada</label>
+              <input id="nfe_dt_saida" type="date">
+            </div>
+          </div>
+        </div>
+
+        <!-- Destinatário -->
+        <div style="background:#f3e5f5;border-radius:10px;padding:14px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:13px;color:#6a1b9a;margin-bottom:10px">👤 Destinatário</div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label>Buscar cliente cadastrado</label>
+            <div style="position:relative">
+              <input id="nfe_cli_busca" placeholder="Digite nome ou CNPJ..." oninput="filtrarClientesFiscal()" autocomplete="off"
+                style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+              <div id="nfe_cli_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
+            </div>
+          </div>
+          <div class="form-grid" style="gap:8px">
+            <div class="form-group"><label>CNPJ / CPF *</label><input id="nfe_dest_doc" placeholder="00.000.000/0001-00" oninput="formatarDocFiscal(this)"></div>
+            <div class="form-group"><label>Inscrição Estadual</label><input id="nfe_dest_ie" placeholder="Isento ou nº IE"></div>
+            <div class="form-group full"><label>Razão Social / Nome *</label><input id="nfe_dest_nome" placeholder="Nome completo ou razão social"></div>
+            <div class="form-group full"><label>Endereço *</label><input id="nfe_dest_end" placeholder="Rua, número, bairro"></div>
+            <div class="form-group"><label>Cidade *</label><input id="nfe_dest_cidade" placeholder="Cidade"></div>
+            <div class="form-group"><label>UF *</label><input id="nfe_dest_uf" placeholder="SP" maxlength="2" style="text-transform:uppercase"></div>
+            <div class="form-group"><label>CEP *</label><input id="nfe_dest_cep" placeholder="00000-000"></div>
+            <div class="form-group"><label>E-mail</label><input id="nfe_dest_email" placeholder="email@cliente.com" type="email"></div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="salvarClienteFiscal()">💾 Salvar cliente</button>
+          </div>
+        </div>
+
+        <!-- Transporte -->
+        <div style="background:#e8f5e9;border-radius:10px;padding:14px">
+          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:10px">🚚 Transporte e Pagamento</div>
+          <div class="form-grid" style="gap:8px">
+            <div class="form-group">
+              <label>Modalidade Frete</label>
+              <select id="nfe_frete">
+                <option value="0">0 - Emitente</option>
+                <option value="1">1 - Destinatário (CIF)</option>
+                <option value="2">2 - Terceiros</option>
+                <option value="9" selected>9 - Sem frete</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Forma de Pagamento</label>
+              <select id="nfe_pagamento">
+                <option value="01">Dinheiro</option>
+                <option value="03">Cartão de Crédito</option>
+                <option value="04">Cartão de Débito</option>
+                <option value="15" selected>Boleto Bancário</option>
+                <option value="17">Transferência/PIX</option>
+                <option value="90">Sem Pagamento</option>
+              </select>
+            </div>
+            <div class="form-group full"><label>Informações Adicionais</label><textarea id="nfe_info_adicional" rows="2" placeholder="Obs: dados do pedido, condições especiais..."></textarea></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coluna direita: itens -->
+      <div>
+        <div style="background:#fff9c4;border-radius:10px;padding:14px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:13px;color:#f57f17;margin-bottom:10px">📦 Itens da Nota</div>
+
+          <!-- Adicionar item -->
+          <div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid #ffe082">
+            <div class="form-grid" style="gap:6px">
+              <div class="form-group full">
+                <label style="font-size:11px">Descrição do Produto/Serviço *</label>
+                <input id="item_desc" placeholder="Ex: CHAPA ASTM A516-60 5/8...">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">NCM *</label>
+                <div style="position:relative">
+                  <input id="item_ncm" placeholder="Buscar NCM..." oninput="buscarNCM()" autocomplete="off"
+                    style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+                  <div id="ncm_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12);font-size:12px"></div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">CFOP *</label>
+                <select id="item_cfop" style="font-size:12px">
+                  <option value="5102">5102 - Venda SP</option>
+                  <option value="6102">6102 - Venda outros estados</option>
+                  <option value="7102">7102 - Exportação</option>
+                  <option value="5405">5405 - Venda ST SP</option>
+                  <option value="5124">5124 - Industrialização SP</option>
+                  <option value="6124">6124 - Industrialização outros</option>
+                  <option value="5201">5201 - Dev. Compra SP</option>
+                  <option value="6201">6201 - Dev. Compra outros</option>
+                  <option value="5411">5411 - Dev. Venda SP</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Unidade</label>
+                <select id="item_und" style="font-size:12px">
+                  <option>KG</option><option>PC</option><option>UN</option>
+                  <option>MT</option><option>CX</option><option>TON</option>
+                  <option>LT</option><option>M2</option><option>HR</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Quantidade *</label>
+                <input id="item_qtd" type="number" step="0.001" min="0.001" placeholder="0" oninput="calcularItemNFe()">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Valor Unitário *</label>
+                <input id="item_vunit" type="number" step="0.01" min="0" placeholder="0,00" oninput="calcularItemNFe()">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">% ICMS</label>
+                <input id="item_icms" type="number" step="0.01" value="13.92" placeholder="13.92" oninput="calcularItemNFe()">
+              </div>
+              <div class="form-group">
+                <label style="font-size:11px">Total Item</label>
+                <input id="item_total" readonly style="background:#f5f5f5;font-weight:700">
+              </div>
+            </div>
+            <button class="btn primary" onclick="adicionarItemNFe()" style="margin-top:8px;width:100%">+ Adicionar Item</button>
+          </div>
+
+          <!-- Lista de itens -->
+          <div id="listaItensNFe">
+            <div style="color:#bdbdbd;text-align:center;padding:16px;font-size:12px">Nenhum item adicionado</div>
+          </div>
+        </div>
+
+        <!-- Totais -->
+        <div style="background:#e8f5e9;border-radius:10px;padding:14px">
+          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:10px">💰 Totais</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Valor Produtos:</span><span id="tot_produtos" style="font-weight:600">R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Base ICMS:</span><span id="tot_base_icms" style="font-weight:600">R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Valor ICMS:</span><span id="tot_icms" style="font-weight:600">R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Frete:</span><span id="tot_frete" style="font-weight:600">R$ 0,00</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:2px solid #2e7d32;font-size:16px;font-weight:700;color:#2e7d32">
+            <span>TOTAL NF-e:</span>
+            <span id="tot_nfe">R$ 0,00</span>
+          </div>
+          <button class="btn primary" onclick="emitirNFe()" style="width:100%;margin-top:12px;font-size:14px;padding:12px;background:#1565c0;border-color:#1565c0">
+            🚀 Emitir NF-e
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTAS EMITIDAS -->
+  <div id="fiscalLista" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="buscaNotaEmitida" placeholder="Buscar por nº, cliente, valor..." oninput="renderNotasEmitidas()" style="flex:1">
+      <select id="filtroStatusNFe" onchange="renderNotasEmitidas()">
+        <option value="">Todos os status</option>
+        <option value="autorizado">✅ Autorizada</option>
+        <option value="cancelado">❌ Cancelada</option>
+        <option value="processando">⏳ Processando</option>
+        <option value="erro">⚠️ Erro</option>
+      </select>
+      <button class="btn" onclick="exportarExcel('fiscal')">📊 Excel</button>
+    </div>
+    <div id="statsNotasEmitidas" class="stat-row"></div>
+    <div id="listaNotasEmitidas"></div>
+  </div>
+
+  <!-- CLIENTES -->
+  <div id="fiscalClientes" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="buscaClienteFiscal" placeholder="Buscar cliente..." oninput="renderClientesFiscal()" style="flex:1">
+      <button class="btn primary" onclick="abrirModalClienteFiscal(null)">+ Novo Cliente</button>
+    </div>
+    <div id="listaClientesFiscal"></div>
+  </div>
+</div>
+
+
+<!-- TAB 13: PEDIDOS DE VENDA -->
+<div class="panel" id="tab13">
+  <div class="stat-row" id="statsPV"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaPV" placeholder="Buscar nº, cliente, vendedor..." oninput="renderPedidosVenda()" style="flex:1">
+    <select id="filtroPVStatus" onchange="renderPedidosVenda()">
+      <option value="">Todos os status</option>
+      <option value="Orçamento">📝 Orçamento</option>
+      <option value="Aprovado">✅ Aprovado</option>
+      <option value="Em Produção">🔧 Em Produção</option>
+      <option value="Faturado">💜 Faturado</option>
+      <option value="Entregue">📦 Entregue</option>
+      <option value="Cancelado">❌ Cancelado</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalPV(null)">+ Novo PDV</button>
+    <button class="btn" onclick="exportarExcelPV()">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nº</th><th>Data</th><th>Cliente</th><th>Departamento</th>
+        <th>Vendedor</th><th>Parcelas</th><th>Total (R$)</th><th>Status</th><th style="width:130px">Ações</th>
+      </tr></thead>
+      <tbody id="listaPV"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 14: CLIENTES -->
+<div class="panel" id="tab14">
+  <div class="stat-row" id="statsClientes"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaCliente" placeholder="Buscar por nome, CNPJ, cidade..." oninput="renderClientes()" style="flex:1">
+    <button class="btn primary" onclick="abrirModalCliente(null)">+ Novo Cliente</button>
+    <button class="btn" onclick="exportarExcelClientes()">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Razão Social</th><th>CNPJ/CPF</th><th>Cidade / UF</th>
+        <th>Telefone</th><th>E-mail</th><th>Contato</th><th style="width:90px">Ações</th>
+      </tr></thead>
+      <tbody id="listaClientes"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 15: PEDIDOS DE COMPRA -->
+<div class="panel" id="tab15">
+  <div class="stat-row" id="statsPC"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaPC" placeholder="Buscar nº, fornecedor..." oninput="renderPedidosCompra()" style="flex:1">
+    <select id="filtroPCStatus" onchange="renderPedidosCompra()">
+      <option value="">Todos os status</option>
+      <option value="Rascunho">📝 Rascunho</option>
+      <option value="Enviado">📧 Enviado</option>
+      <option value="Confirmado">✅ Confirmado</option>
+      <option value="Recebido">📦 Recebido</option>
+      <option value="Cancelado">❌ Cancelado</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalPC(null)">+ Novo PC</button>
+    <button class="btn blue" onclick="gerarPCdeCotacoes()">⚡ Gerar de Cotações</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nº</th><th>Data</th><th>Fornecedor</th><th>Departamento</th><th>Categoria</th>
+        <th>Total (R$)</th><th>Status</th><th style="width:110px">Ações</th>
+      </tr></thead>
+      <tbody id="listaPC"></tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- TAB 16: MOVIMENTAÇÕES DE ESTOQUE -->
+<div class="panel" id="tab16">
+  <div class="stat-row" id="statsMov"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaMov" placeholder="Buscar item, referência..." oninput="renderMovEstoque()" style="flex:1;min-width:150px">
+    <select id="filtroMovTipo" onchange="renderMovEstoque()">
+      <option value="">Entrada e Saída</option>
+      <option value="entrada">📥 Entradas</option>
+      <option value="saida">📤 Saídas</option>
+    </select>
+    <select id="filtroMovDepto" onchange="renderMovEstoque()">
+      <option value="">Todos departamentos</option>
+      <option value="PDV">PDV</option>
+      <option value="INDUSTRIA">INDUSTRIA</option>
+      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+      <option value="COMERCIAL">COMERCIAL</option>
+      <option value="MANUTENCAO">MANUTENÇÃO</option>
+      <option value="EXPEDICAO">EXPEDIÇÃO</option>
+    </select>
+    <input type="date" id="filtroMovDtDe" onchange="renderMovEstoque()" title="Data de">
+    <input type="date" id="filtroMovDtAte" onchange="renderMovEstoque()" title="Data até">
+    <button class="btn" onclick="limparFiltrosMov()" style="font-size:12px">🔄 Limpar</button>
+    <button class="btn" onclick="exportarExcelMov()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Item</th>
+        <th>Material</th>
+        <th>Qtd</th>
+        <th>Und</th>
+        <th>Departamento</th>
+        <th>Referência / Obs</th>
+        <th>Registrado por</th>
+      </tr></thead>
+      <tbody id="listaMovEstoque"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 17: REQUISIÇÕES DE MATERIAL -->
+<div class="panel" id="tab17">
+  <div class="stat-row" id="statsReq"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaReq" placeholder="Buscar nº, departamento, PDV..." oninput="renderRequisicoes()" style="flex:1;min-width:150px">
+    <select id="filtroReqStatus" onchange="renderRequisicoes()">
+      <option value="">Todos os status</option>
+      <option value="Aguardando Aprovação">⏳ Aguardando Aprovação</option>
+      <option value="Atendida">✅ Atendida</option>
+      <option value="Aguardando Aprovação">⏳ Aguardando Aprovação</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <select id="filtroReqDepto" onchange="renderRequisicoes()">
+      <option value="">Todos departamentos</option>
+      <option value="INDUSTRIA">INDUSTRIA</option>
+      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+      <option value="COMERCIAL">COMERCIAL</option>
+      <option value="MANUTENCAO">MANUTENÇÃO</option>
+      <option value="EXPEDICAO">EXPEDIÇÃO</option>
+    </select>
+    <button class="btn primary" onclick="abrirModalReq(null)">+ Nova Requisição</button>
+    <button class="btn" onclick="exportarExcelReq()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nº</th><th>Data</th><th>Departamento</th><th>PDV</th>
+        <th>Itens</th><th>Solicitante</th><th>Observação</th><th>Status</th>
+        <th style="width:110px">Ações</th>
+      </tr></thead>
+      <tbody id="listaRequisicoes"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL REQUISIÇÃO -->
+
+
+<!-- MODAL BUSCA ITEM ESTOQUE p/ Requisição -->
+
+
+<!-- MODAL APROVAÇÃO DE REQUISIÇÃO -->
+
+
+<!-- MODAL PEDIDO DE COMPRA -->
+
+
+<!-- TAB 18: DEPARTAMENTOS -->
+<div class="panel" id="tab18">
+
+  <!-- Filtros toolbar -->
+  <div class="toolbar" style="margin-bottom:16px">
+    <input type="text" id="buscaDepto" placeholder="Buscar PDV, cliente, departamento..." oninput="renderDepartamentos()" style="flex:1">
+    <select id="filtroDeptoTipo" onchange="renderDepartamentos()">
+      <option value="">Todos</option>
+      <option value="pdv">📋 PDVs</option>
+      <option value="fixo">🏢 Departamentos Fixos</option>
+    </select>
+    <select id="filtroDeptoStatus" onchange="renderDepartamentos()">
+      <option value="">Todos os status</option>
+      <option value="Orçamento">📝 Orçamento</option>
+      <option value="Aprovado">✅ Aprovado</option>
+      <option value="Em Produção">🔧 Em Produção</option>
+      <option value="Faturado">💜 Faturado</option>
+      <option value="Entregue">📦 Entregue</option>
+    </select>
+    <button class="btn" onclick="abrirModalDepto(null)" style="font-size:12px">⚙️ Novo Departamento</button>
+  </div>
+
+  <!-- Cards de resumo -->
+  <div id="deptoResumoCards" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px"></div>
+
+  <!-- Lista de centros de custo -->
+  <div id="deptoLista"></div>
+
+</div>
+
+<!-- MODAL DETALHE CENTRO DE CUSTO -->
+
+
+<!-- MODAL DEPARTAMENTO -->
+
+
+<!-- TAB 19: CONTAS A PAGAR -->
+<div class="panel" id="tab19">
+  <div class="stat-row" id="statsCP"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaCP" placeholder="Buscar fornecedor, descrição, nº doc..." oninput="renderContasPagar()" style="flex:1">
+    <select id="filtroCP_status" onchange="renderContasPagar()">
+      <option value="">Todos os status</option>
+      <option value="Aberta">🔴 Aberta</option>
+      <option value="Paga">✅ Paga</option>
+      <option value="Vencida">⚠️ Vencida</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <input type="date" id="filtroCP_de" onchange="renderContasPagar()" title="Vencimento de">
+    <input type="date" id="filtroCP_ate" onchange="renderContasPagar()" title="Vencimento até">
+    <button class="btn primary" onclick="abrirModalCP(null)">+ Nova Conta</button>
+    <button class="btn" onclick="exportarExcelCP()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Categoria</th>
+        <th>Nº Doc</th><th>Valor</th><th>Status</th><th class="mob-hide">Conta</th>
+        <th style="width:100px">Ações</th>
+      </tr></thead>
+      <tbody id="listaCP"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 20: CONTAS A RECEBER -->
+<div class="panel" id="tab20">
+  <div class="stat-row" id="statsCR"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaCR" placeholder="Buscar cliente, descrição, PDV..." oninput="renderContasReceber()" style="flex:1">
+    <select id="filtroCR_status" onchange="renderContasReceber()">
+      <option value="">Todos os status</option>
+      <option value="Aberta">🔵 Aberta</option>
+      <option value="Recebida">✅ Recebida</option>
+      <option value="Vencida">⚠️ Vencida</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <input type="date" id="filtroCR_de" onchange="renderContasReceber()" title="Vencimento de">
+    <input type="date" id="filtroCR_ate" onchange="renderContasReceber()" title="Vencimento até">
+    <button class="btn primary" onclick="abrirModalCR(null)">+ Nova Conta</button>
+    <button class="btn" onclick="exportarExcelCR()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Vencimento</th><th>Cliente / Descrição</th><th>PDV</th>
+        <th>Nº Doc</th><th>Valor</th><th>Status</th><th>Forma Pgto</th>
+        <th style="width:100px">Ações</th>
+      </tr></thead>
+      <tbody id="listaCR"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 21: FLUXO DE CAIXA -->
+<div class="panel" id="tab21">
+  <div class="stat-row" id="statsFC"></div>
+  <div class="toolbar">
+    <select id="filtroFC_periodo" onchange="renderFluxoCaixa()">
+      <option value="mes">Este mês</option>
+      <option value="3m">Últimos 3 meses</option>
+      <option value="6m">Últimos 6 meses</option>
+      <option value="ano">Este ano</option>
+      <option value="todos">Todos</option>
+    </select>
+    <select id="filtroFC_tipo" onchange="renderFluxoCaixa()">
+      <option value="">Entradas e Saídas</option>
+      <option value="entrada">📥 Só Entradas</option>
+      <option value="saida">📤 Só Saídas</option>
+    </select>
+    <button class="btn" onclick="exportarExcelFC()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <!-- Gráfico de barras simples -->
+  <div id="fcGrafico" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:20px;margin-bottom:16px;min-height:200px"></div>
+  <!-- Tabela detalhada -->
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th>
+        <th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th>
+        <th style="text-align:right">Saldo</th>
+      </tr></thead>
+      <tbody id="listaFC"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 22: CONTAS CORRENTES -->
+<div class="panel" id="tab22">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🏦 Contas Correntes</h2>
+      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Saldos e movimentações por conta bancária.</p>
+    </div>
+    <button class="btn primary" onclick="abrirModalCC(null)">+ Nova Conta</button>
+  </div>
+  <!-- Saldo cards -->
+  <div id="ccSaldoCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px"></div>
+  <!-- Extrato da conta selecionada -->
+  <div id="ccExtratoArea">
+    <div style="text-align:center;padding:40px;color:#bdbdbd">
+      <div style="font-size:36px;margin-bottom:8px">🏦</div>
+      <div>Selecione uma conta para ver o extrato</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONTA CORRENTE -->
+
+
+<!-- TAB 23: DRE -->
+<div class="panel" id="tab23">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📈 DRE — Demonstrativo de Resultado</h2>
+      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Resultado financeiro do período.</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <select id="drePeriodo" onchange="renderDRE()" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <option value="mes">Este mês</option>
+        <option value="3m">Últimos 3 meses</option>
+        <option value="6m">Últimos 6 meses</option>
+        <option value="ano">Este ano</option>
+        <option value="todos">Tudo</option>
+      </select>
+      <button class="btn" onclick="exportarDRE()" style="font-size:12px">📊 Excel</button>
+    </div>
+  </div>
+  <div id="dreConteudo" style="max-width:700px"></div>
+</div>
+
+
+<!-- TAB 24: ENTRADA DE NF-e -->
+<div class="panel" id="tab24">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🧾 Entrada de NF-e</h2>
+      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Recebimento de notas fiscais — automático via SEFAZ ou importação de XML.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="buscarNFeSEFAZ()" style="background:#1565c0;color:#fff;border-color:#1565c0">🔍 Buscar Novas</button>
+      <button class="btn" onclick="buscarTodasNFe()" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a">📥 Buscar Histórico</button>
+      <label class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;cursor:pointer">
+        📂 Importar XML
+        <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
+      </label>
+      <button class="btn" onclick="abrirModalNFe(null)" style="background:#546e7a;color:#fff;border-color:#546e7a">+ Lançar Manual</button>
+      <button class="btn" title="Limpar NSU salvo e reiniciar busca do zero" onclick="if(confirm('Limpar NSU e reiniciar busca? As notas já importadas não serão duplicadas.')){localStorage.removeItem('nfe_ult_nsu');showToast('NSU limpo! Clique em Buscar Novas.');}" style="font-size:11px;color:#9e9e9e">🔄 Reset NSU</button>
+      <button class="btn" onclick="abrirModalNFeConfig()" style="font-size:12px" title="Configurar backend">⚙️</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-row" id="statsNFe" style="margin-bottom:16px"></div>
+
+  <!-- Status do backend -->
+  <div id="nfeStatusBar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;font-size:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#f8f9f8;border:1px solid var(--border)">
+    <span id="nfeStatusBadge">⏳ Verificando backend...</span>
+    <span style="color:#9e9e9e">|</span>
+    <span>NSU atual: <b id="nfeNSUAtual">—</b></span>
+    <span style="color:#9e9e9e">|</span>
+    <span id="nfeUltResposta" style="color:#546e7a">Nenhuma consulta realizada</span>
+    <button onclick="abrirModalNFeConfig()" style="margin-left:auto;padding:4px 10px;border:1px solid #dce4dc;border-radius:6px;background:#fff;font-size:11px;cursor:pointer">⚙️ Configurar</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="toolbar" style="margin-bottom:12px">
+    <input type="text" id="buscaNFe" placeholder="Buscar fornecedor, nº NF, chave..." oninput="renderEntradaNFe()" style="flex:1">
+    <select id="filtroNFe_status" onchange="renderEntradaNFe()">
+      <option value="">Todos os status</option>
+      <option value="Pendente">🟡 Pendente</option>
+      <option value="Entrada Realizada">✅ Entrada Realizada</option>
+      <option value="Cancelada">❌ Cancelada</option>
+    </select>
+    <input type="date" id="filtroNFe_de" onchange="renderEntradaNFe()" title="Emissão de">
+    <input type="date" id="filtroNFe_ate" onchange="renderEntradaNFe()" title="Emissão até">
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data Emissão</th>
+        <th>Nº NF</th>
+        <th>Fornecedor</th>
+        <th>CNPJ</th>
+        <th style="text-align:right">Valor Total</th>
+        <th>Vencimento</th>
+        <th>Status</th>
+        <th>Dept / PDV</th>
+        <th style="width:120px">Ações</th>
+      </tr></thead>
+      <tbody id="listaNFe"></tbody>
+    </table>
+  </div>
+</div>
+</div><!-- end appContent -->
+
+<!-- MODALS ADICIONAIS (fora dos panels) -->
 <div class="modal-bg" id="modalItem">
 <div class="modal">
   <div class="modal-header">
@@ -934,6 +1661,362 @@ tr:hover td{background:#f9fbf9}
 </div>
 </div>
 
+<div class="modal-bg" id="modalReq">
+  <div class="modal" style="width:900px;max-width:99vw">
+    <div class="modal-header" style="background:#4a148c">
+      <h3 id="modalReqTitulo">Nova Requisição de Material</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalReq')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <!-- Cabeçalho -->
+      <div style="padding:16px 20px;background:#f9f4ff;border-bottom:1px solid #e0e0e0">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:0 0 80px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
+            <input id="req_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
+          </div>
+          <div style="flex:2;min-width:220px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Destino (PDV ou Departamento) *</label>
+            <select id="req_destino" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+              <option value="">— Selecionar destino —</option>
+              <optgroup label="── PDVs ──" id="req_destino_pdvs"></optgroup>
+              <optgroup label="── Departamentos ──">
+                <option value="depto:INDUSTRIA">🏭 INDUSTRIA</option>
+                <option value="depto:ADMINISTRATIVO">🏢 ADMINISTRATIVO</option>
+                <option value="depto:COMERCIAL">💼 COMERCIAL</option>
+                <option value="depto:MANUTENCAO">🔧 MANUTENÇÃO</option>
+                <option value="depto:EXPEDICAO">📦 EXPEDIÇÃO</option>
+              </optgroup>
+            </select>
+          </div>
+          <div style="flex:1;min-width:140px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Solicitante</label>
+            <input id="req_solicitante" type="text" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:0 0 130px">
+            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Data</label>
+            <input id="req_data" type="date" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Observação</label>
+          <input id="req_obs" type="text" placeholder="Ex: Manutenção equipamento, Produção lote 42..." style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+        </div>
+      </div>
+      <!-- Itens -->
+      <div style="padding:14px 20px">
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:#4a148c">Itens da Requisição</span>
+          <button style="background:#7b1fa2;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemReq()">+ Adicionar Item do Estoque</button>
+        </div>
+        <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+            <thead><tr style="background:#f3e5f5">
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;text-align:left">Item / Descrição</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Material</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Saldo Atual</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;width:80px">Qtd *</th>
+              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;width:60px">Und</th>
+              <th style="width:30px"></th>
+            </tr></thead>
+            <tbody id="reqItensBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Rodapé -->
+      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f9f4ff">
+        <button class="btn" onclick="fecharModal('modalReq')">Cancelar</button>
+        <button style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarRequisicao()">💾 Salvar e Baixar Estoque</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBuscaItemReq">
+  <div class="modal" style="width:640px">
+    <div class="modal-header"><h3>🔍 Selecionar Item do Estoque</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalBuscaItemReq')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="buscaItemReqModal" placeholder="Buscar código, tipo, material..." oninput="renderBuscaItemReq()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:10px">
+      <div id="listaItemReqModal" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalAprovarReq">
+  <div class="modal" style="width:600px;max-width:99vw">
+    <div class="modal-header" style="background:#4a148c">
+      <h3>⏳ Aprovar Requisição de Material</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalAprovarReq')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="aprovarReqId">
+      <div id="aprovarReqInfo"></div>
+      <div style="margin-top:14px;padding:12px;background:#fff3e0;border-radius:10px;border:1px solid #ffe082">
+        <div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:6px">⚠️ Ao aprovar, o estoque será baixado automaticamente.</div>
+        <div style="font-size:12px;color:#795548">Para recusar, informe o motivo abaixo:</div>
+        <input id="motivoRecusa" type="text" placeholder="Motivo da recusa (obrigatório para recusar)..." style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid #ffe082;border-radius:8px;font-size:13px">
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn" onclick="fecharModal('modalAprovarReq')">Cancelar</button>
+        <button style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer" onclick="recusarRequisicao()">❌ Recusar</button>
+        <button style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer" onclick="confirmarAprovacao()">✅ Aprovar e Baixar Estoque</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalPC">
+  <div class="modal" style="width:940px;max-width:99vw">
+    <div class="modal-header" style="background:#0d47a1">
+      <h3 id="modalPCTitulo">Novo Pedido de Compra</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="minimizarModal('modalPC')">_</button>
+        <button class="modal-header-btn" onclick="fecharModal('modalPC')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <!-- Cabeçalho fixo -->
+      <div style="padding:14px 20px;background:#f3f6ff;border-bottom:1px solid #e0e0e0">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:2;min-width:200px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Fornecedor *</label>
+            <input id="pc_forn_nome" type="text" list="pc_forn_list" placeholder="Nome do fornecedor" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+            <datalist id="pc_forn_list"></datalist>
+          </div>
+          <div style="flex:0 0 80px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Nº</label>
+            <input id="pc_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
+          </div>
+          <div style="flex:0 0 120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Status</label>
+            <select id="pc_status" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:12px">
+              <option value="Rascunho">📝 Rascunho</option>
+              <option value="Enviado">📧 Enviado</option>
+              <option value="Confirmado">✅ Confirmado</option>
+              <option value="Recebido">📦 Recebido</option>
+              <option value="Cancelado">❌ Cancelado</option>
+            </select>
+          </div>
+          <div style="flex:0 0 140px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Prev. Entrega</label>
+            <input id="pc_prev_entrega" type="date" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Contato Forn.</label>
+            <input id="pc_forn_contato" type="text" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:flex-end">
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Categoria</label>
+            <input id="pc_categoria" type="text" placeholder="Ex: Matéria Prima" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:0 0 100px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Parcelas</label>
+            <select id="pcNumParcelas" onchange="gerarParcelasPC()" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+              <option value="1">À Vista</option><option value="2">2x</option><option value="3">3x</option>
+              <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Conta Corrente</label>
+            <input id="pc_conta" type="text" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+          </div>
+          <div style="flex:0 0 80px;text-align:right;align-self:flex-end">
+            <div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Total</div>
+            <div id="pc_tot_total" style="font-size:16px;font-weight:800;color:#0d47a1">R$ 0,00</div>
+          </div>
+        </div>
+      </div>
+      <!-- Sub-abas -->
+      <div style="display:flex;background:#fff;border-bottom:2px solid #e8eaf6;padding:0 20px">
+        <button id="pcTab_itens" onclick="showPCSubTab('itens')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#0d47a1;border-bottom:3px solid #0d47a1;margin-bottom:-2px">📦 Itens</button>
+        <button id="pcTab_pagto" onclick="showPCSubTab('pagto')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">💳 Parcelas</button>
+        <button id="pcTab_obs" onclick="showPCSubTab('obs')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📝 Obs</button>
+      </div>
+      <div style="padding:14px 20px;min-height:240px">
+        <!-- ITENS -->
+        <div id="pcSub_itens">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPC()">+ Novo Item</button>
+            <button class="btn" onclick="importarItensCotacaoPC()" style="font-size:12px;border-color:#1565c0;color:#1565c0">📋 Importar de Cotações</button>
+            <button class="btn" onclick="importarItensListaPC()" style="font-size:12px">📃 Lista de Compras</button>
+          </div>
+          <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+              <thead><tr style="background:#e8eaf6">
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:left">Código</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:left">Descrição</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:80px">NCM</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:65px">Qtd</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:50px">Und</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:90px">Vlr Unit</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:65px">Desc %</th>
+                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:90px">Total</th>
+                <th style="width:30px"></th>
+              </tr></thead>
+              <tbody id="pcItensBody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <div style="min-width:220px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:2px solid #0d47a1;margin-top:4px"><span style="font-weight:700">TOTAL:</span><span id="pc_subtotal_inline" style="font-weight:800;font-size:14px;color:#0d47a1">R$ 0,00</span></div>
+            </div>
+          </div>
+        </div>
+        <!-- PARCELAS -->
+        <div id="pcSub_pagto" style="display:none">
+          <div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-end">
+            <div><label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">1º Vencimento</label>
+              <input type="date" id="pcPrimVenc" onchange="gerarParcelasPC()" style="padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
+            </div>
+            <button class="btn btn-sm" onclick="gerarParcelasPC()">🔄 Gerar</button>
+          </div>
+          <div id="pcParcelasDiv"><p style="color:#bdbdbd;font-size:12px">Defina os itens e o 1º vencimento.</p></div>
+        </div>
+        <!-- OBS -->
+        <div id="pcSub_obs" style="display:none">
+          <div class="form-group full">
+            <label>Observações / Instruções para NF-e</label>
+            <textarea id="pc_obs_pc" rows="4" placeholder="Instruções especiais, condições, prazo de entrega..." style="width:100%;padding:8px;border:1px solid #bbdefb;border-radius:8px;font-size:13px;resize:vertical"></textarea>
+          </div>
+          <div style="background:#e8eaf6;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;color:#546e7a">
+            Ao emitir NF-e, informe o nº do pedido nos campos <b>xPed</b> e <b>nItemPed</b> do XML.<br>
+            E-mail NF-e: <b>sloleos@nfe.omie.com.br</b>
+          </div>
+        </div>
+      </div>
+      <!-- Rodapé -->
+      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f3f6ff">
+        <button class="btn" onclick="fecharModal('modalPC')">Fechar</button>
+        <button style="background:#0d47a1;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPC()">💾 Salvar PC</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalCentroCusto">
+  <div class="modal" style="width:860px;max-width:99vw">
+    <div class="modal-header" style="background:#37474f">
+      <h3 id="modalCCTitulo">Centro de Custo</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalCentroCusto')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <!-- Stats do CC -->
+      <div id="modalCCStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid #e0e0e0"></div>
+      <!-- Sub-abas -->
+      <div style="display:flex;background:#fff;border-bottom:2px solid #e0e0e0;padding:0 20px">
+        <button onclick="showCCTab('req')" id="ccTab_req" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#37474f;border-bottom:3px solid #37474f;margin-bottom:-2px">📦 Materiais Usados</button>
+        <button onclick="showCCTab('op')" id="ccTab_op" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">⚙️ Ordens de Produção</button>
+        <button onclick="showCCTab('info')" id="ccTab_info" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📋 Dados do PDV</button>
+      </div>
+      <div style="padding:16px 20px;min-height:300px;max-height:60vh;overflow-y:auto">
+        <!-- Materiais -->
+        <div id="ccSub_req">
+          <div id="ccReqConteudo"></div>
+        </div>
+        <!-- Ordens de Produção -->
+        <div id="ccSub_op" style="display:none">
+          <div id="ccOPConteudo"></div>
+        </div>
+        <!-- Info PDV -->
+        <div id="ccSub_info" style="display:none">
+          <div id="ccInfoConteudo"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalDepto">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <h3 id="modalDeptoTitulo">Novo Departamento</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalDepto')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-group"><label>Nome *</label>
+          <input id="depto_nome" type="text" placeholder="Ex: INDUSTRIA, ADMINISTRATIVO, PDV 10...">
+        </div>
+        <div class="form-group"><label>Descrição</label>
+          <input id="depto_desc" type="text" placeholder="Descrição opcional do departamento">
+        </div>
+        <div class="form-group"><label>Cor (identificação visual)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="deptoCorPicker">
+            <div onclick="selecionarCorDepto('#1565c0')" style="width:32px;height:32px;border-radius:8px;background:#1565c0;cursor:pointer;border:3px solid transparent" data-cor="#1565c0"></div>
+            <div onclick="selecionarCorDepto('#2e7d32')" style="width:32px;height:32px;border-radius:8px;background:#2e7d32;cursor:pointer;border:3px solid transparent" data-cor="#2e7d32"></div>
+            <div onclick="selecionarCorDepto('#6a1b9a')" style="width:32px;height:32px;border-radius:8px;background:#6a1b9a;cursor:pointer;border:3px solid transparent" data-cor="#6a1b9a"></div>
+            <div onclick="selecionarCorDepto('#e65100')" style="width:32px;height:32px;border-radius:8px;background:#e65100;cursor:pointer;border:3px solid transparent" data-cor="#e65100"></div>
+            <div onclick="selecionarCorDepto('#c62828')" style="width:32px;height:32px;border-radius:8px;background:#c62828;cursor:pointer;border:3px solid transparent" data-cor="#c62828"></div>
+            <div onclick="selecionarCorDepto('#00695c')" style="width:32px;height:32px;border-radius:8px;background:#00695c;cursor:pointer;border:3px solid transparent" data-cor="#00695c"></div>
+            <div onclick="selecionarCorDepto('#37474f')" style="width:32px;height:32px;border-radius:8px;background:#37474f;cursor:pointer;border:3px solid transparent" data-cor="#37474f"></div>
+            <div onclick="selecionarCorDepto('#f57f17')" style="width:32px;height:32px;border-radius:8px;background:#f57f17;cursor:pointer;border:3px solid transparent" data-cor="#f57f17"></div>
+          </div>
+          <input type="hidden" id="depto_cor" value="#1565c0">
+        </div>
+        <div class="form-group"><label>Responsável</label>
+          <input id="depto_resp" type="text" placeholder="Nome do responsável pelo departamento">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalDepto')">Cancelar</button>
+        <button class="btn primary" onclick="salvarDepartamento()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalCC">
+  <div class="modal" style="width:480px">
+    <div class="modal-header" style="background:#1b5e20">
+      <h3 id="modalCCTitulo">Nova Conta Corrente</h3>
+      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCC')">✕</button></div>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group full"><label>Nome da Conta *</label>
+          <input id="cc_nome" type="text" placeholder="Ex: Bradesco CC, Caixa, PIX...">
+        </div>
+        <div class="form-group"><label>Banco</label>
+          <select id="cc_banco">
+            <option value="">Selecionar...</option>
+            <option>Bradesco</option><option>Itaú</option><option>Santander</option>
+            <option>Banco do Brasil</option><option>Caixa Econômica</option>
+            <option>Nubank</option><option>Inter</option><option>Sicoob</option>
+            <option>Caixa Interna</option><option>Outro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Saldo Inicial (R$)</label>
+          <input id="cc_saldo_inicial" type="number" step="0.01" placeholder="0,00" value="0">
+        </div>
+        <div class="form-group"><label>Agência</label>
+          <input id="cc_agencia" type="text" placeholder="0000">
+        </div>
+        <div class="form-group"><label>Conta</label>
+          <input id="cc_numero" type="text" placeholder="00000-0">
+        </div>
+        <div class="form-group full"><label>Observação</label>
+          <input id="cc_obs" type="text" placeholder="Observações sobre a conta">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal('modalCC')">Cancelar</button>
+        <button class="btn primary" onclick="salvarCC()" style="background:#1b5e20;border-color:#1b5e20">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS (movidos para fora dos panels) -->
 <!-- MODAL COMPRAS INTERNAS -->
 <div class="modal-bg" id="modalCI">
 <div class="modal">
@@ -1597,6 +2680,7 @@ tr:hover td{background:#f9fbf9}
     <div class="form-grid">
       <div class="form-group"><label>CNPJ / CPF *</label><input id="cli_doc" placeholder="00.000.000/0001-00"></div>
       <div class="form-group"><label>Inscrição Estadual</label><input id="nc_cli_ie" type="text"></div>
+    </div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalClienteFiscal')">Cancelar</button>
@@ -1604,6 +2688,7 @@ tr:hover td{background:#f9fbf9}
   </div>
 </div>
 </div>
+<!-- fim modalClienteFiscal -->
 
 <div class="toast" id="toast"></div>
 <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="importarCSV(event)">
@@ -1633,7 +2718,10 @@ tr:hover td{background:#f9fbf9}
 </div>
 </div>
 
-<!-- MODAL PERFIL -->
+
+
+
+<!-- MODAL PERFIL (fora de qualquer panel) -->
 <div class="modal-bg" id="modalPerfil">
 <div class="modal">
   <div class="modal-header">
@@ -1647,7 +2735,7 @@ tr:hover td{background:#f9fbf9}
   <div class="form-grid">
     <div class="form-group full"><label>Nome</label><input id="fp_nome" placeholder="Seu nome"></div>
     <div class="form-group full"><label>E-mail</label><input id="fp_email" type="email" readonly style="background:#f5f7f5"></div>
-    <div class="form-group full"><label>Cargo</label><input id="fp_cargo" placeholder="Ex: Compras"></div>
+    <div class="form-group full"><label>Cargo</label><input id="fp_cargo" placeholder="Ex: Compras, Engenharia..."></div>
     <div class="form-group full" style="border-top:1px solid #f0f4f0;padding-top:12px;margin-top:4px">
       <label>Nova senha <span style="color:var(--gray);font-weight:400;text-transform:none">(deixe em branco para não alterar)</span></label>
       <input id="fp_senha" type="password" placeholder="Nova senha">
@@ -1657,1060 +2745,10 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalPerfil')">Cancelar</button>
-    <button class="btn primary" onclick="salvarPerfil()">Salvar</button>
+    <button class="btn primary" onclick="salvarPerfil()">💾 Salvar</button>
   </div>
 </div>
 </div>
-
-</div><!-- fix tab10 balance -->
-<!-- TAB 11: ESTOQUE -->
-<div class="panel" id="tab11">
-
-  <!-- Stats -->
-  <div class="stat-row" id="statsEstoque"></div>
-
-  <!-- Layout: filtro lateral + tabela -->
-  <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;min-height:500px">
-
-    <!-- FILTRO LATERAL por categoria -->
-    <div style="width:200px;flex-shrink:0;background:#f8f9f8;border-right:1px solid var(--border);display:flex;flex-direction:column">
-      <div style="padding:10px 14px;font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border)">Categorias</div>
-      <div id="estCategoriaLista" style="flex:1;overflow-y:auto;padding:4px 0"></div>
-    </div>
-
-    <!-- CONTEÚDO PRINCIPAL -->
-    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-
-      <!-- Toolbar interno -->
-      <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
-        <button class="btn primary" style="font-size:12px;white-space:nowrap" onclick="abrirModalEstoque('mp',null)">+ Novo Item</button>
-        <input type="text" id="buscaEstoque" placeholder="Buscar código, descrição, material..." oninput="renderEstoque()" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <select id="filtroEstMaterial" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-width:120px">
-          <option value="">Todos materiais</option>
-        </select>
-        <select id="filtroEstBarracao" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
-          <option value="">Ambos barracões</option>
-          <option value="Barracão 1">Barracão 1</option>
-          <option value="Barracão 2">Barracão 2</option>
-        </select>
-        <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
-        <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
-        <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
-        <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
-      </div>
-
-      <!-- Tabela -->
-      <div style="flex:1;overflow:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px">
-          <thead>
-            <tr style="background:#f0f4f0;position:sticky;top:0;z-index:2">
-              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Código</th>
-              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Tipo</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">NCM</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Saldo</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Custo Unit.</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Preço Venda</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Peso Unit.</th>
-              <th style="width:120px"></th>
-            </tr>
-          </thead>
-          <tbody id="tbodyEstoque"></tbody>
-        </table>
-        <div id="estVazio" style="display:none;text-align:center;padding:48px;color:#bdbdbd">
-          <div style="font-size:36px;margin-bottom:8px">📦</div>
-          <div style="font-size:14px">Selecione uma categoria</div>
-        </div>
-      </div>
-      <div id="estRodape" style="padding:7px 14px;border-top:1px solid var(--border);font-size:11px;color:#9e9e9e;background:#fafbfa"></div>
-    </div>
-  </div>
-
-  <!-- Modal movimentação rápida -->
-  <div id="estMovRapidoBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:14px;padding:24px;width:360px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
-      <div id="estMovTitulo" style="font-size:15px;font-weight:700;margin-bottom:12px;color:#263238"></div>
-      <div id="estMovInfo" style="font-size:12px;color:#546e7a;margin-bottom:12px;padding:8px 12px;background:#f5f7f5;border-radius:8px"></div>
-      <div style="margin-bottom:10px">
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Quantidade *</label>
-        <div style="display:flex;gap:8px">
-          <input id="estMovQtd" type="number" step="1" min="1" placeholder="0" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:600">
-          <select id="estMovUnd" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-            <option>PC</option><option>KG</option><option>UN</option><option>MT</option>
-          </select>
-        </div>
-      </div>
-      <div style="margin-bottom:10px">
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento</label>
-        <select id="estMovDepto" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"><option value="">Selecionar (opcional)</option><option value="PDV">PDV</option><option value="INDUSTRIA">INDUSTRIA</option><option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option><option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option></select>
-      </div>
-      <div style="margin-bottom:14px">
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Referência / Obs</label>
-        <input id="estMovObs" type="text" placeholder="PDV nº, ordem de produção, NF..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="btn" onclick="fecharEstMovRapido()">Cancelar</button>
-        <button id="estMovBtn" class="btn primary" onclick="confirmarEstMov()">Confirmar</button>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- TAB 12: FISCAL -->
-<div class="panel" id="tab12">
-  <!-- Sub-abas -->
-  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);align-items:flex-end">
-    <button id="fiscalSubNFe"   onclick="showFiscalSub('nfe')"     style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:700;font-size:13px;color:var(--green);border-bottom:3px solid var(--green);margin-bottom:-2px">📄 Emitir NF-e</button>
-    <button id="fiscalSubLista" onclick="showFiscalSub('lista')"   style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px">📋 Notas Emitidas</button>
-    <button id="fiscalSubClientes" onclick="showFiscalSub('clientes')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px">👥 Clientes</button>
-    <div style="margin-left:auto;margin-bottom:4px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:12px;color:var(--gray)">Ambiente:</span>
-      <button id="btnAmbiente" onclick="toggleAmbiente()" 
-        style="padding:4px 12px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:#fff3e0;color:#e65100">
-        🧪 Homologação
-      </button>
-    </div>
-  </div>
-
-  <!-- EMITIR NF-e -->
-  <div id="fiscalNFe">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-
-      <!-- Coluna esquerda: dados da nota -->
-      <div>
-        <div style="background:#e3f2fd;border-radius:10px;padding:14px;margin-bottom:14px">
-          <div style="font-weight:700;font-size:13px;color:#1565c0;margin-bottom:10px">📋 Dados da Nota</div>
-          <div class="form-grid" style="gap:8px">
-            <div class="form-group">
-              <label>Tipo *</label>
-              <select id="nfe_tipo" onchange="onNFeTipoChange()">
-                <option value="venda">🛒 Venda de Produto</option>
-                <option value="servico">🔧 Serviço de Industrialização</option>
-                <option value="devolucao_compra">↩ Devolução de Compra</option>
-                <option value="devolucao_venda">↩ Devolução de Venda</option>
-                <option value="exportacao">🌍 Exportação</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Natureza da Operação *</label>
-              <input id="nfe_natureza" value="VENDA DE MERCADORIA">
-            </div>
-            <div class="form-group">
-              <label>Data de Emissão *</label>
-              <input id="nfe_dt_emissao" type="date">
-            </div>
-            <div class="form-group">
-              <label>Data Saída/Entrada</label>
-              <input id="nfe_dt_saida" type="date">
-            </div>
-          </div>
-        </div>
-
-        <!-- Destinatário -->
-        <div style="background:#f3e5f5;border-radius:10px;padding:14px;margin-bottom:14px">
-          <div style="font-weight:700;font-size:13px;color:#6a1b9a;margin-bottom:10px">👤 Destinatário</div>
-          <div class="form-group" style="margin-bottom:8px">
-            <label>Buscar cliente cadastrado</label>
-            <div style="position:relative">
-              <input id="nfe_cli_busca" placeholder="Digite nome ou CNPJ..." oninput="filtrarClientesFiscal()" autocomplete="off"
-                style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-              <div id="nfe_cli_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
-            </div>
-          </div>
-          <div class="form-grid" style="gap:8px">
-            <div class="form-group"><label>CNPJ / CPF *</label><input id="nfe_dest_doc" placeholder="00.000.000/0001-00" oninput="formatarDocFiscal(this)"></div>
-            <div class="form-group"><label>Inscrição Estadual</label><input id="nfe_dest_ie" placeholder="Isento ou nº IE"></div>
-            <div class="form-group full"><label>Razão Social / Nome *</label><input id="nfe_dest_nome" placeholder="Nome completo ou razão social"></div>
-            <div class="form-group full"><label>Endereço *</label><input id="nfe_dest_end" placeholder="Rua, número, bairro"></div>
-            <div class="form-group"><label>Cidade *</label><input id="nfe_dest_cidade" placeholder="Cidade"></div>
-            <div class="form-group"><label>UF *</label><input id="nfe_dest_uf" placeholder="SP" maxlength="2" style="text-transform:uppercase"></div>
-            <div class="form-group"><label>CEP *</label><input id="nfe_dest_cep" placeholder="00000-000"></div>
-            <div class="form-group"><label>E-mail</label><input id="nfe_dest_email" placeholder="email@cliente.com" type="email"></div>
-          </div>
-          <div style="margin-top:8px;display:flex;gap:8px">
-            <button class="btn btn-sm" onclick="salvarClienteFiscal()">💾 Salvar cliente</button>
-          </div>
-        </div>
-
-        <!-- Transporte -->
-        <div style="background:#e8f5e9;border-radius:10px;padding:14px">
-          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:10px">🚚 Transporte e Pagamento</div>
-          <div class="form-grid" style="gap:8px">
-            <div class="form-group">
-              <label>Modalidade Frete</label>
-              <select id="nfe_frete">
-                <option value="0">0 - Emitente</option>
-                <option value="1">1 - Destinatário (CIF)</option>
-                <option value="2">2 - Terceiros</option>
-                <option value="9" selected>9 - Sem frete</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Forma de Pagamento</label>
-              <select id="nfe_pagamento">
-                <option value="01">Dinheiro</option>
-                <option value="03">Cartão de Crédito</option>
-                <option value="04">Cartão de Débito</option>
-                <option value="15" selected>Boleto Bancário</option>
-                <option value="17">Transferência/PIX</option>
-                <option value="90">Sem Pagamento</option>
-              </select>
-            </div>
-            <div class="form-group full"><label>Informações Adicionais</label><textarea id="nfe_info_adicional" rows="2" placeholder="Obs: dados do pedido, condições especiais..."></textarea></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Coluna direita: itens -->
-      <div>
-        <div style="background:#fff9c4;border-radius:10px;padding:14px;margin-bottom:14px">
-          <div style="font-weight:700;font-size:13px;color:#f57f17;margin-bottom:10px">📦 Itens da Nota</div>
-
-          <!-- Adicionar item -->
-          <div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid #ffe082">
-            <div class="form-grid" style="gap:6px">
-              <div class="form-group full">
-                <label style="font-size:11px">Descrição do Produto/Serviço *</label>
-                <input id="item_desc" placeholder="Ex: CHAPA ASTM A516-60 5/8...">
-              </div>
-              <div class="form-group">
-                <label style="font-size:11px">NCM *</label>
-                <div style="position:relative">
-                  <input id="item_ncm" placeholder="Buscar NCM..." oninput="buscarNCM()" autocomplete="off"
-                    style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
-                  <div id="ncm_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12);font-size:12px"></div>
-                </div>
-              </div>
-              <div class="form-group">
-                <label style="font-size:11px">CFOP *</label>
-                <select id="item_cfop" style="font-size:12px">
-                  <option value="5102">5102 - Venda SP</option>
-                  <option value="6102">6102 - Venda outros estados</option>
-                  <option value="7102">7102 - Exportação</option>
-                  <option value="5405">5405 - Venda ST SP</option>
-                  <option value="5124">5124 - Industrialização SP</option>
-                  <option value="6124">6124 - Industrialização outros</option>
-                  <option value="5201">5201 - Dev. Compra SP</option>
-                  <option value="6201">6201 - Dev. Compra outros</option>
-                  <option value="5411">5411 - Dev. Venda SP</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label style="font-size:11px">Unidade</label>
-                <select id="item_und" style="font-size:12px">
-                  <option>KG</option><option>PC</option><option>UN</option>
-                  <option>MT</option><option>CX</option><option>TON</option>
-                  <option>LT</option><option>M2</option><option>HR</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label style="font-size:11px">Quantidade *</label>
-                <input id="item_qtd" type="number" step="0.001" min="0.001" placeholder="0" oninput="calcularItemNFe()">
-              </div>
-              <div class="form-group">
-                <label style="font-size:11px">Valor Unitário *</label>
-                <input id="item_vunit" type="number" step="0.01" min="0" placeholder="0,00" oninput="calcularItemNFe()">
-              </div>
-              <div class="form-group">
-                <label style="font-size:11px">% ICMS</label>
-                <input id="item_icms" type="number" step="0.01" value="13.92" placeholder="13.92" oninput="calcularItemNFe()">
-              </div>
-              <div class="form-group">
-                <label style="font-size:11px">Total Item</label>
-                <input id="item_total" readonly style="background:#f5f5f5;font-weight:700">
-              </div>
-            </div>
-            <button class="btn primary" onclick="adicionarItemNFe()" style="margin-top:8px;width:100%">+ Adicionar Item</button>
-          </div>
-
-          <!-- Lista de itens -->
-          <div id="listaItensNFe">
-            <div style="color:#bdbdbd;text-align:center;padding:16px;font-size:12px">Nenhum item adicionado</div>
-          </div>
-        </div>
-
-        <!-- Totais -->
-        <div style="background:#e8f5e9;border-radius:10px;padding:14px">
-          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:10px">💰 Totais</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Valor Produtos:</span><span id="tot_produtos" style="font-weight:600">R$ 0,00</span></div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Base ICMS:</span><span id="tot_base_icms" style="font-weight:600">R$ 0,00</span></div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Valor ICMS:</span><span id="tot_icms" style="font-weight:600">R$ 0,00</span></div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #c8e6c9"><span>Frete:</span><span id="tot_frete" style="font-weight:600">R$ 0,00</span></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:2px solid #2e7d32;font-size:16px;font-weight:700;color:#2e7d32">
-            <span>TOTAL NF-e:</span>
-            <span id="tot_nfe">R$ 0,00</span>
-          </div>
-          <button class="btn primary" onclick="emitirNFe()" style="width:100%;margin-top:12px;font-size:14px;padding:12px;background:#1565c0;border-color:#1565c0">
-            🚀 Emitir NF-e
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- NOTAS EMITIDAS -->
-  <div id="fiscalLista" style="display:none">
-    <div class="toolbar">
-      <input type="text" id="buscaNotaEmitida" placeholder="Buscar por nº, cliente, valor..." oninput="renderNotasEmitidas()" style="flex:1">
-      <select id="filtroStatusNFe" onchange="renderNotasEmitidas()">
-        <option value="">Todos os status</option>
-        <option value="autorizado">✅ Autorizada</option>
-        <option value="cancelado">❌ Cancelada</option>
-        <option value="processando">⏳ Processando</option>
-        <option value="erro">⚠️ Erro</option>
-      </select>
-      <button class="btn" onclick="exportarExcel('fiscal')">📊 Excel</button>
-    </div>
-    <div id="statsNotasEmitidas" class="stat-row"></div>
-    <div id="listaNotasEmitidas"></div>
-  </div>
-
-  <!-- CLIENTES -->
-  <div id="fiscalClientes" style="display:none">
-    <div class="toolbar">
-      <input type="text" id="buscaClienteFiscal" placeholder="Buscar cliente..." oninput="renderClientesFiscal()" style="flex:1">
-      <button class="btn primary" onclick="abrirModalClienteFiscal(null)">+ Novo Cliente</button>
-    </div>
-    <div id="listaClientesFiscal"></div>
-  </div>
-</div>
-
-
-<!-- TAB 13: PEDIDOS DE VENDA -->
-<div class="panel" id="tab13">
-  <div class="stat-row" id="statsPV"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaPV" placeholder="Buscar nº, cliente, vendedor..." oninput="renderPedidosVenda()" style="flex:1">
-    <select id="filtroPVStatus" onchange="renderPedidosVenda()">
-      <option value="">Todos os status</option>
-      <option value="Orçamento">📝 Orçamento</option>
-      <option value="Aprovado">✅ Aprovado</option>
-      <option value="Em Produção">🔧 Em Produção</option>
-      <option value="Faturado">💜 Faturado</option>
-      <option value="Entregue">📦 Entregue</option>
-      <option value="Cancelado">❌ Cancelado</option>
-    </select>
-    <button class="btn primary" onclick="abrirModalPV(null)">+ Novo PDV</button>
-    <button class="btn" onclick="exportarExcelPV()">📊 Excel</button>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Nº</th><th>Data</th><th>Cliente</th><th>Departamento</th>
-        <th>Vendedor</th><th>Parcelas</th><th>Total (R$)</th><th>Status</th><th style="width:130px">Ações</th>
-      </tr></thead>
-      <tbody id="listaPV"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- TAB 14: CLIENTES -->
-<div class="panel" id="tab14">
-  <div class="stat-row" id="statsClientes"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaCliente" placeholder="Buscar por nome, CNPJ, cidade..." oninput="renderClientes()" style="flex:1">
-    <button class="btn primary" onclick="abrirModalCliente(null)">+ Novo Cliente</button>
-    <button class="btn" onclick="exportarExcelClientes()">📊 Excel</button>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Razão Social</th><th>CNPJ/CPF</th><th>Cidade / UF</th>
-        <th>Telefone</th><th>E-mail</th><th>Contato</th><th style="width:90px">Ações</th>
-      </tr></thead>
-      <tbody id="listaClientes"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- TAB 15: PEDIDOS DE COMPRA -->
-<div class="panel" id="tab15">
-  <div class="stat-row" id="statsPC"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaPC" placeholder="Buscar nº, fornecedor..." oninput="renderPedidosCompra()" style="flex:1">
-    <select id="filtroPCStatus" onchange="renderPedidosCompra()">
-      <option value="">Todos os status</option>
-      <option value="Rascunho">📝 Rascunho</option>
-      <option value="Enviado">📧 Enviado</option>
-      <option value="Confirmado">✅ Confirmado</option>
-      <option value="Recebido">📦 Recebido</option>
-      <option value="Cancelado">❌ Cancelado</option>
-    </select>
-    <button class="btn primary" onclick="abrirModalPC(null)">+ Novo PC</button>
-    <button class="btn blue" onclick="gerarPCdeCotacoes()">⚡ Gerar de Cotações</button>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Nº</th><th>Data</th><th>Fornecedor</th><th>Departamento</th><th>Categoria</th>
-        <th>Total (R$)</th><th>Status</th><th style="width:110px">Ações</th>
-      </tr></thead>
-      <tbody id="listaPC"></tbody>
-    </table>
-  </div>
-</div>
-
-
-<!-- TAB 16: MOVIMENTAÇÕES DE ESTOQUE -->
-<div class="panel" id="tab16">
-  <div class="stat-row" id="statsMov"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaMov" placeholder="Buscar item, referência..." oninput="renderMovEstoque()" style="flex:1;min-width:150px">
-    <select id="filtroMovTipo" onchange="renderMovEstoque()">
-      <option value="">Entrada e Saída</option>
-      <option value="entrada">📥 Entradas</option>
-      <option value="saida">📤 Saídas</option>
-    </select>
-    <select id="filtroMovDepto" onchange="renderMovEstoque()">
-      <option value="">Todos departamentos</option>
-      <option value="PDV">PDV</option>
-      <option value="INDUSTRIA">INDUSTRIA</option>
-      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
-      <option value="COMERCIAL">COMERCIAL</option>
-      <option value="MANUTENCAO">MANUTENÇÃO</option>
-      <option value="EXPEDICAO">EXPEDIÇÃO</option>
-    </select>
-    <input type="date" id="filtroMovDtDe" onchange="renderMovEstoque()" title="Data de">
-    <input type="date" id="filtroMovDtAte" onchange="renderMovEstoque()" title="Data até">
-    <button class="btn" onclick="limparFiltrosMov()" style="font-size:12px">🔄 Limpar</button>
-    <button class="btn" onclick="exportarExcelMov()" style="font-size:12px">📊 Excel</button>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Data</th>
-        <th>Tipo</th>
-        <th>Item</th>
-        <th>Material</th>
-        <th>Qtd</th>
-        <th>Und</th>
-        <th>Departamento</th>
-        <th>Referência / Obs</th>
-        <th>Registrado por</th>
-      </tr></thead>
-      <tbody id="listaMovEstoque"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- TAB 17: REQUISIÇÕES DE MATERIAL -->
-<div class="panel" id="tab17">
-  <div class="stat-row" id="statsReq"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaReq" placeholder="Buscar nº, departamento, PDV..." oninput="renderRequisicoes()" style="flex:1;min-width:150px">
-    <select id="filtroReqStatus" onchange="renderRequisicoes()">
-      <option value="">Todos os status</option>
-      <option value="Aguardando Aprovação">⏳ Aguardando Aprovação</option>
-      <option value="Atendida">✅ Atendida</option>
-      <option value="Aguardando Aprovação">⏳ Aguardando Aprovação</option>
-      <option value="Cancelada">❌ Cancelada</option>
-    </select>
-    <select id="filtroReqDepto" onchange="renderRequisicoes()">
-      <option value="">Todos departamentos</option>
-      <option value="INDUSTRIA">INDUSTRIA</option>
-      <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
-      <option value="COMERCIAL">COMERCIAL</option>
-      <option value="MANUTENCAO">MANUTENÇÃO</option>
-      <option value="EXPEDICAO">EXPEDIÇÃO</option>
-    </select>
-    <button class="btn primary" onclick="abrirModalReq(null)">+ Nova Requisição</button>
-    <button class="btn" onclick="exportarExcelReq()" style="font-size:12px">📊 Excel</button>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Nº</th><th>Data</th><th>Departamento</th><th>PDV</th>
-        <th>Itens</th><th>Solicitante</th><th>Observação</th><th>Status</th>
-        <th style="width:110px">Ações</th>
-      </tr></thead>
-      <tbody id="listaRequisicoes"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- MODAL REQUISIÇÃO -->
-<div class="modal-bg" id="modalReq">
-  <div class="modal" style="width:900px;max-width:99vw">
-    <div class="modal-header" style="background:#4a148c">
-      <h3 id="modalReqTitulo">Nova Requisição de Material</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="fecharModal('modalReq')">✕</button>
-      </div>
-    </div>
-    <div class="modal-body" style="padding:0">
-      <!-- Cabeçalho -->
-      <div style="padding:16px 20px;background:#f9f4ff;border-bottom:1px solid #e0e0e0">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-          <div style="flex:0 0 80px">
-            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Nº</label>
-            <input id="req_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
-          </div>
-          <div style="flex:2;min-width:220px">
-            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Destino (PDV ou Departamento) *</label>
-            <select id="req_destino" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
-              <option value="">— Selecionar destino —</option>
-              <optgroup label="── PDVs ──" id="req_destino_pdvs"></optgroup>
-              <optgroup label="── Departamentos ──">
-                <option value="depto:INDUSTRIA">🏭 INDUSTRIA</option>
-                <option value="depto:ADMINISTRATIVO">🏢 ADMINISTRATIVO</option>
-                <option value="depto:COMERCIAL">💼 COMERCIAL</option>
-                <option value="depto:MANUTENCAO">🔧 MANUTENÇÃO</option>
-                <option value="depto:EXPEDICAO">📦 EXPEDIÇÃO</option>
-              </optgroup>
-            </select>
-          </div>
-          <div style="flex:1;min-width:140px">
-            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Solicitante</label>
-            <input id="req_solicitante" type="text" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
-          </div>
-          <div style="flex:0 0 130px">
-            <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Data</label>
-            <input id="req_data" type="date" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
-          </div>
-        </div>
-        <div style="margin-top:10px">
-          <label style="font-size:11px;font-weight:700;color:#6a1b9a;text-transform:uppercase;display:block;margin-bottom:4px">Observação</label>
-          <input id="req_obs" type="text" placeholder="Ex: Manutenção equipamento, Produção lote 42..." style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
-        </div>
-      </div>
-      <!-- Itens -->
-      <div style="padding:14px 20px">
-        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
-          <span style="font-size:13px;font-weight:700;color:#4a148c">Itens da Requisição</span>
-          <button style="background:#7b1fa2;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemReq()">+ Adicionar Item do Estoque</button>
-        </div>
-        <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
-            <thead><tr style="background:#f3e5f5">
-              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;text-align:left">Item / Descrição</th>
-              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Material</th>
-              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Saldo Atual</th>
-              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;width:80px">Qtd *</th>
-              <th style="padding:7px 10px;color:#6a1b9a;font-size:11px;width:60px">Und</th>
-              <th style="width:30px"></th>
-            </tr></thead>
-            <tbody id="reqItensBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <!-- Rodapé -->
-      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f9f4ff">
-        <button class="btn" onclick="fecharModal('modalReq')">Cancelar</button>
-        <button style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarRequisicao()">💾 Salvar e Baixar Estoque</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL BUSCA ITEM ESTOQUE p/ Requisição -->
-<div class="modal-bg" id="modalBuscaItemReq">
-  <div class="modal" style="width:640px">
-    <div class="modal-header"><h3>🔍 Selecionar Item do Estoque</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalBuscaItemReq')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <input type="text" id="buscaItemReqModal" placeholder="Buscar código, tipo, material..." oninput="renderBuscaItemReq()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:10px">
-      <div id="listaItemReqModal" style="max-height:400px;overflow-y:auto"></div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL APROVAÇÃO DE REQUISIÇÃO -->
-<div class="modal-bg" id="modalAprovarReq">
-  <div class="modal" style="width:600px;max-width:99vw">
-    <div class="modal-header" style="background:#4a148c">
-      <h3>⏳ Aprovar Requisição de Material</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="fecharModal('modalAprovarReq')">✕</button>
-      </div>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="aprovarReqId">
-      <div id="aprovarReqInfo"></div>
-      <div style="margin-top:14px;padding:12px;background:#fff3e0;border-radius:10px;border:1px solid #ffe082">
-        <div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:6px">⚠️ Ao aprovar, o estoque será baixado automaticamente.</div>
-        <div style="font-size:12px;color:#795548">Para recusar, informe o motivo abaixo:</div>
-        <input id="motivoRecusa" type="text" placeholder="Motivo da recusa (obrigatório para recusar)..." style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid #ffe082;border-radius:8px;font-size:13px">
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
-        <button class="btn" onclick="fecharModal('modalAprovarReq')">Cancelar</button>
-        <button style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer" onclick="recusarRequisicao()">❌ Recusar</button>
-        <button style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer" onclick="confirmarAprovacao()">✅ Aprovar e Baixar Estoque</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL PEDIDO DE COMPRA -->
-<div class="modal-bg" id="modalPC">
-  <div class="modal" style="width:940px;max-width:99vw">
-    <div class="modal-header" style="background:#0d47a1">
-      <h3 id="modalPCTitulo">Novo Pedido de Compra</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="minimizarModal('modalPC')">_</button>
-        <button class="modal-header-btn" onclick="fecharModal('modalPC')">✕</button>
-      </div>
-    </div>
-    <div class="modal-body" style="padding:0">
-      <!-- Cabeçalho fixo -->
-      <div style="padding:14px 20px;background:#f3f6ff;border-bottom:1px solid #e0e0e0">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-          <div style="flex:2;min-width:200px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Fornecedor *</label>
-            <input id="pc_forn_nome" type="text" list="pc_forn_list" placeholder="Nome do fornecedor" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
-            <datalist id="pc_forn_list"></datalist>
-          </div>
-          <div style="flex:0 0 80px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Nº</label>
-            <input id="pc_numero" readonly style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px;background:#f0f0f0;font-weight:700">
-          </div>
-          <div style="flex:0 0 120px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Status</label>
-            <select id="pc_status" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:12px">
-              <option value="Rascunho">📝 Rascunho</option>
-              <option value="Enviado">📧 Enviado</option>
-              <option value="Confirmado">✅ Confirmado</option>
-              <option value="Recebido">📦 Recebido</option>
-              <option value="Cancelado">❌ Cancelado</option>
-            </select>
-          </div>
-          <div style="flex:0 0 140px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Prev. Entrega</label>
-            <input id="pc_prev_entrega" type="date" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
-          </div>
-          <div style="flex:1;min-width:120px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Contato Forn.</label>
-            <input id="pc_forn_contato" type="text" style="width:100%;padding:8px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:flex-end">
-          <div style="flex:1;min-width:120px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Categoria</label>
-            <input id="pc_categoria" type="text" placeholder="Ex: Matéria Prima" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
-          </div>
-          <div style="flex:0 0 100px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Parcelas</label>
-            <select id="pcNumParcelas" onchange="gerarParcelasPC()" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
-              <option value="1">À Vista</option><option value="2">2x</option><option value="3">3x</option>
-              <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
-            </select>
-          </div>
-          <div style="flex:1;min-width:120px">
-            <label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">Conta Corrente</label>
-            <input id="pc_conta" type="text" style="width:100%;padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
-          </div>
-          <div style="flex:0 0 80px;text-align:right;align-self:flex-end">
-            <div style="font-size:10px;color:#546e7a;font-weight:600;text-transform:uppercase;margin-bottom:3px">Total</div>
-            <div id="pc_tot_total" style="font-size:16px;font-weight:800;color:#0d47a1">R$ 0,00</div>
-          </div>
-        </div>
-      </div>
-      <!-- Sub-abas -->
-      <div style="display:flex;background:#fff;border-bottom:2px solid #e8eaf6;padding:0 20px">
-        <button id="pcTab_itens" onclick="showPCSubTab('itens')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#0d47a1;border-bottom:3px solid #0d47a1;margin-bottom:-2px">📦 Itens</button>
-        <button id="pcTab_pagto" onclick="showPCSubTab('pagto')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">💳 Parcelas</button>
-        <button id="pcTab_obs" onclick="showPCSubTab('obs')" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📝 Obs</button>
-      </div>
-      <div style="padding:14px 20px;min-height:240px">
-        <!-- ITENS -->
-        <div id="pcSub_itens">
-          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-            <button style="background:#f57f17;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemPC()">+ Novo Item</button>
-            <button class="btn" onclick="importarItensCotacaoPC()" style="font-size:12px;border-color:#1565c0;color:#1565c0">📋 Importar de Cotações</button>
-            <button class="btn" onclick="importarItensListaPC()" style="font-size:12px">📃 Lista de Compras</button>
-          </div>
-          <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
-              <thead><tr style="background:#e8eaf6">
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:left">Código</th>
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:left">Descrição</th>
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:80px">NCM</th>
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:65px">Qtd</th>
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;width:50px">Und</th>
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:90px">Vlr Unit</th>
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:65px">Desc %</th>
-                <th style="padding:7px 8px;color:#0d47a1;font-size:11px;text-align:right;width:90px">Total</th>
-                <th style="width:30px"></th>
-              </tr></thead>
-              <tbody id="pcItensBody"></tbody>
-            </table>
-          </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:8px">
-            <div style="min-width:220px;font-size:13px">
-              <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:2px solid #0d47a1;margin-top:4px"><span style="font-weight:700">TOTAL:</span><span id="pc_subtotal_inline" style="font-weight:800;font-size:14px;color:#0d47a1">R$ 0,00</span></div>
-            </div>
-          </div>
-        </div>
-        <!-- PARCELAS -->
-        <div id="pcSub_pagto" style="display:none">
-          <div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-end">
-            <div><label style="font-size:11px;font-weight:700;color:#0d47a1;text-transform:uppercase;display:block;margin-bottom:3px">1º Vencimento</label>
-              <input type="date" id="pcPrimVenc" onchange="gerarParcelasPC()" style="padding:7px 10px;border:1px solid #bbdefb;border-radius:8px;font-size:13px">
-            </div>
-            <button class="btn btn-sm" onclick="gerarParcelasPC()">🔄 Gerar</button>
-          </div>
-          <div id="pcParcelasDiv"><p style="color:#bdbdbd;font-size:12px">Defina os itens e o 1º vencimento.</p></div>
-        </div>
-        <!-- OBS -->
-        <div id="pcSub_obs" style="display:none">
-          <div class="form-group full">
-            <label>Observações / Instruções para NF-e</label>
-            <textarea id="pc_obs_pc" rows="4" placeholder="Instruções especiais, condições, prazo de entrega..." style="width:100%;padding:8px;border:1px solid #bbdefb;border-radius:8px;font-size:13px;resize:vertical"></textarea>
-          </div>
-          <div style="background:#e8eaf6;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;color:#546e7a">
-            Ao emitir NF-e, informe o nº do pedido nos campos <b>xPed</b> e <b>nItemPed</b> do XML.<br>
-            E-mail NF-e: <b>sloleos@nfe.omie.com.br</b>
-          </div>
-        </div>
-      </div>
-      <!-- Rodapé -->
-      <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f3f6ff">
-        <button class="btn" onclick="fecharModal('modalPC')">Fechar</button>
-        <button style="background:#0d47a1;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarPC()">💾 Salvar PC</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- TAB 18: DEPARTAMENTOS -->
-<div class="panel" id="tab18">
-
-  <!-- Filtros toolbar -->
-  <div class="toolbar" style="margin-bottom:16px">
-    <input type="text" id="buscaDepto" placeholder="Buscar PDV, cliente, departamento..." oninput="renderDepartamentos()" style="flex:1">
-    <select id="filtroDeptoTipo" onchange="renderDepartamentos()">
-      <option value="">Todos</option>
-      <option value="pdv">📋 PDVs</option>
-      <option value="fixo">🏢 Departamentos Fixos</option>
-    </select>
-    <select id="filtroDeptoStatus" onchange="renderDepartamentos()">
-      <option value="">Todos os status</option>
-      <option value="Orçamento">📝 Orçamento</option>
-      <option value="Aprovado">✅ Aprovado</option>
-      <option value="Em Produção">🔧 Em Produção</option>
-      <option value="Faturado">💜 Faturado</option>
-      <option value="Entregue">📦 Entregue</option>
-    </select>
-    <button class="btn" onclick="abrirModalDepto(null)" style="font-size:12px">⚙️ Novo Departamento</button>
-  </div>
-
-  <!-- Cards de resumo -->
-  <div id="deptoResumoCards" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px"></div>
-
-  <!-- Lista de centros de custo -->
-  <div id="deptoLista"></div>
-
-</div>
-
-<!-- MODAL DETALHE CENTRO DE CUSTO -->
-<div class="modal-bg" id="modalCentroCusto">
-  <div class="modal" style="width:860px;max-width:99vw">
-    <div class="modal-header" style="background:#37474f">
-      <h3 id="modalCCTitulo">Centro de Custo</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="fecharModal('modalCentroCusto')">✕</button>
-      </div>
-    </div>
-    <div class="modal-body" style="padding:0">
-      <!-- Stats do CC -->
-      <div id="modalCCStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid #e0e0e0"></div>
-      <!-- Sub-abas -->
-      <div style="display:flex;background:#fff;border-bottom:2px solid #e0e0e0;padding:0 20px">
-        <button onclick="showCCTab('req')" id="ccTab_req" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#37474f;border-bottom:3px solid #37474f;margin-bottom:-2px">📦 Materiais Usados</button>
-        <button onclick="showCCTab('op')" id="ccTab_op" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">⚙️ Ordens de Produção</button>
-        <button onclick="showCCTab('info')" id="ccTab_info" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📋 Dados do PDV</button>
-      </div>
-      <div style="padding:16px 20px;min-height:300px;max-height:60vh;overflow-y:auto">
-        <!-- Materiais -->
-        <div id="ccSub_req">
-          <div id="ccReqConteudo"></div>
-        </div>
-        <!-- Ordens de Produção -->
-        <div id="ccSub_op" style="display:none">
-          <div id="ccOPConteudo"></div>
-        </div>
-        <!-- Info PDV -->
-        <div id="ccSub_info" style="display:none">
-          <div id="ccInfoConteudo"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL DEPARTAMENTO -->
-<div class="modal-bg" id="modalDepto">
-  <div class="modal" style="width:480px">
-    <div class="modal-header">
-      <h3 id="modalDeptoTitulo">Novo Departamento</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalDepto')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid" style="grid-template-columns:1fr">
-        <div class="form-group"><label>Nome *</label>
-          <input id="depto_nome" type="text" placeholder="Ex: INDUSTRIA, ADMINISTRATIVO, PDV 10...">
-        </div>
-        <div class="form-group"><label>Descrição</label>
-          <input id="depto_desc" type="text" placeholder="Descrição opcional do departamento">
-        </div>
-        <div class="form-group"><label>Cor (identificação visual)</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="deptoCorPicker">
-            <div onclick="selecionarCorDepto('#1565c0')" style="width:32px;height:32px;border-radius:8px;background:#1565c0;cursor:pointer;border:3px solid transparent" data-cor="#1565c0"></div>
-            <div onclick="selecionarCorDepto('#2e7d32')" style="width:32px;height:32px;border-radius:8px;background:#2e7d32;cursor:pointer;border:3px solid transparent" data-cor="#2e7d32"></div>
-            <div onclick="selecionarCorDepto('#6a1b9a')" style="width:32px;height:32px;border-radius:8px;background:#6a1b9a;cursor:pointer;border:3px solid transparent" data-cor="#6a1b9a"></div>
-            <div onclick="selecionarCorDepto('#e65100')" style="width:32px;height:32px;border-radius:8px;background:#e65100;cursor:pointer;border:3px solid transparent" data-cor="#e65100"></div>
-            <div onclick="selecionarCorDepto('#c62828')" style="width:32px;height:32px;border-radius:8px;background:#c62828;cursor:pointer;border:3px solid transparent" data-cor="#c62828"></div>
-            <div onclick="selecionarCorDepto('#00695c')" style="width:32px;height:32px;border-radius:8px;background:#00695c;cursor:pointer;border:3px solid transparent" data-cor="#00695c"></div>
-            <div onclick="selecionarCorDepto('#37474f')" style="width:32px;height:32px;border-radius:8px;background:#37474f;cursor:pointer;border:3px solid transparent" data-cor="#37474f"></div>
-            <div onclick="selecionarCorDepto('#f57f17')" style="width:32px;height:32px;border-radius:8px;background:#f57f17;cursor:pointer;border:3px solid transparent" data-cor="#f57f17"></div>
-          </div>
-          <input type="hidden" id="depto_cor" value="#1565c0">
-        </div>
-        <div class="form-group"><label>Responsável</label>
-          <input id="depto_resp" type="text" placeholder="Nome do responsável pelo departamento">
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="fecharModal('modalDepto')">Cancelar</button>
-        <button class="btn primary" onclick="salvarDepartamento()">💾 Salvar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- TAB 19: CONTAS A PAGAR -->
-<div class="panel" id="tab19">
-  <div class="stat-row" id="statsCP"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaCP" placeholder="Buscar fornecedor, descrição, nº doc..." oninput="renderContasPagar()" style="flex:1">
-    <select id="filtroCP_status" onchange="renderContasPagar()">
-      <option value="">Todos os status</option>
-      <option value="Aberta">🔴 Aberta</option>
-      <option value="Paga">✅ Paga</option>
-      <option value="Vencida">⚠️ Vencida</option>
-      <option value="Cancelada">❌ Cancelada</option>
-    </select>
-    <input type="date" id="filtroCP_de" onchange="renderContasPagar()" title="Vencimento de">
-    <input type="date" id="filtroCP_ate" onchange="renderContasPagar()" title="Vencimento até">
-    <button class="btn primary" onclick="abrirModalCP(null)">+ Nova Conta</button>
-    <button class="btn" onclick="exportarExcelCP()" style="font-size:12px">📊 Excel</button>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Categoria</th>
-        <th>Nº Doc</th><th>Valor</th><th>Status</th><th class="mob-hide">Conta</th>
-        <th style="width:100px">Ações</th>
-      </tr></thead>
-      <tbody id="listaCP"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- TAB 20: CONTAS A RECEBER -->
-<div class="panel" id="tab20">
-  <div class="stat-row" id="statsCR"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaCR" placeholder="Buscar cliente, descrição, PDV..." oninput="renderContasReceber()" style="flex:1">
-    <select id="filtroCR_status" onchange="renderContasReceber()">
-      <option value="">Todos os status</option>
-      <option value="Aberta">🔵 Aberta</option>
-      <option value="Recebida">✅ Recebida</option>
-      <option value="Vencida">⚠️ Vencida</option>
-      <option value="Cancelada">❌ Cancelada</option>
-    </select>
-    <input type="date" id="filtroCR_de" onchange="renderContasReceber()" title="Vencimento de">
-    <input type="date" id="filtroCR_ate" onchange="renderContasReceber()" title="Vencimento até">
-    <button class="btn primary" onclick="abrirModalCR(null)">+ Nova Conta</button>
-    <button class="btn" onclick="exportarExcelCR()" style="font-size:12px">📊 Excel</button>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Vencimento</th><th>Cliente / Descrição</th><th>PDV</th>
-        <th>Nº Doc</th><th>Valor</th><th>Status</th><th>Forma Pgto</th>
-        <th style="width:100px">Ações</th>
-      </tr></thead>
-      <tbody id="listaCR"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- TAB 21: FLUXO DE CAIXA -->
-<div class="panel" id="tab21">
-  <div class="stat-row" id="statsFC"></div>
-  <div class="toolbar">
-    <select id="filtroFC_periodo" onchange="renderFluxoCaixa()">
-      <option value="mes">Este mês</option>
-      <option value="3m">Últimos 3 meses</option>
-      <option value="6m">Últimos 6 meses</option>
-      <option value="ano">Este ano</option>
-      <option value="todos">Todos</option>
-    </select>
-    <select id="filtroFC_tipo" onchange="renderFluxoCaixa()">
-      <option value="">Entradas e Saídas</option>
-      <option value="entrada">📥 Só Entradas</option>
-      <option value="saida">📤 Só Saídas</option>
-    </select>
-    <button class="btn" onclick="exportarExcelFC()" style="font-size:12px">📊 Excel</button>
-  </div>
-  <!-- Gráfico de barras simples -->
-  <div id="fcGrafico" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:20px;margin-bottom:16px;min-height:200px"></div>
-  <!-- Tabela detalhada -->
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th>
-        <th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th>
-        <th style="text-align:right">Saldo</th>
-      </tr></thead>
-      <tbody id="listaFC"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- TAB 22: CONTAS CORRENTES -->
-<div class="panel" id="tab22">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div>
-      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🏦 Contas Correntes</h2>
-      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Saldos e movimentações por conta bancária.</p>
-    </div>
-    <button class="btn primary" onclick="abrirModalCC(null)">+ Nova Conta</button>
-  </div>
-  <!-- Saldo cards -->
-  <div id="ccSaldoCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px"></div>
-  <!-- Extrato da conta selecionada -->
-  <div id="ccExtratoArea">
-    <div style="text-align:center;padding:40px;color:#bdbdbd">
-      <div style="font-size:36px;margin-bottom:8px">🏦</div>
-      <div>Selecione uma conta para ver o extrato</div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL CONTA CORRENTE -->
-<div class="modal-bg" id="modalCC">
-  <div class="modal" style="width:480px">
-    <div class="modal-header" style="background:#1b5e20">
-      <h3 id="modalCCTitulo">Nova Conta Corrente</h3>
-      <div class="modal-header-actions"><button class="modal-header-btn" onclick="fecharModal('modalCC')">✕</button></div>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid" style="grid-template-columns:1fr 1fr">
-        <div class="form-group full"><label>Nome da Conta *</label>
-          <input id="cc_nome" type="text" placeholder="Ex: Bradesco CC, Caixa, PIX...">
-        </div>
-        <div class="form-group"><label>Banco</label>
-          <select id="cc_banco">
-            <option value="">Selecionar...</option>
-            <option>Bradesco</option><option>Itaú</option><option>Santander</option>
-            <option>Banco do Brasil</option><option>Caixa Econômica</option>
-            <option>Nubank</option><option>Inter</option><option>Sicoob</option>
-            <option>Caixa Interna</option><option>Outro</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Saldo Inicial (R$)</label>
-          <input id="cc_saldo_inicial" type="number" step="0.01" placeholder="0,00" value="0">
-        </div>
-        <div class="form-group"><label>Agência</label>
-          <input id="cc_agencia" type="text" placeholder="0000">
-        </div>
-        <div class="form-group"><label>Conta</label>
-          <input id="cc_numero" type="text" placeholder="00000-0">
-        </div>
-        <div class="form-group full"><label>Observação</label>
-          <input id="cc_obs" type="text" placeholder="Observações sobre a conta">
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="fecharModal('modalCC')">Cancelar</button>
-        <button class="btn primary" onclick="salvarCC()" style="background:#1b5e20;border-color:#1b5e20">💾 Salvar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- TAB 23: DRE -->
-<div class="panel" id="tab23">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-    <div>
-      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📈 DRE — Demonstrativo de Resultado</h2>
-      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Resultado financeiro do período.</p>
-    </div>
-    <div style="display:flex;gap:8px">
-      <select id="drePeriodo" onchange="renderDRE()" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <option value="mes">Este mês</option>
-        <option value="3m">Últimos 3 meses</option>
-        <option value="6m">Últimos 6 meses</option>
-        <option value="ano">Este ano</option>
-        <option value="todos">Tudo</option>
-      </select>
-      <button class="btn" onclick="exportarDRE()" style="font-size:12px">📊 Excel</button>
-    </div>
-  </div>
-  <div id="dreConteudo" style="max-width:700px"></div>
-</div>
-
-
-<!-- TAB 24: ENTRADA DE NF-e -->
-<div class="panel" id="tab24">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-    <div>
-      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🧾 Entrada de NF-e</h2>
-      <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Recebimento de notas fiscais — automático via SEFAZ ou importação de XML.</p>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" onclick="buscarNFeSEFAZ()" style="background:#1565c0;color:#fff;border-color:#1565c0">🔍 Buscar Novas</button>
-      <button class="btn" onclick="buscarTodasNFe()" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a">📥 Buscar Histórico</button>
-      <label class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;cursor:pointer">
-        📂 Importar XML
-        <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
-      </label>
-      <button class="btn" onclick="abrirModalNFe(null)" style="background:#546e7a;color:#fff;border-color:#546e7a">+ Lançar Manual</button>
-      <button class="btn" title="Limpar NSU salvo e reiniciar busca do zero" onclick="if(confirm('Limpar NSU e reiniciar busca? As notas já importadas não serão duplicadas.')){localStorage.removeItem('nfe_ult_nsu');showToast('NSU limpo! Clique em Buscar Novas.');}" style="font-size:11px;color:#9e9e9e">🔄 Reset NSU</button>
-      <button class="btn" onclick="abrirModalNFeConfig()" style="font-size:12px" title="Configurar backend">⚙️</button>
-    </div>
-  </div>
-
-  <!-- Stats -->
-  <div class="stat-row" id="statsNFe" style="margin-bottom:16px"></div>
-
-  <!-- Filters -->
-  <div class="toolbar" style="margin-bottom:12px">
-    <input type="text" id="buscaNFe" placeholder="Buscar fornecedor, nº NF, chave..." oninput="renderEntradaNFe()" style="flex:1">
-    <select id="filtroNFe_status" onchange="renderEntradaNFe()">
-      <option value="">Todos os status</option>
-      <option value="Pendente">🟡 Pendente</option>
-      <option value="Entrada Realizada">✅ Entrada Realizada</option>
-      <option value="Cancelada">❌ Cancelada</option>
-    </select>
-    <input type="date" id="filtroNFe_de" onchange="renderEntradaNFe()" title="Emissão de">
-    <input type="date" id="filtroNFe_ate" onchange="renderEntradaNFe()" title="Emissão até">
-  </div>
-
-  <!-- Table -->
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Data Emissão</th>
-        <th>Nº NF</th>
-        <th>Fornecedor</th>
-        <th>CNPJ</th>
-        <th style="text-align:right">Valor Total</th>
-        <th>Vencimento</th>
-        <th>Status</th>
-        <th>Dept / PDV</th>
-        <th style="width:120px">Ações</th>
-      </tr></thead>
-      <tbody id="listaNFe"></tbody>
-    </table>
-  </div>
-</div>
-</div><!-- end appContent -->
 
 <script>
 const SB_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
@@ -7332,7 +7370,7 @@ function showTab(n){
   if(n===21) {if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();}
   if(n===22) {if(typeof renderContasCorrente==='function') renderContasCorrente();}
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
-  if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe();}
+  if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
 }
 
 async function dispararEmailBemVindo(){
@@ -7526,10 +7564,12 @@ function initDragModal(id){
 window.addEventListener('load',()=>{
   document.querySelectorAll('.modal-bg').forEach(m=>initDragModal(m.id));
 });
-function showToast(msg,type='ok'){
+function showToast(msg,type='ok',duracao=3000){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.background=type==='err'?'#c62828':'var(--green)';
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+  t.classList.add('show');
+  clearTimeout(t._toastTimer);
+  t._toastTimer=setTimeout(()=>t.classList.remove('show'),Math.max(duracao,2000));
 }
 
 // Verificar sessão ao carregar
@@ -10338,67 +10378,45 @@ async function deletarNFe(id){
 // ── Import XML ────────────────────────────────────────────────────────────
 async function importarXMLNFe(input){
   const file=input.files[0];
-  if(!file) return;
-  const text=await file.text();
-
+  if(!file){input.value='';return;}
   try{
+    const text=await file.text();
     const parser=new DOMParser();
     const xml=parser.parseFromString(text,'application/xml');
+    if(xml.querySelector('parsererror')){showToast('❌ XML inválido ou corrompido','err');input.value='';return;}
+
     const ns='http://www.portalfiscal.inf.br/nfe';
+    const g=(el,tag)=>{const n=el.getElementsByTagNameNS(ns,tag)[0]||el.getElementsByTagName(tag)[0];return n?n.textContent.trim():'';};
 
-    const g=(tag)=>xml.getElementsByTagNameNS(ns,tag)[0]?.textContent||
-                   xml.getElementsByTagName(tag)[0]?.textContent||'';
+    const nNF=g(xml,'nNF');
+    if(!nNF){showToast('❌ Arquivo não reconhecido como NF-e','err');input.value='';return;}
 
-    const numero=g('nNF');
-    const serie=g('serie');
-    const dtEmissao=g('dhEmi').substring(0,10)||g('dEmi');
-    const fornecedor=g('xNome');
-    const cnpj=g('CNPJ');
-    const chave=xml.getElementsByTagName('infNFe')[0]?.getAttribute('Id')?.replace('NFe','')||g('chNFe');
-    const valorTotal=parseFloat(g('vNF'))||0;
+    const dhEmi=(g(xml,'dhEmi')||g(xml,'dEmi')).split('T')[0];
+    const dtFmt=dhEmi.split('-').reverse().join('/');
+    const vNF=parseFloat(g(xml,'vNF'))||0;
+    // Emitente = fornecedor
+    const emit=xml.getElementsByTagNameNS(ns,'emit')[0]||xml.getElementsByTagName('emit')[0];
+    const fornNome=emit?g(emit,'xNome'):g(xml,'xNome');
+    const fornCNPJ=emit?g(emit,'CNPJ'):g(xml,'CNPJ');
+    const chave=xml.getElementsByTagName('infNFe')[0]?.getAttribute('Id')?.replace('NFe','')||g(xml,'chNFe')||'';
 
-    // Parse itens
-    const dets=xml.getElementsByTagNameNS(ns,'det');
-    const detsFallback=xml.getElementsByTagName('det');
-    const detList=dets.length?dets:detsFallback;
-    const itensXML=[];
-    for(const det of detList){
-      const gd=(t)=>det.getElementsByTagNameNS(ns,t)[0]?.textContent||det.getElementsByTagName(t)[0]?.textContent||'';
-      itensXML.push({
-        codigo:gd('cProd'),
-        descricao:gd('xProd'),
-        ncm:gd('NCM'),
-        qtd:parseFloat(gd('qCom'))||1,
-        unidade:gd('uCom'),
-        valor_unitario:parseFloat(gd('vUnCom'))||0
-      });
+    const dets=xml.getElementsByTagNameNS(ns,'det').length?xml.getElementsByTagNameNS(ns,'det'):xml.getElementsByTagName('det');
+    const itensNF=[];
+    for(const d of dets){
+      const prod=d.getElementsByTagNameNS(ns,'prod')[0]||d.getElementsByTagName('prod')[0];
+      if(!prod)continue;
+      itensNF.push({xProd:g(prod,'xProd'),qCom:parseFloat(g(prod,'qCom'))||1,vUnCom:parseFloat(g(prod,'vUnCom'))||0,vProd:parseFloat(g(prod,'vProd'))||0,uCom:g(prod,'uCom')||'UN',cProd:g(prod,'cProd'),ncm:g(prod,'NCM')});
     }
 
-    if(!numero){showToast('XML inválido — NF-e não encontrada','err');return;}
-
-    // Pre-fill modal
-    nfeItensLocal=itensXML;
-    abrirModalNFe(null);
-    setTimeout(()=>{
-      const s=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};
-      s('nfe_numero',numero);
-      s('nfe_serie',serie);
-      s('nfe_dt_emissao',dtEmissao);
-      s('nfe_fornecedor',fornecedor);
-      s('nfe_cnpj_forn',cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'));
-      s('nfe_valor_total',valorTotal);
-      s('nfe_chave',chave);
-      renderItensNFe();
-      showToast(`✅ XML importado! ${itensXML.length} item(s) carregado(s).`);
-    },200);
-
-    // Reset file input
-    input.value='';
+    nfeData={nNF,dtFmt,dhEmi,fornNome,fornCNPJ,vNF,itensNF,chave};
+    renderNFeModal();
+    abrirModal('modalNFe');
+    showToast(`✅ XML carregado! NF-e ${nNF} · ${itensNF.length} item(s) — confirme as entradas abaixo`);
   }catch(e){
-    showToast('Erro ao ler XML — verifique o arquivo','err');
-    console.error(e);
-    input.value='';
+    console.error('[importarXMLNFe]',e);
+    showToast('❌ Erro ao processar XML: '+e.message,'err');
   }
+  input.value='';
 }
 
 // ── SEFAZ search via backend seguro ──────────────────────────────────────
@@ -10410,85 +10428,251 @@ function getNFeBackendConfig(){
   }catch(e){return {};}
 }
 
-async function buscarNFeSEFAZ(){
+function nfeAtualizarStatus(msg, tipo, respDetalhe){
+  const badge = document.getElementById('nfeStatusBadge');
+  const nsu   = document.getElementById('nfeNSUAtual');
+  const ult   = document.getElementById('nfeUltResposta');
+  const bar   = document.getElementById('nfeStatusBar');
+  if(!badge) return;
+  const nsuVal = localStorage.getItem('nfe_ult_nsu')||'000000000000000';
+  const nsuNum = parseInt(nsuVal)||0;
+  if(nsu) nsu.textContent = nsuNum===0?'zero (início)':nsuNum;
+  if(msg){
+    badge.textContent = msg;
+    badge.style.color = tipo==='ok'?'#2e7d32':tipo==='err'?'#c62828':'#e65100';
+    if(bar) bar.style.borderColor = tipo==='ok'?'#a5d6a7':tipo==='err'?'#ef9a9a':'#ffcc02';
+  }
+  if(respDetalhe && ult) ult.textContent = respDetalhe;
+}
+
+async function nfeVerificarBackend(){
   const cfg=getNFeBackendConfig();
+  const badge=document.getElementById('nfeStatusBadge');
+  if(!badge) return;
   if(!cfg.url||!cfg.apiKey){
-    // Show config modal
-    abrirModalNFeConfig();
+    nfeAtualizarStatus('❌ Backend não configurado — clique em ⚙️','err','');
     return;
   }
+  nfeAtualizarStatus('⏳ Verificando...','warn','');
+  try{
+    const r=await fetch(cfg.url+'/api/validar-certificado',{headers:{'x-api-key':cfg.apiKey}});
+    const d=await r.json();
+    if(d.configurado&&d.valido){
+      nfeAtualizarStatus(`✅ Backend OK · Cert. válido ${d.certificado?.dias_restantes||'?'} dias`,'ok',`Titular: ${d.certificado?.titular||'?'}`);
+    } else if(d.configurado){
+      nfeAtualizarStatus('⚠️ Backend OK mas certificado com problema','warn',d.erro||'verifique a senha');
+    } else {
+      nfeAtualizarStatus('⚠️ Backend conectado, certificado não configurado','warn','');
+    }
+  }catch(e){
+    nfeAtualizarStatus('❌ Sem resposta do backend: '+e.message,'err',cfg.url);
+  }
+}
+
+async function buscarNFeSEFAZ(){
+  const cfg=getNFeBackendConfig();
+  if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
 
   const btn=document.querySelector('[onclick="buscarNFeSEFAZ()"]');
-  if(btn){btn.disabled=true;btn.textContent='🔄 Consultando SEFAZ...';}
-  showToast('🔍 Consultando NF-e na SEFAZ...');
+  const ultNSU=localStorage.getItem('nfe_ult_nsu')||'000000000000000';
+  if(btn){btn.disabled=true;btn.textContent='🔄 Consultando...';}
+  nfeAtualizarStatus('🔍 Consultando SEFAZ...','warn',`NSU enviado: ${parseInt(ultNSU)||0}`);
 
   try{
-    // Get last NSU from localStorage
-    const ultNSU=localStorage.getItem('nfe_ult_nsu')||'000000000000000';
     const cnpj='08363498000169';
-
     const resp=await fetch(cfg.url+'/api/consultar-nfe',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':cfg.apiKey},
       body:JSON.stringify({cnpj,ultNSU})
     });
 
+    const rawText = await resp.text();
+    let data;
+    try{ data=JSON.parse(rawText); }
+    catch(e){ throw new Error('Resposta inválida (não é JSON): '+rawText.substring(0,200)); }
+
+    console.log('[NF-e SEFAZ] Resposta:', data);
+    nfeAtualizarStatus('','','Resposta recebida — veja console para detalhes');
+
     if(!resp.ok){
-      const err=await resp.json().catch(()=>({erro:'Erro no servidor'}));
-      throw new Error(err.erro||'Erro '+resp.status);
+      throw new Error('HTTP '+resp.status+': '+(data.erro||data.message||rawText.substring(0,200)));
     }
 
-    const data=await resp.json();
+    if(!data.sucesso){
+      throw new Error(data.erro||data.message||'sucesso=false. Resposta: '+rawText.substring(0,300));
+    }
 
-    if(!data.sucesso) throw new Error(data.erro||'Erro desconhecido');
-
-    // Save last NSU
     if(data.ultNSU) localStorage.setItem('nfe_ult_nsu',data.ultNSU);
 
-    if(!data.notas?.length){
-      showToast('Nenhuma NF-e nova encontrada na SEFAZ.');
+    const notas = data.notas||[];
+    const nsuRet = parseInt(data.ultNSU||ultNSU)||0;
+
+    if(!notas.length){
+      nfeAtualizarStatus(`✅ SEFAZ OK — sem notas novas`,'ok',`NSU retornado: ${nsuRet}. Use "Buscar Histórico" para retroativo.`);
+      showToast(`ℹ️ Nenhuma NF-e nova. NSU atual: ${nsuRet}. Para notas antigas clique em "Buscar Histórico".`,`ok`,6000);
       return;
     }
 
-    // Save new NF-e to Supabase
     let salvas=0, duplicadas=0;
-    for(const nota of data.notas){
-      // Check if already exists
-      const existe=entradasNFe.some(n=>n.chave_nfe===nota.chave_nfe||
-        (n.numero_nfe===nota.numero_nfe&&n.cnpj_fornecedor===nota.cnpj_fornecedor));
+    for(const nota of notas){
+      const existe=entradasNFe.some(n=>n.chave_nfe&&n.chave_nfe===nota.chave_nfe);
       if(existe){duplicadas++;continue;}
-
-      // Auto-set vencimento from first duplicata if available
       const primVenc=nota.vencimentos?.[0]?.vencimento||null;
-
       await api('POST','entradas_nfe',{
-        numero_nfe:nota.numero_nfe,
-        serie:nota.serie,
-        dt_emissao:nota.dt_emissao,
-        fornecedor:nota.fornecedor,
-        cnpj_fornecedor:nota.cnpj_fornecedor,
-        valor_total:nota.valor_total,
-        chave_nfe:nota.chave_nfe,
-        vencimento:primVenc,
-        status:'Pendente',
-        itens:JSON.stringify(nota.itens||[]),
+        numero_nfe:nota.numero_nfe, serie:nota.serie,
+        dt_emissao:nota.dt_emissao, fornecedor:nota.fornecedor,
+        cnpj_fornecedor:nota.cnpj_fornecedor, valor_total:nota.valor_total,
+        chave_nfe:nota.chave_nfe, vencimento:primVenc,
+        status:'Pendente', itens:JSON.stringify(nota.itens||[]),
         criado_por:'SEFAZ Auto'
       }).catch(e=>console.warn('Erro ao salvar NF-e:',e));
       salvas++;
     }
 
-    showToast(`✅ ${salvas} NF-e(s) novas importadas da SEFAZ!${duplicadas?' ('+duplicadas+' já existiam)':''}`);
+    nfeAtualizarStatus(`✅ ${salvas} nota(s) importada(s)`,'ok',`NSU: ${nsuRet} · ${duplicadas} já existiam`);
+    showToast(`✅ ${salvas} NF-e(s) importadas!${duplicadas?' ('+duplicadas+' duplicadas)':''}`);
     await loadAll();
 
   }catch(e){
-    console.error('SEFAZ error:',e);
-    if(e.message.includes('Failed to fetch')||e.message.includes('NetworkError')){
-      showToast('❌ Não foi possível conectar ao backend. Verifique a URL nas configurações.','err');
+    console.error('[NF-e SEFAZ] Erro:', e);
+    const msg=e.message||String(e);
+    nfeAtualizarStatus('❌ Erro na consulta','err',msg.substring(0,120));
+    if(msg.includes('Failed to fetch')||msg.includes('NetworkError')||msg.includes('CORS')){
+      showToast('❌ Sem conexão com o backend. URL: '+(cfg.url||'nenhuma'),'err',8000);
     } else {
-      showToast('❌ Erro SEFAZ: '+e.message,'err');
+      showToast('❌ '+msg.substring(0,180),'err',8000);
     }
   }finally{
-    if(btn){btn.disabled=false;btn.textContent='🔍 Buscar NF-e na SEFAZ';}
+    if(btn){btn.disabled=false;btn.textContent='🔍 Buscar Novas';}
+  }
+}
+
+// ── Busca histórico completo de NF-e (retroativo) ────────────────────────
+async function buscarTodasNFe(){
+  const cfg=getNFeBackendConfig();
+  if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
+
+  // Histórico SEMPRE começa do NSU zero — ignora o que está salvo
+  let ultNSU = '000000000000000';
+  let lote = 1;
+  let totalImportadas = 0;
+  let totalDuplicadas = 0;
+  let continuar = true;
+
+  // Show progress modal
+  const progDiv = document.createElement('div');
+  progDiv.id = 'modalBuscaTodas';
+  progDiv.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  progDiv.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:32px;min-width:380px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+      <div style="font-size:32px;margin-bottom:12px">📥</div>
+      <div style="font-size:16px;font-weight:700;color:#263238;margin-bottom:8px">Buscando Histórico na SEFAZ</div>
+      <div id="progTexto" style="font-size:13px;color:#546e7a;margin-bottom:8px">Iniciando do NSU zero...</div>
+      <div id="progDetalhe" style="font-size:11px;color:#9e9e9e;margin-bottom:10px;min-height:18px"></div>
+      <div style="background:#e3f2fd;border-radius:8px;padding:10px;font-size:13px;color:#1565c0;margin-bottom:16px">
+        <b id="progNotas">0</b> notas importadas | <span id="progDup">0</span> já existiam
+      </div>
+      <div style="background:#f5f5f5;border-radius:8px;height:8px;overflow:hidden">
+        <div id="progBarra" style="background:#1565c0;height:100%;width:5%;transition:width 0.3s;border-radius:8px"></div>
+      </div>
+      <button onclick="document.getElementById('modalBuscaTodas').remove();window._cancelarBusca=true" 
+        style="margin-top:20px;padding:8px 24px;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-size:13px">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(progDiv);
+  window._cancelarBusca = false;
+
+  const upd = (txt, detalhe, notas, dups, pct) => {
+    const g=id=>document.getElementById(id);
+    if(g('progTexto')) g('progTexto').textContent=txt;
+    if(g('progDetalhe')) g('progDetalhe').textContent=detalhe||'';
+    if(g('progNotas')) g('progNotas').textContent=notas;
+    if(g('progDup')) g('progDup').textContent=dups;
+    if(g('progBarra')) g('progBarra').style.width=pct+'%';
+  };
+
+  try{
+    while(continuar && !window._cancelarBusca){
+      const nsuNum = parseInt(ultNSU)||0;
+      upd(`Consultando lote ${lote}...`, `NSU: ${nsuNum}`, totalImportadas, totalDuplicadas, Math.min(5+lote*3,90));
+
+      let rawText='';
+      // Tenta endpoint dedicado primeiro, cai no principal se não existir
+      let data=null;
+      for(const endpoint of ['/api/buscar-todas-nfe','/api/consultar-nfe']){
+        try{
+          const r=await fetch(cfg.url+endpoint,{
+            method:'POST',
+            headers:{'Content-Type':'application/json','x-api-key':cfg.apiKey},
+            body:JSON.stringify({cnpj:'08363498000169',ultNSU})
+          });
+          rawText=await r.text();
+          const d=JSON.parse(rawText);
+          console.log(`[NF-e Histórico] Endpoint ${endpoint} lote ${lote}:`, d);
+          if(r.ok && d.sucesso!==false){ data=d; break; }
+          if(d.sucesso===false) throw new Error(d.erro||d.message||'sucesso=false');
+        }catch(eEnd){
+          // se for o último endpoint, relança
+          if(endpoint==='/api/consultar-nfe') throw eEnd;
+          console.warn(`[NF-e] Endpoint ${endpoint} falhou, tentando próximo:`, eEnd.message);
+        }
+      }
+
+      if(!data) throw new Error('Nenhum endpoint respondeu corretamente. Última resposta: '+rawText.substring(0,200));
+
+      const notas = data.notas||[];
+      upd(`Lote ${lote} — ${notas.length} nota(s) recebida(s)`, `NSU: ${parseInt(data.ultNSU||ultNSU)}`, totalImportadas, totalDuplicadas, Math.min(5+lote*3,90));
+
+      for(const nota of notas){
+        const existe=entradasNFe.some(n=>n.chave_nfe&&n.chave_nfe===nota.chave_nfe);
+        if(existe){totalDuplicadas++;continue;}
+        const primVenc=nota.vencimentos?.[0]?.vencimento||null;
+        await api('POST','entradas_nfe',{
+          numero_nfe:nota.numero_nfe, serie:nota.serie,
+          dt_emissao:nota.dt_emissao, fornecedor:nota.fornecedor,
+          cnpj_fornecedor:nota.cnpj_fornecedor, valor_total:nota.valor_total,
+          chave_nfe:nota.chave_nfe, vencimento:primVenc,
+          status:'Pendente', itens:JSON.stringify(nota.itens||[]),
+          criado_por:'SEFAZ Histórico'
+        }).catch(e=>console.warn('Erro salvar:',e));
+        totalImportadas++;
+      }
+
+      if(data.ultNSU && data.ultNSU!==ultNSU){
+        ultNSU=data.ultNSU;
+        localStorage.setItem('nfe_ult_nsu',ultNSU);
+      }
+
+      // Avança só se backend indicou que há mais E veio pelo menos 1 nota
+      continuar = data.hasMore===true && notas.length>0;
+      lote++;
+
+      if(totalImportadas>0 && lote%3===0) await loadAll();
+      if(continuar) await new Promise(r=>setTimeout(r,600));
+    }
+
+    await loadAll();
+    document.getElementById('modalBuscaTodas')?.remove();
+
+    if(window._cancelarBusca){
+      showToast(`Cancelado. ${totalImportadas} nota(s) importada(s).`);
+    } else if(totalImportadas===0 && totalDuplicadas===0){
+      showToast('ℹ️ Nenhuma NF-e encontrada no histórico SEFAZ. Verifique o certificado e o CNPJ configurados.');
+    } else {
+      showToast(`✅ Histórico concluído! ${totalImportadas} nota(s) importada(s)${totalDuplicadas?' · '+totalDuplicadas+' já existiam':''}.`);
+    }
+
+  }catch(e){
+    document.getElementById('modalBuscaTodas')?.remove();
+    console.error('[NF-e Histórico] Erro:', e);
+    const msg=e.message||String(e);
+    if(msg.includes('Failed to fetch')||msg.includes('NetworkError')){
+      showToast('❌ Sem conexão com o backend. URL: '+(cfg.url||'nenhuma'),'err',8000);
+    } else {
+      showToast('❌ Erro: '+msg,'err',8000);
+    }
+    if(totalImportadas>0) await loadAll();
   }
 }
 
