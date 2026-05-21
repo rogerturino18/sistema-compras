@@ -1954,7 +1954,7 @@ tr:hover td{background:#f9fbf9}
   <!-- NOTAS EMITIDAS -->
   <div id="fiscalLista" style="display:none">
     <div class="toolbar">
-      <input type="text" id="buscaNFe" placeholder="Buscar por nº, cliente, valor..." oninput="renderNotasEmitidas()" style="flex:1">
+      <input type="text" id="buscaNotaEmitida" placeholder="Buscar por nº, cliente, valor..." oninput="renderNotasEmitidas()" style="flex:1">
       <select id="filtroStatusNFe" onchange="renderNotasEmitidas()">
         <option value="">Todos os status</option>
         <option value="autorizado">✅ Autorizada</option>
@@ -1964,8 +1964,8 @@ tr:hover td{background:#f9fbf9}
       </select>
       <button class="btn" onclick="exportarExcel('fiscal')">📊 Excel</button>
     </div>
-    <div id="statsNFe" class="stat-row"></div>
-    <div id="listaNFe"></div>
+    <div id="statsNotasEmitidas" class="stat-row"></div>
+    <div id="listaNotasEmitidas"></div>
   </div>
 
   <!-- CLIENTES -->
@@ -2671,6 +2671,8 @@ tr:hover td{background:#f9fbf9}
         <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
       </label>
       <button class="btn" onclick="abrirModalNFe(null)" style="background:#546e7a;color:#fff;border-color:#546e7a">+ Lançar Manual</button>
+      <button class="btn" title="Limpar NSU salvo e reiniciar busca do zero" onclick="if(confirm('Limpar NSU e reiniciar busca? As notas já importadas não serão duplicadas.')){localStorage.removeItem('nfe_ult_nsu');showToast('NSU limpo! Clique em Buscar Novas.');}" style="font-size:11px;color:#9e9e9e">🔄 Reset NSU</button>
+      <button class="btn" onclick="abrirModalNFeConfig()" style="font-size:12px" title="Configurar backend">⚙️</button>
     </div>
   </div>
 
@@ -7199,16 +7201,16 @@ async function emitirNFe(){
 }
 
 function renderNotasEmitidas(){
-  const busca=(document.getElementById('buscaNFe')?.value||'').toLowerCase();
+  const busca=(document.getElementById('buscaNotaEmitida')?.value||'').toLowerCase();
   const status=document.getElementById('filtroStatusNFe')?.value||'';
-  const el=document.getElementById('listaNFe');
+  const el=document.getElementById('listaNotasEmitidas');
   if(!el) return;
   const lista=notasFiscais.filter(n=>{
     if(status&&n.status!==status) return false;
     if(busca&&!(n.destinatario+n.numero+n.valor_total+'').toLowerCase().includes(busca)) return false;
     return true;
   });
-  const elStats=document.getElementById('statsNFe');
+  const elStats=document.getElementById('statsNotasEmitidas');
   if(elStats){
     const total=lista.reduce((a,n)=>a+(n.valor_total||0),0);
     elStats.innerHTML=`
@@ -10619,19 +10621,32 @@ async function buscarTodasNFe(){
     while(continuar && !window._cancelarBusca){
       setProgresso(`Consultando lote ${lote}... (NSU ${ultNSU})`, totalImportadas, Math.min(lote*5, 90));
 
-      const resp = await fetch(cfg.url + '/api/buscar-todas-nfe', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','x-api-key':cfg.apiKey},
-        body: JSON.stringify({cnpj:'08363498000169', ultNSU})
-      });
-
-      if(!resp.ok){
-        const err = await resp.json().catch(()=>({erro:'Erro '+resp.status}));
-        throw new Error(err.erro||'Erro no servidor');
+      // Usa o endpoint principal /api/consultar-nfe com NSU atual
+      // tenta /api/buscar-todas-nfe primeiro, cai em /api/consultar-nfe se não existir
+      let data = null;
+      try {
+        const resp = await fetch(cfg.url + '/api/buscar-todas-nfe', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json','x-api-key':cfg.apiKey},
+          body: JSON.stringify({cnpj:'08363498000169', ultNSU})
+        });
+        if(resp.ok) data = await resp.json();
+        else throw new Error('endpoint_nao_existe');
+      } catch(e1) {
+        // fallback para endpoint principal
+        const resp2 = await fetch(cfg.url + '/api/consultar-nfe', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json','x-api-key':cfg.apiKey},
+          body: JSON.stringify({cnpj:'08363498000169', ultNSU})
+        });
+        if(!resp2.ok){
+          const err = await resp2.json().catch(()=>({erro:'Erro '+resp2.status}));
+          throw new Error(err.erro||'Erro no servidor');
+        }
+        data = await resp2.json();
       }
 
-      const data = await resp.json();
-      if(!data.sucesso) throw new Error(data.erro||'Erro desconhecido');
+      if(!data || !data.sucesso) throw new Error(data?.erro||'Erro desconhecido');
 
       // Save notes
       for(const nota of data.notas||[]){
@@ -10656,7 +10671,7 @@ async function buscarTodasNFe(){
       }
 
       // Check if there are more
-      continuar = data.hasMore && data.notas?.length > 0;
+      continuar = (data.hasMore === true) && (data.notas?.length > 0);
       lote++;
 
       // Reload to show progress
@@ -10664,6 +10679,9 @@ async function buscarTodasNFe(){
         await loadAll();
         setProgresso(`Consultando lote ${lote}...`, totalImportadas, Math.min(lote*5, 90));
       }
+
+      // Se não tem hasMore, para
+      if(!data.hasMore) continuar = false;
 
       // Small delay to not overload SEFAZ
       if(continuar) await new Promise(r=>setTimeout(r,500));
@@ -10675,6 +10693,8 @@ async function buscarTodasNFe(){
 
     if(window._cancelarBusca){
       showToast(`Cancelado. ${totalImportadas} notas importadas até agora.`);
+    } else if(totalImportadas === 0 && totalDuplicadas === 0){
+      showToast('Nenhuma NF-e nova encontrada na SEFAZ. Tente limpar o NSU e buscar novamente.');
     } else {
       showToast(`✅ Concluído! ${totalImportadas} nota(s) importada(s)${totalDuplicadas?' ('+totalDuplicadas+' já existiam)':''}.`);
     }
@@ -10682,7 +10702,11 @@ async function buscarTodasNFe(){
   }catch(e){
     document.getElementById('modalBuscaTodas')?.remove();
     console.error('Erro buscar todas:', e);
-    showToast('❌ Erro: '+e.message,'err');
+    if(e.message.includes('Failed to fetch')||e.message.includes('NetworkError')){
+      showToast('❌ Não conectou ao backend. Verifique a URL nas configurações.','err');
+    } else {
+      showToast('❌ Erro: '+e.message,'err');
+    }
     if(totalImportadas>0) await loadAll();
   }
 }
