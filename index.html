@@ -7510,12 +7510,16 @@ function isExpedicao(){
   return usuarioLogado&&usuarioLogado.email==='expedicao@sloleos.com.br';
 }
 function isAprovador(){
-  // Administradores podem aprovar requisições de material
-  const admins=['roger@sloleos.com.br','sylvio@sloleos.com.br'];
   if(!usuarioLogado) return false;
-  if(admins.includes(usuarioLogado.email)) return true;
-  // Also allow if perfil is Administrador
-  if((usuarioLogado.perfil||usuarioLogado.cargo||'').toLowerCase().includes('admin')) return true;
+  // E-mails de administradores (comparação case-insensitive)
+  const admins=['adm.geral@sloleos.com.br','roger@sloleos.com.br','sylvio@sloleos.com.br'];
+  const emailLower=(usuarioLogado.email||'').trim().toLowerCase();
+  if(admins.includes(emailLower)) return true;
+  // Verifica perfil/cargo (case-insensitive)
+  const perfilStr=(usuarioLogado.perfil||usuarioLogado.cargo||usuarioLogado.tipo||'').toLowerCase();
+  if(perfilStr.includes('admin')||perfilStr.includes('aprovador')||perfilStr==='gestor') return true;
+  // Verifica flag is_admin no registro do usuário
+  if(usuarioLogado.is_admin===true||usuarioLogado.is_admin==='true'||usuarioLogado.is_admin===1) return true;
   return false;
 }
 
@@ -8667,8 +8671,12 @@ async function salvarRequisicao(){
   const pdvId=pvDestId||null;
   const pdv=pvDest||null;
   const numero=parseInt(document.getElementById('req_numero').value)||0;
+  // Debug: log usuarioLogado para identificar campos disponíveis
+  console.log('[Req] usuarioLogado:', JSON.stringify({email:usuarioLogado?.email, perfil:usuarioLogado?.perfil, cargo:usuarioLogado?.cargo, is_admin:usuarioLogado?.is_admin, nome:usuarioLogado?.nome}));
+  console.log('[Req] isAprovador():', isAprovador());
+  const ehAprovador=isAprovador();
   const obj={
-    numero, status: isAprovador() ? 'Atendida' : 'Aguardando Aprovação',
+    numero, status: ehAprovador ? 'Atendida' : 'Aguardando Aprovação',
     departamento:depto,
     pdv_id:pdvId||null,
     pdv_nome:pdv?('PDV '+pdv.numero+(pdv.cliente_nome?' — '+pdv.cliente_nome:'')):(isPdvDest?'PDV':null),
