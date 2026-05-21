@@ -1495,6 +1495,20 @@ tr:hover td{background:#f9fbf9}
 </div><!-- end appContent -->
 
 <!-- MODALS ADICIONAIS (fora dos panels) -->
+
+<!-- MODAL VER DETALHE NF-e -->
+<div class="modal-bg" id="modalVerNFe">
+<div class="modal" style="width:780px;max-width:98vw">
+  <div class="modal-header" style="background:#1565c0">
+    <h3>🧾 Nota Fiscal de Entrada</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="imprimirDetalheNFe()" title="Imprimir / PDF">🖨️</button>
+      <button class="modal-header-btn" onclick="fecharModal('modalVerNFe')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" id="nfeDetalheConteudo" style="padding:0"></div>
+</div>
+</div>
 <div class="modal-bg" id="modalItem">
 <div class="modal">
   <div class="modal-header">
@@ -6588,10 +6602,11 @@ async function confirmarImportNFe(){
     }catch(err){console.error(err);erros++;}
   }
 
-  // FIX #3: salvar na lista de entradas NF-e
+  // FIX #3: salvar na lista de entradas NF-e e gerar Contas a Pagar
   if(ok>0){
+    let nfeId=null;
     try{
-      await api('POST','entradas_nfe',{
+      const nfeObj={
         numero_nfe:nNF,
         serie:'1',
         dt_emissao:dhEmi.split('T')[0],
@@ -6599,13 +6614,49 @@ async function confirmarImportNFe(){
         cnpj_fornecedor:(fornCNPJ||'').replace(/\D/g,'')||null,
         valor_total:vNF||0,
         chave_nfe:chaveNFe,
+        vencimento:nfeData.vencimento||null,
         status:'Entrada Realizada',
         observacao:`Importado via XML — ${ok} item(s)`,
         itens:JSON.stringify(itensEntrada),
         criado_por:usuarioLogado?.nome||null
-      });
-    }catch(e){console.warn('Não foi possível salvar em entradas_nfe:',e);}
-    showToast(`✅ ${ok} entrada${ok!==1?'s':''} registrada${ok!==1?'s':''}! NF-e adicionada à lista.`);
+      };
+      const res=await api('POST','entradas_nfe',nfeObj,'?select=id');
+      nfeId=Array.isArray(res)?res[0]?.id:res?.id;
+
+      // Gera Contas a Pagar usando o vencimento da nota
+      if(nfeId && nfeData.vencimento){
+        // Se houver múltiplos vencimentos (parcelas), cria um CP por parcela
+        const vencLista=nfeData.vencimentos?.length>1?nfeData.vencimentos:[nfeData.vencimento];
+        // Busca valores de parcela do XML se houver
+        const valorParcela=parseFloat((vNF/vencLista.length).toFixed(2));
+        // Verifica se já existe CP para esta NF
+        const cpExiste=contasPagar.some(c=>c.nfe_id===nfeId||c.num_doc==='NF-e '+nNF);
+        if(!cpExiste){
+          for(let pi=0;pi<vencLista.length;pi++){
+            await api('POST','contas_pagar',{
+              descricao:fornNome+(vencLista.length>1?` — Parcela ${pi+1}/${vencLista.length}`:''),
+              valor:valorParcela,
+              vencimento:vencLista[pi],
+              categoria:'Matéria Prima',
+              num_doc:'NF-e '+nNF,
+              status:'Aberta',
+              nfe_id:nfeId,
+              observacao:`Importado via XML em ${new Date().toLocaleDateString('pt-BR')}`,
+              criado_por:usuarioLogado?.nome||null
+            }).catch(e=>console.error('Erro CP:',e));
+          }
+          showToast(`✅ ${ok} entrada${ok!==1?'s':''} + Contas a Pagar gerado(s)! NF-e ${nNF} na lista.`);
+        } else {
+          showToast(`✅ ${ok} entrada${ok!==1?'s':''} registrada${ok!==1?'s':''}! NF-e adicionada à lista.`);
+        }
+      } else {
+        showToast(`✅ ${ok} entrada${ok!==1?'s':''} registrada${ok!==1?'s':''}! NF-e adicionada à lista.`);
+        if(!nfeData.vencimento) showToast('⚠️ Vencimento não encontrado no XML — crie o CP manualmente em Contas a Pagar', 'err', 6000);
+      }
+    }catch(e){
+      console.warn('Erro ao salvar em entradas_nfe / CP:',e);
+      showToast(`✅ ${ok} entradas no estoque. Falha ao registrar NF-e.`,'err');
+    }
     fecharModal('modalNFe');
     await loadAll();
   }
@@ -10226,6 +10277,7 @@ function renderEntradaNFe(){
       <td style="padding:8px 10px"><span style="${sc};padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">${n.status||'Pendente'}</span></td>
       <td style="padding:8px 10px;font-size:12px">${[n.departamento,n.pdv_id?pvMap[n.pdv_id]:''].filter(Boolean).join(' / ')||'—'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
+        <button class="btn btn-sm" style="background:#546e7a;color:#fff;border-color:#546e7a;font-size:11px" onclick="verDetalheNFe('${n.id}')" title="Ver detalhes / Imprimir">👁 Ver</button>
         ${n.status!=='Entrada Realizada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="abrirModalNFe('${n.id}')">✏️ Editar</button>`:''}
         ${n.status==='Pendente'||!n.status?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="confirmarEntradaRapida('${n.id}')">✅ Entrada</button>`:''}
         <button class="btn btn-sm danger" onclick="deletarNFe('${n.id}')" title="Excluir">🗑</button>
@@ -10478,6 +10530,133 @@ async function deletarNFe(id){
   catch(e){showToast('Erro','err');}
 }
 
+// ── Ver Detalhe NF-e ──────────────────────────────────────────────────────
+function verDetalheNFe(id){
+  const n=entradasNFe.find(x=>x.id===id);
+  if(!n){ showToast('NF-e não encontrada','err'); return; }
+  const itens=typeof n.itens==='string'?JSON.parse(n.itens||'[]'):(n.itens||[]);
+  const fmtData=d=>d?new Date(d+'T12:00').toLocaleDateString('pt-BR','dd/MM/yyyy'):'—';
+  const fmtCNPJ=c=>(c||'').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5')||'—';
+  const statusColor={'Pendente':'#e65100','Entrada Realizada':'#2e7d32','Cancelada':'#9e9e9e'};
+  const sc=statusColor[n.status]||'#e65100';
+
+  const itensHtml=itens.length?`
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+      <thead><tr style="background:#e3f2fd">
+        <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #90caf9">Descrição</th>
+        <th style="padding:6px 10px;text-align:center;border-bottom:2px solid #90caf9;width:80px">Qtd</th>
+        <th style="padding:6px 10px;text-align:center;border-bottom:2px solid #90caf9;width:60px">Und</th>
+        <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #90caf9;width:110px">Val. Unit.</th>
+        <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #90caf9;width:110px">Total</th>
+      </tr></thead>
+      <tbody>${itens.map((it,i)=>`<tr style="background:${i%2?'#f9fbe7':'#fff'}">
+        <td style="padding:6px 10px;border-bottom:1px solid #e8f5e9">${it.descricao||it.xProd||'—'}</td>
+        <td style="padding:6px 10px;text-align:center;border-bottom:1px solid #e8f5e9">${it.qtd||it.qCom||'—'}</td>
+        <td style="padding:6px 10px;text-align:center;border-bottom:1px solid #e8f5e9">${it.unidade||it.uCom||'—'}</td>
+        <td style="padding:6px 10px;text-align:right;border-bottom:1px solid #e8f5e9">${fmtMoeda(it.vUn||it.vUnCom||0)}</td>
+        <td style="padding:6px 10px;text-align:right;font-weight:700;border-bottom:1px solid #e8f5e9">${fmtMoeda(it.vTotal||it.vProd||(it.qtd||0)*(it.vUn||0))}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr style="background:#e3f2fd;font-weight:700">
+        <td colspan="4" style="padding:8px 10px;text-align:right;border-top:2px solid #90caf9">TOTAL</td>
+        <td style="padding:8px 10px;text-align:right;border-top:2px solid #90caf9;color:#c62828">${fmtMoeda(n.valor_total)}</td>
+      </tr></tfoot>
+    </table>`:'<p style="color:#9e9e9e;font-size:12px;padding:12px">Nenhum item registrado.</p>';
+
+  // Verifica se tem CP associado
+  const cpAssoc=contasPagar.filter(c=>c.nfe_id===id||c.num_doc==='NF-e '+(n.numero_nfe||''));
+
+  document.getElementById('nfeDetalheConteudo').innerHTML=`
+  <div id="nfeDetalheImprimivel" style="padding:20px">
+    <!-- Cabeçalho -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid #e3f2fd">
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#1565c0">NF-e Nº ${n.numero_nfe||'—'}</div>
+        <div style="font-size:12px;color:#546e7a;margin-top:2px">Série: ${n.serie||'1'} · Emissão: ${fmtData(n.dt_emissao)}</div>
+        ${n.chave_nfe?`<div style="font-size:10px;color:#9e9e9e;margin-top:4px;word-break:break-all">Chave: ${n.chave_nfe}</div>`:''}
+      </div>
+      <span style="background:${sc};color:#fff;padding:6px 16px;border-radius:10px;font-size:12px;font-weight:700">${n.status||'Pendente'}</span>
+    </div>
+    <!-- Dados do fornecedor -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:#f5f5f5;border-radius:10px;padding:12px">
+        <div style="font-size:10px;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Fornecedor</div>
+        <div style="font-weight:700;font-size:14px">${n.fornecedor||'—'}</div>
+        <div style="font-size:12px;color:#546e7a;margin-top:2px">CNPJ: ${fmtCNPJ(n.cnpj_fornecedor)}</div>
+      </div>
+      <div style="background:#f5f5f5;border-radius:10px;padding:12px">
+        <div style="font-size:10px;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Financeiro</div>
+        <div style="font-size:13px"><b>Valor Total:</b> <span style="color:#c62828;font-weight:700">${fmtMoeda(n.valor_total)}</span></div>
+        <div style="font-size:13px;margin-top:4px"><b>Vencimento:</b> <span style="color:${n.vencimento?'#e65100':'#9e9e9e'};font-weight:600">${n.vencimento?new Date(n.vencimento+'T12:00').toLocaleDateString('pt-BR'):'Não informado'}</span></div>
+        ${n.categoria?`<div style="font-size:12px;color:#546e7a;margin-top:2px">Categoria: ${n.categoria}</div>`:''}
+      </div>
+    </div>
+    <!-- Contas a Pagar associadas -->
+    ${cpAssoc.length?`<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:12px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#f57f17;margin-bottom:6px">💰 Contas a Pagar Geradas</div>
+      ${cpAssoc.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #fff176">
+        <span>${c.descricao||'—'}</span>
+        <span><b>${fmtMoeda(c.valor)}</b> · Venc: ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'} · <span style="color:${c.status==='Paga'?'#2e7d32':'#e65100'}">${c.status}</span></span>
+      </div>`).join('')}
+    </div>`:`<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#bf360c">
+      ⚠️ Nenhum Contas a Pagar gerado para esta NF-e.
+      <button onclick="gerarCPParaNFe('${n.id}')" style="margin-left:12px;padding:4px 12px;background:#e65100;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">Gerar CP agora</button>
+    </div>`}
+    <!-- Itens -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:#263238;margin-bottom:4px">📦 Itens da Nota (${itens.length})</div>
+      ${itensHtml}
+    </div>
+    ${n.observacao?`<div style="margin-top:12px;font-size:12px;color:#546e7a"><b>Observação:</b> ${n.observacao}</div>`:''}
+  </div>
+  <div style="padding:12px 20px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end">
+    ${n.status==='Pendente'||!n.status?`<button class="btn primary" onclick="confirmarEntradaRapida('${n.id}');fecharModal('modalVerNFe')">✅ Confirmar Entrada</button>`:''}
+    <button class="btn" onclick="imprimirDetalheNFe()">🖨️ Imprimir / PDF</button>
+    <button class="btn" onclick="fecharModal('modalVerNFe')">Fechar</button>
+  </div>`;
+
+  abrirModal('modalVerNFe');
+}
+
+function imprimirDetalheNFe(){
+  const el=document.getElementById('nfeDetalheImprimivel');
+  if(!el) return;
+  const win=window.open('','_blank','width=800,height=900');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  @page{size:A4 portrait;margin:15mm 12mm}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;font-size:12px;color:#263238}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #90caf9;padding:6px 8px}
+  .no-print{display:none}
+</style>
+</head><body>${el.innerHTML}</body></html>`);
+  win.document.close();
+  win.onload=()=>{ win.print(); };
+}
+
+async function gerarCPParaNFe(nfeId){
+  const n=entradasNFe.find(x=>x.id===nfeId);
+  if(!n){showToast('NF-e não encontrada','err');return;}
+  const venc=n.vencimento||prompt('Informe a data de vencimento (AAAA-MM-DD):');
+  if(!venc){showToast('Vencimento obrigatório','err');return;}
+  try{
+    await api('POST','contas_pagar',{
+      descricao:n.fornecedor||'Fornecedor',
+      valor:n.valor_total,
+      vencimento:venc,
+      categoria:n.categoria||'Matéria Prima',
+      num_doc:'NF-e '+(n.numero_nfe||''),
+      status:'Aberta',
+      nfe_id:nfeId,
+      criado_por:usuarioLogado?.nome||null
+    });
+    showToast('✅ Conta a Pagar gerada!');
+    await loadAll();
+    verDetalheNFe(nfeId);
+  }catch(e){showToast('Erro ao gerar CP','err');console.error(e);}
+}
+
 // ── Import XML ────────────────────────────────────────────────────────────
 async function importarXMLNFe(input){
   const file=input.files[0];
@@ -10511,7 +10690,13 @@ async function importarXMLNFe(input){
       itensNF.push({xProd:g(prod,'xProd'),qCom:parseFloat(g(prod,'qCom'))||1,vUnCom:parseFloat(g(prod,'vUnCom'))||0,vProd:parseFloat(g(prod,'vProd'))||0,uCom:g(prod,'uCom')||'UN',cProd:g(prod,'cProd'),ncm:g(prod,'NCM')});
     }
 
-    nfeData={nNF,dtFmt,dhEmi,fornNome,fornCNPJ,vNF,itensNF,chave};
+    // Extrai vencimento da cobrança (cobr > dup > dVenc)
+    const cobr=xml.getElementsByTagNameNS(ns,'cobr')[0]||xml.getElementsByTagName('cobr')[0];
+    const dups=cobr?[...(cobr.getElementsByTagNameNS(ns,'dup').length?cobr.getElementsByTagNameNS(ns,'dup'):cobr.getElementsByTagName('dup'))]:[];
+    const vencimentos=dups.map(d=>g(d,'dVenc')).filter(Boolean);
+    const primVenc=vencimentos[0]||null; // primeira parcela ou único vencimento
+
+    nfeData={nNF,dtFmt,dhEmi,fornNome,fornCNPJ,vNF,itensNF,chave,vencimento:primVenc,vencimentos};
     renderNFeModal();
     abrirModal('modalNFe');
     showToast(`✅ XML carregado! NF-e ${nNF} · ${itensNF.length} item(s) — confirme as entradas abaixo`);
