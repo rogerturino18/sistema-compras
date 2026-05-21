@@ -5,6 +5,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SL Óleos — Gestão de Compras</title>
+<script>
+// Detecta formulário de cotação ANTES de qualquer CSS/render
+(function(){
+  try{
+    const p=new URLSearchParams(window.location.search);
+    if(p.get('cotacao')||p.get('forn')||p.get('itens')){
+      document.documentElement.classList.add('modo-cotacao');
+    }
+  }catch(e){}
+})();
+</script>
+<style>.modo-cotacao #loginBg,.modo-cotacao .login-bg,.modo-cotacao #homeScreen,.modo-cotacao #appContent,.modo-cotacao .app-content{display:none!important}
+.modo-cotacao #fornecedorFormBg{display:block!important}</style>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -11674,7 +11687,7 @@ async function buscarTodasNFe(){
 </div>
 
 <script>
-// ── Detecção de formulário de cotação (acesso público) ────────────────────
+// ── Formulário de cotação para fornecedores (sem login) ───────────────────
 (function(){
   const params=new URLSearchParams(window.location.search);
   const cotacaoId=params.get('cotacao');
@@ -11682,12 +11695,6 @@ async function buscarTodasNFe(){
   const itensParam=params.get('itens');
 
   if(!cotacaoId&&!fornNome&&!itensParam) return; // acesso normal ao sistema
-
-  // Esconde tudo e mostra somente o formulário
-  document.getElementById('loginBg').style.display='none';
-  const homeEl=document.getElementById('homeScreen');
-  if(homeEl) homeEl.style.display='none';
-  document.getElementById('fornecedorFormBg').style.display='block';
 
   // Conecta ao Supabase e carrega os itens
   const SUPA_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
