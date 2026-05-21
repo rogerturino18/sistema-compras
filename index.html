@@ -480,7 +480,7 @@ tr:hover td{background:#f9fbf9}
 <div id="mainSidebar" style="position:fixed;left:0;top:56px;bottom:0;width:52px;background:#263238;display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;z-index:15;overflow:visible">
   <div class="sb-icon active" id="sbico_0" onclick="sbGo(0,'Dashboard')" title="Dashboard" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🏠<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Dashboard</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
-  <div class="sb-icon" id="sbico_compras" onclick="sbToggle('compras')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🛒<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Compras</span></div>
+  <div class="sb-icon" id="sbico_compras" onclick="sbToggle('compras')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🛒<span id="badgeAprovacoes" style="display:none;position:absolute;top:2px;right:2px;background:#f44336;color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center;z-index:10"></span><span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Compras</span></div>
   <div class="sb-icon" id="sbico_projetos" onclick="sbToggle('projetos')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🎯<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Projetos</span></div>
   <div class="sb-icon" id="sbico_producao" onclick="sbToggle('producao')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🔧<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Produção</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
@@ -1444,7 +1444,7 @@ tr:hover td{background:#f9fbf9}
       </label>
       <button class="btn" onclick="abrirModalNFe(null)" style="background:#546e7a;color:#fff;border-color:#546e7a">+ Lançar Manual</button>
       <button class="btn" title="Limpar NSU salvo e reiniciar busca do zero" onclick="if(confirm('Limpar NSU e reiniciar busca? As notas já importadas não serão duplicadas.')){localStorage.removeItem('nfe_ult_nsu');showToast('NSU limpo! Clique em Buscar Novas.');}" style="font-size:11px;color:#9e9e9e">🔄 Reset NSU</button>
-      <button class="btn" onclick="abrirModalNFeConfig()" style="font-size:12px" title="Configurar backend">⚙️</button>
+      <button class="btn" onclick="recuperarEntradasDoEstoque()" style="background:#e65100;color:#fff;border-color:#e65100" title="Reconstrói registros de NF-e a partir das movimentações de estoque (para notas importadas antes da correção)">🔧 Recuperar do Estoque</button>
     </div>
   </div>
 
@@ -2900,6 +2900,8 @@ async function loadAll(){
     renderAll();
     verificarLembretes();
     renderHomeTiles();
+    // Verifica requisições pendentes de aprovação sempre que os dados carregam
+    setTimeout(()=>{ if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes(); }, 200);
   } catch(e){ console.error(e); showToast('Erro ao carregar dados','err'); }
 }
 
@@ -8769,25 +8771,39 @@ function verificarAprovacoesPendentes(){
   if(!isAprovador()) return;
   const pendentes=requisicoes.filter(r=>r.status==='Aguardando Aprovação');
   const badge=document.getElementById('badgeAprovacoes');
-  if(!pendentes.length){if(badge)badge.style.display='none';return;}
-  // Show badge on dashboard
+  if(!pendentes.length){
+    if(badge){ badge.style.display='none'; badge.textContent=''; }
+    // Remove card do dashboard se não tiver mais pendências
+    const existing=document.getElementById('notifAprovacoes');
+    if(existing) existing.remove();
+    return;
+  }
+  // Atualiza badge numérico no sidebar
+  if(badge){
+    badge.style.display='block';
+    badge.textContent=pendentes.length>9?'9+':pendentes.length;
+  }
+  // Mostra card no dashboard
   const dashNotifs=document.getElementById('dashNotifs');
   if(dashNotifs){
+    // Remove o placeholder "Nenhuma notificação"
+    const empty=dashNotifs.querySelector('.empty');
+    if(empty) empty.remove();
     const existing=document.getElementById('notifAprovacoes');
-    const html=`<div id="notifAprovacoes" style="background:#fff3e0;border:1px solid #ffe082;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="showTab(17)">
+    const html=`<div id="notifAprovacoes" style="background:#fff3e0;border:1px solid #ffe082;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="sbGo(17,'Requisições de Material')">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:22px">⏳</span>
         <div>
-          <div style="font-weight:700;color:#e65100;font-size:13px">${pendentes.length} requisição${pendentes.length>1?'s':''} aguardando sua aprovação</div>
+          <div style="font-weight:700;color:#e65100;font-size:13px">${pendentes.length} requisição${pendentes.length>1?'s':''} aguardando aprovação</div>
           <div style="font-size:12px;color:#795548;margin-top:2px">${pendentes.map(r=>`Req. Nº ${r.numero} — ${r.departamento} (${r.solicitante||'?'})`).join(' · ')}</div>
         </div>
-        <span style="margin-left:auto;background:#e65100;color:#fff;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600">Ver →</span>
+        <span style="margin-left:auto;background:#e65100;color:#fff;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600;white-space:nowrap">Aprovar →</span>
       </div>
     </div>`;
     if(existing) existing.outerHTML=html;
     else dashNotifs.insertAdjacentHTML('afterbegin',html);
   }
-  // Show popup for each pending req not yet seen this session
+  // Abre modal de aprovação para requisições novas não vistas ainda nesta sessão
   const seenIds=JSON.parse(sessionStorage.getItem('seenReqIds')||'[]');
   const novas=pendentes.filter(r=>!seenIds.includes(r.id));
   if(novas.length>0){
@@ -10085,6 +10101,79 @@ function exportarDRE(){
 let editNFeId = null, nfeItensLocal = [], editOrdemId = null;
 
 // ── Render list ──────────────────────────────────────────────────────────
+async function recuperarEntradasDoEstoque(){
+  // Varre estoque_movimentacoes buscando entradas por compra que não têm entrada_nfe correspondente
+  showToast('🔍 Verificando movimentações de estoque...', 'ok', 5000);
+  try {
+    // Busca todas as movimentações do tipo entrada/compra
+    const movs = await api('GET','estoque_movimentacoes','','?tipo=eq.entrada&subtipo=eq.compra&order=data.desc');
+    if(!movs || !movs.length){ showToast('Nenhuma movimentação de entrada encontrada.','err'); return; }
+
+    // Agrupa por nota_fiscal + fornecedor + data
+    const grupos = {};
+    for(const m of movs){
+      if(!m.nota_fiscal) continue;
+      const key = `${m.nota_fiscal}||${m.fornecedor||''}||${m.data||''}`;
+      if(!grupos[key]) grupos[key] = { nota_fiscal:m.nota_fiscal, fornecedor:m.fornecedor||'', data:m.data||'', itens:[], valor_total:0 };
+      // Busca item do estoque para pegar descrição
+      const itemEstoque = estoqueItens.find(e=>e.id===m.item_id);
+      grupos[key].itens.push({
+        item_id:m.item_id,
+        descricao: itemEstoque?.tipo_peca||itemEstoque?.descricao||m.observacao||'Item',
+        qtd: m.quantidade||0,
+        unidade: m.unidade_saida||itemEstoque?.unidade||'UN',
+        vUn: m.valor_unitario||0,
+        vTotal: (m.quantidade||0)*(m.valor_unitario||0)
+      });
+      grupos[key].valor_total += (m.quantidade||0)*(m.valor_unitario||0);
+    }
+
+    // Filtra grupos que JÁ existem em entradas_nfe (pelo numero_nfe + fornecedor)
+    const novas = Object.values(grupos).filter(g=>{
+      return !entradasNFe.some(e=>{
+        const mesmaNF = (e.numero_nfe||'').trim() === (g.nota_fiscal||'').trim();
+        const mesmoForn = !e.fornecedor || !g.fornecedor ||
+          e.fornecedor.toUpperCase().includes(g.fornecedor.toUpperCase().slice(0,6)) ||
+          g.fornecedor.toUpperCase().includes((e.fornecedor||'').toUpperCase().slice(0,6));
+        return mesmaNF && mesmoForn;
+      });
+    });
+
+    if(!novas.length){
+      showToast('✅ Todas as entradas já estão registradas na lista!');
+      return;
+    }
+
+    // Confirma com o usuário
+    const lista = novas.map(g=>`  • NF ${g.nota_fiscal} — ${g.fornecedor||'?'} (${g.itens.length} item(s))`).join('\n');
+    if(!confirm(`Foram encontradas ${novas.length} nota(s) nas movimentações que não aparecem na lista:\n\n${lista}\n\nDeseja adicioná-las à lista de Entrada NF-e?`)) return;
+
+    let criadas = 0;
+    for(const g of novas){
+      try{
+        await api('POST','entradas_nfe',{
+          numero_nfe: g.nota_fiscal,
+          serie: '1',
+          dt_emissao: g.data,
+          fornecedor: g.fornecedor||null,
+          valor_total: parseFloat(g.valor_total.toFixed(2))||0,
+          status: 'Entrada Realizada',
+          observacao: `Recuperado das movimentações de estoque`,
+          itens: JSON.stringify(g.itens),
+          criado_por: usuarioLogado?.nome||null
+        });
+        criadas++;
+      }catch(e){ console.error('Erro ao criar entrada:', e); }
+    }
+
+    showToast(`✅ ${criadas} entrada${criadas!==1?'s':''} recuperada${criadas!==1?'s':''}!`);
+    await loadAll();
+  } catch(e){
+    showToast('Erro ao recuperar entradas','err');
+    console.error(e);
+  }
+}
+
 function renderEntradaNFe(){
   const b=(document.getElementById('buscaNFe')?.value||'').toLowerCase();
   const fSt=document.getElementById('filtroNFe_status')?.value||'';
