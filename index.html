@@ -5218,18 +5218,16 @@ function imprimirOrdem(id){
   const conteudo=`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<'+'style>
+<style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  @page { size: 210mm 297mm; margin: 8mm; }
-  @media print { @page { size: 210mm 297mm portrait; margin: 8mm; } }
-  html, body { width:194mm; }
-  body { font-family: Arial, sans-serif; font-size: 11px; }
+  @page { size: A4 portrait; margin: 10mm 8mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  html, body { width: 190mm; font-family: Arial, sans-serif; font-size: 11px; }
   table { width:100%; border-collapse:collapse; }
   td { border:1px solid #000; padding:3px 5px; }
   .hdr { background:#d9d9d9; font-weight:700; text-align:center; font-size:10px; padding:4px; }
   .lbl { background:#eee; font-weight:700; text-align:center; font-size:10px; }
-</'+'style>
+</style>
 </head><body>
 <table>
   <tr>
@@ -6412,7 +6410,8 @@ function lerNFe(input){
         itensNF.push({xProd,qCom,vUnCom,vProd,uCom,cProd});
       }
 
-      nfeData={nNF,dtFmt,dhEmi,fornNome,fornCNPJ,vNF,itensNF};
+      const chave=xml.getElementsByTagName('infNFe')[0]?.getAttribute('Id')?.replace('NFe','')||g(xml,'chNFe')||'';
+      nfeData={nNF,dtFmt,dhEmi,fornNome,fornCNPJ,vNF,itensNF,chave};
       renderNFeModal();
       abrirModal('modalNFe');
     }catch(err){
@@ -6520,13 +6519,19 @@ function setNFeAcao(idx, acao){
 
 async function confirmarImportNFe(){
   if(!nfeData){showToast('Nenhuma NF carregada','err');return;}
-  const {nNF,dhEmi,fornNome,itensNF}=nfeData;
+  const {nNF,dhEmi,fornNome,fornCNPJ,vNF,itensNF,chave}=nfeData;
   const localizacao=document.getElementById('nfeLocalizacao').value;
   let ok=0,erros=0;
+  const itensEntrada=[];
+
+  // Verifica duplicata na lista de entradas
+  const chaveNFe=chave||null;
+  if(chaveNFe&&entradasNFe.some(n=>n.chave_nfe===chaveNFe)){
+    if(!confirm(`⚠️ Esta NF-e (chave: ...${chaveNFe.slice(-6)}) já existe na lista de entradas. Importar novamente?`)) return;
+  }
 
   for(let idx=0;idx<itensNF.length;idx++){
     const it=itensNF[idx];
-    // Verifica ação selecionada
     const btnNovo=document.getElementById(`btnNovo_${idx}`);
     const btnExist=document.getElementById(`btnExist_${idx}`);
     const btnIgn=document.getElementById(`btnIgn_${idx}`);
@@ -6538,60 +6543,67 @@ async function confirmarImportNFe(){
 
     try{
       let itemId=null;
+      let undFinal=it.uCom||'UN';
 
       if(acaoNovo){
-        // Cria novo item no estoque
         const tipo=document.getElementById(`nfe_tipo_${idx}`)?.value.trim()||it.xProd;
         const mat=document.getElementById(`nfe_mat_${idx}`)?.value.trim()||null;
         const esp=document.getElementById(`nfe_esp_${idx}`)?.value.trim()||null;
         const med1=document.getElementById(`nfe_med1_${idx}`)?.value.trim()||null;
         const med2=document.getElementById(`nfe_med2_${idx}`)?.value.trim()||null;
-        const und=document.getElementById(`nfe_und_${idx}`)?.value||it.uCom||'KG';
+        undFinal=document.getElementById(`nfe_und_${idx}`)?.value||it.uCom||'KG';
 
         const novoItem={
-          tipo:'materia_prima',
-          descricao:tipo,
-          tipo_peca:tipo,
-          material:mat,
-          espessura:esp,
-          medida1:med1,
-          medida2:med2,
-          localizacao,
-          qtd_inicial:0,
-          unidade:und,
-          valor_unitario:it.vUnCom||null,
-          nota_fiscal:nNF,
-          criado_por:usuarioLogado?.nome||null
+          tipo:'materia_prima', descricao:tipo, tipo_peca:tipo, material:mat,
+          espessura:esp, medida1:med1, medida2:med2, localizacao,
+          qtd_inicial:0, unidade:undFinal, valor_unitario:it.vUnCom||null,
+          nota_fiscal:nNF, criado_por:usuarioLogado?.nome||null
         };
         const res=await api('POST','estoque_itens',novoItem);
         itemId=res[0]?.id;
       } else if(acaoExist){
         itemId=document.getElementById(`nfe_itemId_${idx}`)?.value;
         if(!itemId){showToast(`Item ${idx+1}: selecione um item do estoque`,'err');erros++;continue;}
+        // FIX #4: usar a unidade do item existente, não do XML
+        const itemEstoque=estoqueItens.find(e=>e.id===itemId);
+        if(itemEstoque?.unidade) undFinal=itemEstoque.unidade;
       }
 
       if(!itemId){erros++;continue;}
 
-      // Registra movimentação de entrada
       await api('POST','estoque_movimentacoes',{
-        item_id:itemId,
-        tipo:'entrada',
-        subtipo:'compra',
-        quantidade:it.qCom,
+        item_id:itemId, tipo:'entrada', subtipo:'compra',
+        quantidade:it.qCom, unidade_saida:undFinal,
         data:dhEmi.split('T')[0],
         valor_unitario:it.vUnCom||null,
-        nota_fiscal:nNF,
-        fornecedor:fornNome,
+        nota_fiscal:nNF, fornecedor:fornNome,
         responsavel:usuarioLogado?.nome||null,
-        observacao:`Importado NF-e ${nNF}`,
+        observacao:`Importado XML NF-e ${nNF}`,
         criado_por:usuarioLogado?.nome||null
       });
+      itensEntrada.push({descricao:it.xProd, qtd:it.qCom, unidade:undFinal, vUn:it.vUnCom, vTotal:it.vProd});
       ok++;
     }catch(err){console.error(err);erros++;}
   }
 
+  // FIX #3: salvar na lista de entradas NF-e
   if(ok>0){
-    showToast(`${ok} entrada${ok!==1?'s':''} registrada${ok!==1?'s':''}!`);
+    try{
+      await api('POST','entradas_nfe',{
+        numero_nfe:nNF,
+        serie:'1',
+        dt_emissao:dhEmi.split('T')[0],
+        fornecedor:fornNome,
+        cnpj_fornecedor:(fornCNPJ||'').replace(/\D/g,'')||null,
+        valor_total:vNF||0,
+        chave_nfe:chaveNFe,
+        status:'Entrada Realizada',
+        observacao:`Importado via XML — ${ok} item(s)`,
+        itens:JSON.stringify(itensEntrada),
+        criado_por:usuarioLogado?.nome||null
+      });
+    }catch(e){console.warn('Não foi possível salvar em entradas_nfe:',e);}
+    showToast(`✅ ${ok} entrada${ok!==1?'s':''} registrada${ok!==1?'s':''}! NF-e adicionada à lista.`);
     fecharModal('modalNFe');
     await loadAll();
   }
@@ -8576,7 +8588,7 @@ function renderReqItens(){
       <td style="padding:7px 10px;font-weight:600;font-size:12px">${it.descricao}</td>
       <td style="padding:7px 10px;font-size:12px;color:var(--green)">${it.material||'—'}</td>
       <td style="padding:7px 10px;font-size:12px;${saldoColor}">${(it.saldo_atual||0).toLocaleString('pt-BR',{maximumFractionDigits:3})} ${it.unidade}</td>
-      <td style="padding:4px 6px"><input type="number" value="${it.qtd||1}" min="0.001" step="0.001" onchange="reqItensLocal[${i}].qtd=parseFloat(this.value)||0" style="padding:5px 8px;border:1px solid #ce93d8;border-radius:6px;font-size:13px;width:75px;font-weight:600"></td>
+      <td style="padding:4px 6px">${(()=>{const isInt=['UN','PC','PÇ','PCS','UNID','CX','CJ','CONJ','PAR','ROLO','FOLHA','PECA','PEÇA'].includes((it.unidade||'').toUpperCase());return `<input type="number" value="${it.qtd||1}" min="${isInt?1:0.001}" step="${isInt?1:0.001}" onchange="reqItensLocal[${i}].qtd=${isInt?'parseInt':'parseFloat'}(this.value)||0;this.value=reqItensLocal[${i}].qtd" style="padding:5px 8px;border:1px solid #ce93d8;border-radius:6px;font-size:13px;width:75px;font-weight:600">`;})()}</td>
       <td style="padding:7px 10px;font-size:12px">${it.unidade}</td>
       <td><button onclick="reqItensLocal.splice(${i},1);renderReqItens()" style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:2px 6px;cursor:pointer">✕</button></td>
     </tr>`;
@@ -8634,7 +8646,9 @@ async function salvarRequisicao(){
       }
       showToast(`✅ Requisição Nº ${numero} aprovada e estoque atualizado!`);
     } else {
-      showToast(`📋 Requisição Nº ${numero} enviada para aprovação!`);
+      showToast(`📋 Requisição Nº ${numero} enviada para aprovação!`, 'ok', 5000);
+      // Atualiza badge de aprovações pendentes imediatamente
+      setTimeout(()=>{ if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes(); }, 500);
     }
     fecharModal('modalReq');
     await loadAll();
