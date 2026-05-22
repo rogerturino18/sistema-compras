@@ -6649,7 +6649,7 @@ function gerarProximoCodigo(categoria) {
 // Codifica em lote todos os itens sem código
 async function codificarItensEmLote() {
   const semCodigo = estoqueItens.filter(i => !i.codigo);
-  if(!semCodigo.length) { showToast('Todos os itens já têm código!'); return; }
+  if(!semCodigo.length) { showToast('✅ Todos os itens já têm código!'); return; }
 
   const preview = Object.entries(
     semCodigo.reduce((acc, i) => {
@@ -6659,12 +6659,9 @@ async function codificarItensEmLote() {
     }, {})
   ).map(([cat, n]) => `  • ${cat} (${getPrefixoFamilia(cat)}.XXX): ${n} item(s)`).join('\n');
 
-  if(!confirm(`Codificar ${semCodigo.length} itens sem código?\n\nPrefixos que serão usados:\n${preview}\n\nEsta ação não pode ser desfeita.`)) return;
+  if(!confirm(`Codificar ${semCodigo.length} itens sem código?\n\nPrefixos:\n${preview}\n\nProcessado em lotes — pode demorar alguns segundos.`)) return;
 
-  showToast('⏳ Codificando itens...', 'ok', 15000);
-  let ok = 0, erros = 0;
-
-  // Agrupa por categoria para gerar sequência correta
+  // Monta a lista de {id, codigo} a salvar antes de qualquer chamada
   const porCategoria = {};
   semCodigo.forEach(i => {
     const cat = i.categoria || 'Matéria Prima';
@@ -6672,31 +6669,85 @@ async function codificarItensEmLote() {
     porCategoria[cat].push(i);
   });
 
-  // Processa categoria por categoria
+  const tarefas = []; // [{id, codigo}]
   for(const [cat, itens] of Object.entries(porCategoria)) {
     const prefixo = getPrefixoFamilia(cat);
-    const regex = new RegExp('^' + prefixo.replace(/\./g, '\\.') + '\\.(\\d+)$');
+    const regex = new RegExp('^' + prefixo.replace(/\./g,'\\.') + '\\.(\\d+)$');
+    // Calcula maxSeq a partir dos itens JÁ codificados (estoqueItens original) + tarefas já planejadas
     let maxSeq = 0;
     estoqueItens.forEach(item => {
       if(item.codigo) {
-        const match = item.codigo.match(regex);
-        if(match) { const s = parseInt(match[1]); if(s > maxSeq) maxSeq = s; }
+        const m = item.codigo.match(regex);
+        if(m && parseInt(m[1]) > maxSeq) maxSeq = parseInt(m[1]);
       }
     });
-    // Ordena itens da categoria alfabeticamente para numeração consistente
+    // Considera também os que já foram planejados nesta rodada
+    tarefas.forEach(t => {
+      const m = t.codigo.match(regex);
+      if(m && parseInt(m[1]) > maxSeq) maxSeq = parseInt(m[1]);
+    });
+    // Ordena por descrição para numeração consistente
     itens.sort((a,b)=>(a.descricao||'').localeCompare(b.descricao||'','pt-BR'));
-    for(const item of itens) {
+    itens.forEach(item => {
       maxSeq++;
-      const codigo = `${prefixo}.${String(maxSeq).padStart(3,'0')}`;
-      try {
-        await api('PATCH','estoque_itens',{codigo},`?id=eq.${item.id}`);
-        item.codigo = codigo; // atualiza local para próximas iterações
-        ok++;
-      } catch(e) { erros++; console.error(e); }
+      tarefas.push({ id: item.id, codigo: `${prefixo}.${String(maxSeq).padStart(3,'0')}` });
+    });
+  }
+
+  // Exibe barra de progresso
+  const total = tarefas.length;
+  let ok = 0, erros = 0;
+  const toastEl = document.createElement('div');
+  toastEl.id = 'codificacaoProgress';
+  toastEl.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#263238;color:#fff;padding:14px 20px;border-radius:12px;z-index:9999;font-size:13px;min-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.4)';
+  toastEl.innerHTML = `<div style="margin-bottom:8px">⏳ Codificando itens... <b id="codProg">0/${total}</b></div>
+    <div style="background:#546e7a;border-radius:4px;height:6px"><div id="codBar" style="background:#4caf50;height:6px;border-radius:4px;width:0%;transition:width 0.3s"></div></div>`;
+  document.body.appendChild(toastEl);
+
+  const atualizar = (n) => {
+    const pEl = document.getElementById('codProg');
+    const bEl = document.getElementById('codBar');
+    if(pEl) pEl.textContent = `${n}/${total}`;
+    if(bEl) bEl.style.width = `${Math.round(n/total*100)}%`;
+  };
+
+  // Processa em lotes de 5 com pausa entre lotes para não estourar rate limit
+  const BATCH = 5;
+  const DELAY_ENTRE_ITEMS = 80;   // ms entre cada PATCH
+  const DELAY_ENTRE_LOTES = 500; // ms entre lotes
+
+  for(let i = 0; i < tarefas.length; i++) {
+    const { id, codigo } = tarefas[i];
+    try {
+      await api('PATCH','estoque_itens',{codigo},`?id=eq.${id}`);
+      // Atualiza também o array local
+      const localItem = estoqueItens.find(x=>x.id===id);
+      if(localItem) localItem.codigo = codigo;
+      ok++;
+    } catch(e) {
+      console.error(`Erro ao codificar item ${id}:`, e);
+      erros++;
+      // Pausa maior se der erro (provável rate limit)
+      await new Promise(r=>setTimeout(r,1000));
+    }
+    atualizar(i+1);
+    // Pausa entre items
+    await new Promise(r=>setTimeout(r, DELAY_ENTRE_ITEMS));
+    // Pausa extra entre lotes
+    if((i+1) % BATCH === 0 && i+1 < tarefas.length) {
+      await new Promise(r=>setTimeout(r, DELAY_ENTRE_LOTES));
     }
   }
 
-  showToast(`✅ ${ok} item(s) codificado(s)!${erros?' ⚠️ '+erros+' erro(s)':''}`);
+  // Remove barra de progresso
+  document.getElementById('codificacaoProgress')?.remove();
+
+  if(erros === 0) {
+    showToast(`✅ ${ok} item(s) codificado(s) com sucesso!`);
+  } else {
+    showToast(`⚠️ ${ok} ok, ${erros} com erro. Clique em "Codificar Itens" novamente para tentar os restantes.`, 'err', 8000);
+  }
+
   await loadAll();
   renderEstoque();
 }
