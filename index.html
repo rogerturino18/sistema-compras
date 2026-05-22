@@ -2419,7 +2419,7 @@ tr:hover td{background:#f9fbf9}
       <p style="font-size:13px;color:var(--gray);margin-bottom:12px">Revise os itens antes de confirmar. Clique em qualquer célula para editar:</p>
       <div class="tbl-wrap">
         <table id="tabelaRevisao"><thead><tr>
-          <th>Descritivo</th><th>Material</th><th>Espessura</th><th>Medida 1</th><th>Medida 2</th><th>Quantidade</th><th>Unidade</th><th></th>
+          <th>Descritivo</th><th>Material</th><th>Medidas</th><th>Quantidade</th><th>Unidade</th><th></th>
         </tr></thead><tbody id="tbodyRevisao"></tbody></table>
       </div>
     </div>
@@ -3613,7 +3613,6 @@ function renderCotacoes(){
           <thead><tr style="background:#f5f7f5">
             <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;text-transform:uppercase">Descritivo</th>
             <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Material</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Espessura</th>
             <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Medidas</th>
             <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Qtd</th>
             <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Peso</th>
@@ -3797,9 +3796,7 @@ function renderComparar(){
           ${it.descricao_peca?`<div style="font-size:10px;color:var(--gray)">${it.descricao_peca}</div>`:''}
         </td>
         <td style="padding:8px 10px;color:var(--green);font-size:12px">${it.material||'—'}</td>
-        <td style="padding:8px 10px;font-family:monospace;font-size:11px;text-align:center">${it.espessura||'—'}</td>
-        <td style="padding:8px 10px;font-family:monospace;font-size:11px;text-align:center">${it.medida1||'—'}</td>
-        <td style="padding:8px 10px;font-family:monospace;font-size:11px;text-align:center">${it.medida2||'—'}</td>
+        <td style="padding:8px 10px;font-family:monospace;font-size:12px;text-align:center;white-space:nowrap">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
         <td style="padding:8px 10px;font-size:11px;text-align:center">${it.qtd||0} ${it.und||''}</td>
         <td style="padding:8px 10px;font-size:11px;text-align:center">${it.peso?it.peso+' kg':'—'}</td>
         <td style="padding:8px 10px;font-size:12px">${it.desenho||'—'}</td>
@@ -4085,7 +4082,7 @@ async function dispararEmails(){
               <tr style="background:#2e7d32">
                 <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição / Material</th>
                 <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Desenho</th>
-                <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Espessura</th>
+
                 <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Medidas</th>
                 <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Quantidade</th>
                 <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Peso</th>
@@ -4170,7 +4167,7 @@ async function enviarEmailTeste(){
             <tr style="background:#2e7d32">
               <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição / Material</th>
               <th style="padding:8px;text-align:left;color:#fff;font-size:12px">Desenho</th>
-              <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Espessura</th>
+
               <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Medidas</th>
               <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Quantidade</th>
               <th style="padding:8px;text-align:center;color:#fff;font-size:12px">Peso</th>
@@ -5986,7 +5983,6 @@ function renderListaMaterial(){
           <thead><tr style="background:var(--green-pale)">
             <th style="padding:6px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Descritivo</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Espessura</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Medidas</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Qtd</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Desenho</th>
