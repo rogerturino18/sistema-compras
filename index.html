@@ -1559,9 +1559,7 @@ tr:hover td{background:#f9fbf9}
     </div>
     <div class="form-group full"><label>Descritivo</label><input id="fi_descritivo" placeholder="Ex: BARRA REDONDA LAMINADA"></div>
     <div class="form-group"><label>Material</label><input id="fi_material"></div>
-    <div class="form-group"><label>Espessura</label><input id="fi_espessura"></div>
-    <div class="form-group"><label>Medida 1</label><input id="fi_medida1"></div>
-    <div class="form-group"><label>Medida 2</label><input id="fi_medida2"></div>
+    <div class="form-group full"><label>Medidas <span style="color:var(--gray);font-weight:400;font-size:10px;text-transform:none">Esp. × Med.1 × Med.2 — ex: Ø1.3/4" × 293 ou 31.75 × 785 × 195</span></label><input id="fi_medidas" placeholder="Ex: Ø1.3/4&quot; × 293 ou 12 × 150 × 300"></div>
     <div class="form-group full"><label>Descrição da peça</label><input id="fi_descricao_peca"></div>
     <div class="form-group full"><label>Descrição do Item <span style="color:var(--gray);font-weight:400;text-transform:none;font-size:10px">(opcional — use para acessórios e equipamentos prontos)</span></label><textarea id="fi_descricao_item" rows="2" placeholder="Ex: Parafuso sextavado M8 x 30mm inox, Kit vedação bomba Rexroth..."></textarea></div>
     <div class="form-group"><label>Valor unitário (R$)</label><input id="fi_valor" type="number" step="0.01" min="0"></div>
@@ -3222,13 +3220,15 @@ function abrirModalItem(id){
   document.getElementById('modalItemTitulo').textContent=id?'Editar item':'Novo item';
 
   // Esconder campos técnicos para expedição
-  const camposCompletos=['fi_pdv_sel','fi_pdv','fi_cliente','fi_equipamento','fi_desenho','fi_material','fi_espessura','fi_medida1','fi_medida2','fi_descricao_peca','fi_valor','fi_peso'];
+  const camposCompletos=['fi_pdv_sel','fi_pdv','fi_cliente','fi_equipamento','fi_desenho','fi_material','fi_medidas','fi_descricao_peca','fi_valor','fi_peso'];
   camposCompletos.forEach(fid=>{
     const el=document.getElementById(fid);
     if(el){ const g=el.closest('.form-group'); if(g) g.style.display=isExpedicao()?'none':'flex'; }
   });
 
-  ['pdv','cliente','equipamento','desenho','descritivo','material','espessura','medida1','medida2','descricao_peca'].forEach(f=>document.getElementById('fi_'+f).value=it?(it[f]||''):'');
+  ['pdv','cliente','equipamento','desenho','descritivo','material','descricao_peca'].forEach(f=>document.getElementById('fi_'+f).value=it?(it[f]||''):'');
+  // Medidas: join into single field
+  document.getElementById('fi_medidas').value=it?[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × '):''
   document.getElementById('fi_descricao_item').value=it?(it.descricao_item||''):'';
   document.getElementById('fi_qtd').value=it?it.qtd:1;
   document.getElementById('fi_valor').value=it&&it.valor_unitario!=null?it.valor_unitario:'';
@@ -3262,7 +3262,10 @@ function abrirModalItem(id){
 
 async function salvarItem(){
   const obj={};
-  ['pdv','cliente','equipamento','desenho','descritivo','material','espessura','medida1','medida2','descricao_peca'].forEach(f=>obj[f]=document.getElementById('fi_'+f).value.trim());
+  ['pdv','cliente','equipamento','desenho','descritivo','material','descricao_peca'].forEach(f=>obj[f]=document.getElementById('fi_'+f).value.trim());
+  // Parse medidas field back into 3 separate fields
+  const _medParts=document.getElementById('fi_medidas').value.trim().split(/\s*[×xX]\s*/).map(s=>s.trim()).filter(Boolean);
+  obj.espessura=_medParts[0]||null; obj.medida1=_medParts[1]||null; obj.medida2=_medParts[2]||null;
   obj.und=document.getElementById('fi_und').value;
   obj.descricao_item=document.getElementById('fi_descricao_item').value.trim()||null;
   obj.qtd=Number(document.getElementById('fi_qtd').value)||1;
@@ -3557,8 +3560,7 @@ function renderCotacoes(){
         return `<tr style="border-bottom:1px solid #f0f4f0">
           <td style="padding:8px 10px;font-weight:600">${it.descritivo||'—'}</td>
           <td style="padding:8px 10px;color:var(--green)">${it.material||'—'}</td>
-          <td style="padding:8px 10px">${it.espessura||'—'}</td>
-          <td style="padding:8px 10px">${it.medida1||'—'}${it.medida2?' × '+it.medida2:''}</td>
+          <td style="padding:8px 10px;white-space:nowrap;font-family:monospace;font-size:12px">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
           <td style="padding:8px 10px">${it.qtd||0} ${it.und||''}</td>
           <td style="padding:8px 10px">${it.peso?it.peso+' kg':'—'}</td>
           <td style="padding:8px 10px" colspan="4"><span style="color:#bdbdbd;font-size:12px">Sem cotação</span></td>
@@ -3576,8 +3578,7 @@ function renderCotacoes(){
           ${idx===0?`
           <td style="padding:8px 10px;font-weight:600" rowspan="${cs.length}">${it.descritivo||'—'}</td>
           <td style="padding:8px 10px;color:var(--green)" rowspan="${cs.length}">${it.material||'—'}</td>
-          <td style="padding:8px 10px" rowspan="${cs.length}">${it.espessura||'—'}</td>
-          <td style="padding:8px 10px" rowspan="${cs.length}">${it.medida1||'—'}${it.medida2?' × '+it.medida2:''}</td>
+          <td style="padding:8px 10px;white-space:nowrap;font-family:monospace;font-size:12px" rowspan="${cs.length}">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
           <td style="padding:8px 10px" rowspan="${cs.length}">${it.qtd||0} ${it.und||''}</td>
           <td style="padding:8px 10px" rowspan="${cs.length}">${it.peso?it.peso+' kg':'—'}</td>`:''}
           <td style="padding:8px 10px;max-width:180px">
@@ -3830,9 +3831,7 @@ function renderComparar(){
           <thead><tr style="background:#f5f7f5">
             <th style="padding:7px 10px;text-align:left;color:var(--green);font-size:11px;text-transform:uppercase">Descritivo</th>
             <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Material</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Esp.</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Med.1</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Med.2</th>
+            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Medidas</th>
             <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Qtd</th>
             <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Peso</th>
             <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Desenho</th>
@@ -3999,8 +3998,7 @@ function renderItemCheck(){
               <div style="color:var(--gray);font-size:11px;margin-top:1px">
                 ${it.desenho?'Desenho: <b>'+it.desenho+'</b> · ':''}
                 Quantidade: <b>${it.qtd||0} ${it.und||''}</b>
-                ${it.espessura?' · Esp: <b>'+it.espessura+'</b>':''}
-                ${it.medida1?' · Med: <b>'+it.medida1+(it.medida2?' x'+it.medida2:'')+'</b>':''}
+                ${(it.espessura||it.medida1)?(' · Medidas: <b>'+[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')+'</b>'):''}
                 ${it.peso?' · <b>'+it.peso+' kg</b>':''}
                 ${it.descricao_peca?' · <i>'+it.descricao_peca+'</i>':''}
               </div>
@@ -4067,8 +4065,7 @@ async function dispararEmails(){
       return `<tr>
         <td style="padding:8px;border-bottom:1px solid #eee;font-size:13px"><b>${it.descritivo||'—'}</b>${it.material?' | '+it.material:''}</td>
         <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;color:#546e7a">${it.desenho||'—'}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.espessura||'—'}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.medida1||'—'}${it.medida2?' x'+it.medida2:''}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center;font-family:monospace;white-space:nowrap">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
         <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center"><b>${it.qtd||0} ${it.und||''}</b></td>
         <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.peso?it.peso+' kg':'—'}</td>
         ${it.descricao_peca?`<td style="padding:8px;border-bottom:1px solid #eee;font-size:11px;color:#546e7a">${it.descricao_peca}</td>`:'<td style="padding:8px;border-bottom:1px solid #eee">—</td>'}
@@ -4153,8 +4150,7 @@ async function enviarEmailTeste(){
   const itensTabela=itensExemplo.map(it=>`<tr>
     <td style="padding:8px;border-bottom:1px solid #eee;font-size:13px"><b>${it.descritivo||'—'}</b>${it.material?' | '+it.material:''}</td>
     <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;color:#546e7a">${it.desenho||'—'}</td>
-    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.espessura||'—'}</td>
-    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.medida1||'—'}${it.medida2?' x'+it.medida2:''}</td>
+    <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center;font-family:monospace;white-space:nowrap">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
     <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center"><b>${it.qtd||0} ${it.und||''}</b></td>
     <td style="padding:8px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.peso?it.peso+' kg':'—'}</td>
     <td style="padding:8px;border-bottom:1px solid #eee;font-size:11px;color:#546e7a">${it.descricao_peca||'—'}</td>
@@ -5991,7 +5987,7 @@ function renderListaMaterial(){
             <th style="padding:6px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Descritivo</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Espessura</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Med.1</th>
+            <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Medidas</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Qtd</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Desenho</th>
             <th style="padding:6px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Peça</th>
@@ -6007,8 +6003,7 @@ function renderListaMaterial(){
             return `<tr style="border-bottom:1px solid #f0f4f0;${i.comprado?'opacity:0.6':''}">
               <td style="padding:7px 10px;font-weight:600">${i.descritivo||'—'}</td>
               <td style="padding:7px 10px">${i.material||'—'}</td>
-              <td style="padding:7px 10px">${i.espessura||'—'}</td>
-              <td style="padding:7px 10px">${i.medida1||'—'}</td>
+              <td style="padding:7px 10px;white-space:nowrap;font-family:monospace;font-size:12px">${[i.espessura,i.medida1,i.medida2].filter(Boolean).join(' × ')||'—'}</td>
               <td style="padding:7px 10px">${i.qtd||0} ${i.und||''}</td>
               <td style="padding:7px 10px">${i.desenho||'—'}</td>
               <td style="padding:7px 10px;color:var(--gray);font-size:11px">${pecaNome}</td>
@@ -11995,9 +11990,7 @@ async function buscarTodasNFe(){
             <div style="font-weight:700;font-size:15px;color:#1b5e20">${i+1}. ${it.descritivo||it.tipo_peca||it.descricao||'Item'}</div>
             <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;font-size:12px;color:#2e7d32">
               <span><b>QUANTIDADE</b> ${it.qtd||1} ${it.und||'PC'}</span>
-              ${it.espessura?`<span><b>ESPESSURA</b> ${it.espessura}</span>`:''}
-              ${it.medida1?`<span><b>MEDIDA 1</b> ${it.medida1}</span>`:''}
-              ${it.medida2?`<span><b>MEDIDA 2</b> ${it.medida2}</span>`:''}
+              ${(it.espessura||it.medida1)?`<span>📐 <b>${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')}</b></span>`:''}
               ${it.material?`<span><b>MATERIAL</b> ${it.material}</span>`:''}
               ${it.desenho?`<span><b>DESENHO</b> ${it.desenho}</span>`:''}
             </div>
