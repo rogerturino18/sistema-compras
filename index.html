@@ -820,6 +820,7 @@ tr:hover td{background:#f9fbf9}
           <option value="Barracão 2">Barracão 2</option>
         </select>
         <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
+        <button id="btnEstOrdem" class="btn" onclick="toggleOrdemEstoque()" style="font-size:12px;white-space:nowrap" title="Alternar ordenação">🕐 Recentes</button>
         <button class="btn" onclick="abrirGerenciarCategorias()" style="font-size:12px" title="Adicionar ou editar categorias">🏷️ Categorias</button>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
         <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
@@ -6195,6 +6196,28 @@ function renderHomeTiles(){
 
 // ===== ESTOQUE =====
 let estCatAtual = null; // categoria selecionada no filtro lateral
+let estOrdemRecentes = false; // false = A→Z (padrão), true = recém adicionados
+
+function toggleOrdemEstoque(){
+  estOrdemRecentes = !estOrdemRecentes;
+  const btn = document.getElementById('btnEstOrdem');
+  if(btn){
+    if(estOrdemRecentes){
+      btn.textContent = '🕐 Recentes';
+      btn.style.background = '#1565c0';
+      btn.style.color = '#fff';
+      btn.style.borderColor = '#1565c0';
+      btn.title = 'Ordenando: mais recentes primeiro — clique para ordenar A→Z';
+    } else {
+      btn.textContent = '🔤 A→Z';
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.title = 'Ordenando: A→Z — clique para ver recentes primeiro';
+    }
+  }
+  renderEstoque();
+}
 let estMovItemId = null, estMovTipo = null;
 
 function renderEstoque(){
@@ -6248,6 +6271,18 @@ function renderEstoque(){
   // Badge categoria atual
   const badge = document.getElementById('estCatAtualBadge');
   if(badge) badge.textContent = estCatAtual ? `${lista.length} item(ns)` : '';
+
+  // Ordenação: recentes primeiro (por id/created_at) ou A→Z
+  if(estOrdemRecentes){
+    lista.sort((a,b)=>{
+      // Tenta ordenar por created_at, depois por id
+      const da = a.created_at||a.id||'';
+      const db = b.created_at||b.id||'';
+      return db.localeCompare(da);
+    });
+  } else {
+    lista.sort((a,b)=>(a.descricao||a.tipo_peca||'').localeCompare(b.descricao||b.tipo_peca||'','pt-BR'));
+  }
 
   // Stats
   const totalItens = estoqueItens.length;
@@ -6396,13 +6431,24 @@ function abrirModalEstoque(sub, id){
   set('est_obs', item?.observacao);
   if(document.getElementById('est_local')) document.getElementById('est_local').value = item?.localizacao||'Barracão 1';
   if(document.getElementById('est_und')) document.getElementById('est_und').value = item?.unidade||'PC';
-  // Categoria: prioriza campo categoria, depois tenta inferir pelo tipo legado
+  // Categoria: atualiza o select com categorias dinâmicas (localStorage) ANTES de setar o valor
   const catEl = document.getElementById('est_categoria');
   if(catEl){
+    // Reconstrói as opções com as categorias atuais
+    const cats = getCatsEstoque();
+    catEl.innerHTML = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+    // Define o valor correto
     let cat = item?.categoria || '';
     if(!cat && item?.tipo){ cat = item.tipo==='produto_final'?'Produto Final':'Matéria Prima'; }
     if(!cat) cat = estCatAtual || 'Matéria Prima';
     catEl.value = cat;
+    // Se o valor não existe nas opções (categoria legada), adiciona temporariamente
+    if(cat && catEl.value !== cat){
+      const opt = document.createElement('option');
+      opt.value = cat; opt.textContent = cat;
+      catEl.appendChild(opt);
+      catEl.value = cat;
+    }
   }
   abrirModal('modalEstoque');
 }
@@ -8788,17 +8834,25 @@ function abrirModalReq(id){
   // Populate unified destino select with PDVs
   const selDest=document.getElementById('req_destino');
   if(selDest){
-    // Remove old PDV options
     const optGroup=selDest.querySelector('#req_destino_pdvs') || 
       [...selDest.querySelectorAll('optgroup')].find(g=>g.label.includes('PDV'));
     if(optGroup){
       optGroup.innerHTML='';
-      [...pedidosVenda].sort((a,b)=>b.numero-a.numero).forEach(p=>{
+      // Usa array pdvs (projetos cadastrados), ordenados do mais recente para o mais antigo
+      const pdvsOrdenados=[...pdvs].sort((a,b)=>(b.numero||0)-(a.numero||0));
+      pdvsOrdenados.forEach(p=>{
         const o=document.createElement('option');
         o.value='pdv:'+p.id;
-        o.textContent='PDV '+p.numero+(p.cliente_nome?' — '+p.cliente_nome.substring(0,25):'');
+        const label=`PDV ${p.numero||''}${p.cliente?' — '+p.cliente.substring(0,30):''}${p.equipamento?' | '+p.equipamento.substring(0,20):''}`;
+        o.textContent=label;
         optGroup.appendChild(o);
       });
+      if(!pdvsOrdenados.length){
+        const o=document.createElement('option');
+        o.disabled=true;
+        o.textContent='Nenhum PDV cadastrado';
+        optGroup.appendChild(o);
+      }
     }
     // Add custom departamentos from DB
     const deptoGroup=[...selDest.querySelectorAll('optgroup')].find(g=>g.label.includes('Departamentos'));
