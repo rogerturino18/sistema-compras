@@ -1471,9 +1471,19 @@ tr:hover td{background:#f9fbf9}
       <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🧾 Entrada de NF-e</h2>
       <p style="font-size:13px;color:#546e7a;margin:4px 0 0">Recebimento de notas fiscais — automático via SEFAZ ou importação de XML.</p>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <!-- Filtro de período para busca SEFAZ -->
+      <div style="display:flex;align-items:center;gap:6px;background:#e3f2fd;border-radius:8px;padding:6px 10px">
+        <span style="font-size:11px;color:#1565c0;font-weight:700;white-space:nowrap">📅 Período:</span>
+        <input type="date" id="nfeDtDe" style="padding:4px 6px;border:1px solid #90caf9;border-radius:6px;font-size:12px"
+          title="Data de início para busca SEFAZ">
+        <span style="font-size:11px;color:#546e7a">até</span>
+        <input type="date" id="nfeDtAte" style="padding:4px 6px;border:1px solid #90caf9;border-radius:6px;font-size:12px"
+          title="Data fim para busca SEFAZ">
+      </div>
       <button class="btn" onclick="buscarNFeSEFAZ()" style="background:#1565c0;color:#fff;border-color:#1565c0">🔍 Buscar Novas</button>
       <button class="btn" onclick="buscarTodasNFe()" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a">📥 Buscar Histórico</button>
+      <button class="btn" onclick="buscarPorChaveNFe()" style="background:#00695c;color:#fff;border-color:#00695c;font-size:12px" title="Buscar nota específica pela chave de acesso (44 dígitos)">🔑 Por Chave</button>
       <button class="btn" onclick="diagnosticoNFeSEFAZ()" style="background:#e65100;color:#fff;border-color:#e65100;font-size:12px" title="Testar conexão e ver resposta bruta do backend">🔧 Diagnóstico</button>
       <label class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;cursor:pointer">
         📂 Importar XML
@@ -2782,6 +2792,38 @@ tr:hover td{background:#f9fbf9}
         <div>
           <div style="font-weight:700;font-size:14px;color:#f57f17">Vencimentos / Parcelas da Nota</div>
           <div style="font-size:12px;color:#795548;margin-top:2px">Revise e ajuste os vencimentos antes de confirmar. O Contas a Pagar será gerado com estas datas.</div>
+        </div>
+      </div>
+      <!-- Seletor rápido de forma de pagamento -->
+      <div style="background:#fff3e0;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:#e65100;text-transform:uppercase;margin-bottom:8px">⚡ Preencher automaticamente:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select id="nfePgtoPreset" style="padding:7px 10px;border:1px solid #ffcc80;border-radius:8px;font-size:13px;background:#fff;flex:1;min-width:180px"
+            onchange="aplicarPresetPgto(this.value)">
+            <option value="">— Escolher condição de pagamento —</option>
+            <optgroup label="À vista">
+              <option value="0">À vista (hoje)</option>
+              <option value="7">7 dias</option>
+              <option value="15">15 dias</option>
+            </optgroup>
+            <optgroup label="Prazo simples">
+              <option value="30">30 dias</option>
+              <option value="45">45 dias</option>
+              <option value="60">60 dias</option>
+              <option value="90">90 dias</option>
+            </optgroup>
+            <optgroup label="Parcelado">
+              <option value="30/60">30/60 dias (2×)</option>
+              <option value="30/60/90">30/60/90 dias (3×)</option>
+              <option value="30/60/90/120">30/60/90/120 dias (4×)</option>
+              <option value="60/90/120">60/90/120 dias (3×)</option>
+            </optgroup>
+          </select>
+          <div style="display:flex;gap:4px;align-items:center">
+            <label style="font-size:11px;color:#795548;white-space:nowrap">Ou digitei:</label>
+            <input type="text" id="nfePgtoCustom" placeholder="Ex: 30/60/90" style="width:110px;padding:7px 8px;border:1px solid #ffcc80;border-radius:8px;font-size:13px">
+            <button onclick="aplicarPresetPgto(document.getElementById('nfePgtoCustom').value)" style="padding:7px 12px;background:#f57f17;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">Aplicar</button>
+          </div>
         </div>
       </div>
       <div id="nfeVencimentosList"></div>
@@ -7104,16 +7146,19 @@ function renderNFeModal(){
       <div id="painelNovo_${idx}" style="background:#e8f5e9;border-radius:8px;padding:12px;display:none">
         <div style="font-size:12px;font-weight:700;color:#2e7d32;margin-bottom:8px">Novo item no estoque:</div>
         <div class="form-grid" style="gap:8px">
-          <div class="form-group"><label style="font-size:11px">Tipo de Peça</label><input id="nfe_tipo_${idx}" value="" placeholder="Ex: CHAPA" style="font-size:12px"></div>
-          <div class="form-group"><label style="font-size:11px">Material</label><input id="nfe_mat_${idx}" value="" placeholder="Ex: ASTM A516-60" style="font-size:12px"></div>
-          <div class="form-group"><label style="font-size:11px">Espessura</label><input id="nfe_esp_${idx}" value="" placeholder="Ex: 5/8&quot;" style="font-size:12px"></div>
-          <div class="form-group"><label style="font-size:11px">Medida 1</label><input id="nfe_med1_${idx}" value="" placeholder="Ex: 2440" style="font-size:12px"></div>
-          <div class="form-group"><label style="font-size:11px">Medida 2</label><input id="nfe_med2_${idx}" value="" placeholder="Ex: 12000" style="font-size:12px"></div>
+          <div class="form-group full"><label style="font-size:11px">Descrição / Tipo de Peça</label><input id="nfe_tipo_${idx}" value="${it.xProd.toUpperCase()}" placeholder="Ex: FERRAMENTA, CHAPA, BARRA..." style="font-size:12px;text-transform:uppercase"></div>
+          <div class="form-group"><label style="font-size:11px">Categoria *</label>
+            <select id="nfe_cat_${idx}" style="font-size:12px;padding:6px;border:2px solid #a5d6a7;border-radius:6px">
+              ${getCatsEstoque().map(c=>`<option value="${c}" ${c==='Ferramentas'&&it.xProd.toLowerCase().includes('ferr')?'selected':c==='Insumos'&&it.xProd.toLowerCase().includes('insum')?'selected':c==='Matéria Prima'?'selected':''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label style="font-size:11px">Material</label><input id="nfe_mat_${idx}" value="" placeholder="Ex: Aço Rápido, HSS..." style="font-size:12px;text-transform:uppercase"></div>
+          <div class="form-group"><label style="font-size:11px">Medidas (Esp × Med1 × Med2)</label><input id="nfe_med1_${idx}" value="" placeholder='Ex: Ø1/2" ou 10 × 150' style="font-size:12px"></div>
           <div class="form-group"><label style="font-size:11px">Unidade</label>
             <select id="nfe_und_${idx}" style="font-size:12px;padding:6px">
               <option ${it.uCom==='KG'?'selected':''}>KG</option>
-              <option ${it.uCom==='PC'?'selected':''}>PC</option>
-              <option>METRO</option><option>BARRA</option><option>UN</option>
+              <option ${it.uCom==='PC'||it.uCom==='UN'?'selected':''}>PC</option>
+              <option>METRO</option><option>BARRA</option><option>UN</option><option>CX</option>
             </select>
           </div>
         </div>
@@ -7198,6 +7243,37 @@ function _renderNFeVencimentos(){
     </div>`);
 }
 
+function aplicarPresetPgto(preset){
+  if(!preset||!nfeData) return;
+  const vTotal = nfeData.vNF||0;
+  const dtBase = nfeData.dhEmi ? new Date(nfeData.dhEmi) : new Date();
+
+  // Monta array de dias: "30/60/90" → [30, 60, 90] | "30" → [30]
+  const dias = preset.split('/').map(d=>parseInt(d.trim())).filter(d=>!isNaN(d)&&d>=0);
+  if(!dias.length){ showToast('Formato inválido. Use ex: 30 ou 30/60/90','err'); return; }
+
+  const n = dias.length;
+  const valorParc = parseFloat((vTotal/n).toFixed(2));
+  let totalAcum = 0;
+
+  nfeData._parcelas = dias.map((d,i)=>{
+    const dt = new Date(dtBase);
+    dt.setDate(dt.getDate()+d);
+    const vencimento = dt.toISOString().split('T')[0];
+    // Última parcela recebe o resto para compensar arredondamento
+    const valor = i===n-1 ? parseFloat((vTotal-totalAcum).toFixed(2)) : valorParc;
+    totalAcum += valor;
+    return {vencimento, valor};
+  });
+
+  // Reseta o select para não ficar com valor antigo
+  const sel = document.getElementById('nfePgtoPreset');
+  if(sel && !document.getElementById('nfePgtoCustom')?.value) sel.value = '';
+
+  _renderNFeVencimentos();
+  showToast(`✅ ${n} parcela(s) calculada(s): ${dias.map(d=>d===0?'à vista':d+'d').join(' / ')}`);
+}
+
 function adicionarParcelaNFe(){
   if(!nfeData._parcelas) nfeData._parcelas=[];
   const totalAtual=nfeData._parcelas.reduce((s,p)=>s+(p.valor||0),0);
@@ -7251,19 +7327,25 @@ async function confirmarImportNFe(){
       if(acaoNovo){
         const tipo=document.getElementById(`nfe_tipo_${idx}`)?.value.trim().toUpperCase()||it.xProd.toUpperCase();
         const mat=document.getElementById(`nfe_mat_${idx}`)?.value.trim().toUpperCase()||null;
-        const esp=document.getElementById(`nfe_esp_${idx}`)?.value.trim()||null;
-        const med1=document.getElementById(`nfe_med1_${idx}`)?.value.trim()||null;
-        const med2=document.getElementById(`nfe_med2_${idx}`)?.value.trim()||null;
+        // Campo de medidas unificado
+        const med1Raw=document.getElementById(`nfe_med1_${idx}`)?.value.trim()||null;
+        const medParts=med1Raw?med1Raw.split(/\s*[×xX]\s*/).map(s=>s.trim()):[];
+        const esp=medParts[0]||null; const med1=medParts[1]||null; const med2=medParts[2]||null;
+        const catNova=document.getElementById(`nfe_cat_${idx}`)?.value||'Matéria Prima';
         undFinal=document.getElementById(`nfe_und_${idx}`)?.value||it.uCom||'KG';
+        const codigoAuto=gerarProximoCodigo(catNova);
 
         const novoItem={
           tipo:'materia_prima', descricao:tipo, tipo_peca:tipo, material:mat,
           espessura:esp, medida1:med1, medida2:med2, localizacao,
           qtd_inicial:0, unidade:undFinal, valor_unitario:it.vUnCom||null,
-          nota_fiscal:nNF, criado_por:usuarioLogado?.nome||null
+          nota_fiscal:nNF, categoria:catNova, codigo:codigoAuto,
+          criado_por:usuarioLogado?.nome||null
         };
         const res=await api('POST','estoque_itens',novoItem);
         itemId=res[0]?.id;
+        // Atualiza array local para sequência de código correta
+        if(itemId) estoqueItens.push({...novoItem, id:itemId});
       } else if(acaoExist){
         itemId=document.getElementById(`nfe_itemId_${idx}`)?.value;
         if(!itemId){showToast(`Item ${idx+1}: selecione um item do estoque`,'err');erros++;continue;}
@@ -11576,16 +11658,20 @@ async function diagnosticoNFeSEFAZ(){
 
     } else if(tipo==='consultar'){
       const nsu2 = localStorage.getItem('nfe_ult_nsu')||'000000000000000';
-      log(`Testando /api/consultar-nfe com NSU=${parseInt(nsu2)||0}...`, null);
+      const dtDe = document.getElementById('nfeDtDe')?.value;
+      const dtAte = document.getElementById('nfeDtAte')?.value;
+      log(`Testando /api/consultar-nfe com NSU=${parseInt(nsu2)||0}${dtDe?' dtIni='+dtDe.replace(/-/g,''):''}...`, null);
       try{
+        const body = {cnpj:'08363498000169', ultNSU: nsu2};
+        if(dtDe) body.dtIni = dtDe.replace(/-/g,'');
+        if(dtAte) body.dtFin = dtAte.replace(/-/g,'');
         const r = await fetch(cfg2.url+'/api/consultar-nfe', {
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':cfg2.apiKey},
-          body: JSON.stringify({cnpj:'08363498000169', ultNSU: nsu2})
+          body: JSON.stringify(body)
         });
         const text = await r.text();
         log(`HTTP ${r.status}`, r.ok);
-        // Tenta parsear e mostrar formatado
         try{
           const d = JSON.parse(text);
           log(`sucesso: ${d.sucesso}`, d.sucesso);
@@ -11593,9 +11679,11 @@ async function diagnosticoNFeSEFAZ(){
           if(d.notas) log(`notas recebidas: ${d.notas.length}`, d.notas.length>0);
           if(d.hasMore!==undefined) log(`hasMore: ${d.hasMore}`, null);
           if(d.erro||d.message) log(`erro/message: ${d.erro||d.message}`, false);
-          if(d.notas?.length===0 && parseInt(nsu2)>0){
-            log('DICA: NSU > 0 e sem novas notas. Clique em "Reset NSU" e tente "Buscar Novas" novamente.', null);
+          if(d.notas?.length===0){
+            if(!dtDe) log('DICA: Defina um período (📅) e tente novamente — o SEFAZ exige data de início para buscar notas.', null);
+            else log('SEFAZ retornou 0 notas para este período. Tente outro intervalo de datas ou contate o suporte do backend.', null);
           }
+          if(d.notas?.length>0) log(`Fornecedores: ${[...new Set(d.notas.map(n=>n.fornecedor||'?'))].slice(0,3).join(', ')}`, null);
         }catch(e2){ log('Resposta bruta: '+text.substring(0,500), null); }
       }catch(e){ log('Erro de rede (CORS?): '+e.message, false); }
     }
@@ -11603,6 +11691,59 @@ async function diagnosticoNFeSEFAZ(){
 
   // Auto-executa o teste de certificado
   setTimeout(()=>window.diagTestar('validar'), 200);
+}
+
+async function buscarPorChaveNFe(){
+  const chave = prompt('Cole a chave de acesso da NF-e (44 dígitos):','');
+  if(!chave) return;
+  const chaveLimpa = chave.replace(/\D/g,'');
+  if(chaveLimpa.length!==44){ showToast('Chave inválida — deve ter 44 dígitos','err'); return; }
+
+  const cfg = getNFeBackendConfig();
+  if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
+
+  showToast('⏳ Consultando nota...','ok',8000);
+  try{
+    // Tenta buscar via backend com a chave
+    const resp = await fetch(cfg.url+'/api/consultar-nfe', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':cfg.apiKey},
+      body: JSON.stringify({cnpj:'08363498000169', chave:chaveLimpa})
+    });
+    const data = await resp.json();
+
+    if(data.sucesso && data.notas?.length>0){
+      const nota = data.notas[0];
+      const existe = entradasNFe.some(n=>n.chave_nfe===chaveLimpa);
+      if(existe){ showToast('⚠️ Esta NF-e já está na lista','err'); return; }
+      const primVenc = nota.vencimentos?.[0]?.vencimento||null;
+      await api('POST','entradas_nfe',{
+        numero_nfe:nota.numero_nfe, serie:nota.serie||'1',
+        dt_emissao:nota.dt_emissao, fornecedor:nota.fornecedor,
+        cnpj_fornecedor:nota.cnpj_fornecedor, valor_total:nota.valor_total,
+        chave_nfe:chaveLimpa, vencimento:primVenc,
+        status:'Pendente', itens:JSON.stringify(nota.itens||[]),
+        criado_por:'Busca por Chave'
+      });
+      showToast('✅ NF-e importada com sucesso!');
+      await loadAll();
+      return;
+    }
+
+    // Se não veio do backend, lança como lançamento manual pré-preenchido com a chave
+    showToast('ℹ️ Nota não encontrada no backend. Abrindo lançamento manual...','ok',4000);
+    setTimeout(()=>{
+      abrirModalNFe(null);
+      setTimeout(()=>{
+        const chaveEl = document.getElementById('nfe_chave')||document.querySelector('[id*="chave"]');
+        if(chaveEl) chaveEl.value = chaveLimpa;
+      },300);
+    },500);
+
+  }catch(e){
+    showToast('❌ Erro: '+e.message,'err',6000);
+    console.error(e);
+  }
 }
 
 async function buscarNFeSEFAZ(){
@@ -11616,10 +11757,15 @@ async function buscarNFeSEFAZ(){
 
   try{
     const cnpj='08363498000169';
+    const dtDe = document.getElementById('nfeDtDe')?.value||null;
+    const dtAte = document.getElementById('nfeDtAte')?.value||null;
+    const body = {cnpj, ultNSU};
+    if(dtDe) body.dtIni = dtDe.replace(/-/g,'');  // formato AAAAMMDD para SEFAZ
+    if(dtAte) body.dtFin = dtAte.replace(/-/g,'');
     const resp=await fetch(cfg.url+'/api/consultar-nfe',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':cfg.apiKey},
-      body:JSON.stringify({cnpj,ultNSU})
+      body:JSON.stringify(body)
     });
 
     const rawText = await resp.text();
