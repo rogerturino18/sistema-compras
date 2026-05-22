@@ -1474,6 +1474,7 @@ tr:hover td{background:#f9fbf9}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="buscarNFeSEFAZ()" style="background:#1565c0;color:#fff;border-color:#1565c0">🔍 Buscar Novas</button>
       <button class="btn" onclick="buscarTodasNFe()" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a">📥 Buscar Histórico</button>
+      <button class="btn" onclick="diagnosticoNFeSEFAZ()" style="background:#e65100;color:#fff;border-color:#e65100;font-size:12px" title="Testar conexão e ver resposta bruta do backend">🔧 Diagnóstico</button>
       <label class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;cursor:pointer">
         📂 Importar XML
         <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
@@ -6763,12 +6764,13 @@ async function salvarEstoque(){
   if(!codigoFinal && !editEstoqueId) {
     codigoFinal = gerarProximoCodigo(categoria);
   }
+  const toUp = s => (s||'').toUpperCase().trim() || null;
   const obj = {
-    descricao: desc,
-    tipo_peca: desc,
+    descricao: desc.toUpperCase(),
+    tipo_peca: desc.toUpperCase(),
     codigo: codigoFinal,
     ncm: document.getElementById('est_ncm')?.value.trim()||null,
-    material: document.getElementById('est_mat').value.trim()||null,
+    material: toUp(document.getElementById('est_mat').value),
     localizacao: document.getElementById('est_local').value,
     qtd_inicial: parseInt(document.getElementById('est_qtd').value)||0,
     unidade: document.getElementById('est_und').value,
@@ -7247,8 +7249,8 @@ async function confirmarImportNFe(){
       let undFinal=it.uCom||'UN';
 
       if(acaoNovo){
-        const tipo=document.getElementById(`nfe_tipo_${idx}`)?.value.trim()||it.xProd;
-        const mat=document.getElementById(`nfe_mat_${idx}`)?.value.trim()||null;
+        const tipo=document.getElementById(`nfe_tipo_${idx}`)?.value.trim().toUpperCase()||it.xProd.toUpperCase();
+        const mat=document.getElementById(`nfe_mat_${idx}`)?.value.trim().toUpperCase()||null;
         const esp=document.getElementById(`nfe_esp_${idx}`)?.value.trim()||null;
         const med1=document.getElementById(`nfe_med1_${idx}`)?.value.trim()||null;
         const med2=document.getElementById(`nfe_med2_${idx}`)?.value.trim()||null;
@@ -11527,6 +11529,82 @@ async function nfeVerificarBackend(){
   }
 }
 
+async function diagnosticoNFeSEFAZ(){
+  const cfg = getNFeBackendConfig();
+  const nsu = localStorage.getItem('nfe_ult_nsu')||'000000000000000';
+  const div = document.createElement('div');
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:560px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:#263238">🔧 Diagnóstico NF-e SEFAZ</div>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:4px 10px;border:1px solid #ccc;border-radius:6px;cursor:pointer">✕ Fechar</button>
+    </div>
+    <div style="font-size:12px;margin-bottom:12px;background:#f5f5f5;border-radius:8px;padding:10px">
+      <b>URL Backend:</b> ${cfg.url||'<span style="color:#c62828">NÃO CONFIGURADO</span>'}<br>
+      <b>API Key:</b> ${cfg.apiKey?'••••••'+cfg.apiKey.slice(-4):'<span style="color:#c62828">NÃO CONFIGURADO</span>'}<br>
+      <b>NSU atual:</b> ${parseInt(nsu)||0}<br>
+      <b>CNPJ:</b> 08.363.498/0001-69
+    </div>
+    <div id="diagLog" style="font-size:12px;font-family:monospace;background:#263238;color:#aef;border-radius:8px;padding:12px;min-height:120px;white-space:pre-wrap;overflow-y:auto;max-height:300px">Iniciando diagnóstico...\n</div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="diagTestar('validar')" style="padding:7px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px">✅ Testar Certificado</button>
+      <button onclick="diagTestar('consultar')" style="padding:7px 14px;background:#1565c0;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px">🔍 Testar Consulta NF-e</button>
+      <button onclick="abrirModalNFeConfig()" style="padding:7px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px">⚙️ Reconfigurar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
+
+  window.diagLog = (msg, ok) => {
+    const el = document.getElementById('diagLog');
+    if(el) el.textContent += (ok===true?'✅ ':ok===false?'❌ ':'⏳ ') + msg + '\n';
+  };
+
+  window.diagTestar = async (tipo) => {
+    const log = window.diagLog;
+    const cfg2 = getNFeBackendConfig();
+    if(!cfg2.url||!cfg2.apiKey){ log('Backend não configurado!', false); return; }
+
+    if(tipo==='validar'){
+      log('Testando /api/validar-certificado...', null);
+      try{
+        const r = await fetch(cfg2.url+'/api/validar-certificado', {
+          headers: {'x-api-key': cfg2.apiKey}
+        });
+        const text = await r.text();
+        log(`HTTP ${r.status}: ${text.substring(0,400)}`, r.ok);
+      }catch(e){ log('Erro de rede: '+e.message, false); }
+
+    } else if(tipo==='consultar'){
+      const nsu2 = localStorage.getItem('nfe_ult_nsu')||'000000000000000';
+      log(`Testando /api/consultar-nfe com NSU=${parseInt(nsu2)||0}...`, null);
+      try{
+        const r = await fetch(cfg2.url+'/api/consultar-nfe', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':cfg2.apiKey},
+          body: JSON.stringify({cnpj:'08363498000169', ultNSU: nsu2})
+        });
+        const text = await r.text();
+        log(`HTTP ${r.status}`, r.ok);
+        // Tenta parsear e mostrar formatado
+        try{
+          const d = JSON.parse(text);
+          log(`sucesso: ${d.sucesso}`, d.sucesso);
+          if(d.ultNSU) log(`ultNSU: ${parseInt(d.ultNSU)}`, null);
+          if(d.notas) log(`notas recebidas: ${d.notas.length}`, d.notas.length>0);
+          if(d.hasMore!==undefined) log(`hasMore: ${d.hasMore}`, null);
+          if(d.erro||d.message) log(`erro/message: ${d.erro||d.message}`, false);
+          if(d.notas?.length===0 && parseInt(nsu2)>0){
+            log('DICA: NSU > 0 e sem novas notas. Clique em "Reset NSU" e tente "Buscar Novas" novamente.', null);
+          }
+        }catch(e2){ log('Resposta bruta: '+text.substring(0,500), null); }
+      }catch(e){ log('Erro de rede (CORS?): '+e.message, false); }
+    }
+  };
+
+  // Auto-executa o teste de certificado
+  setTimeout(()=>window.diagTestar('validar'), 200);
+}
+
 async function buscarNFeSEFAZ(){
   const cfg=getNFeBackendConfig();
   if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
@@ -11815,143 +11893,6 @@ function salvarConfigNFe(){
 }
 
 
-// ── Busca histórico completo de NF-e (retroativo) ────────────────────────
-async function buscarTodasNFe(){
-  const cfg=getNFeBackendConfig();
-  if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
-
-  const total_notas_antes = entradasNFe.length;
-  let ultNSU = '000000000000000';
-  let lote = 1;
-  let totalImportadas = 0;
-  let totalDuplicadas = 0;
-  let continuar = true;
-
-  // Show progress modal
-  const progDiv = document.createElement('div');
-  progDiv.id = 'modalBuscaTodas';
-  progDiv.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
-  progDiv.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:32px;min-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
-      <div style="font-size:32px;margin-bottom:12px">📥</div>
-      <div style="font-size:16px;font-weight:700;color:#263238;margin-bottom:8px">Buscando Histórico na SEFAZ</div>
-      <div id="progTexto" style="font-size:13px;color:#546e7a;margin-bottom:16px">Iniciando consulta...</div>
-      <div style="background:#e3f2fd;border-radius:8px;padding:10px;font-size:13px;color:#1565c0;margin-bottom:16px">
-        <b id="progNotas">0</b> notas importadas
-      </div>
-      <div style="background:#f5f5f5;border-radius:8px;height:8px;overflow:hidden">
-        <div id="progBarra" style="background:#1565c0;height:100%;width:0%;transition:width 0.3s;border-radius:8px"></div>
-      </div>
-      <button onclick="document.getElementById('modalBuscaTodas').remove();window._cancelarBusca=true" 
-        style="margin-top:20px;padding:8px 24px;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-size:13px">
-        Cancelar
-      </button>
-    </div>`;
-  document.body.appendChild(progDiv);
-  window._cancelarBusca = false;
-
-  const setProgresso = (texto, notas, pct) => {
-    const el = document.getElementById('progTexto');
-    const elN = document.getElementById('progNotas');
-    const elB = document.getElementById('progBarra');
-    if(el) el.textContent = texto;
-    if(elN) elN.textContent = notas;
-    if(elB) elB.style.width = pct + '%';
-  };
-
-  try{
-    while(continuar && !window._cancelarBusca){
-      setProgresso(`Consultando lote ${lote}... (NSU ${ultNSU})`, totalImportadas, Math.min(lote*5, 90));
-
-      // Usa o endpoint principal /api/consultar-nfe com NSU atual
-      // tenta /api/buscar-todas-nfe primeiro, cai em /api/consultar-nfe se não existir
-      let data = null;
-      try {
-        const resp = await fetch(cfg.url + '/api/buscar-todas-nfe', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json','x-api-key':cfg.apiKey},
-          body: JSON.stringify({cnpj:'08363498000169', ultNSU})
-        });
-        if(resp.ok) data = await resp.json();
-        else throw new Error('endpoint_nao_existe');
-      } catch(e1) {
-        // fallback para endpoint principal
-        const resp2 = await fetch(cfg.url + '/api/consultar-nfe', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json','x-api-key':cfg.apiKey},
-          body: JSON.stringify({cnpj:'08363498000169', ultNSU})
-        });
-        if(!resp2.ok){
-          const err = await resp2.json().catch(()=>({erro:'Erro '+resp2.status}));
-          throw new Error(err.erro||'Erro no servidor');
-        }
-        data = await resp2.json();
-      }
-
-      if(!data || !data.sucesso) throw new Error(data?.erro||'Erro desconhecido');
-
-      // Save notes
-      for(const nota of data.notas||[]){
-        const existe = entradasNFe.some(n=>n.chave_nfe===nota.chave_nfe&&nota.chave_nfe);
-        if(existe){ totalDuplicadas++; continue; }
-        const primVenc = nota.vencimentos?.[0]?.vencimento||null;
-        await api('POST','entradas_nfe',{
-          numero_nfe:nota.numero_nfe, serie:nota.serie,
-          dt_emissao:nota.dt_emissao, fornecedor:nota.fornecedor,
-          cnpj_fornecedor:nota.cnpj_fornecedor, valor_total:nota.valor_total,
-          chave_nfe:nota.chave_nfe, vencimento:primVenc,
-          status:'Pendente', itens:JSON.stringify(nota.itens||[]),
-          criado_por:'SEFAZ Histórico'
-        }).catch(e=>console.warn('Erro salvar:',e));
-        totalImportadas++;
-      }
-
-      // Update NSU for next batch
-      if(data.ultNSU) {
-        ultNSU = data.ultNSU;
-        localStorage.setItem('nfe_ult_nsu', ultNSU);
-      }
-
-      // Check if there are more
-      continuar = (data.hasMore === true) && (data.notas?.length > 0);
-      lote++;
-
-      // Reload to show progress
-      if(totalImportadas > 0 && lote % 3 === 0){
-        await loadAll();
-        setProgresso(`Consultando lote ${lote}...`, totalImportadas, Math.min(lote*5, 90));
-      }
-
-      // Se não tem hasMore, para
-      if(!data.hasMore) continuar = false;
-
-      // Small delay to not overload SEFAZ
-      if(continuar) await new Promise(r=>setTimeout(r,500));
-    }
-
-    // Final reload
-    await loadAll();
-    document.getElementById('modalBuscaTodas')?.remove();
-
-    if(window._cancelarBusca){
-      showToast(`Cancelado. ${totalImportadas} notas importadas até agora.`);
-    } else if(totalImportadas === 0 && totalDuplicadas === 0){
-      showToast('Nenhuma NF-e nova encontrada na SEFAZ. Tente limpar o NSU e buscar novamente.');
-    } else {
-      showToast(`✅ Concluído! ${totalImportadas} nota(s) importada(s)${totalDuplicadas?' ('+totalDuplicadas+' já existiam)':''}.`);
-    }
-
-  }catch(e){
-    document.getElementById('modalBuscaTodas')?.remove();
-    console.error('Erro buscar todas:', e);
-    if(e.message.includes('Failed to fetch')||e.message.includes('NetworkError')){
-      showToast('❌ Não conectou ao backend. Verifique a URL nas configurações.','err');
-    } else {
-      showToast('❌ Erro: '+e.message,'err');
-    }
-    if(totalImportadas>0) await loadAll();
-  }
-}
 </script>
 
 <!-- MODAL CLIENTE -->
