@@ -1238,7 +1238,7 @@ tr:hover td{background:#f9fbf9}
         <th>Und</th>
         <th>Departamento</th>
         <th>Referência / Obs</th>
-        <th>Registrado por</th>
+        <th>Solicitado por</th>
       </tr></thead>
       <tbody id="listaMovEstoque"></tbody>
     </table>
@@ -9264,7 +9264,7 @@ function limparFiltrosMov(){
 }
 
 function exportarExcelMov(){
-  const rows=[['Data','Tipo','Item','Material','Qtd','Und','Departamento','Referência','Registrado por']];
+  const rows=[['Data','Tipo','Item','Material','Qtd','Und','Departamento','Referência','Solicitado por']];
   const sorted=[...estoqueMov].sort((a,b)=>(b.data||b.created_at||'').localeCompare(a.data||a.created_at||''));
   sorted.forEach(m=>{
     const item=estoqueItens.find(i=>i.id===m.item_id);
