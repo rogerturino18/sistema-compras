@@ -485,6 +485,7 @@ tr:hover td{background:#f9fbf9}
 
 <div class="user-menu" id="userMenu">
   <div class="user-menu-item" onclick="abrirModalPerfil()">👤 Meu perfil</div>
+  <div class="user-menu-item" id="menuBtnUsuarios" onclick="abrirGestaoUsuarios()" style="display:none">👥 Gestão de Usuários</div>
   <div class="user-menu-item" id="menuBtnBemVindo" onclick="dispararEmailBemVindo()" style="display:none">📧 E-mail de boas-vindas</div>
   <div class="user-menu-item danger" onclick="fazerLogout()">🚪 Sair</div>
 </div>
@@ -1540,6 +1541,80 @@ tr:hover td{background:#f9fbf9}
   </div>
 </div>
 </div><!-- end appContent -->
+
+<!-- MODAL GESTÃO DE USUÁRIOS (admin only) -->
+<div class="modal-bg" id="modalGestaoUsuarios">
+<div class="modal" style="width:700px;max-width:98vw">
+  <div class="modal-header" style="background:#37474f">
+    <h3>👥 Gestão de Usuários</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalGestaoUsuarios')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <div id="listaUsuariosAdmin" style="margin-bottom:20px;max-height:300px;overflow-y:auto"></div>
+    <div style="background:#e8eaf6;border-radius:12px;padding:16px">
+      <div style="font-size:13px;font-weight:700;color:#37474f;margin-bottom:12px">➕ Novo Usuário</div>
+      <div class="form-grid" style="gap:10px">
+        <div class="form-group"><label>Nome *</label><input id="nu_nome" placeholder="Ex: Financeiro SL"></div>
+        <div class="form-group"><label>E-mail *</label><input id="nu_email" type="email" placeholder="financeiro@sloleos.com.br"></div>
+        <div class="form-group"><label>Senha *</label><input id="nu_senha" type="password" placeholder="Mínimo 6 caracteres"></div>
+        <div class="form-group"><label>Cargo / Setor</label><input id="nu_cargo" placeholder="Ex: Financeiro, Compras..."></div>
+        <div class="form-group"><label>Perfil</label>
+          <select id="nu_perfil">
+            <option value="Usuário">Usuário</option>
+            <option value="Compras">Compras</option>
+            <option value="Financeiro">Financeiro</option>
+            <option value="Producao">Produção</option>
+            <option value="PCP">PCP</option>
+            <option value="Administrador">Administrador</option>
+          </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end">
+          <button class="btn primary" onclick="criarUsuario()" style="width:100%;padding:10px">✅ Criar Usuário</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL EDITAR USUÁRIO -->
+<div class="modal-bg" id="modalEditarUsuario">
+<div class="modal" style="width:480px">
+  <div class="modal-header" style="background:#37474f">
+    <h3>✏️ Editar Usuário</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalEditarUsuario')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="eu_id">
+    <div class="form-grid" style="gap:10px">
+      <div class="form-group full"><label>Nome *</label><input id="eu_nome"></div>
+      <div class="form-group full"><label>E-mail *</label><input id="eu_email" type="email"></div>
+      <div class="form-group full"><label>Nova senha <span style="font-size:10px;color:var(--gray);font-weight:400">(deixe em branco para não alterar)</span></label><input id="eu_senha" type="password" placeholder="Nova senha"></div>
+      <div class="form-group"><label>Cargo</label><input id="eu_cargo"></div>
+      <div class="form-group"><label>Perfil</label>
+        <select id="eu_perfil">
+          <option>Usuário</option><option>Compras</option><option>Financeiro</option>
+          <option>Producao</option><option>PCP</option><option>Administrador</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Status</label>
+        <select id="eu_ativo">
+          <option value="true">✅ Ativo</option>
+          <option value="false">❌ Inativo</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="modal-actions" style="padding:0 22px 22px;gap:8px">
+    <button class="btn" onclick="fecharModal('modalEditarUsuario')">Cancelar</button>
+    <button class="btn primary" onclick="salvarEdicaoUsuario()">💾 Salvar</button>
+  </div>
+</div>
+</div>
 
 <!-- MODAL GERENCIAR CATEGORIAS ESTOQUE -->
 <div class="modal-bg" id="modalCategoriasEstoque">
@@ -8306,11 +8381,111 @@ function isPerfilSimplificadoCI(){
   return usuarioLogado&&emails.includes(usuarioLogado.email);
 }
 
+// ── Gestão de Usuários (Admin) ────────────────────────────────────────────
+let todosUsuarios = [];
+
+async function abrirGestaoUsuarios(){
+  document.getElementById('userMenu').classList.remove('open');
+  // Carrega lista de usuários
+  try{
+    todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
+  }catch(e){ todosUsuarios=[]; }
+  renderListaUsuarios();
+  // Limpa form
+  ['nu_nome','nu_email','nu_senha','nu_cargo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('nu_perfil').value='Usuário';
+  document.getElementById('nu_email').value='financeiro@sloleos.com.br';
+  abrirModal('modalGestaoUsuarios');
+}
+
+function renderListaUsuarios(){
+  const el = document.getElementById('listaUsuariosAdmin');
+  if(!el) return;
+  if(!todosUsuarios.length){ el.innerHTML='<div class="empty">Nenhum usuário encontrado</div>'; return; }
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#f5f5f5">
+        <th style="padding:8px 10px;text-align:left;color:var(--green)">NOME</th>
+        <th style="padding:8px 10px;text-align:left;color:var(--green)">E-MAIL</th>
+        <th style="padding:8px 10px;text-align:left;color:var(--green)">PERFIL</th>
+        <th style="padding:8px 10px;text-align:center;color:var(--green)">STATUS</th>
+        <th style="padding:8px 10px;width:80px"></th>
+      </tr></thead>
+      <tbody>${todosUsuarios.map(u=>`
+        <tr style="border-bottom:1px solid #f0f4f0">
+          <td style="padding:8px 10px;font-weight:600">${u.nome||'—'}</td>
+          <td style="padding:8px 10px;color:#546e7a;font-size:12px">${u.email}</td>
+          <td style="padding:8px 10px"><span style="background:#e8eaf6;color:#37474f;padding:2px 8px;border-radius:10px;font-size:11px">${u.perfil||u.cargo||'Usuário'}</span></td>
+          <td style="padding:8px 10px;text-align:center"><span style="color:${u.ativo?'#2e7d32':'#9e9e9e'}">${u.ativo?'✅ Ativo':'❌ Inativo'}</span></td>
+          <td style="padding:8px 10px;text-align:center">
+            <button onclick="abrirEditarUsuario('${u.id}')" style="padding:3px 8px;background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;border-radius:6px;font-size:11px;cursor:pointer">✏️</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function criarUsuario(){
+  const nome = document.getElementById('nu_nome').value.trim();
+  const email = document.getElementById('nu_email').value.trim().toLowerCase();
+  const senha = document.getElementById('nu_senha').value;
+  const cargo = document.getElementById('nu_cargo').value.trim();
+  const perfil = document.getElementById('nu_perfil').value;
+  if(!nome){ showToast('Informe o nome','err'); return; }
+  if(!email||!email.includes('@')){ showToast('E-mail inválido','err'); return; }
+  if(!senha||senha.length<6){ showToast('Senha deve ter no mínimo 6 caracteres','err'); return; }
+  // Verifica duplicata
+  if(todosUsuarios.some(u=>u.email.toLowerCase()===email)){ showToast('E-mail já cadastrado','err'); return; }
+  try{
+    await api('POST','usuarios',{nome, email, senha, cargo:cargo||null, perfil, ativo:true, criado_em:new Date().toISOString()});
+    showToast(`✅ Usuário "${nome}" criado com sucesso!`);
+    todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
+    renderListaUsuarios();
+    ['nu_nome','nu_email','nu_senha','nu_cargo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  }catch(e){ showToast('Erro ao criar usuário: '+e.message,'err'); console.error(e); }
+}
+
+function abrirEditarUsuario(id){
+  const u = todosUsuarios.find(x=>x.id===id);
+  if(!u) return;
+  document.getElementById('eu_id').value = id;
+  document.getElementById('eu_nome').value = u.nome||'';
+  document.getElementById('eu_email').value = u.email||'';
+  document.getElementById('eu_senha').value = '';
+  document.getElementById('eu_cargo').value = u.cargo||'';
+  document.getElementById('eu_perfil').value = u.perfil||u.cargo||'Usuário';
+  document.getElementById('eu_ativo').value = u.ativo?'true':'false';
+  abrirModal('modalEditarUsuario');
+}
+
+async function salvarEdicaoUsuario(){
+  const id = document.getElementById('eu_id').value;
+  const obj = {
+    nome: document.getElementById('eu_nome').value.trim(),
+    email: document.getElementById('eu_email').value.trim().toLowerCase(),
+    cargo: document.getElementById('eu_cargo').value.trim()||null,
+    perfil: document.getElementById('eu_perfil').value,
+    ativo: document.getElementById('eu_ativo').value==='true'
+  };
+  const novaSenha = document.getElementById('eu_senha').value;
+  if(novaSenha) obj.senha = novaSenha;
+  if(!obj.nome||!obj.email){ showToast('Nome e e-mail são obrigatórios','err'); return; }
+  try{
+    await api('PATCH','usuarios',obj,`?id=eq.${id}`);
+    showToast('✅ Usuário atualizado!');
+    fecharModal('modalEditarUsuario');
+    todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
+    renderListaUsuarios();
+  }catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
 function mostrarApp(){
   document.getElementById('appContent').style.display='block';
   showTab(0);
   const btnBV=document.getElementById('menuBtnBemVindo');
   if(btnBV) btnBV.style.display=(!isExpedicao()&&!isProjeto())?'flex':'none';
+  const btnU=document.getElementById('menuBtnUsuarios');
+  if(btnU) btnU.style.display=isAprovador()?'flex':'none';
   if(isExpedicao()){
     document.querySelectorAll('.tab').forEach((t,i)=>{
       t.style.display=[1,3,4,8,9].includes(i)?'flex':'none';
