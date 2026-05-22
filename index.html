@@ -8949,7 +8949,7 @@ async function salvarRequisicao(){
   const isPdvDest=destinoVal.startsWith('pdv:');
   const depto=isPdvDest?'PDV':destinoVal.replace('depto:','');
   const pvDestId=isPdvDest?destinoVal.replace('pdv:',''):null;
-  const pvDest=pvDestId?pedidosVenda.find(p=>p.id===pvDestId):null;
+  const pvDest=pvDestId?pdvs.find(p=>p.id===pvDestId):null; // usa pdvs, não pedidosVenda
   // Check stock
   for(const it of reqItensLocal){
     if(it.qtd<=0){showToast(`Quantidade inválida: ${it.descricao}`,'err');return;}
@@ -8968,7 +8968,7 @@ async function salvarRequisicao(){
     numero, status: ehAprovador ? 'Atendida' : 'Aguardando Aprovação',
     departamento:depto,
     pdv_id:pdvId||null,
-    pdv_nome:pdv?('PDV '+pdv.numero+(pdv.cliente_nome?' — '+pdv.cliente_nome:'')):(isPdvDest?'PDV':null),
+    pdv_nome:pvDest?('PDV '+pvDest.numero+(pvDest.cliente?' — '+pvDest.cliente:'')+(pvDest.equipamento?' | '+pvDest.equipamento:'')):(isPdvDest?pvDestId:null),
     solicitante:document.getElementById('req_solicitante').value.trim()||null,
     data:document.getElementById('req_data').value||new Date().toISOString().split('T')[0],
     observacao:document.getElementById('req_obs').value.trim()||null,
@@ -9060,12 +9060,19 @@ async function aprovarRequisicao(id){
   const r=requisicoes.find(x=>x.id===id);
   if(!r)return;
   if(!isAprovador()){showToast('Sem permissão para aprovar','err');return;}
-  // Show approval modal
+
+  // Busca PDV pelo pdv_id (fonte de dados correta)
+  const pdvObj = r.pdv_id ? pdvs.find(p=>p.id===r.pdv_id) : null;
+  const pdvLabel = pdvObj
+    ? `PDV ${pdvObj.numero}${pdvObj.cliente?' — '+pdvObj.cliente:''}${pdvObj.equipamento?' | '+pdvObj.equipamento:''}`
+    : (r.pdv_nome && r.pdv_nome!=='PDV' ? r.pdv_nome : null);
+
   document.getElementById('aprovarReqId').value=id;
   document.getElementById('aprovarReqInfo').innerHTML=`
     <div style="background:#f3e5f5;border-radius:10px;padding:14px 16px;margin-bottom:12px">
-      <div style="font-size:15px;font-weight:700;color:#4a148c;margin-bottom:8px">📋 Requisição Nº ${r.numero} — ${r.departamento}</div>
-      ${r.pdv_nome?`<div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>PDV:</b> ${r.pdv_nome}</div>`:''}
+      <div style="font-size:15px;font-weight:700;color:#4a148c;margin-bottom:8px">📋 Requisição Nº ${r.numero}</div>
+      ${pdvLabel?`<div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>PDV / Destino:</b> <span style="color:#1565c0;font-weight:600">${pdvLabel}</span></div>`:''}
+      ${r.departamento&&r.departamento!=='PDV'?`<div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>Departamento:</b> ${r.departamento}</div>`:''}
       <div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>Solicitante:</b> ${r.solicitante||'—'}</div>
       <div style="font-size:12px;color:#546e7a;margin-bottom:4px"><b>Data:</b> ${r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</div>
       ${r.observacao?`<div style="font-size:12px;color:#546e7a"><b>Motivo:</b> ${r.observacao}</div>`:''}
@@ -9093,7 +9100,7 @@ async function confirmarAprovacao(){
         quantidade:it.qtd, unidade_saida:it.unidade,
         data:r.data||new Date().toISOString().split('T')[0],
         departamento:r.departamento,
-        observacao:`Req. Nº ${r.numero} — ${r.pdv_id?'PDV '+(pedidosVenda.find(p=>p.id===r.pdv_id)?.numero||''):r.departamento}`,
+        observacao:`Req. Nº ${r.numero} — ${r.pdv_id?'PDV '+(pdvs.find(p=>p.id===r.pdv_id)?.numero||r.pdv_id):r.departamento}`,
         criado_por:usuarioLogado?.nome||null
       });
     }
