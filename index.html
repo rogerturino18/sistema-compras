@@ -821,7 +821,9 @@ tr:hover td{background:#f9fbf9}
         </select>
         <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
         <button id="btnEstOrdem" class="btn" onclick="toggleOrdemEstoque()" style="font-size:12px;white-space:nowrap" title="Alternar ordenação">🕐 Recentes</button>
+        <button id="btnEstOcultar0" class="btn" onclick="toggleOcultarZero()" style="font-size:12px;white-space:nowrap" title="Ocultar itens com saldo zero">👁 Ocultar Zero</button>
         <button class="btn" onclick="abrirGerenciarCategorias()" style="font-size:12px" title="Adicionar ou editar categorias">🏷️ Categorias</button>
+        <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
         <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
         <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
@@ -856,7 +858,7 @@ tr:hover td{background:#f9fbf9}
 
   <!-- Modal movimentação rápida -->
   <div id="estMovRapidoBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:14px;padding:24px;width:360px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+    <div style="background:#fff;border-radius:14px;padding:24px;width:400px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
       <div id="estMovTitulo" style="font-size:15px;font-weight:700;margin-bottom:12px;color:#263238"></div>
       <div id="estMovInfo" style="font-size:12px;color:#546e7a;margin-bottom:12px;padding:8px 12px;background:#f5f7f5;border-radius:8px"></div>
       <div style="margin-bottom:10px">
@@ -868,9 +870,28 @@ tr:hover td{background:#f9fbf9}
           </select>
         </div>
       </div>
+      <!-- Categoria — visível somente na entrada -->
+      <div id="estMovCategoriaDiv" style="margin-bottom:10px;display:none">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Categoria do Item</label>
+        <select id="estMovCategoria" style="width:100%;padding:8px 10px;border:2px solid #a5d6a7;border-radius:8px;font-size:13px;background:#fff"></select>
+      </div>
       <div style="margin-bottom:10px">
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento</label>
-        <select id="estMovDepto" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px"><option value="">Selecionar (opcional)</option><option value="PDV">PDV</option><option value="INDUSTRIA">INDUSTRIA</option><option value="ADMINISTRATIVO">ADMINISTRATIVO</option><option value="COMERCIAL">COMERCIAL</option><option value="MANUTENCAO">MANUTENÇÃO</option><option value="EXPEDICAO">EXPEDIÇÃO</option></select>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento / PDV</label>
+        <select id="estMovDepto" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <option value="">Selecionar (opcional)</option>
+          <option value="INDUSTRIA">INDUSTRIA</option>
+          <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+          <option value="COMERCIAL">COMERCIAL</option>
+          <option value="MANUTENCAO">MANUTENÇÃO</option>
+          <option value="EXPEDICAO">EXPEDIÇÃO</option>
+        </select>
+      </div>
+      <!-- PDV selector - aparece quando depto = PDV (para saídas) -->
+      <div id="estMovPdvDiv" style="margin-bottom:10px;display:none">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">PDV de Destino</label>
+        <select id="estMovPdvSel" style="width:100%;padding:8px 10px;border:2px solid #90caf9;border-radius:8px;font-size:13px;background:#fff">
+          <option value="">— Selecione o PDV —</option>
+        </select>
       </div>
       <div style="margin-bottom:14px">
         <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Referência / Obs</label>
@@ -1511,21 +1532,60 @@ tr:hover td{background:#f9fbf9}
 
 <!-- MODAL GERENCIAR CATEGORIAS ESTOQUE -->
 <div class="modal-bg" id="modalCategoriasEstoque">
-<div class="modal" style="width:520px;max-width:96vw">
+<div class="modal" style="width:600px;max-width:96vw">
   <div class="modal-header" style="background:#2e7d32">
-    <h3>🏷️ Gerenciar Categorias do Estoque</h3>
+    <h3>⚙️ Configurações do Estoque</h3>
     <div class="modal-header-actions">
       <button class="modal-header-btn" onclick="fecharModal('modalCategoriasEstoque')">✕</button>
     </div>
   </div>
-  <div class="modal-body">
-    <p style="font-size:12px;color:#546e7a;margin-bottom:14px">Adicione novas categorias ou remova as que não têm itens. As categorias fixas não podem ser removidas.</p>
-    <div id="catListaGerenciar" style="margin-bottom:16px"></div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="catNovaInput" type="text" placeholder="Nova categoria (ex: Insumos, Lubrificantes...)"
-        style="flex:1;padding:9px 12px;border:2px solid #a5d6a7;border-radius:8px;font-size:14px"
-        onkeydown="if(event.key==='Enter') adicionarCategoriaEstoque()">
-      <button class="btn primary" onclick="adicionarCategoriaEstoque()" style="white-space:nowrap">+ Adicionar</button>
+  <div class="modal-body" style="padding:0">
+    <!-- Sub-abas -->
+    <div style="display:flex;border-bottom:2px solid #e8f5e9">
+      <button id="catTabBtn1" onclick="showCatTab(1)"
+        style="flex:1;padding:12px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:700;color:#2e7d32;border-bottom:3px solid #2e7d32;margin-bottom:-2px">
+        🏷️ Categorias
+      </button>
+      <button id="catTabBtn2" onclick="showCatTab(2)"
+        style="flex:1;padding:12px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#9e9e9e;border-bottom:3px solid transparent;margin-bottom:-2px">
+        🔢 Famílias e Códigos
+      </button>
+    </div>
+
+    <!-- Aba 1: Categorias -->
+    <div id="catTab1" style="padding:16px 20px">
+      <p style="font-size:12px;color:#546e7a;margin-bottom:14px">Adicione ou remova categorias. As fixas (🔒) não podem ser removidas.</p>
+      <div id="catListaGerenciar" style="margin-bottom:16px;max-height:320px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="catNovaInput" type="text" placeholder="Nova categoria (ex: Lubrificantes, Parafusos...)"
+          style="flex:1;padding:9px 12px;border:2px solid #a5d6a7;border-radius:8px;font-size:14px"
+          onkeydown="if(event.key==='Enter') adicionarCategoriaEstoque()">
+        <button class="btn primary" onclick="adicionarCategoriaEstoque()" style="white-space:nowrap">+ Adicionar</button>
+      </div>
+    </div>
+
+    <!-- Aba 2: Famílias e Códigos -->
+    <div id="catTab2" style="padding:16px 20px;display:none">
+      <p style="font-size:12px;color:#546e7a;margin-bottom:14px">
+        Defina o prefixo numérico de cada categoria. Os itens novos recebem código automático (<b>prefixo.001</b>, <b>prefixo.002</b>...).
+      </p>
+      <div id="familiaListaGerenciar" style="margin-bottom:16px;max-height:320px;overflow-y:auto"></div>
+      <div style="background:#e8f5e9;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:#2e7d32;margin-bottom:8px">+ Nova Família</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:2;min-width:140px">
+            <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:3px;text-transform:uppercase">Categoria</label>
+            <select id="famNovaCat" style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:13px;background:#fff"></select>
+          </div>
+          <div style="flex:1;min-width:100px">
+            <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:3px;text-transform:uppercase">Prefixo</label>
+            <input id="famNovoPrefix" type="text" placeholder="Ex: 10.01"
+              style="width:100%;padding:8px 10px;border:1px solid #a5d6a7;border-radius:8px;font-size:13px"
+              onkeydown="if(event.key==='Enter') adicionarFamiliaEstoque()">
+          </div>
+          <button class="btn primary" onclick="adicionarFamiliaEstoque()" style="white-space:nowrap;padding:8px 14px">Salvar</button>
+        </div>
+      </div>
     </div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
@@ -2556,7 +2616,7 @@ tr:hover td{background:#f9fbf9}
         <option value="Outros">Outros</option>
       </select>
     </div>
-    <div class="form-group"><label>Código / SKU</label><input id="est_codigo" placeholder="Ex: 100.20.104"></div>
+    <div class="form-group"><label>Código <span style="color:var(--gray);font-weight:400;font-size:10px;text-transform:none">(vazio = gerado automaticamente)</span></label><input id="est_codigo" placeholder="Ex: 100.20.001" oninput="_atualizarPreviewCodigo(!!editEstoqueId)"><div id="est_codigo_preview" style="font-size:10px;color:#1565c0;margin-top:3px;font-weight:600"></div></div>
     <div class="form-group"><label>NCM</label><input id="est_ncm" placeholder="Ex: 7318.15.00"></div>
     <div class="form-group"><label>Material / Especificação</label><input id="est_mat" placeholder="Ex: SAE 1045, ASTM A36"></div>
     <div class="form-group"><label>Localização</label>
@@ -6196,7 +6256,8 @@ function renderHomeTiles(){
 
 // ===== ESTOQUE =====
 let estCatAtual = null; // categoria selecionada no filtro lateral
-let estOrdemRecentes = false; // false = A→Z (padrão), true = recém adicionados
+let estOrdemRecentes = false;
+let estOcultarZero = false;
 
 function toggleOrdemEstoque(){
   estOrdemRecentes = !estOrdemRecentes;
@@ -6207,13 +6268,32 @@ function toggleOrdemEstoque(){
       btn.style.background = '#1565c0';
       btn.style.color = '#fff';
       btn.style.borderColor = '#1565c0';
-      btn.title = 'Ordenando: mais recentes primeiro — clique para ordenar A→Z';
     } else {
       btn.textContent = '🔤 A→Z';
       btn.style.background = '';
       btn.style.color = '';
       btn.style.borderColor = '';
-      btn.title = 'Ordenando: A→Z — clique para ver recentes primeiro';
+    }
+  }
+  renderEstoque();
+}
+
+function toggleOcultarZero(){
+  estOcultarZero = !estOcultarZero;
+  const btn = document.getElementById('btnEstOcultar0');
+  if(btn){
+    if(estOcultarZero){
+      btn.textContent = '🚫 Mostrando Ativos';
+      btn.style.background = '#e65100';
+      btn.style.color = '#fff';
+      btn.style.borderColor = '#e65100';
+      btn.title = 'Itens com saldo zero estão ocultos — clique para mostrar todos';
+    } else {
+      btn.textContent = '👁 Ocultar Zero';
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.title = 'Ocultar itens com saldo zero';
     }
   }
   renderEstoque();
@@ -6265,6 +6345,12 @@ function renderEstoque(){
     if(filtMat&&i.material!==filtMat) return false;
     if(filtBarr&&i.localizacao!==filtBarr) return false;
     if(busca&&!(i.descricao+i.material+i.codigo+i.ncm+i.categoria+'').toLowerCase().includes(busca)) return false;
+    // Ocultar itens com saldo zero
+    if(estOcultarZero){
+      const movItem=estoqueMov.filter(m=>m.item_id===i.id);
+      const saldo=movItem.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
+      if(Math.round(saldo)<=0) return false;
+    }
     return true;
   });
 
@@ -6374,6 +6460,51 @@ function abrirEstMovRapido(itemId, tipo){
   document.getElementById('estMovQtd').value = '';
   document.getElementById('estMovUnd').value = item.unidade||'PC';
   document.getElementById('estMovObs').value = '';
+  document.getElementById('estMovDepto').value = '';
+
+  // Categoria — só na entrada
+  const catDiv = document.getElementById('estMovCategoriaDiv');
+  const catSel = document.getElementById('estMovCategoria');
+  if(catDiv && catSel){
+    if(tipo==='entrada'){
+      catDiv.style.display='block';
+      const cats = getCatsEstoque();
+      catSel.innerHTML = cats.map(c=>`<option value="${c}" ${c===(item.categoria||'Matéria Prima')?'selected':''}>${c}</option>`).join('');
+    } else {
+      catDiv.style.display='none';
+    }
+  }
+
+  // PDV selector — preenche com pdvs cadastrados
+  const pdvSel = document.getElementById('estMovPdvSel');
+  if(pdvSel){
+    pdvSel.innerHTML='<option value="">— Selecione o PDV —</option>';
+    [...pdvs].sort((a,b)=>(b.numero||0)-(a.numero||0)).forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.id;
+      o.textContent=`PDV ${p.numero}${p.cliente?' — '+p.cliente.substring(0,30):''}`;
+      pdvSel.appendChild(o);
+    });
+    document.getElementById('estMovPdvDiv').style.display='none';
+  }
+
+  // Listener no depto para mostrar/esconder PDV selector
+  const deptoSel = document.getElementById('estMovDepto');
+  if(deptoSel){
+    deptoSel.onchange = function(){
+      const pdvDiv = document.getElementById('estMovPdvDiv');
+      if(pdvDiv) pdvDiv.style.display = (this.value==='PDV'||this.value==='') && tipo==='saida' ? 'none' : 'none';
+      // Mostra o PDV selector quando qualquer valor é selecionado e é saída
+      if(pdvDiv && tipo==='saida'){
+        pdvDiv.style.display = 'block';
+      }
+    };
+    // Para saídas, sempre mostra PDV selector
+    if(tipo==='saida'){
+      document.getElementById('estMovPdvDiv').style.display='block';
+    }
+  }
+
   document.getElementById('estMovBtn').textContent = tipo==='entrada'?'✅ Confirmar Entrada':'✅ Confirmar Saída';
   document.getElementById('estMovBtn').style.background = tipo==='entrada'?'#2e7d32':'#f57f17';
   document.getElementById('estMovRapidoBg').style.display = 'flex';
@@ -6390,8 +6521,19 @@ async function confirmarEstMov(){
   const obs = document.getElementById('estMovObs').value.trim();
   const und = document.getElementById('estMovUnd').value;
   const item = estoqueItens.find(i=>i.id===estMovItemId);
+  const depto = document.getElementById('estMovDepto')?.value||null;
+
+  // PDV selecionado (saída)
+  const pdvSelEl = document.getElementById('estMovPdvSel');
+  const pdvId = pdvSelEl?.value||null;
+  const pdvObj = pdvId ? pdvs.find(p=>p.id===pdvId) : null;
+  const pdvLabel = pdvObj ? `PDV ${pdvObj.numero}${pdvObj.cliente?' — '+pdvObj.cliente.substring(0,25):''}` : null;
+
+  // Observação automática com número do PDV
+  const obsFinal = obs || pdvLabel || null;
+  const deptoFinal = pdvObj ? 'PDV' : depto;
+
   try{
-    const depto=document.getElementById('estMovDepto')?.value||null;
     await api('POST','estoque_movimentacoes',{
       item_id: estMovItemId,
       tipo: estMovTipo,
@@ -6399,14 +6541,25 @@ async function confirmarEstMov(){
       quantidade: qtd,
       unidade_saida: und,
       data: new Date().toISOString().split('T')[0],
-      departamento: depto,
-      observacao: obs||null,
+      departamento: deptoFinal||null,
+      pdv_id: pdvId||null,
+      observacao: obsFinal||null,
       criado_por: usuarioLogado?.nome||null
     });
-    showToast(estMovTipo==='entrada'?'Entrada registrada!':'Saída registrada!');
+
+    // Na entrada: atualiza a categoria do item se foi selecionada diferente
+    if(estMovTipo==='entrada'){
+      const catSel = document.getElementById('estMovCategoria');
+      const novaCategoria = catSel?.value;
+      if(novaCategoria && novaCategoria !== (item?.categoria||'Matéria Prima')){
+        await api('PATCH','estoque_itens',{categoria:novaCategoria},`?id=eq.${estMovItemId}`);
+      }
+    }
+
+    showToast(estMovTipo==='entrada'?`✅ Entrada de ${qtd} ${und} registrada!`:`✅ Saída de ${qtd} ${und}${pdvLabel?' para '+pdvLabel:''} registrada!`);
     fecharEstMovRapido();
     await loadAll();
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Erro ao registrar movimentação','err');console.error(e);}
 }
 
 function abrirModalEstoque(sub, id){
@@ -6434,23 +6587,118 @@ function abrirModalEstoque(sub, id){
   // Categoria: atualiza o select com categorias dinâmicas (localStorage) ANTES de setar o valor
   const catEl = document.getElementById('est_categoria');
   if(catEl){
-    // Reconstrói as opções com as categorias atuais
     const cats = getCatsEstoque();
     catEl.innerHTML = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
-    // Define o valor correto
     let cat = item?.categoria || '';
     if(!cat && item?.tipo){ cat = item.tipo==='produto_final'?'Produto Final':'Matéria Prima'; }
     if(!cat) cat = estCatAtual || 'Matéria Prima';
     catEl.value = cat;
-    // Se o valor não existe nas opções (categoria legada), adiciona temporariamente
     if(cat && catEl.value !== cat){
       const opt = document.createElement('option');
       opt.value = cat; opt.textContent = cat;
       catEl.appendChild(opt);
       catEl.value = cat;
     }
+    // Atualiza preview do código automático quando categoria muda
+    catEl.onchange = () => _atualizarPreviewCodigo(!!id);
   }
+  // Preview do código automático (somente itens novos sem código)
+  _atualizarPreviewCodigo(!!id);
   abrirModal('modalEstoque');
+}
+
+// ── Sistema de Codificação por Família ───────────────────────────────────────
+// Mapeamento: Categoria → Prefixo de família (conforme padrão SL Óleos)
+const FAMILIA_CODIGOS = {
+  'Matéria Prima':         '10.01',   // MATÉRIA PRIMA
+  'Produto Final':         '100.10',  // PRODUTOS SL OLEOS - EQUIPAMENTOS
+  'Acessórios Comerciais': '40.01',   // ACESSORIOS COMERCIAIS
+  'Ferramentas':           '50.01',   // FERRAMENTAS
+  'Insumos':               '30.01',   // INSUMOS
+  'EPI / Segurança':       '30.01',   // INSUMOS (sub-categoria)
+  'Embalagem':             '30.01',   // INSUMOS
+  'Manutenção':            '60.01',   // EQUIPAMENTOS INDUSTRIAIS - ATIVO
+  'Outros':                '99.01',   // DESPESAS
+};
+
+// Retorna prefixo da família para uma categoria
+function getPrefixoFamilia(categoria) {
+  const map = getFamiliaCodigos();
+  return map[categoria] || FAMILIA_CODIGOS[categoria] || '99.01';
+}
+
+// Gera próximo código sequencial para uma categoria/prefixo
+function gerarProximoCodigo(categoria) {
+  const prefixo = getPrefixoFamilia(categoria);
+  // Busca todos os itens com código que começa com esse prefixo
+  const regex = new RegExp('^' + prefixo.replace('.', '\\.') + '\\.(\\d+)$');
+  let maxSeq = 0;
+  estoqueItens.forEach(item => {
+    if(item.codigo) {
+      const match = item.codigo.match(regex);
+      if(match) {
+        const seq = parseInt(match[1]);
+        if(seq > maxSeq) maxSeq = seq;
+      }
+    }
+  });
+  const proxSeq = String(maxSeq + 1).padStart(3, '0');
+  return `${prefixo}.${proxSeq}`;
+}
+
+// Codifica em lote todos os itens sem código
+async function codificarItensEmLote() {
+  const semCodigo = estoqueItens.filter(i => !i.codigo);
+  if(!semCodigo.length) { showToast('Todos os itens já têm código!'); return; }
+
+  const preview = Object.entries(
+    semCodigo.reduce((acc, i) => {
+      const cat = i.categoria || 'Matéria Prima';
+      acc[cat] = (acc[cat]||0) + 1;
+      return acc;
+    }, {})
+  ).map(([cat, n]) => `  • ${cat} (${getPrefixoFamilia(cat)}.XXX): ${n} item(s)`).join('\n');
+
+  if(!confirm(`Codificar ${semCodigo.length} itens sem código?\n\nPrefixos que serão usados:\n${preview}\n\nEsta ação não pode ser desfeita.`)) return;
+
+  showToast('⏳ Codificando itens...', 'ok', 15000);
+  let ok = 0, erros = 0;
+
+  // Agrupa por categoria para gerar sequência correta
+  const porCategoria = {};
+  semCodigo.forEach(i => {
+    const cat = i.categoria || 'Matéria Prima';
+    if(!porCategoria[cat]) porCategoria[cat] = [];
+    porCategoria[cat].push(i);
+  });
+
+  // Processa categoria por categoria
+  for(const [cat, itens] of Object.entries(porCategoria)) {
+    const prefixo = getPrefixoFamilia(cat);
+    const regex = new RegExp('^' + prefixo.replace(/\./g, '\\.') + '\\.(\\d+)$');
+    let maxSeq = 0;
+    estoqueItens.forEach(item => {
+      if(item.codigo) {
+        const match = item.codigo.match(regex);
+        if(match) { const s = parseInt(match[1]); if(s > maxSeq) maxSeq = s; }
+      }
+    });
+    // Ordena itens da categoria alfabeticamente para numeração consistente
+    itens.sort((a,b)=>(a.descricao||'').localeCompare(b.descricao||'','pt-BR'));
+    for(const item of itens) {
+      maxSeq++;
+      const codigo = `${prefixo}.${String(maxSeq).padStart(3,'0')}`;
+      try {
+        await api('PATCH','estoque_itens',{codigo},`?id=eq.${item.id}`);
+        item.codigo = codigo; // atualiza local para próximas iterações
+        ok++;
+      } catch(e) { erros++; console.error(e); }
+    }
+  }
+
+  showToast(`✅ ${ok} item(s) codificado(s)!${erros?' ⚠️ '+erros+' erro(s)':''}`);
+  await loadAll();
+  renderEstoque();
 }
 
 async function salvarEstoque(){
@@ -6458,10 +6706,16 @@ async function salvarEstoque(){
   if(!desc){showToast('Informe a descrição','err');return;}
   const tipo = document.getElementById('est_tipo_hidden').value;
   const categoria = document.getElementById('est_categoria')?.value || 'Matéria Prima';
+
+  // Auto-gera código se não informado (somente em itens novos)
+  let codigoFinal = document.getElementById('est_codigo')?.value.trim() || null;
+  if(!codigoFinal && !editEstoqueId) {
+    codigoFinal = gerarProximoCodigo(categoria);
+  }
   const obj = {
     descricao: desc,
-    tipo_peca: desc,  // garante que o display (que usa tipo_peca) também atualize
-    codigo: document.getElementById('est_codigo')?.value.trim()||null,
+    tipo_peca: desc,
+    codigo: codigoFinal,
     ncm: document.getElementById('est_ncm')?.value.trim()||null,
     material: document.getElementById('est_mat').value.trim()||null,
     localizacao: document.getElementById('est_local').value,
@@ -6498,6 +6752,19 @@ async function deletarEstoqueItem(id){
   }catch(e){showToast('Erro','err');}
 }
 
+function _atualizarPreviewCodigo(isEdit){
+  const previewEl = document.getElementById('est_codigo_preview');
+  const codigoEl = document.getElementById('est_codigo');
+  if(!previewEl || !codigoEl) return;
+  if(isEdit || codigoEl.value.trim()){
+    previewEl.textContent = '';
+    return;
+  }
+  const cat = document.getElementById('est_categoria')?.value || 'Matéria Prima';
+  const proxCod = gerarProximoCodigo(cat);
+  previewEl.textContent = `Será gerado automaticamente: ${proxCod}`;
+}
+
 const CATS_FIXAS_SISTEMA = ['Matéria Prima','Acessórios Comerciais','Produto Final'];
 
 function getCatsEstoque(){
@@ -6509,8 +6776,95 @@ function saveCatsEstoque(cats){
   localStorage.setItem('sl_cats_estoque', JSON.stringify(cats));
 }
 
-function abrirGerenciarCategorias(){
+function showCatTab(n){
+  document.getElementById('catTab1').style.display = n===1?'block':'none';
+  document.getElementById('catTab2').style.display = n===2?'block':'none';
+  document.getElementById('catTabBtn1').style.cssText += n===1?';color:#2e7d32;border-bottom:3px solid #2e7d32':';color:#9e9e9e;border-bottom:3px solid transparent';
+  document.getElementById('catTabBtn2').style.cssText += n===2?';color:#2e7d32;border-bottom:3px solid #2e7d32':';color:#9e9e9e;border-bottom:3px solid transparent';
+  if(n===2) renderFamiliaLista();
+}
+
+function getFamiliaCodigos(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('sl_familia_codigos')||'null');
+    if(saved) return saved;
+  }catch(e){}
+  // Retorna os padrões hardcoded
+  return {...FAMILIA_CODIGOS};
+}
+
+function saveFamiliaCodigos(map){
+  localStorage.setItem('sl_familia_codigos', JSON.stringify(map));
+  // Atualiza o objeto em memória
+  Object.keys(FAMILIA_CODIGOS).forEach(k=>delete FAMILIA_CODIGOS[k]);
+  Object.assign(FAMILIA_CODIGOS, map);
+}
+
+function renderFamiliaLista(){
+  const el = document.getElementById('familiaListaGerenciar');
+  if(!el) return;
+  const map = getFamiliaCodigos();
+
+  // Popula select de categoria
+  const catSel = document.getElementById('famNovaCat');
+  if(catSel){
+    const cats = getCatsEstoque();
+    catSel.innerHTML = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+
+  el.innerHTML = Object.entries(map).map(([cat, prefix])=>{
+    const count = estoqueItens.filter(i=>(i.categoria||'Matéria Prima')===cat&&i.codigo?.startsWith(prefix+'.')).length;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #e8f5e9;border-radius:8px;margin-bottom:6px;background:#fafffe">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px;color:#263238">${cat}</div>
+        <div style="font-size:11px;color:#9e9e9e;margin-top:1px">${count} item(s) com este prefixo</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="text" value="${prefix}" id="pfx_${cat.replace(/\W/g,'_')}"
+          style="width:90px;padding:5px 8px;border:1px solid #a5d6a7;border-radius:6px;font-size:13px;font-weight:700;font-family:monospace;text-align:center">
+        <button onclick="salvarPrefixoFamilia('${cat}')" style="padding:5px 10px;background:#e8f5e9;border:1px solid #a5d6a7;color:#2e7d32;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">✓</button>
+        <button onclick="removerFamiliaEstoque('${cat}')" style="padding:5px 8px;background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;font-size:12px;cursor:pointer">✕</button>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:#9e9e9e;text-align:center;padding:12px">Nenhuma família configurada</div>';
+}
+
+function salvarPrefixoFamilia(cat){
+  const key = 'pfx_'+cat.replace(/\W/g,'_');
+  const newPrefix = document.getElementById(key)?.value.trim();
+  if(!newPrefix){ showToast('Informe o prefixo','err'); return; }
+  const map = getFamiliaCodigos();
+  map[cat] = newPrefix;
+  saveFamiliaCodigos(map);
+  renderFamiliaLista();
+  showToast(`✅ ${cat} → ${newPrefix}`);
+}
+
+function adicionarFamiliaEstoque(){
+  const cat = document.getElementById('famNovaCat')?.value;
+  const prefix = document.getElementById('famNovoPrefix')?.value.trim();
+  if(!cat || !prefix){ showToast('Selecione a categoria e informe o prefixo','err'); return; }
+  const map = getFamiliaCodigos();
+  if(map[cat]){ showToast(`${cat} já tem o prefixo ${map[cat]} — edite acima`,'err'); renderFamiliaLista(); return; }
+  map[cat] = prefix;
+  saveFamiliaCodigos(map);
+  document.getElementById('famNovoPrefix').value = '';
+  renderFamiliaLista();
+  showToast(`✅ Família criada: ${cat} → ${prefix}.XXX`);
+}
+
+function removerFamiliaEstoque(cat){
+  const map = getFamiliaCodigos();
+  if(!confirm(`Remover o prefixo "${map[cat]}" da categoria "${cat}"?\n\nOs itens já codificados não serão afetados.`)) return;
+  delete map[cat];
+  saveFamiliaCodigos(map);
+  renderFamiliaLista();
+  showToast(`Família "${cat}" removida`);
+}
+
+function abrirGerenciarCategorias(tab=1){
   renderCatListaGerenciar();
+  showCatTab(tab);
   abrirModal('modalCategoriasEstoque');
 }
 
@@ -8618,6 +8972,8 @@ function filtrarClientesPVModal(){
 }
 
 function abrirRelatoriosGrupo(pdvId){
+  const modalEl = document.getElementById('modalRelatoriosGrupo');
+  if(modalEl) modalEl.dataset.pdvId = pdvId; // guarda pdvId para refresh após editar operação
   const pdv=pdvs.find(p=>p.id===pdvId);
   const ordenConcluidas=ordens.filter(o=>{
     if(o.pdv_id!==pdvId) return false;
@@ -8641,12 +8997,23 @@ function abrirRelatoriosGrupo(pdvId){
             <span style="color:var(--green);font-size:12px">▼</span>
           </div>
         </div>
-        <div id="relord_${o.id}" style="padding:12px 14px">
+        <div id="relord_${o.id}" data-ordem-id="${o.id}" style="padding:12px 14px">
           ${gerarConteudoRelatorio(o.id)}
         </div>
       </div>`).join(''):
     '<div class="empty">Nenhuma ordem concluída ainda</div>';
   abrirModal('modalRelatoriosGrupo');
+}
+
+function renderRelatoriosGrupo(pdvId){
+  // Recarrega cada relatório de ordem dentro do modal de grupo sem fechar
+  const grupoConteudo = document.getElementById('relatoriosGrupoConteudo');
+  if(!grupoConteudo) return;
+  const blocos = grupoConteudo.querySelectorAll('[data-ordem-id]');
+  blocos.forEach(bloco=>{
+    const ordemId = bloco.dataset.ordemId;
+    if(ordemId) bloco.innerHTML = gerarConteudoRelatorio(ordemId);
+  });
 }
 
 async function reprocessarOrdem(ordemId){
@@ -8733,6 +9100,10 @@ function renderMovEstoque(){
     const dtFmt=dt?new Date(dt+'T12:00').toLocaleDateString('pt-BR'):'—';
     const isEntrada=m.tipo==='entrada';
     const depto=m.departamento||'—';
+    const pdvObj = m.pdv_id ? pdvs.find(p=>p.id===m.pdv_id) : null;
+    const pdvLabel = pdvObj ? `PDV ${pdvObj.numero}${pdvObj.cliente?' — '+pdvObj.cliente.substring(0,20):''}` : null;
+    const deptoDisplay = pdvLabel || depto;
+    const obsDisplay = m.observacao || pdvLabel || '—';
     return `<tr>
       <td style="padding:7px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
       <td style="padding:7px 10px">
@@ -8744,8 +9115,8 @@ function renderMovEstoque(){
       <td style="padding:7px 10px;font-size:12px;color:var(--green)">${mat}</td>
       <td style="padding:7px 10px;font-size:13px;font-weight:700;color:${isEntrada?'#2e7d32':'#e65100'}">${isEntrada?'+':'−'}${m.quantidade||0}</td>
       <td style="padding:7px 10px;font-size:12px">${m.unidade_saida||item?.unidade||'—'}</td>
-      <td style="padding:7px 10px;font-size:12px">${depto!=='—'?`<span class="badge badge-blue" style="font-size:10px">${depto}</span>`:'—'}</td>
-      <td style="padding:7px 10px;font-size:12px;color:#546e7a">${m.observacao||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${deptoDisplay!=='—'?`<span class="badge badge-blue" style="font-size:10px">${deptoDisplay}</span>`:'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;color:#546e7a">${obsDisplay}</td>
       <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${m.criado_por||'—'}</td>
     </tr>`;
   }).join('');
@@ -9728,19 +10099,47 @@ async function confirmarEditarTempoOp(tempoId){
     operador: oper||null,
     observacao: obs||null
   };
-  // Recalcula duração se tiver início e fim
   if(ini && fim){
     const diffMs = new Date(fim) - new Date(ini);
     if(diffMs > 0) obj.duracao_minutos = Math.round(diffMs/60000);
   }
   try{
     await api('PATCH','tempos_op',obj,`?id=eq.${tempoId}`);
-    showToast('Operação atualizada!');
+    showToast('✅ Operação atualizada!');
     document.getElementById('editTempoOpBg')?.remove();
     await loadAll();
-    const modal = document.getElementById('modalRelatorioOrdem');
-    const ordemId = modal?.dataset?.ordemId;
-    if(ordemId) document.getElementById('relatorioOrdemConteudo').innerHTML = gerarConteudoRelatorio(ordemId);
+
+    // Descobre qual ordem pertence a este tempo e recarrega TODOS os containers visíveis
+    const tempo = temposOP.find(x=>x.id===tempoId);
+    const ordemId = tempo?.ordem_id
+      || document.getElementById('modalRelatorioOrdem')?.dataset?.ordemId
+      || document.getElementById('relatoriosGrupoConteudo')?.dataset?.ordemId;
+
+    if(ordemId){
+      // Atualiza container 1: modalRelatorioOrdem (relatório individual)
+      const c1 = document.getElementById('relatorioOrdemConteudo');
+      if(c1 && document.getElementById('modalRelatorioOrdem')?.dataset?.ordemId===ordemId){
+        c1.innerHTML = gerarConteudoRelatorio(ordemId);
+      }
+      // Atualiza container 2: relatoriosGrupoConteudo (ordens por PDV)
+      const grupoModal = document.getElementById('modalRelatoriosGrupo');
+      if(grupoModal && grupoModal.classList.contains('open')){
+        const grupoConteudo = document.getElementById('relatoriosGrupoConteudo');
+        if(grupoConteudo){
+          // Recarrega o grupo inteiro pelo PDV atual
+          const pdvId = grupoModal.dataset.pdvId;
+          if(pdvId && typeof renderRelatoriosGrupo==='function') renderRelatoriosGrupo(pdvId);
+          else {
+            // Fallback: recarrega o relatório específico desta ordem no grupo
+            const blocoOrdem = grupoConteudo.querySelector(`[data-ordem-id="${ordemId}"]`);
+            if(blocoOrdem){
+              const novoHtml = gerarConteudoRelatorio(ordemId);
+              blocoOrdem.innerHTML = novoHtml;
+            }
+          }
+        }
+      }
+    }
   }catch(e){showToast('Erro ao salvar','err');console.error(e);}
 }
 
