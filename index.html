@@ -608,6 +608,8 @@ tr:hover td{background:#f9fbf9}
       <option value="comprado">✅ Comprado</option>
     </select>
     <select id="sortItens" onchange="renderItens()">
+      <option value="created_asc">🕐 Mais antigos</option>
+      <option value="created_desc">🕐 Mais recentes</option>
       <option value="pdv_asc" selected>PDV A→Z</option>
       <option value="pdv_desc">PDV Z→A</option>
       <option value="descritivo_asc">Descritivo A→Z</option>
@@ -619,6 +621,10 @@ tr:hover td{background:#f9fbf9}
       <option value="valor_asc">Valor ↑</option>
       <option value="valor_desc">Valor ↓</option>
     </select>
+    <input type="date" id="filtroDataInclusao" onchange="renderItens()" title="Filtrar por data de inclusão"
+      style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:#546e7a">
+    <button onclick="document.getElementById('filtroDataInclusao').value='';renderItens()" title="Limpar filtro de data"
+      style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:#9e9e9e;cursor:pointer;background:#fff">✕ Data</button>
     <button class="btn primary" onclick="abrirModalItem(null)">+ Novo item</button>
     <button class="btn" onclick="document.getElementById('fileInput').click()">📥 CSV</button>
     <button class="btn" onclick="exportarExcel('itens')" title="Exportar Excel">📊 Excel</button>
@@ -1579,33 +1585,46 @@ tr:hover td{background:#f9fbf9}
 </div>
 </div>
 
-<!-- MODAL EDITAR USUÁRIO -->
+<!-- MODAL EDITAR USUÁRIO com Permissões -->
 <div class="modal-bg" id="modalEditarUsuario">
-<div class="modal" style="width:480px">
+<div class="modal" style="width:620px;max-width:98vw">
   <div class="modal-header" style="background:#37474f">
     <h3>✏️ Editar Usuário</h3>
     <div class="modal-header-actions">
       <button class="modal-header-btn" onclick="fecharModal('modalEditarUsuario')">✕</button>
     </div>
   </div>
-  <div class="modal-body">
-    <input type="hidden" id="eu_id">
-    <div class="form-grid" style="gap:10px">
-      <div class="form-group full"><label>Nome *</label><input id="eu_nome"></div>
-      <div class="form-group full"><label>E-mail *</label><input id="eu_email" type="email"></div>
-      <div class="form-group full"><label>Nova senha <span style="font-size:10px;color:var(--gray);font-weight:400">(deixe em branco para não alterar)</span></label><input id="eu_senha" type="password" placeholder="Nova senha"></div>
-      <div class="form-group"><label>Cargo</label><input id="eu_cargo"></div>
-      <div class="form-group"><label>Perfil</label>
-        <select id="eu_perfil">
-          <option>Usuário</option><option>Compras</option><option>Financeiro</option>
-          <option>Producao</option><option>PCP</option><option>Administrador</option>
-        </select>
+  <div class="modal-body" style="padding:0">
+    <!-- Sub-abas -->
+    <div style="display:flex;border-bottom:2px solid #eceff1">
+      <button id="euTab1Btn" onclick="showEuTab(1)" style="flex:1;padding:11px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:700;color:#37474f;border-bottom:3px solid #37474f;margin-bottom:-2px">👤 Dados</button>
+      <button id="euTab2Btn" onclick="showEuTab(2)" style="flex:1;padding:11px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#9e9e9e;border-bottom:3px solid transparent;margin-bottom:-2px">🔐 Permissões</button>
+    </div>
+    <!-- Aba Dados -->
+    <div id="euTab1" style="padding:16px 20px">
+      <input type="hidden" id="eu_id">
+      <div class="form-grid" style="gap:10px">
+        <div class="form-group full"><label>Nome *</label><input id="eu_nome"></div>
+        <div class="form-group full"><label>E-mail *</label><input id="eu_email" type="email"></div>
+        <div class="form-group full"><label>Nova senha <span style="font-size:10px;color:var(--gray);font-weight:400">(em branco = não altera)</span></label><input id="eu_senha" type="password" placeholder="Nova senha"></div>
+        <div class="form-group"><label>Cargo / Setor</label><input id="eu_cargo"></div>
+        <div class="form-group"><label>Status</label>
+          <select id="eu_ativo">
+            <option value="true">✅ Ativo</option>
+            <option value="false">❌ Inativo</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group"><label>Status</label>
-        <select id="eu_ativo">
-          <option value="true">✅ Ativo</option>
-          <option value="false">❌ Inativo</option>
-        </select>
+    </div>
+    <!-- Aba Permissões -->
+    <div id="euTab2" style="padding:16px 20px;display:none">
+      <p style="font-size:12px;color:#546e7a;margin-bottom:14px">Selecione os módulos que este usuário pode acessar. Deixe todos marcados para acesso total.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="euPermissoesGrid">
+        <!-- Preenchido por JS -->
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button onclick="marcarTodasPerms(true)" style="padding:6px 14px;background:#e8f5e9;border:1px solid #a5d6a7;color:#2e7d32;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">✅ Marcar Todas</button>
+        <button onclick="marcarTodasPerms(false)" style="padding:6px 14px;background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">❌ Desmarcar Todas</button>
       </div>
     </div>
   </div>
@@ -1905,7 +1924,7 @@ tr:hover td{background:#f9fbf9}
       <div style="padding:14px 20px">
         <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
           <span style="font-size:13px;font-weight:700;color:#4a148c">Itens da Requisição</span>
-          <button style="background:#7b1fa2;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemReq()">+ Adicionar Item do Estoque</button>
+          <button style="background:#7b1fa2;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="addItemReq()">+ Adicionar Itens na Requisição</button>
         </div>
         <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
@@ -3327,6 +3346,7 @@ function renderItens(){
   const p=document.getElementById('filtroPDV1').value;
   const statusFiltro=document.getElementById('filtroStatus1')?.value||'';
   const sort=document.getElementById('sortItens').value||'pdv_asc';
+  const filtroData=document.getElementById('filtroDataInclusao')?.value||''; // AAAA-MM-DD
 
   let lista=itens.filter(it=>{
     if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
@@ -3334,16 +3354,27 @@ function renderItens(){
     if(p&&it.pdv!==p)return false;
     if(statusFiltro==='pendente'&&it.comprado)return false;
     if(statusFiltro==='comprado'&&!it.comprado)return false;
+    // Filtro por data de inclusão
+    if(filtroData&&it.created_at){
+      const diaCriacao=it.created_at.split('T')[0];
+      if(diaCriacao!==filtroData) return false;
+    }
     return true;
   });
 
-  // Sorting
-  const parts=sort.split('_'); const dir=parts.pop(); const col=parts.join('_');
-  lista=[...lista].sort((a,b)=>{
-    let va=a[col]||'', vb=b[col]||'';
-    if(!isNaN(va)&&!isNaN(vb)) return dir==='asc'?Number(va)-Number(vb):Number(vb)-Number(va);
-    return dir==='asc'?String(va).localeCompare(String(vb),'pt-BR'):String(vb).localeCompare(String(va),'pt-BR');
-  });
+  // Sorting — suporte a created_at
+  if(sort==='created_desc'){
+    lista=[...lista].sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  } else if(sort==='created_asc'){
+    lista=[...lista].sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
+  } else {
+    const parts=sort.split('_'); const dir=parts.pop(); const col=parts.join('_');
+    lista=[...lista].sort((a,b)=>{
+      let va=a[col]||'', vb=b[col]||'';
+      if(!isNaN(va)&&!isNaN(vb)) return dir==='asc'?Number(va)-Number(vb):Number(vb)-Number(va);
+      return dir==='asc'?String(va).localeCompare(String(vb),'pt-BR'):String(vb).localeCompare(String(va),'pt-BR');
+    });
+  }
 
   const div=document.getElementById('listaComprasUnificada');
   if(!div)return;
@@ -3383,6 +3414,7 @@ function renderItens(){
         <td style="padding:7px 10px;font-size:12px">${fmtVal(it.valor_unitario)}</td>
         <td style="padding:7px 10px;font-size:12px;font-weight:600;color:#2e7d32">${it.valor_unitario&&it.peso?fmtVal(it.valor_unitario*it.peso):'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${dtCurta}</td>
+        <td style="padding:7px 10px;font-size:11px;color:#1565c0;white-space:nowrap">${it.created_at?`<span title="${new Date(it.created_at).toLocaleString('pt-BR')}">${new Date(it.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}<br><span style="font-size:10px;color:#9e9e9e">${new Date(it.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></span>`:'—'}</td>
         <td style="padding:7px 6px;white-space:nowrap">
           <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm blue" onclick="duplicarItem('${it.id}')" title="Duplicar">⧉</button>
@@ -3412,7 +3444,8 @@ function renderItens(){
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:110px">Fornecedor</th>
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:80px">Val. Unit.</th>
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:80px">Val. Total</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:55px">Data</th>
+            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:55px">Data compra</th>
+            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:90px">🕐 Incluído em</th>
             <th style="width:120px"></th>
           </tr></thead>
           <tbody>${linhas}</tbody>
@@ -8381,6 +8414,95 @@ function isPerfilSimplificadoCI(){
   return usuarioLogado&&emails.includes(usuarioLogado.email);
 }
 
+// ── Sistema de Permissões por Módulo ─────────────────────────────────────
+const MODULOS_SISTEMA = [
+  {id:'dashboard',  label:'🏠 Dashboard',        icon:'sbico_0'},
+  {id:'compras',    label:'🛒 Compras',           icon:'sbico_compras'},
+  {id:'projetos',   label:'🎯 Projetos',          icon:'sbico_projetos'},
+  {id:'producao',   label:'🔧 Produção',          icon:'sbico_producao'},
+  {id:'vendas',     label:'🧾 Vendas / Pedidos',  icon:'sbico_vendas'},
+  {id:'financeiro', label:'💰 Financeiro',        icon:'sbico_financeiro'},
+  {id:'estoque',    label:'📦 Estoque',           icon:'sbico_estoque'},
+  {id:'fiscal',     label:'📄 Fiscal / NF-e',     icon:null},
+  {id:'requisicoes',label:'📋 Requisições',       icon:null},
+  {id:'admin',      label:'⚙️ Administração',     icon:null},
+];
+
+// Extrai permissões do campo perfil (formato: "Cargo:mod1,mod2,mod3" ou só "Cargo")
+function getPermissoesUsuario(u){
+  if(!u) return MODULOS_SISTEMA.map(m=>m.id); // sem usuário = tudo
+  const perfilStr = u.perfil||'';
+  if(perfilStr.includes('|PERMS:')){
+    const perms = perfilStr.split('|PERMS:')[1];
+    return perms ? perms.split(',').filter(Boolean) : MODULOS_SISTEMA.map(m=>m.id);
+  }
+  // Admin = tudo
+  if(isAprovador()) return MODULOS_SISTEMA.map(m=>m.id);
+  // Mapeamento padrão por perfil
+  const mapa = {
+    'Financeiro':   ['dashboard','financeiro','estoque'],
+    'Compras':      ['dashboard','compras','estoque','requisicoes'],
+    'PCP':          ['dashboard','producao','requisicoes','estoque','projetos'],
+    'Producao':     ['dashboard','producao','estoque'],
+    'Expedição':    ['dashboard','vendas','estoque','producao'],
+    'Projetos':     ['dashboard','projetos'],
+    'Projetista':   ['dashboard','projetos','producao'],
+    'Engenharia':   ['dashboard','projetos','producao'],
+    'Administrador':MODULOS_SISTEMA.map(m=>m.id),
+    'Gerente':      MODULOS_SISTEMA.map(m=>m.id),
+  };
+  return mapa[perfilStr.split('|')[0]] || MODULOS_SISTEMA.map(m=>m.id);
+}
+
+// Aplica permissões na UI — oculta ícones do sidebar sem acesso
+function aplicarPermissoes(){
+  if(!usuarioLogado) return;
+  if(isAprovador()) return; // admin vê tudo
+  const perms = getPermissoesUsuario(usuarioLogado);
+  const iconMap = {
+    'compras':'sbico_compras','projetos':'sbico_projetos','producao':'sbico_producao',
+    'vendas':'sbico_vendas','financeiro':'sbico_financeiro','estoque':'sbico_estoque'
+  };
+  Object.entries(iconMap).forEach(([mod, iconId])=>{
+    const el = document.getElementById(iconId);
+    if(el) el.style.display = perms.includes(mod) ? '' : 'none';
+  });
+}
+
+function showEuTab(n){
+  document.getElementById('euTab1').style.display = n===1?'block':'none';
+  document.getElementById('euTab2').style.display = n===2?'block':'none';
+  const b1=document.getElementById('euTab1Btn'), b2=document.getElementById('euTab2Btn');
+  if(b1) b1.style.cssText += n===1?';color:#37474f;border-bottom:3px solid #37474f':';color:#9e9e9e;border-bottom:3px solid transparent';
+  if(b2) b2.style.cssText += n===2?';color:#37474f;border-bottom:3px solid #37474f':';color:#9e9e9e;border-bottom:3px solid transparent';
+  if(n===2) renderPermissoesGrid();
+}
+
+function renderPermissoesGrid(){
+  const u = todosUsuarios.find(x=>x.id===document.getElementById('eu_id').value);
+  const permsAtivas = u ? getPermissoesUsuario(u) : MODULOS_SISTEMA.map(m=>m.id);
+  const grid = document.getElementById('euPermissoesGrid');
+  if(!grid) return;
+  grid.innerHTML = MODULOS_SISTEMA.map(m=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #eceff1;border-radius:10px;cursor:pointer;background:#fff;${permsAtivas.includes(m.id)?'border-color:#a5d6a7;background:#f1f8f1':''}">
+      <input type="checkbox" id="perm_${m.id}" ${permsAtivas.includes(m.id)?'checked':''} 
+        onchange="this.closest('label').style.borderColor=this.checked?'#a5d6a7':'#eceff1';this.closest('label').style.background=this.checked?'#f1f8f1':'#fff'"
+        style="width:16px;height:16px;accent-color:#2e7d32;cursor:pointer">
+      <span style="font-size:13px;font-weight:600">${m.label}</span>
+    </label>`).join('');
+}
+
+function marcarTodasPerms(marcar){
+  MODULOS_SISTEMA.forEach(m=>{
+    const el = document.getElementById('perm_'+m.id);
+    if(el){
+      el.checked = marcar;
+      const lbl = el.closest('label');
+      if(lbl){ lbl.style.borderColor=marcar?'#a5d6a7':'#eceff1'; lbl.style.background=marcar?'#f1f8f1':'#fff'; }
+    }
+  });
+}
+
 // ── Gestão de Usuários (Admin) ────────────────────────────────────────────
 let todosUsuarios = [];
 
@@ -8415,7 +8537,7 @@ function renderListaUsuarios(){
         <tr style="border-bottom:1px solid #f0f4f0">
           <td style="padding:8px 10px;font-weight:600">${u.nome||'—'}</td>
           <td style="padding:8px 10px;color:#546e7a;font-size:12px">${u.email}</td>
-          <td style="padding:8px 10px"><span style="background:#e8eaf6;color:#37474f;padding:2px 8px;border-radius:10px;font-size:11px">${u.perfil||u.cargo||'Usuário'}</span></td>
+          <td style="padding:8px 10px"><span style="background:#e8eaf6;color:#37474f;padding:2px 8px;border-radius:10px;font-size:11px">${(u.perfil||u.cargo||'Usuário').split('|')[0]}</span></td>
           <td style="padding:8px 10px;text-align:center"><span style="color:${u.ativo?'#2e7d32':'#9e9e9e'}">${u.ativo?'✅ Ativo':'❌ Inativo'}</span></td>
           <td style="padding:8px 10px;text-align:center">
             <button onclick="abrirEditarUsuario('${u.id}')" style="padding:3px 8px;background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;border-radius:6px;font-size:11px;cursor:pointer">✏️</button>
@@ -8437,7 +8559,7 @@ async function criarUsuario(){
   // Verifica duplicata
   if(todosUsuarios.some(u=>u.email.toLowerCase()===email)){ showToast('E-mail já cadastrado','err'); return; }
   try{
-    await api('POST','usuarios',{nome, email, senha, cargo:cargo||null, perfil, ativo:true, criado_em:new Date().toISOString()});
+    await api('POST','usuarios',{nome, email, senha, cargo:cargo||null, perfil, ativo:true});
     showToast(`✅ Usuário "${nome}" criado com sucesso!`);
     todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
     renderListaUsuarios();
@@ -8453,18 +8575,27 @@ function abrirEditarUsuario(id){
   document.getElementById('eu_email').value = u.email||'';
   document.getElementById('eu_senha').value = '';
   document.getElementById('eu_cargo').value = u.cargo||'';
-  document.getElementById('eu_perfil').value = u.perfil||u.cargo||'Usuário';
   document.getElementById('eu_ativo').value = u.ativo?'true':'false';
+  showEuTab(1);
   abrirModal('modalEditarUsuario');
 }
 
 async function salvarEdicaoUsuario(){
   const id = document.getElementById('eu_id').value;
+  // Coleta permissões marcadas
+  const permsSelecionadas = MODULOS_SISTEMA.filter(m=>document.getElementById('perm_'+m.id)?.checked).map(m=>m.id);
+  const todasMarcadas = permsSelecionadas.length === MODULOS_SISTEMA.length;
+  // Salva perfil com permissões embutidas (formato: "Cargo|PERMS:mod1,mod2")
+  const cargoAtual = document.getElementById('eu_cargo').value.trim()||'';
+  // Determina rótulo do perfil pelo cargo
+  const perfilLabel = cargoAtual || 'Usuário';
+  const perfilComPerms = todasMarcadas ? perfilLabel : `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
+
   const obj = {
     nome: document.getElementById('eu_nome').value.trim(),
     email: document.getElementById('eu_email').value.trim().toLowerCase(),
-    cargo: document.getElementById('eu_cargo').value.trim()||null,
-    perfil: document.getElementById('eu_perfil').value,
+    cargo: cargoAtual||null,
+    perfil: perfilComPerms,
     ativo: document.getElementById('eu_ativo').value==='true'
   };
   const novaSenha = document.getElementById('eu_senha').value;
@@ -8472,7 +8603,7 @@ async function salvarEdicaoUsuario(){
   if(!obj.nome||!obj.email){ showToast('Nome e e-mail são obrigatórios','err'); return; }
   try{
     await api('PATCH','usuarios',obj,`?id=eq.${id}`);
-    showToast('✅ Usuário atualizado!');
+    showToast('✅ Usuário e permissões salvos!');
     fecharModal('modalEditarUsuario');
     todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
     renderListaUsuarios();
@@ -8486,6 +8617,8 @@ function mostrarApp(){
   if(btnBV) btnBV.style.display=(!isExpedicao()&&!isProjeto())?'flex':'none';
   const btnU=document.getElementById('menuBtnUsuarios');
   if(btnU) btnU.style.display=isAprovador()?'flex':'none';
+  // Aplica permissões de acesso a módulos
+  setTimeout(aplicarPermissoes, 300);
   if(isExpedicao()){
     document.querySelectorAll('.tab').forEach((t,i)=>{
       t.style.display=[1,3,4,8,9].includes(i)?'flex':'none';
@@ -9606,7 +9739,7 @@ function renderReqItens(){
   const tbody=document.getElementById('reqItensBody');
   if(!tbody)return;
   if(!reqItensLocal.length){
-    tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:16px;color:#bdbdbd;font-size:12px">Clique em "+ Adicionar Item do Estoque"</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:16px;color:#bdbdbd;font-size:12px">Clique em "+ Adicionar Itens na Requisição"</td></tr>`;
     return;
   }
   tbody.innerHTML=reqItensLocal.map((it,i)=>{
