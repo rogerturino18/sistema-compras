@@ -1839,7 +1839,7 @@ tr:hover td{background:#f9fbf9}
 
     <div class="form-group full"><label id="labelRazao">Razão Social</label><input id="ff_razao" placeholder="Nome da empresa"></div>
     <div class="form-group full" id="grupoFantasia"><label>Nome Fantasia</label><input id="ff_fantasia" placeholder="Como é conhecido"></div>
-    <div class="form-group full"><label>E-mail *</label><input id="ff_email" type="email" placeholder="contato@empresa.com.br"></div>
+    <div class="form-group full"><label>E-mail <span style="color:var(--gray);font-weight:400;text-transform:none;font-size:10px">(opcional)</span></label><input id="ff_email" type="email" placeholder="contato@empresa.com.br"></div>
     <div class="form-group"><label>Telefone</label><input id="ff_telefone" placeholder="(11) 99999-9999"></div>
     <div class="form-group"><label>WhatsApp</label><input id="ff_whatsapp" placeholder="(11) 99999-9999"></div>
     <div class="form-group full"><label>Nome do contato</label><input id="ff_contato" placeholder="Nome da pessoa responsável"></div>
@@ -3931,24 +3931,77 @@ async function deletarPDV(id){
 function renderFornecedores(){
   const b=(document.getElementById('busca2').value||'').toLowerCase();
   const lista=fornecedores.filter(f=>{
-    if(b&&!(f.razao_social+f.nome_fantasia+f.email+'').toLowerCase().includes(b))return false;
+    if(b&&!(f.razao_social+f.nome_fantasia+f.email+f.cidade+'').toLowerCase().includes(b))return false;
     return true;
   });
   const div=document.getElementById('listaFornecedores');
   if(!lista.length){div.innerHTML='<div class="empty">Nenhum fornecedor cadastrado</div>';return;}
-  div.innerHTML=lista.map(f=>`
-    <div class="forn-card">
-      <div class="forn-info">
-        <h4>${f.razao_social||f.nome_fantasia||'—'}</h4>
-        <p>${f.cnpj?'CNPJ: '+f.cnpj+' | ':''} ${f.email||'—'} ${f.telefone?' | '+f.telefone:''}</p>
-        ${f.contato_nome?`<p style="margin-top:2px">Contato: ${f.contato_nome}</p>`:''}
-        ${f.cidade?`<p style="margin-top:2px">${f.cidade}${f.estado?' — '+f.estado:''}</p>`:''}
+
+  // Paleta de cores para os cards (uma cor por letra inicial)
+  const paleta=['#1565c0','#2e7d32','#6a1b9a','#c62828','#e65100','#00695c','#37474f','#283593','#4a148c','#880e4f','#1b5e20','#e65100'];
+  const corPorNome = n => paleta[(n||'A').charCodeAt(0) % paleta.length];
+
+  const totalItens = id => itens.filter(it=>it.fornecedor===fornecedores.find(f=>f.id===id)?.razao_social).length;
+  const totalCotacoes = id => cotacoes.filter(c=>c.fornecedor===fornecedores.find(f=>f.id===id)?.razao_social).length;
+
+  div.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:4px">
+  ${lista.map(f=>{
+    const nome = f.razao_social||f.nome_fantasia||'—';
+    const sigla = nome.split(/\s+/).filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join('').toUpperCase()||nome.substring(0,2).toUpperCase();
+    const cor = corPorNome(nome[0]);
+    const nItens = totalItens(f.id);
+    const nCot = totalCotacoes(f.id);
+    return `
+    <div style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;transition:box-shadow 0.2s,transform 0.2s;cursor:default"
+      onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)';this.style.transform='translateY(-2px)'"
+      onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.08)';this.style.transform=''">
+
+      <!-- Header colorido -->
+      <div style="background:${cor};padding:16px 18px;display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;flex-shrink:0;letter-spacing:1px">
+          ${sigla}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="color:#fff;font-weight:700;font-size:13px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${nome}">${nome}</div>
+          ${f.nome_fantasia&&f.nome_fantasia!==nome?`<div style="color:rgba(255,255,255,0.75);font-size:11px;margin-top:2px">${f.nome_fantasia}</div>`:''}
+          ${f.cnpj||f.cpf?`<div style="color:rgba(255,255,255,0.65);font-size:10px;margin-top:3px;font-family:monospace">${f.cnpj||f.cpf}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="abrirModalForn('${f.id}')" style="width:30px;height:30px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center" title="Editar">✏️</button>
+          <button onclick="deletarForn('${f.id}')" style="width:30px;height:30px;background:rgba(255,0,0,0.2);border:1px solid rgba(255,0,0,0.3);border-radius:8px;color:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center" title="Excluir">🗑</button>
+        </div>
       </div>
-      <div class="forn-actions">
-        <button class="btn btn-sm" onclick="abrirModalForn('${f.id}')">✏️</button>
-        <button class="btn btn-sm danger" onclick="deletarForn('${f.id}')">🗑</button>
+
+      <!-- Body -->
+      <div style="padding:14px 18px">
+        <!-- Contato e cidade -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          ${f.contato_nome?`<div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#37474f"><span style="font-size:14px">👤</span> ${f.contato_nome}</div>`:''}
+          ${f.cidade?`<div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#546e7a"><span style="font-size:14px">📍</span> ${f.cidade}${f.estado?' — '+f.estado:''}</div>`:''}
+        </div>
+
+        <!-- Email e Tel -->
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
+          ${f.email?`<a href="mailto:${f.email}" style="display:flex;align-items:center;gap:6px;font-size:12px;color:#1565c0;text-decoration:none" title="Enviar e-mail">
+            <span style="font-size:13px">✉️</span> ${f.email}</a>`:`<span style="font-size:11px;color:#bdbdbd;font-style:italic">Sem e-mail cadastrado</span>`}
+          ${f.telefone?`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#37474f"><span style="font-size:13px">📞</span> ${f.telefone}</div>`:''}
+        </div>
+
+        <!-- Badges de atividade -->
+        <div style="display:flex;gap:6px;border-top:1px solid #f5f5f5;padding-top:10px">
+          <span style="background:${cor}18;color:${cor};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">
+            🛒 ${nItens} item${nItens!==1?'ns':''}
+          </span>
+          <span style="background:#f3e5f5;color:#6a1b9a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">
+            💬 ${nCot} cotação${nCot!==1?'ões':''}
+          </span>
+          ${f.ativo===false?`<span style="background:#ffebee;color:#c62828;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">❌ Inativo</span>`:
+          `<span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✅ Ativo</span>`}
+        </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('')}
+  </div>`;
 }
 
 function toggleTipoDoc(tipo){
@@ -4026,7 +4079,7 @@ function abrirModalForn(id){
 
 async function salvarForn(){
   const email=document.getElementById('ff_email').value.trim();
-  if(!email){showToast('E-mail é obrigatório','err');return;}
+  // Email é opcional
   const tipoCNPJ=document.querySelector('input[name="tipoDoc"]:checked').value==='cnpj';
   const docValue=tipoCNPJ?document.getElementById('ff_cnpj').value.trim():document.getElementById('ff_cpf').value.trim();
   const obj={
@@ -4059,223 +4112,99 @@ async function deletarForn(id){
 function renderCotacoes(){
   const b=(document.getElementById('busca3').value||'').toLowerCase();
   const div=document.getElementById('listaCotacoes');
-
   const lista=itens.filter(it=>!b||(it.descritivo+it.material+it.descricao_peca+it.pdv+'').toLowerCase().includes(b));
   if(!lista.length){div.innerHTML='<div class="empty">Nenhum item encontrado</div>';return;}
 
-  // Agrupar por PDV
   const grupos={};
-  lista.forEach(it=>{
-    const pdv=it.pdv||'Sem PDV';
-    if(!grupos[pdv]) grupos[pdv]=[];
-    grupos[pdv].push(it);
-  });
+  lista.forEach(it=>{ const k=it.pdv||'Sem PDV'; if(!grupos[k])grupos[k]=[]; grupos[k].push(it); });
+
+  const paleta=['#1565c0','#2e7d32','#6a1b9a','#c62828','#e65100','#00695c','#37474f','#283593'];
+  const cor = k => paleta[Math.abs([...k].reduce((a,c)=>a+c.charCodeAt(0),0))%paleta.length];
 
   div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,itensPDV])=>{
-    const totalCot=itensPDV.reduce((acc,it)=>acc+cotacoes.filter(c=>c.item_id===it.id).length,0);
+    const c=cor(pdv);
+    const totalCot=itensPDV.reduce((s,it)=>s+cotacoes.filter(x=>x.item_id===it.id).length,0);
+    const comCot=itensPDV.filter(it=>cotacoes.some(x=>x.item_id===it.id)).length;
 
-    const linhas=itensPDV.map(it=>{
-      const cs=cotacoes.filter(c=>c.item_id===it.id);
-      const melhor=cs.length?cs.reduce((a,b)=>(a.valor||Infinity)<(b.valor||Infinity)?a:b):null;
-      const und=(it.und||'').toUpperCase();
+    const cards=itensPDV.map(it=>{
+      const cs=cotacoes.filter(x=>x.item_id===it.id);
+      const melhor=cs.length?cs.reduce((a,b)=>(a.preco||a.valor||Infinity)<(b.preco||b.valor||Infinity)?a:b):null;
+      const semCot=!cs.length;
+      const medidas=[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ');
 
-      const calcTotal=(c)=>{
-        const t=und==='KG'?(c.valor||0)*(it.peso||0):(c.valor||0)*(it.qtd||1);
-        return t>0?fmtVal(t):'—';
-      };
-
-      if(!cs.length){
-        // Linha sem cotação
-        return `<tr style="border-bottom:1px solid #f0f4f0">
-          <td style="padding:8px 10px;font-weight:600">${it.descritivo||'—'}</td>
-          <td style="padding:8px 10px;color:var(--green)">${it.material||'—'}</td>
-          <td style="padding:8px 10px;white-space:nowrap;font-family:monospace;font-size:12px">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
-          <td style="padding:8px 10px">${it.qtd||0} ${it.und||''}</td>
-          <td style="padding:8px 10px">${it.peso?it.peso+' kg':'—'}</td>
-          <td style="padding:8px 10px" colspan="4"><span style="color:#bdbdbd;font-size:12px">Sem cotação</span></td>
-          <td style="padding:8px 10px">
-            <button class="btn btn-sm primary" onclick="abrirModalCotacao('${it.id}')" style="font-size:11px;padding:2px 8px;white-space:nowrap">+ Cotar</button>
-          </td>
-        </tr>`;
-      }
-
-      // Uma linha por cotação, primeira linha tem info do item, demais ficam vazias
-      return cs.map((c,idx)=>{
-        const total=calcTotal(c);
-        const isMelhor=melhor&&c.id===melhor.id&&cs.length>1;
-        return `<tr style="border-bottom:1px solid #f0f4f0;${isMelhor?'background:#f1f8f1':''}">
-          ${idx===0?`
-          <td style="padding:8px 10px;font-weight:600" rowspan="${cs.length}">${it.descritivo||'—'}</td>
-          <td style="padding:8px 10px;color:var(--green)" rowspan="${cs.length}">${it.material||'—'}</td>
-          <td style="padding:8px 10px;white-space:nowrap;font-family:monospace;font-size:12px" rowspan="${cs.length}">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
-          <td style="padding:8px 10px" rowspan="${cs.length}">${it.qtd||0} ${it.und||''}</td>
-          <td style="padding:8px 10px" rowspan="${cs.length}">${it.peso?it.peso+' kg':'—'}</td>`:''}
-          <td style="padding:8px 10px;max-width:180px">
-            <span style="font-size:12px;font-weight:600">${c.fornecedor||'—'}</span>
-            ${c.observacao?`<div style="font-size:10px;color:var(--gray)">${c.observacao}</div>`:''}
-            ${c.respondido?'<span class="badge badge-green" style="font-size:10px">📧 E-mail</span>':''}
-          </td>
-          <td style="padding:8px 10px;font-weight:700;font-size:14px">${fmtVal(c.valor)}</td>
-          <td style="padding:8px 10px;font-size:11px;color:var(--gray)">${c.prazo?c.prazo+' dias':'—'}</td>
-          <td style="padding:8px 10px;font-weight:700;color:#2e7d32">
-            ${total}
-            ${isMelhor?'<span class="badge badge-green" style="font-size:10px;margin-left:4px">✓ Menor</span>':''}
-          </td>
-          <td style="padding:8px 10px;white-space:nowrap">
-            <button class="btn btn-sm" onclick="editarCotacao('${c.id}','${c.item_id}','${c.fornecedor}',${c.valor},${c.prazo||0},'${c.observacao||''}')">✏️</button>
-            ${c.arquivo_url?`<a href="${c.arquivo_url}" target="_blank" class="btn btn-sm blue">📎</a>`:''}
-            <button class="btn btn-sm danger" onclick="deletarCotacao('${c.id}')">🗑</button>
-            ${idx===0?`<button class="btn btn-sm primary" onclick="abrirModalCotacao('${it.id}')" style="font-size:11px;padding:2px 6px">+</button>`:''}
-          </td>
-        </tr>`;
-      }).join('');
+      return `<div style="background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.07);overflow:hidden;border:1px solid ${semCot?'#ffe082':'#e8f5e9'};transition:transform 0.15s,box-shadow 0.15s"
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.12)'"
+        onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(0,0,0,0.07)'">
+        <!-- Cabeçalho do item -->
+        <div style="background:${semCot?'#fff8e1':'#f1f8f1'};padding:10px 14px;border-bottom:1px solid ${semCot?'#ffe082':'#c8e6c9'}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:13px;color:#263238">${it.descritivo||'—'}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+                ${it.material?`<span style="background:${c}18;color:${c};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">${it.material}</span>`:''}
+                ${medidas?`<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 8px;border-radius:10px;font-size:11px;font-family:monospace">${medidas}</span>`:''}
+                ${it.desenho?`<span style="background:#e3f2fd;color:#1565c0;padding:1px 8px;border-radius:10px;font-size:11px">📐 ${it.desenho}</span>`:''}
+                <span style="background:#e8eaf6;color:#37474f;padding:1px 8px;border-radius:10px;font-size:11px">${it.qtd||1} ${it.und||'un'}</span>
+                ${it.peso?`<span style="background:#fbe9e7;color:#bf360c;padding:1px 8px;border-radius:10px;font-size:11px">⚖️ ${it.peso}kg</span>`:''}
+              </div>
+            </div>
+            <button onclick="abrirModalCotacao('${it.id}')" style="padding:5px 12px;background:${c};color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
+              ${semCot?'+ Cotar':'+ Mais'}
+            </button>
+          </div>
+        </div>
+        <!-- Chips de cotações -->
+        <div style="padding:10px 14px">
+          ${semCot
+            ? `<div style="text-align:center;padding:8px;color:#bdbdbd;font-size:12px;font-style:italic">⚠️ Sem cotações ainda</div>`
+            : `<div style="display:flex;flex-direction:column;gap:6px">
+              ${cs.map((qt,i)=>{
+                const val=qt.preco||qt.valor||0;
+                const isMelhor=melhor&&qt.id===melhor.id&&cs.length>1;
+                const pct=melhor&&(qt.preco||qt.valor||0)>0?Math.min(100,Math.round(val/(melhor.preco||melhor.valor||1)*100)):100;
+                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:${isMelhor?'#e8f5e9':'#fafafa'};border:1px solid ${isMelhor?'#a5d6a7':'#f0f0f0'}">
+                  ${isMelhor?`<span style="font-size:14px">🏆</span>`:`<span style="font-size:12px;color:#bdbdbd;font-weight:700;min-width:16px">${i+1}º</span>`}
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;font-weight:600;color:#263238;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qt.fornecedor||'—'}</div>
+                    <div style="background:#e0e0e0;height:3px;border-radius:2px;margin-top:3px">
+                      <div style="background:${isMelhor?'#2e7d32':c};height:3px;border-radius:2px;width:${100-(pct-100)}%"></div>
+                    </div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:14px;font-weight:700;color:${isMelhor?'#2e7d32':'#37474f'}">${fmtVal(val)}</div>
+                    ${qt.prazo_entrega||qt.prazo?`<div style="font-size:10px;color:#9e9e9e">${qt.prazo_entrega||qt.prazo} dias</div>`:''}
+                  </div>
+                  <div style="display:flex;gap:4px">
+                    <button onclick="editarCotacao('${qt.id}','${qt.item_id||it.id}','${(qt.fornecedor||'').replace(/'/g,"\\'")}',${val},${qt.prazo||qt.prazo_entrega||0},'')" style="width:24px;height:24px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer;font-size:11px">✏️</button>
+                    <button onclick="deletarCotacao('${qt.id}')" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`
+          }
+        </div>
+      </div>`;
     }).join('');
 
     return `<div style="margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--green);border-radius:10px 10px 0 0">
-        <span style="font-size:14px;font-weight:700;color:#fff">📦 ${pdv}</span>
-        <span style="font-size:12px;color:rgba(255,255,255,0.8)">${itensPDV.length} item${itensPDV.length!==1?'s':''}</span>
-        <span class="badge" style="background:rgba(255,255,255,0.2);color:#fff;margin-left:auto">${totalCot} cotação${totalCot!==1?'s':''}</span>
+      <div style="background:${c};border-radius:14px 14px 0 0;padding:14px 20px;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${pdv.replace(/PDV\s*/i,'').substring(0,3)}</div>
+        <div style="flex:1">
+          <div style="color:#fff;font-weight:700;font-size:15px">${pdv}</div>
+          <div style="color:rgba(255,255,255,0.75);font-size:12px">${itensPDV[0]?.cliente||''}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span style="background:rgba(255,255,255,0.2);color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${itensPDV.length} itens</span>
+          <span style="background:${comCot===itensPDV.length?'rgba(76,175,80,0.4)':'rgba(255,152,0,0.4)'};color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${totalCot} cotações</span>
+        </div>
       </div>
-      <div class="tbl-wrap" style="border-radius:0 0 10px 10px;border:1px solid var(--border);border-top:none">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr style="background:#f5f7f5">
-            <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;text-transform:uppercase">Descritivo</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Material</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Medidas</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Qtd</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Peso</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Fornecedor</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Valor Unit.</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Prazo</th>
-            <th style="padding:8px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Total</th>
-            <th style="padding:8px 10px"></th>
-          </tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
+      <div style="background:#f8faf8;border:1px solid ${c}44;border-top:none;border-radius:0 0 14px 14px;padding:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>
       </div>
     </div>`;
   }).join('');
 }
 
-function abrirModalCotacao(itemId){
-  document.getElementById('fc_item').innerHTML=itens.map(it=>`<option value="${it.id}" ${it.id===itemId?'selected':''}>${it.descritivo||'—'}${it.material?' | '+it.material:''} — ${it.pdv||''}</option>`).join('');
-  document.getElementById('fc_forn').innerHTML='<option value="">Selecione um fornecedor...</option>'+fornecedores.map(f=>`<option value="${f.razao_social||f.nome_fantasia}">${f.razao_social||f.nome_fantasia}</option>`).join('');
-  ['fc_valor','fc_prazo','fc_obs','fc_total'].forEach(id=>document.getElementById(id).value='');
-  atualizarPesoItem();
-  abrirModal('modalCotacao');
-}
-
-function atualizarPesoItem(){
-  const itemId=document.getElementById('fc_item').value;
-  const it=itens.find(i=>i.id===itemId);
-  if(it){
-    // Set unidade from item
-    const undSel=document.getElementById('fc_und');
-    const und=(it.und||'PC').toUpperCase();
-    for(let o of undSel.options){ if(o.value===und){o.selected=true;break;} }
-    // Set quantity based on unit
-    if(und==='KG'){
-      document.getElementById('fc_qtd').value=it.peso||it.qtd||1;
-    } else {
-      document.getElementById('fc_qtd').value=it.qtd||1;
-    }
-  } else {
-    document.getElementById('fc_qtd').value=1;
-  }
-  calcularValorTotal();
-}
-
-function calcularValorTotal(){
-  const valor=parseFloat(document.getElementById('fc_valor').value)||0;
-  const qtd=parseFloat(document.getElementById('fc_qtd').value)||0;
-  const und=document.getElementById('fc_und').value||'PC';
-  let total=valor*qtd;
-  document.getElementById('fc_total').value=total>0?total.toFixed(2):'';
-  const label=document.getElementById('fc_total_label');
-  const qtdLabel=document.getElementById('fc_qtd_label');
-  if(und==='KG'){
-    if(label) label.textContent='(R$/kg × kg total)';
-    if(qtdLabel) qtdLabel.textContent='Peso total (kg)';
-  } else if(und==='METRO'){
-    if(label) label.textContent='(R$/m × metros)';
-    if(qtdLabel) qtdLabel.textContent='Metros';
-  } else if(und==='BARRA'){
-    if(label) label.textContent='(R$/barra × barras)';
-    if(qtdLabel) qtdLabel.textContent='Qtd barras';
-  } else {
-    if(label) label.textContent=`(unit. × ${und.toLowerCase()})`;
-    if(qtdLabel) qtdLabel.textContent='Quantidade';
-  }
-}
-
-async function salvarCotacao(){
-  const itemId=document.getElementById('fc_item').value;
-  const forn=document.getElementById('fc_forn').value.trim();
-  const val=document.getElementById('fc_valor').value;
-  if(!forn){showToast('Selecione um fornecedor','err');return;}
-  if(!val){showToast('Informe o valor unitário','err');return;}
-  const und=document.getElementById('fc_und')?.value||null;
-  const qtd=parseFloat(document.getElementById('fc_qtd').value)||null;
-  const total=parseFloat(document.getElementById('fc_total').value)||null;
-  const editId=document.getElementById('modalCotacao').dataset.editId;
-  const obj={
-    item_id:itemId,
-    fornecedor:forn,
-    valor:Number(val),
-    prazo:Number(document.getElementById('fc_prazo').value)||null,
-    observacao:document.getElementById('fc_obs').value.trim()||null,
-    respondido:false
-  };
-  try{
-    if(editId){
-      await api('PATCH','cotacoes',obj,`?id=eq.${editId}`);
-      showToast('Cotação atualizada!');
-      delete document.getElementById('modalCotacao').dataset.editId;
-      document.getElementById('modalCotacao').querySelector('h3').textContent='Adicionar cotação manual';
-    } else {
-      await api('POST','cotacoes',obj);
-      showToast('Cotação salva!');
-    }
-    fecharModal('modalCotacao');
-    await loadAll();
-  }catch(e){showToast('Erro ao salvar cotação','err');console.error(e);}
-}
-
-function editarCotacao(id, itemId, fornecedor, valor, prazo, obs){
-  // Abre o modal de cotação preenchido para edição
-  document.getElementById('fc_item').innerHTML=itens.map(it=>`<option value="${it.id}" ${it.id===itemId?'selected':''}>${it.descritivo||'—'}${it.material?' | '+it.material:''} — ${it.pdv||''}</option>`).join('');
-  document.getElementById('fc_forn').innerHTML='<option value="">Selecione um fornecedor...</option>'+fornecedores.map(f=>`<option value="${f.razao_social||f.nome_fantasia}" ${(f.razao_social||f.nome_fantasia)===fornecedor?'selected':''}>${f.razao_social||f.nome_fantasia}</option>`).join('');
-  // Se fornecedor não está na lista, adiciona como opção
-  if(fornecedor && ![...document.getElementById('fc_forn').options].some(o=>o.value===fornecedor)){
-    const opt=document.createElement('option'); opt.value=fornecedor; opt.textContent=fornecedor; opt.selected=true;
-    document.getElementById('fc_forn').appendChild(opt);
-  }
-  document.getElementById('fc_forn').value=fornecedor;
-  document.getElementById('fc_valor').value=valor||'';
-  document.getElementById('fc_prazo').value=prazo||'';
-  document.getElementById('fc_obs').value=obs||'';
-  atualizarPesoItem();
-  // Marca que é uma edição
-  document.getElementById('modalCotacao').dataset.editId=id;
-  document.getElementById('modalCotacao').querySelector('h3').textContent='Editar cotação';
-  abrirModal('modalCotacao');
-}
-
-async function deletarCotacao(id){
-  if(!confirm('Remover esta cotação?'))return;
-  try{
-    const cot=cotacoes.find(c=>c.id===id);
-    await api('DELETE','cotacoes','',`?id=eq.${id}`);
-    if(cot){
-      const restantes=cotacoes.filter(c=>c.id!==id&&c.item_id===cot.item_id);
-      if(restantes.length===0) await api('PATCH','itens',{fornecedor:null,valor_unitario:null},`?id=eq.${cot.item_id}`).catch(()=>{});
-    }
-    showToast('Cotação removida!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
-}
-
-// ===== COMPARAR =====
 function renderComparar(){
   const b=(document.getElementById('busca4').value||'').toLowerCase();
   const filtro=document.getElementById('filtroComp').value;
@@ -4289,89 +4218,127 @@ function renderComparar(){
   });
   if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
 
-  // Agrupa por PDV
   const grupos={};
-  lista.forEach(it=>{
-    const key=it.pdv||'Sem PDV';
-    if(!grupos[key]) grupos[key]=[];
-    grupos[key].push(it);
-  });
+  lista.forEach(it=>{ const k=it.pdv||'Sem PDV'; if(!grupos[k])grupos[k]=[]; grupos[k].push(it); });
+
+  const paleta=['#1565c0','#2e7d32','#6a1b9a','#c62828','#e65100','#00695c','#37474f','#283593'];
+  const cor = k => paleta[Math.abs([...k].reduce((a,c)=>a+c.charCodeAt(0),0))%paleta.length];
+  const normKey=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim().split(' ').slice(0,3).join(' ');
 
   div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,itensPDV])=>{
-    const linhas=itensPDV.map(it=>{
-      const cs=cotacoes.filter(c=>c.item_id===it.id);
-      const allRaw=[...cs.map(c=>({forn:c.fornecedor,val:c.valor,via:c.respondido?'📧 e-mail':'manual',obs:c.observacao}))];
+    const c=cor(pdv);
+    const cards=itensPDV.map(it=>{
+      const cs=cotacoes.filter(x=>x.item_id===it.id);
+      const allRaw=[...cs.map(x=>({forn:x.fornecedor,val:x.preco||x.valor,prazo:x.prazo_entrega||x.prazo,obs:x.observacao}))];
       if(it.valor_unitario&&it.fornecedor) allRaw.push({forn:it.fornecedor,val:it.valor_unitario,via:'planilha'});
-      // Dedup: normalize key (remove spaces/punctuation, keep first word chunks)
-      const normKey=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim().split(' ').slice(0,3).join(' ');
+
       const byForn={};
       allRaw.forEach(p=>{
-        const k=normKey(p.forn);
-        // Check if any existing key is similar (one contains the other)
-        const existKey=Object.keys(byForn).find(ek=>ek.includes(k)||k.includes(ek));
-        const useKey=existKey||k;
-        if(!byForn[useKey]||p.val<byForn[useKey].val) byForn[useKey]=p;
+        const k2=normKey(p.forn);
+        const existKey=Object.keys(byForn).find(ek=>ek.includes(k2)||k2.includes(ek));
+        if(!byForn[existKey||k2]||(p.val||Infinity)<(byForn[existKey||k2].val||Infinity)) byForn[existKey||k2]=p;
       });
-      const all=Object.values(byForn).sort((a,b)=>a.val-b.val);
+      const all=Object.values(byForn).filter(x=>x.val>0).sort((a,b)=>a.val-b.val);
       const melhor=all[0];
-
-      // Cálculo total do melhor preço
+      const semCot=!all.length;
       const und=(it.und||'').toUpperCase();
       const totalMelhor=melhor?(und==='KG'?(melhor.val*(it.peso||0)):(melhor.val*(it.qtd||1))):0;
+      const medidas=[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ');
 
-      return `<tr style="border-bottom:1px solid #f0f4f0">
-        <td style="padding:8px 10px;font-weight:600;font-size:12px">
-          ${it.descritivo||'—'}
-          ${it.descricao_peca?`<div style="font-size:10px;color:var(--gray)">${it.descricao_peca}</div>`:''}
-        </td>
-        <td style="padding:8px 10px;color:var(--green);font-size:12px">${it.material||'—'}</td>
-        <td style="padding:8px 10px;font-family:monospace;font-size:12px;text-align:center;white-space:nowrap">${[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ')||'—'}</td>
-        <td style="padding:8px 10px;font-size:11px;text-align:center">${it.qtd||0} ${it.und||''}</td>
-        <td style="padding:8px 10px;font-size:11px;text-align:center">${it.peso?it.peso+' kg':'—'}</td>
-        <td style="padding:8px 10px;font-size:12px">${it.desenho||'—'}</td>
-        <td style="padding:8px 10px;min-width:200px">
-          ${all.length?all.map((p,i)=>`
-            <div style="display:flex;align-items:center;gap:6px;padding:3px 0;${i===0?'':'border-top:1px solid #f5f5f5'}">
-              <span style="font-size:11px">${i===0?'⭐':'☆'}</span>
-              <span class="forn-tag" style="font-size:10px">${p.forn}</span>
-              <span style="font-weight:700;font-size:13px;color:${i===0?'#2e7d32':'#546e7a'}">${fmtVal(p.val)}</span>
-              <span style="font-size:10px;color:var(--gray)">${p.via}</span>
-            </div>`).join(''):'<span style="color:#bdbdbd;font-size:12px">Sem cotação</span>'}
-        </td>
-        <td style="padding:8px 10px;font-weight:700;color:#2e7d32;font-size:13px">
-          ${totalMelhor>0?fmtVal(totalMelhor):'—'}
-          ${all.length>1?`<div style="font-size:10px;color:#e65100;font-weight:600">economia ${fmtVal(all[all.length-1].val-all[0].val)}/un</div>`:''}
-        </td>
-      </tr>`;
+      return `<div style="background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.07);overflow:hidden;border:1px solid ${semCot?'#ffe082':'#e8f5e9'}">
+        <!-- Item header -->
+        <div style="padding:12px 16px;background:${semCot?'#fff8e1':'linear-gradient(135deg,'+c+'12,#fff)'}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#263238">${it.descritivo||'—'}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">
+                ${it.material?`<span style="background:${c}18;color:${c};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">${it.material}</span>`:''}
+                ${medidas?`<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 8px;border-radius:10px;font-size:11px;font-family:monospace">${medidas}</span>`:''}
+                ${it.desenho?`<span style="background:#e3f2fd;color:#1565c0;padding:1px 8px;border-radius:10px;font-size:11px">📐 ${it.desenho}</span>`:''}
+                <span style="background:#e8eaf6;color:#37474f;padding:1px 8px;border-radius:10px;font-size:11px">${it.qtd||1} ${it.und||'un'}</span>
+              </div>
+            </div>
+            ${melhor?`<div style="text-align:right;flex-shrink:0">
+              <div style="font-size:10px;color:#9e9e9e;text-transform:uppercase">Melhor total</div>
+              <div style="font-size:18px;font-weight:900;color:#2e7d32">${fmtVal(totalMelhor)}</div>
+              <div style="font-size:10px;color:#546e7a">${fmtVal(melhor.val)}/un · ${melhor.forn.split(' ')[0]}</div>
+            </div>`:''}
+          </div>
+        </div>
+        <!-- Corrida de preços -->
+        <div style="padding:12px 16px">
+          ${semCot
+            ? `<div style="text-align:center;padding:8px;color:#bdbdbd;font-size:12px">⚠️ Sem cotações</div>`
+            : all.map((p,i)=>{
+                const pct=Math.round((p.val/melhor.val)*100);
+                const isBest=i===0;
+                const barPct=100-Math.min(50,pct-100);
+                const barColor=isBest?'#2e7d32':pct<=110?'#f57f17':'#ef5350';
+                const economia=i>0?((p.val-melhor.val)/p.val*100).toFixed(0):null;
+                return `<div style="margin-bottom:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      ${isBest?`<span style="font-size:14px">🏆</span>`:`<span style="width:20px;height:20px;background:#f5f5f5;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#9e9e9e">${i+1}</span>`}
+                      <span style="font-size:12px;font-weight:${isBest?700:500};color:${isBest?'#263238':'#546e7a'}">${p.forn}</span>
+                      ${p.prazo?`<span style="font-size:10px;color:#9e9e9e">${p.prazo}d</span>`:''}
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      ${economia?`<span style="font-size:10px;color:#ef5350">+${economia}%</span>`:''}
+                      <span style="font-size:13px;font-weight:700;color:${isBest?'#2e7d32':'#546e7a'}">${fmtVal(p.val)}</span>
+                    </div>
+                  </div>
+                  <div style="background:#f5f5f5;border-radius:4px;height:5px">
+                    <div style="background:${barColor};height:5px;border-radius:4px;width:${barPct}%;transition:width 0.3s"></div>
+                  </div>
+                </div>`;
+              }).join('')
+          }
+        </div>
+      </div>`;
     }).join('');
 
-    const cliente=itensPDV[0]?.cliente||'';
-    return `<div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--green);border-radius:10px 10px 0 0">
-        <span style="font-size:14px;font-weight:700;color:#fff">📦 ${pdv}</span>
-        ${cliente?`<span style="font-size:12px;color:rgba(255,255,255,0.85)">${cliente}</span>`:''}
-        <span style="font-size:11px;color:rgba(255,255,255,0.7);margin-left:auto">${itensPDV.length} item${itensPDV.length!==1?'s':''}</span>
+    const totalCot=itensPDV.reduce((s,it)=>s+cotacoes.filter(x=>x.item_id===it.id).length,0);
+    const melhorTotal=itensPDV.reduce((s,it)=>{
+      const cs=cotacoes.filter(x=>x.item_id===it.id);
+      if(!cs.length) return s;
+      const best=cs.reduce((a,b)=>(a.preco||a.valor||Infinity)<(b.preco||b.valor||Infinity)?a:b);
+      const val=best.preco||best.valor||0;
+      const und=(it.und||'').toUpperCase();
+      return s+(und==='KG'?val*(it.peso||0):val*(it.qtd||1));
+    },0);
+
+    return `<div style="margin-bottom:24px">
+      <div style="background:${c};border-radius:14px 14px 0 0;padding:14px 20px;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${pdv.replace(/PDV\s*/i,'').substring(0,3)}</div>
+        <div style="flex:1">
+          <div style="color:#fff;font-weight:700;font-size:15px">${pdv}</div>
+          <div style="color:rgba(255,255,255,0.7);font-size:12px">${itensPDV[0]?.cliente||''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:rgba(255,255,255,0.7);font-size:11px">Melhor cenário</div>
+          <div style="color:#fff;font-size:18px;font-weight:900">${melhorTotal>0?fmtVal(melhorTotal):'—'}</div>
+        </div>
+        <span style="background:rgba(255,255,255,0.2);color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${totalCot} cotações</span>
       </div>
-      <div class="tbl-wrap" style="border-radius:0 0 10px 10px;border:1px solid var(--border);border-top:none">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr style="background:#f5f7f5">
-            <th style="padding:7px 10px;text-align:left;color:var(--green);font-size:11px;text-transform:uppercase">Descritivo</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Material</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Medidas</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Qtd</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Peso</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Desenho</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Cotações</th>
-            <th style="padding:7px 10px;color:var(--green);font-size:11px;text-transform:uppercase">Total</th>
-          </tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
+      <div style="background:#f8faf8;border:1px solid ${c}44;border-top:none;border-radius:0 0 14px 14px;padding:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cards}</div>
       </div>
     </div>`;
   }).join('');
 }
+  const b=(document.getElementById('busca4').value||'').toLowerCase();
+  const filtro=document.getElementById('filtroComp').value;
+  const div=document.getElementById('listaComparar');
+  const lista=itens.filter(it=>{
+    if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
+    const cs=cotacoes.filter(c=>c.item_id===it.id);
+    if(filtro==='cotado'&&!cs.length)return false;
+    if(filtro==='sem'&&cs.length)return false;
+    return true;
+  });
+  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
 
-// ===== COMPRAS =====
+
 function renderStatsCompras(){
   const el=document.getElementById('statsCompras');
   if(!el)return;
@@ -5293,25 +5260,29 @@ function renderOrdens(){
     const kanbanCols=[
       (()=>{
         const cards=ordenAguardando.map(o=>`
-          <div class="kanban-card" style="border-left:4px solid #546e7a;cursor:grab"
+          <div class="kanban-card" style="border:none;border-radius:14px;background:linear-gradient(135deg,#37474f,#546e7a);box-shadow:0 4px 14px rgba(0,0,0,0.2);cursor:grab;overflow:hidden"
             draggable="true" id="opcard_aguard_${o.id}"
             ondragstart="dragStartOp(event,'${o.id}',null)"
             ondragend="dragEnd(event)">
-            <div style="font-size:10px;font-weight:700;color:#546e7a;text-transform:uppercase;margin-bottom:4px">📋 Ordem Nº ${o.numero}</div>
-            <div class="kanban-card-title">${o.descricao||'—'}</div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
-              ${o.desenho?`<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:8px;font-size:11px">📐 ${o.desenho}</span>`:''}
-              ${o.material?`<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 8px;border-radius:8px;font-size:11px">⚙️ ${o.material}</span>`:''}
-              <span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:8px;font-size:11px">Qtd: ${o.quantidade||1}</span>
-            </div>
-            <div style="margin-top:10px;font-size:11px;color:#bdbdbd;text-align:center;border:1px dashed #e0e0e0;border-radius:6px;padding:6px">
-              ↕ Arraste para uma operação
-            </div>
-            <div style="margin-top:8px;display:flex;gap:4px">
-              <button class="btn btn-sm" onclick="abrirRelatorioOrdem('${o.id}')" style="font-size:11px;padding:3px 8px" title="Relatório">📊</button>
-              <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" style="font-size:11px;padding:3px 8px">🖨️</button>
-              <button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px;padding:3px 8px" onclick="abrirModalOrdem('${o.id}')">✏️</button>
-              <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" style="font-size:11px;padding:3px 8px">🗑</button>
+            <div style="padding:12px 14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="background:rgba(255,255,255,0.15);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700">Nº ${o.numero}</span>
+                <span style="color:rgba(255,255,255,0.6);font-size:10px">${o.quantidade||1} un</span>
+              </div>
+              <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:6px">${o.descricao||'—'}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+                ${o.desenho?`<span style="background:rgba(255,255,255,0.15);color:#e3f2fd;padding:1px 8px;border-radius:8px;font-size:10px">📐 ${o.desenho}</span>`:''}
+                ${o.material?`<span style="background:rgba(255,255,255,0.15);color:#f3e5f5;padding:1px 8px;border-radius:8px;font-size:10px">⚙️ ${o.material}</span>`:''}
+              </div>
+              <div style="background:rgba(255,255,255,0.08);border-radius:8px;padding:6px 8px;text-align:center;color:rgba(255,255,255,0.5);font-size:10px;margin-bottom:8px">
+                ↕ Arraste para iniciar operação
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-sm" onclick="abrirRelatorioOrdem('${o.id}')" style="flex:1;background:rgba(255,255,255,0.15);border-color:transparent;color:#fff;font-size:10px">📊</button>
+                <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" style="flex:1;background:rgba(255,255,255,0.15);border-color:transparent;color:#fff;font-size:10px">🖨️</button>
+                <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" style="flex:1;background:rgba(33,150,243,0.4);border-color:transparent;color:#fff;font-size:10px">✏️</button>
+                <button class="btn btn-sm" onclick="deletarOrdem('${o.id}')" style="flex:1;background:rgba(244,67,54,0.3);border-color:transparent;color:#fff;font-size:10px">🗑</button>
+              </div>
             </div>
           </div>`).join('');
         return `<div class="kanban-col" style="grid-column:1/-1">
@@ -5335,16 +5306,26 @@ function renderOrdens(){
         const cards=ordenNaOp.map(o=>{
           const tempo=temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&t.operacao!=='REPROCESSAR'&&!t.dt_hr_final);
           const proj=getProjetista(tempo?.operador);
-          return `<div class="kanban-card" style="border-left:4px solid ${cor};background:linear-gradient(to right,${cor}18,#fff)"
+          // Calcula tempo decorrido
+          const iniciou = tempo?.dt_hr_inicial ? new Date(tempo.dt_hr_inicial) : null;
+          const decorrido = iniciou ? Math.round((Date.now()-iniciou.getTime())/60000) : 0;
+          const decStr = decorrido>60?`${Math.floor(decorrido/60)}h${String(decorrido%60).padStart(2,'0')}m`:`${decorrido}m`;
+
+          return `<div class="kanban-card" style="border:none;border-radius:14px;background:linear-gradient(135deg,${cor}dd,${cor});box-shadow:0 4px 16px ${cor}55;overflow:hidden"
             draggable="true" id="opcard_${o.id}_${op.replace(/\s/g,'_')}"
             ondragstart="dragStartOp(event,'${o.id}','${op}')" ondragend="dragEnd(event)">
-            <div style="font-size:10px;font-weight:700;color:#546e7a;text-transform:uppercase">Ordem Nº ${o.numero}</div>
-            <div class="kanban-card-title">${o.descricao||'—'}</div>
-            ${o.desenho?`<div style="font-size:10px;color:#546e7a;margin-top:2px">📐 ${o.desenho}${o.material?' · ⚙️ '+o.material:''}</div>`:''}
-            ${tempo?.observacao?`<div class="kanban-card-obs">💬 ${tempo.observacao}</div>`:''}
-            <div class="kanban-card-footer" style="margin-top:10px">
-              <div class="projetista-badge" style="background:${proj.cor||'#546e7a'}">${tempo?.operador||'—'}</div>
-              <button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:transparent;font-size:10px;padding:3px 10px" onclick="abrirFinalizarOp('${tempo?.id}')">⏹ Finalizar</button>
+            <div style="padding:12px 14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="background:rgba(255,255,255,0.2);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700">Nº ${o.numero}</span>
+                ${iniciou?`<span style="background:rgba(0,0,0,0.2);color:rgba(255,255,255,0.9);padding:1px 8px;border-radius:8px;font-size:10px">⏱ ${decStr}</span>`:''}
+              </div>
+              <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:4px">${o.descricao||'—'}</div>
+              ${o.desenho?`<div style="font-size:10px;color:rgba(255,255,255,0.75);margin-bottom:6px">📐 ${o.desenho}${o.material?' · ⚙️ '+o.material:''}</div>`:''}
+              ${tempo?.observacao?`<div style="background:rgba(0,0,0,0.15);border-radius:6px;padding:4px 8px;font-size:10px;color:#fff;margin-bottom:6px">💬 ${tempo.observacao}</div>`:''}
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+                <span style="background:rgba(0,0,0,0.2);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">👤 ${tempo?.operador||'—'}</span>
+                <button style="background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer" onclick="abrirFinalizarOp('${tempo?.id}')">⏹ Finalizar</button>
+              </div>
             </div>
           </div>`;
         }).join('');
