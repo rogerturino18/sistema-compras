@@ -36,6 +36,9 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--d
 .tab:hover:not(.active){color:var(--dark);background:var(--green-pale)}
 .panel{display:none;padding:72px 20px 16px 68px}
 .panel.active{display:block}
+/* Centraliza conteúdo dos panels igual Omie/UOL */
+.panel > *:not(.kanban-wrap):not(#listaCardsCompras):not(#vistaCardsCompras) { max-width:1200px; margin-left:auto; margin-right:auto; }
+.panel { padding:72px 32px 24px 84px; }
 .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:#fff;border-radius:12px;padding:14px 16px;border-left:4px solid var(--green);box-shadow:0 1px 4px rgba(0,0,0,0.07);cursor:pointer;transition:transform 0.15s}
 .stat:hover{transform:translateY(-2px)}
@@ -620,6 +623,9 @@ tr:hover td{background:#f9fbf9}
       <option value="qtd_desc">Quantidade ↓</option>
       <option value="valor_asc">Valor ↑</option>
       <option value="valor_desc">Valor ↓</option>
+    </select>
+    <select id="filtroCategoria1" onchange="_filtroSemPDV=false;renderItens()" style="padding:6px 10px;border:2px solid #a5d6a7;border-radius:8px;font-size:13px;background:#f1f8f1;color:#2e7d32;font-weight:600">
+      <option value="">Todos os tipos</option>
     </select>
     <input type="date" id="filtroDataInclusao" onchange="renderItens()" title="Filtrar por data de inclusão"
       style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:#546e7a">
@@ -3521,13 +3527,22 @@ function renderItens(){
   const p=document.getElementById('filtroPDV1').value;
   const statusFiltro=document.getElementById('filtroStatus1')?.value||'';
   const sort=document.getElementById('sortItens').value||'pdv_asc';
-  const filtroData=document.getElementById('filtroDataInclusao')?.value||''; // AAAA-MM-DD
+  const filtroData=document.getElementById('filtroDataInclusao')?.value||'';
+  const filtroCat=document.getElementById('filtroCategoria1')?.value||'';
+
+  // Popula categorias disponíveis
+  const catSel=document.getElementById('filtroCategoria1');
+  if(catSel && catSel.options.length<=1){
+    const cats=[...new Set(itens.map(i=>i.categoria||'').filter(Boolean))].sort();
+    cats.forEach(c=>{if(![...catSel.options].some(o=>o.value===c)){const o=document.createElement('option');o.value=c;o.textContent=c;catSel.appendChild(o);}});
+  } // AAAA-MM-DD
 
   let lista=itens.filter(it=>{
     if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
     if(f&&it.fornecedor!==f)return false;
-    if(_filtroSemPDV){ if(it.pdv) return false; } // card "Sem PDV"
+    if(_filtroSemPDV){ if(it.pdv) return false; }
     else if(p&&it.pdv!==p)return false;
+    if(filtroCat&&(it.categoria||'')!==filtroCat)return false;
     if(statusFiltro==='pendente'&&it.comprado)return false;
     if(statusFiltro==='comprado'&&!it.comprado)return false;
     // Filtro por data de inclusão (horário de Brasília UTC-3)
@@ -3589,6 +3604,7 @@ function renderItens(){
         <td style="padding:7px 10px;font-size:12px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.descritivo||''}">${it.descritivo||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--green)">${it.material||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:#1565c0;font-weight:600">${it.desenho||'—'}</td>
+        <td style="padding:7px 8px">${it.categoria?`<span style="background:${it.categoria==='Matéria Prima'?'#e8f5e9':it.categoria==='Insumos'?'#fff3e0':it.categoria==='Ferramentas'?'#eceff1':it.categoria==='Acessórios Comerciais'?'#e3f2fd':'#f3e5f5'};color:${it.categoria==='Matéria Prima'?'#2e7d32':it.categoria==='Insumos'?'#e65100':it.categoria==='Ferramentas'?'#37474f':it.categoria==='Acessórios Comerciais'?'#1565c0':'#6a1b9a'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">${it.categoria}</span>`:'—'}</td>
         <td style="padding:7px 10px;font-family:monospace;font-size:11px;color:#546e7a">${meds}</td>
         <td style="padding:7px 10px;font-size:12px">${it.qtd||0} ${it.und||''}</td>
         <td style="padding:7px 10px;font-size:11px">${it.fornecedor?`<span class="forn-tag" style="font-size:10px">${it.fornecedor}</span>`:'—'}</td>
@@ -3623,6 +3639,7 @@ function renderItens(){
               ['descritivo','Descritivo','min-width:140px', true],
               ['material',  'Material',  null, true],
               ['desenho',   'Nº Desenho','90px', true],
+              ['categoria', 'Tipo',      '110px', true],
               ['',          'Medidas',   '130px', false],
               ['qtd',       'Qtd',       '70px',  true],
               ['fornecedor','Fornecedor','110px', true],
@@ -3990,10 +4007,10 @@ function renderFornecedores(){
         <!-- Badges de atividade -->
         <div style="display:flex;gap:6px;border-top:1px solid #f5f5f5;padding-top:10px">
           <span style="background:${cor}18;color:${cor};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">
-            🛒 ${nItens} item${nItens!==1?'ns':''}
+            🛒 ${nItens} item${nItens!==1?'s':''}
           </span>
           <span style="background:#f3e5f5;color:#6a1b9a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">
-            💬 ${nCot} cotação${nCot!==1?'ões':''}
+            💬 ${nCot} cotaç${nCot!==1?'ões':'ão'}
           </span>
           ${f.ativo===false?`<span style="background:#ffebee;color:#c62828;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">❌ Inativo</span>`:
           `<span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✅ Ativo</span>`}
@@ -4149,7 +4166,7 @@ function renderCotacoes(){
               </div>
             </div>
             <button onclick="abrirModalCotacao('${it.id}')" style="padding:5px 12px;background:${c};color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
-              ${semCot?'+ Cotar':'+ Mais'}
+              ${semCot?'+ Cotar':'+ Mais cotações'}
             </button>
           </div>
         </div>
@@ -4175,7 +4192,7 @@ function renderCotacoes(){
                     ${qt.prazo_entrega||qt.prazo?`<div style="font-size:10px;color:#9e9e9e">${qt.prazo_entrega||qt.prazo} dias</div>`:''}
                   </div>
                   <div style="display:flex;gap:4px">
-                    <button onclick="editarCotacao('${qt.id}','${qt.item_id||it.id}','${(qt.fornecedor||'').replace(/'/g,"\\'")}',${val},${qt.prazo||qt.prazo_entrega||0},'')" style="width:24px;height:24px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer;font-size:11px">✏️</button>
+                    <button onclick="abrirModalItem('${it.id}')" style="width:24px;height:24px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer;font-size:11px" title="Editar item">✏️</button>
                     <button onclick="deletarCotacao('${qt.id}')" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>
                   </div>
                 </div>`;
