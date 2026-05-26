@@ -3569,6 +3569,7 @@ function renderItens(){
         <td style="padding:7px 10px">${statusBadge} ${cotBadge}</td>
         <td style="padding:7px 10px;font-size:12px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.descritivo||''}">${it.descritivo||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--green)">${it.material||'—'}</td>
+        <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:#1565c0;font-weight:600">${it.desenho||'—'}</td>
         <td style="padding:7px 10px;font-family:monospace;font-size:11px;color:#546e7a">${meds}</td>
         <td style="padding:7px 10px;font-size:12px">${it.qtd||0} ${it.und||''}</td>
         <td style="padding:7px 10px;font-size:11px">${it.fornecedor?`<span class="forn-tag" style="font-size:10px">${it.fornecedor}</span>`:'—'}</td>
@@ -3601,6 +3602,7 @@ function renderItens(){
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:110px">Status</th>
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;min-width:140px">Descritivo</th>
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Material</th>
+            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:90px">Nº Desenho</th>
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:130px">Medidas</th>
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:70px">Qtd</th>
             <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase;width:110px">Fornecedor</th>
