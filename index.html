@@ -4326,18 +4326,6 @@ function renderComparar(){
     </div>`;
   }).join('');
 }
-  const b=(document.getElementById('busca4').value||'').toLowerCase();
-  const filtro=document.getElementById('filtroComp').value;
-  const div=document.getElementById('listaComparar');
-  const lista=itens.filter(it=>{
-    if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
-    const cs=cotacoes.filter(c=>c.item_id===it.id);
-    if(filtro==='cotado'&&!cs.length)return false;
-    if(filtro==='sem'&&cs.length)return false;
-    return true;
-  });
-  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
-
 
 function renderStatsCompras(){
   const el=document.getElementById('statsCompras');
