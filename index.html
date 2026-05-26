@@ -3339,10 +3339,14 @@ function renderStats(){
 }
 
 function populaFiltros(){
+  // Preserva valores selecionados antes de reconstruir as opções
+  const fornAtual = document.getElementById('filtroForn1')?.value || '';
+  const pdvAtual  = document.getElementById('filtroPDV1')?.value  || '';
+
   const forns=[...new Set(itens.map(i=>i.fornecedor).filter(Boolean))].sort();
   const pdvsList=[...new Set(itens.map(i=>i.pdv).filter(Boolean))].sort();
-  const fornOpts='<option value="">Todos fornecedores</option>'+forns.map(f=>`<option>${f}</option>`).join('');
-  const pdvOpts='<option value="">Todos PDVs</option>'+pdvsList.map(p=>`<option>${p}</option>`).join('');
+  const fornOpts='<option value="">Todos fornecedores</option>'+forns.map(f=>`<option${f===fornAtual?' selected':''}>${f}</option>`).join('');
+  const pdvOpts='<option value="">Todos PDVs</option>'+pdvsList.map(p=>`<option${p===pdvAtual?' selected':''}>${p}</option>`).join('');
   const set=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html;};
   set('filtroForn1',fornOpts);
   set('filtroPDV1',pdvOpts);
@@ -3449,24 +3453,22 @@ function abrirDetalheCardPDV(pdvEnc){
   setTimeout(()=>document.getElementById('listaComprasUnificada')?.scrollIntoView({behavior:'smooth'}),100);
 }
 
-// Converte timestamp para horário de Brasília (UTC-3) de forma robusta
-function dtBrasilia(ts){
-  if(!ts) return null;
-  const d = new Date(ts);
-  // Se o timestamp não tem offset (ex: "2026-05-26T00:03:00"), JS trata como local
-  // Força conversão explícita para UTC-3
-  const offset = -3 * 60; // Brasília = UTC-3 (sem horário de verão desde 2019)
-  const localMs = d.getTime() + (d.getTimezoneOffset() + offset) * 60000;
-  return new Date(localMs);
-}
+// Converte timestamp para horário de Brasília (UTC-3) — independente do fuso do computador
 function dtBrasiliaStr(ts){
-  const d = dtBrasilia(ts);
-  if(!d) return '—';
-  const dia = String(d.getDate()).padStart(2,'0');
-  const mes = String(d.getMonth()+1).padStart(2,'0');
-  const h = String(d.getHours()).padStart(2,'0');
-  const m = String(d.getMinutes()).padStart(2,'0');
-  return {data:`${dia}/${mes}`, hora:`${h}:${m}`, full:`${dia}/${mes} ${h}:${m}`, iso:`${d.getFullYear()}-${mes}-${dia}`};
+  if(!ts) return '—';
+  // Supabase retorna ex: "2026-05-26T00:09:14.123+00:00" (UTC)
+  const utcMs = new Date(ts).getTime();
+  if(isNaN(utcMs)) return '—';
+  // Subtrai 3 horas (UTC-3 = Brasília, sem horário de verão desde 2019)
+  const brMs = utcMs - 3 * 60 * 60 * 1000;
+  const d = new Date(brMs);
+  // Usa getUTC* para ler os valores "Brazil time" sem interferência do fuso local
+  const dia = String(d.getUTCDate()).padStart(2,'0');
+  const mes = String(d.getUTCMonth()+1).padStart(2,'0');
+  const ano = d.getUTCFullYear();
+  const h   = String(d.getUTCHours()).padStart(2,'0');
+  const m   = String(d.getUTCMinutes()).padStart(2,'0');
+  return {data:`${dia}/${mes}`, hora:`${h}:${m}`, full:`${dia}/${mes}/${ano} ${h}:${m}`, iso:`${ano}-${mes}-${dia}`};
 }
 
 function renderItens(){
