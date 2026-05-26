@@ -1767,6 +1767,27 @@ tr:hover td{background:#f9fbf9}
         <option value="">— Selecionar fornecedor —</option>
       </select>
     </div>
+    <!-- Campo de imagem / desenho -->
+    <div class="form-group full">
+      <label>📐 Desenho / Imagem <span style="color:var(--gray);font-weight:400;text-transform:none;font-size:10px">(opcional — PNG, JPG, PDF até 2MB)</span></label>
+      <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <label id="fi_imagem_label" style="cursor:pointer;border:2px dashed #a5d6a7;border-radius:10px;padding:12px 20px;text-align:center;min-width:140px;background:#fafffe;transition:background 0.2s"
+          onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#fafffe'">
+          <input type="file" id="fi_imagem_input" accept="image/*,.pdf" style="display:none" onchange="handleImagemItem(this)">
+          <div id="fi_imagem_placeholder">
+            <div style="font-size:28px;margin-bottom:4px">🖼️</div>
+            <div style="font-size:12px;color:#546e7a;font-weight:600">Clique ou arraste</div>
+            <div style="font-size:10px;color:#9e9e9e">PNG, JPG, PDF</div>
+          </div>
+        </label>
+        <div id="fi_imagem_preview" style="display:none;position:relative">
+          <img id="fi_imagem_thumb" style="width:120px;height:120px;object-fit:contain;border:2px solid #a5d6a7;border-radius:10px;background:#f5f7f5;cursor:pointer"
+            onclick="verImagemItemGrande()" title="Clique para ver maior">
+          <button onclick="removerImagemItem()" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;background:#f44336;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;line-height:1">✕</button>
+          <div style="font-size:10px;color:#9e9e9e;margin-top:4px;text-align:center" id="fi_imagem_nome"></div>
+        </div>
+      </div>
+    </div>
   </div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
@@ -3456,13 +3477,17 @@ function abrirDetalheCardPDV(pdvEnc){
 // Converte timestamp para horário de Brasília (UTC-3) — independente do fuso do computador
 function dtBrasiliaStr(ts){
   if(!ts) return '—';
-  // Supabase retorna ex: "2026-05-26T00:09:14.123+00:00" (UTC)
-  const utcMs = new Date(ts).getTime();
+  // Força interpretação como UTC independente do formato retornado pelo Supabase
+  // Exemplos: "2026-05-26T00:03:14+00:00" / "2026-05-26T00:03:14Z" / "2026-05-26T00:03:14"
+  let tsNorm = ts;
+  if(!ts.includes('Z') && !ts.match(/[+-]\d{2}:\d{2}$/)){
+    tsNorm = ts + 'Z'; // sem offset → adiciona Z para forçar UTC
+  }
+  const utcMs = new Date(tsNorm).getTime();
   if(isNaN(utcMs)) return '—';
-  // Subtrai 3 horas (UTC-3 = Brasília, sem horário de verão desde 2019)
+  // Subtrai 3h para chegar no horário de Brasília
   const brMs = utcMs - 3 * 60 * 60 * 1000;
   const d = new Date(brMs);
-  // Usa getUTC* para ler os valores "Brazil time" sem interferência do fuso local
   const dia = String(d.getUTCDate()).padStart(2,'0');
   const mes = String(d.getUTCMonth()+1).padStart(2,'0');
   const ano = d.getUTCFullYear();
@@ -3510,7 +3535,10 @@ function renderItens(){
 
   const div=document.getElementById('listaComprasUnificada');
   if(!div)return;
-  if(_vistaCompras==='cards'){ renderCardsCompras(); return; }
+  // Debug: mostra formato do created_at no console (pode remover depois)
+  if(lista.length > 0 && lista[0].created_at) {
+    console.log('[dtDebug] created_at formato:', lista[0].created_at, '→ BR:', dtBrasiliaStr(lista[0].created_at));
+  }
   if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
 
   // Agrupa por PDV
@@ -3551,6 +3579,7 @@ function renderItens(){
         <td style="padding:7px 6px;white-space:nowrap">
           <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm blue" onclick="duplicarItem('${it.id}')" title="Duplicar">⧉</button>
+          ${it.imagem?`<button class="btn btn-sm" onclick="verDesenhoItem('${it.id}')" title="Ver desenho" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7">📐</button>`:''}
           <button class="btn btn-sm ${it.comprado?'':'primary'}" style="font-size:10px;padding:3px 6px" onclick="toggleComprado('${it.id}',${it.comprado})" title="${it.comprado?'Desmarcar':'Marcar comprado'}">${it.comprado?'↩':'✓'}</button>
           <button class="btn btn-sm danger" onclick="deletarItem('${it.id}')" title="Excluir">🗑</button>
         </td>
@@ -3634,7 +3663,96 @@ function abrirModalItem(id){
   const optExists=[...undEl.options].some(o=>o.value===undVal);
   if(optExists) undEl.value=undVal;
   else { undEl.value=''; if(undVal){ const opt=document.createElement('option'); opt.value=undVal; opt.textContent=undVal; undEl.appendChild(opt); undEl.value=undVal; } }
+  // Reset de imagem
+  _itemImagemBase64 = it?.imagem || null;
+  if(_itemImagemBase64){
+    _mostrarPreviewImagem(_itemImagemBase64, 'Desenho existente');
+  } else {
+    removerImagemItem();
+  }
   abrirModal('modalItem');
+}
+
+// ── Imagem do Item ────────────────────────────────────────────────────────
+let _itemImagemBase64 = null; // imagem atual em edição
+
+function handleImagemItem(input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 2 * 1024 * 1024){ showToast('Imagem muito grande. Máx 2MB.','err'); return; }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    // Se for imagem, comprime/redimensiona para max 600px
+    if(file.type.startsWith('image/')){
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const max = 600;
+        let w = img.width, h = img.height;
+        if(w > max || h > max){
+          if(w > h){ h = Math.round(h * max/w); w = max; }
+          else { w = Math.round(w * max/h); h = max; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.82);
+        _itemImagemBase64 = compressed;
+        _mostrarPreviewImagem(compressed, file.name);
+      };
+      img.src = dataUrl;
+    } else {
+      // PDF: armazena como base64 sem redimensionar
+      _itemImagemBase64 = dataUrl;
+      _mostrarPreviewImagem(null, file.name);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function _mostrarPreviewImagem(src, nome){
+  document.getElementById('fi_imagem_placeholder').style.display='none';
+  const prev = document.getElementById('fi_imagem_preview');
+  const thumb = document.getElementById('fi_imagem_thumb');
+  const nomeEl = document.getElementById('fi_imagem_nome');
+  prev.style.display='block';
+  if(src) { thumb.src=src; thumb.style.display='block'; }
+  else { thumb.style.display='none'; } // PDF sem preview
+  if(nomeEl) nomeEl.textContent = nome ? nome.substring(0,20)+(nome.length>20?'...':'') : '';
+}
+
+function removerImagemItem(){
+  _itemImagemBase64 = null;
+  document.getElementById('fi_imagem_placeholder').style.display='block';
+  document.getElementById('fi_imagem_preview').style.display='none';
+  document.getElementById('fi_imagem_input').value='';
+  document.getElementById('fi_imagem_thumb').src='';
+}
+
+function verImagemItemGrande(){
+  const src = document.getElementById('fi_imagem_thumb').src || _itemImagemBase64;
+  if(!src) return;
+  const div = document.createElement('div');
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  div.onclick = ()=>div.remove();
+  div.innerHTML=`<div style="position:relative;max-width:90vw;max-height:90vh">
+    <img src="${src}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5)">
+    <button onclick="this.closest('div').parentNode.remove()" style="position:absolute;top:-14px;right:-14px;width:28px;height:28px;background:#f44336;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:16px;font-weight:700">✕</button>
+  </div>`;
+  document.body.appendChild(div);
+}
+
+// Abre visualizador de imagem de um item da lista
+function verDesenhoItem(itemId){
+  const it = itens.find(i=>i.id===itemId);
+  if(!it?.imagem){ showToast('Este item não tem desenho anexado','err'); return; }
+  _itemImagemBase64 = it.imagem;
+  const thumb = document.createElement('img');
+  thumb.src = it.imagem;
+  thumb.id = 'fi_imagem_thumb';
+  document.getElementById('fi_imagem_thumb').src = it.imagem;
+  verImagemItemGrande();
 }
 
 async function salvarItem(){
@@ -3648,6 +3766,7 @@ async function salvarItem(){
   obj.qtd=Number(document.getElementById('fi_qtd').value)||1;
   const v=document.getElementById('fi_valor').value; obj.valor_unitario=v!==''?Number(v):null;
   const p=document.getElementById('fi_peso').value; obj.peso=p!==''?Number(p):null;
+  obj.imagem = _itemImagemBase64 || null;
   if(usuarioLogado){ obj.editado_por=usuarioLogado.nome; obj.editado_em=new Date().toISOString(); }
 
   // Salvar estado dos filtros antes de recarregar
