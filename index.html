@@ -3464,9 +3464,9 @@ function renderItens(){
     else if(p&&it.pdv!==p)return false;
     if(statusFiltro==='pendente'&&it.comprado)return false;
     if(statusFiltro==='comprado'&&!it.comprado)return false;
-    // Filtro por data de inclusão
+    // Filtro por data de inclusão (usando fuso horário de Brasília)
     if(filtroData&&it.created_at){
-      const diaCriacao=it.created_at.split('T')[0];
+      const diaCriacao=new Date(it.created_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
       if(diaCriacao!==filtroData) return false;
     }
     return true;
@@ -3525,7 +3525,7 @@ function renderItens(){
         <td style="padding:7px 10px;font-size:12px">${fmtVal(it.valor_unitario)}</td>
         <td style="padding:7px 10px;font-size:12px;font-weight:600;color:#2e7d32">${it.valor_unitario&&it.peso?fmtVal(it.valor_unitario*it.peso):'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${dtCurta}</td>
-        <td style="padding:7px 10px;font-size:11px;color:#1565c0;white-space:nowrap">${it.created_at?`<span title="${new Date(it.created_at).toLocaleString('pt-BR')}">${new Date(it.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}<br><span style="font-size:10px;color:#9e9e9e">${new Date(it.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></span>`:'—'}</td>
+        <td style="padding:7px 10px;font-size:11px;color:#1565c0;white-space:nowrap">${it.created_at?`<span title="${new Date(it.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}">${new Date(it.created_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit'})}<br><span style="font-size:10px;color:#9e9e9e">${new Date(it.created_at).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'})}</span></span>`:'—'}</td>
         <td style="padding:7px 6px;white-space:nowrap">
           <button class="btn btn-sm" onclick="abrirModalItem('${it.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm blue" onclick="duplicarItem('${it.id}')" title="Duplicar">⧉</button>
