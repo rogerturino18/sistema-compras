@@ -3562,10 +3562,7 @@ function renderItens(){
 
   const div=document.getElementById('listaComprasUnificada');
   if(!div)return;
-  // Debug: mostra formato do created_at no console (pode remover depois)
-  if(lista.length > 0 && lista[0].created_at) {
-    console.log('[dtDebug] created_at formato:', lista[0].created_at, '→ BR:', dtBrasiliaStr(lista[0].created_at));
-  }
+  // Debug log removido
   if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
 
   // Agrupa por PDV
@@ -3833,16 +3830,31 @@ async function salvarItem(){
     if(editItemId) await api('PATCH','itens',obj,`?id=eq.${editItemId}`);
     else await api('POST','itens',obj);
     showToast(editItemId?'Item atualizado!':'Item cadastrado!');
-    fecharModal('modalItem');
-    await loadAll();
-
-    // Restaurar filtros após recarregar
-    Object.entries(filtros).forEach(([id,val])=>{
-      const el=document.getElementById(id);
-      if(el) el.value=val;
-    });
-    renderItens();
-  }catch(e){showToast('Erro ao salvar','err');}
+  }catch(e){
+    // Se erro 400 = colunas novas (imagem/categoria) não existem no banco ainda
+    if(e.message?.includes('400') || e.status===400 || String(e).includes('400')){
+      // Tenta novamente sem as colunas novas
+      const objBasico={...obj};
+      delete objBasico.imagem;
+      delete objBasico.categoria;
+      try{
+        if(editItemId) await api('PATCH','itens',objBasico,`?id=eq.${editItemId}`);
+        else await api('POST','itens',objBasico);
+        showToast(editItemId?'Item atualizado! ⚠️ Campos imagem/categoria precisam da coluna no Supabase — veja o console.':'Item cadastrado!');
+        console.warn('⚠️ Execute no Supabase SQL Editor:\nALTER TABLE itens ADD COLUMN IF NOT EXISTS imagem TEXT;\nALTER TABLE itens ADD COLUMN IF NOT EXISTS categoria TEXT;');
+      }catch(e2){ showToast('Erro ao salvar: '+e2.message,'err'); return; }
+    } else {
+      showToast('Erro ao salvar: '+e.message,'err'); return;
+    }
+  }
+  fecharModal('modalItem');
+  await loadAll();
+  // Restaurar filtros após recarregar
+  Object.entries(filtros).forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if(el) el.value=val;
+  });
+  renderItens();
 }
 
 async function duplicarItem(id){
