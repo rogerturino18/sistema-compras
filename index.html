@@ -3812,6 +3812,7 @@ async function salvarItem(){
   const _medParts=document.getElementById('fi_medidas').value.trim().split(/\s*[×xX]\s*/).map(s=>s.trim()).filter(Boolean);
   obj.espessura=_medParts[0]||null; obj.medida1=_medParts[1]||null; obj.medida2=_medParts[2]||null;
   obj.und=document.getElementById('fi_und').value;
+  obj.categoria=document.getElementById('fi_categoria')?.value||null;
   obj.descricao_item=document.getElementById('fi_descricao_item').value.trim()||null;
   obj.qtd=Number(document.getElementById('fi_qtd').value)||1;
   const v=document.getElementById('fi_valor').value; obj.valor_unitario=v!==''?Number(v):null;
