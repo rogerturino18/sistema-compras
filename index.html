@@ -1431,6 +1431,7 @@ tr:hover td{background:#f9fbf9}
         <input type="file" id="fcImportInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFluxoOmie(this)">
       </label>
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
+      <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar Dados</button>
     </div>
   </div>
 
@@ -6728,6 +6729,8 @@ function abrirHomeScreen(){
   atualizarRelogio();
   if(homeInterval) clearInterval(homeInterval);
   homeInterval=setInterval(atualizarRelogio,1000);
+  renderTiles(); // sempre re-renderiza com permissões atuais
+  homeInterval=setInterval(atualizarRelogio,1000);
   iniciarSlideshow();
   renderHomeTiles();
 }
@@ -6792,20 +6795,31 @@ function renderHomeTiles(){
   const ciPend=comprasInternas.filter(i=>!i.comprado).length;
   const emDesenho=pecasProjeto.filter(p=>p.status==='trabalhando').length;
   const lmSemCot=itens.filter(i=>i.origem_projeto&&!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
-  const pvBadge=(typeof pedidosVenda!=='undefined')?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0;
   const badges={6:semCot,9:ciPend,3:emDesenho,4:lmSemCot};
-  div.innerHTML=tileDefs.map(row=>`
-    <div class="tiles-row">
-      ${row.map(([label,icon,tab,color,size,sub])=>{
-        const badge=badges[tab]>0?`<div class="tile-badge">${badges[tab]}</div>`:'';
-        return `<div class="tile ${size}" style="background:${color}" onclick="sbGo(${tab},'${label}')">
-          ${badge}
-          <div class="tile-icon">${icon}</div>
-          <div class="tile-label">${label}</div>
-          ${sub?`<div class="tile-sub">${sub}</div>`:''}
-        </div>`;
-      }).join('')}
-    </div>`).join('');
+
+  // Filtra tiles baseado nas permissões do usuário
+  const perms = getPermissoesUsuario(usuarioLogado);
+  const tabsPermitidas = isAprovador() ? null : perms.map(p=>{
+    const m=MODULOS_SISTEMA.find(x=>x.id===p);
+    return m?m.tab:null;
+  }).filter(t=>t!==null);
+
+  div.innerHTML=tileDefs.map(row=>{
+    const rowFiltrado = row.filter(([label,icon,tab])=>
+      !tabsPermitidas || tab===0 || tabsPermitidas.includes(tab)
+    );
+    if(!rowFiltrado.length) return '';
+    return '<div class="tiles-row">'
+      +rowFiltrado.map(([label,icon,tab,color,size,sub])=>{
+        const badge=badges[tab]>0?'<div class="tile-badge">'+badges[tab]+'</div>':'';
+        return '<div class="tile '+size+'" style="background:'+color+'" onclick="sbGo('+tab+',\''+label+'\')">'
+          +badge+'<div class="tile-icon">'+icon+'</div>'
+          +'<div class="tile-label">'+label+'</div>'
+          +(sub?'<div class="tile-sub">'+sub+'</div>':'')
+          +'</div>';
+      }).join('')
+      +'</div>';
+  }).join('');
 }
 
 // ===== ESTOQUE =====
@@ -8849,42 +8863,45 @@ function isPerfilSimplificadoCI(){
 
 // ── Sistema de Permissões por Módulo ─────────────────────────────────────
 const MODULOS_SISTEMA = [
-  {id:'dashboard',  label:'🏠 Dashboard',        icon:'sbico_0'},
-  {id:'compras',    label:'🛒 Compras',           icon:'sbico_compras'},
-  {id:'projetos',   label:'🎯 Projetos',          icon:'sbico_projetos'},
-  {id:'producao',   label:'🔧 Produção',          icon:'sbico_producao'},
-  {id:'vendas',     label:'🧾 Vendas / Pedidos',  icon:'sbico_vendas'},
-  {id:'financeiro', label:'💰 Financeiro',        icon:'sbico_financeiro'},
-  {id:'estoque',    label:'📦 Estoque',           icon:'sbico_estoque'},
-  {id:'fiscal',     label:'📄 Fiscal / NF-e',     icon:null},
-  {id:'requisicoes',label:'📋 Requisições',       icon:null},
-  {id:'admin',      label:'⚙️ Administração',     icon:null},
+  {id:'compras',    label:'🛒 Lista de Compras',    tab:1},
+  {id:'projetos',   label:'🎯 Projetos / PDVs',     tab:3},
+  {id:'material',   label:'📝 Lista de Material',   tab:4},
+  {id:'producao',   label:'🔧 Ordens / Produção',   tab:5},
+  {id:'cotacoes',   label:'💰 Cotações',             tab:6},
+  {id:'compint',    label:'🛒 Compras Internas',     tab:9},
+  {id:'envio',      label:'📧 Enviar Cotação',       tab:10},
+  {id:'estoque',    label:'📦 Estoque',              tab:11},
+  {id:'fiscal',     label:'📄 Fiscal / NF-e',        tab:12},
+  {id:'pdv',        label:'🧾 Pedido de Venda',      tab:13},
+  {id:'clientes',   label:'👤 Clientes',             tab:14},
+  {id:'financeiro', label:'💸 Contas a Pagar',       tab:19},
+  {id:'receber',    label:'💰 Contas a Receber',     tab:20},
+  {id:'fluxo',      label:'📊 Fluxo de Caixa',       tab:21},
+  {id:'entrada_nfe',label:'🧾 Entrada NF-e',         tab:24},
+  {id:'requisicoes',label:'📋 Requisições',          tab:17},
+  {id:'admin',      label:'⚙️ Administração',        tab:18},
 ];
 
 // Extrai permissões do campo perfil (formato: "Cargo:mod1,mod2,mod3" ou só "Cargo")
 function getPermissoesUsuario(u){
-  if(!u) return MODULOS_SISTEMA.map(m=>m.id); // sem usuário = tudo
+  if(!u) return MODULOS_SISTEMA.map(m=>m.id);
   const perfilStr = u.perfil||'';
   if(perfilStr.includes('|PERMS:')){
     const perms = perfilStr.split('|PERMS:')[1];
     return perms ? perms.split(',').filter(Boolean) : MODULOS_SISTEMA.map(m=>m.id);
   }
-  // Admin = tudo
   if(isAprovador()) return MODULOS_SISTEMA.map(m=>m.id);
-  // Mapeamento padrão por perfil
-  const mapa = {
-    'Financeiro':   ['dashboard','financeiro','estoque'],
-    'Compras':      ['dashboard','compras','estoque','requisicoes'],
-    'PCP':          ['dashboard','producao','requisicoes','estoque','projetos'],
-    'Producao':     ['dashboard','producao','estoque'],
-    'Expedição':    ['dashboard','vendas','estoque','producao'],
-    'Projetos':     ['dashboard','projetos'],
-    'Projetista':   ['dashboard','projetos','producao'],
-    'Engenharia':   ['dashboard','projetos','producao'],
-    'Administrador':MODULOS_SISTEMA.map(m=>m.id),
-    'Gerente':      MODULOS_SISTEMA.map(m=>m.id),
-  };
-  return mapa[perfilStr.split('|')[0]] || MODULOS_SISTEMA.map(m=>m.id);
+  // Mapeamento padrão por cargo
+  const cargo = perfilStr.split('|')[0].toLowerCase();
+  if(cargo.includes('financ'))   return ['compras','financeiro','receber','fluxo','estoque'];
+  if(cargo.includes('compra'))   return ['compras','cotacoes','estoque','requisicoes','compint','envio'];
+  if(cargo.includes('pcp'))      return ['compras','producao','requisicoes','estoque','projetos','material'];
+  if(cargo.includes('producao')||cargo.includes('produção')) return ['producao','estoque','requisicoes'];
+  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao'];
+  if(cargo.includes('projeto'))  return ['projetos','producao','material'];
+  if(cargo.includes('engenharia'))return ['projetos','producao','material','estoque'];
+  if(cargo.includes('comercial'))return ['pdv','clientes','cotacoes'];
+  return MODULOS_SISTEMA.map(m=>m.id); // Outros = acesso total
 }
 
 // Aplica permissões na UI — oculta ícones do sidebar sem acesso
@@ -8892,13 +8909,20 @@ function aplicarPermissoes(){
   if(!usuarioLogado) return;
   if(isAprovador()) return; // admin vê tudo
   const perms = getPermissoesUsuario(usuarioLogado);
-  const iconMap = {
-    'compras':'sbico_compras','projetos':'sbico_projetos','producao':'sbico_producao',
-    'vendas':'sbico_vendas','financeiro':'sbico_financeiro','estoque':'sbico_estoque'
-  };
-  Object.entries(iconMap).forEach(([mod, iconId])=>{
-    const el = document.getElementById(iconId);
-    if(el) el.style.display = perms.includes(mod) ? '' : 'none';
+  const tabsPermitidas = perms.map(p=>{
+    const m=MODULOS_SISTEMA.find(x=>x.id===p);
+    return m?m.tab:null;
+  }).filter(t=>t!==null);
+
+  // Oculta itens do sidebar sem permissão (por tab number no onclick)
+  document.querySelectorAll('.sbi[onclick*="sbGo("]').forEach(el=>{
+    const match = el.getAttribute('onclick').match(/sbGo\((\d+)/);
+    if(match){
+      const tabN=parseInt(match[1]);
+      if(tabN>0 && !tabsPermitidas.includes(tabN)){
+        el.style.display='none';
+      }
+    }
   });
 }
 
@@ -9045,7 +9069,6 @@ async function salvarEdicaoUsuario(){
 
 function mostrarApp(){
   document.getElementById('appContent').style.display='block';
-  showTab(0);
   const btnBV=document.getElementById('menuBtnBemVindo');
   if(btnBV) btnBV.style.display=(!isExpedicao()&&!isProjeto())?'flex':'none';
   const btnU=document.getElementById('menuBtnUsuarios');
@@ -9064,7 +9087,8 @@ function mostrarApp(){
     showTab(3);
   } else {
     document.querySelectorAll('.tab').forEach(t=>t.style.display='flex');
-    showTab(0);
+    // Abre a homescreen de tiles ao fazer login
+    abrirHomeScreen();
   }
   iniciarVerificacaoLembretes();
 }
@@ -11388,8 +11412,45 @@ async function gerarCRdoPDV(pvId){
 
 // ── FLUXO DE CAIXA ────────────────────────────────────────────────────────
 // ── Fluxo de Caixa (dados importados do Omie) ──────────────────────────────
-let fcDados = [];      // realizados {fornecedor, categoria, nf, data, valor}
-let fcSaldoInicialOmie = 0; // lido automaticamente da linha 0 do Omie
+let fcDados = [];
+let fcSaldoInicialOmie = 0;
+
+function limparDadosFC(){
+  if(!confirm('Apagar todos os dados importados do Fluxo de Caixa?')) return;
+  fcDados = [];
+  fcSaldoInicialOmie = 0;
+  localStorage.removeItem('sl_fc_dados');
+  localStorage.removeItem('sl_fc_saldo_ant');
+  const el = document.getElementById('fcSaldoAnterior');
+  if(el) el.value = '0';
+  renderFluxoCaixa();
+  showToast('Dados do fluxo de caixa apagados!');
+}
+
+function _parseExcelDate(v){
+  if(!v) return null;
+  if(v instanceof Date) return v.toISOString().split('T')[0];
+  if(typeof v === 'number'){
+    // Excel serial date: 1 = 01/01/1900
+    const d = new Date(Date.UTC(1900,0,1) + (v-2)*86400000);
+    return d.toISOString().split('T')[0];
+  }
+  const s = String(v).trim();
+  // Formatos: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)){
+    const [d,m,y]=s.split('/');
+    return y+'-'+m+'-'+d;
+  }
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,10);
+  if(/^\d{2}-\d{2}-\d{4}$/.test(s)){
+    const [d,m,y]=s.split('-');
+    return y+'-'+m+'-'+d;
+  }
+  // Tenta Date parse como fallback
+  const parsed = new Date(s);
+  if(!isNaN(parsed)) return parsed.toISOString().split('T')[0];
+  return null;
+}
 
 async function importarFluxoOmie(input){
   const file = input.files[0];
@@ -11404,26 +11465,19 @@ async function importarFluxoOmie(input){
       });
     }
     const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf,{type:'array',cellDates:true});
+    const wb = XLSX.read(buf,{type:'array',cellDates:false}); // cellDates:false para pegar serial numbers
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
 
-    // Detecta linha de cabeçalho (primeira com "Fornecedor")
-    let headerRow = rows.findIndex(r=>r&&r.some(v=>v&&String(v).toLowerCase().includes('fornec')));
-    if(headerRow<0){ showToast('Formato não reconhecido','err'); return; }
-
-    const hdr = rows[headerRow].map(v=>String(v||'').toLowerCase().trim());
-    const iFor = hdr.findIndex(h=>h.includes('fornec'));
-    const iCat = hdr.findIndex(h=>h.includes('categ'));
-    const iNF  = hdr.findIndex(h=>h.includes('nota')||h.includes('nf'));
-    const iDat = hdr.findIndex(h=>h.includes('data'));
-    const iVal = hdr.findIndex(h=>h.includes('pago')||h.includes('valor')||h.includes('receb'));
-
-    // Linha 0 (antes do header) pode conter saldo anterior
+    // Linha 0 (antes do header) = saldo anterior (valor numérico sem data/fornecedor)
     fcSaldoInicialOmie = 0;
+    const headerRow = rows.findIndex(r=>r&&r.some(v=>v&&String(v).toLowerCase().includes('fornec')));
+    if(headerRow<0){ showToast('Formato não reconhecido — precisa ter coluna "Fornecedor"','err'); return; }
+
+    // Saldo anterior: linha antes do header com valor numérico
     for(let i=0;i<headerRow;i++){
       const r=rows[i]; if(!r) continue;
-      const v=r.find(x=>typeof x==='number'&&Math.abs(x)>0);
+      const v=r.find(x=>typeof x==='number'&&Math.abs(x)>100);
       if(v!=null){ fcSaldoInicialOmie=v; break; }
     }
     if(fcSaldoInicialOmie){
@@ -11431,39 +11485,55 @@ async function importarFluxoOmie(input){
       if(el) el.value=fcSaldoInicialOmie.toFixed(2).replace('.',',');
     }
 
+    const hdr = rows[headerRow].map(v=>String(v||'').toLowerCase().trim());
+    const iFor = hdr.findIndex(h=>h.includes('fornec'));
+    const iCat = hdr.findIndex(h=>h.includes('categ'));
+    const iNF  = hdr.findIndex(h=>h.includes('nota')||h.includes('nf'));
+    const iDat = hdr.findIndex(h=>h.includes('data'));
+    const iVal = hdr.findIndex(h=>h.includes('pago')||h.includes('receb')||h.includes('valor'));
+
+    console.log('Colunas detectadas:',{iFor,iCat,iNF,iDat,iVal,hdr});
+
     fcDados=[];
+    let dataErros=0;
     for(let i=headerRow+1;i<rows.length;i++){
       const r=rows[i]; if(!r||r[iVal]==null) continue;
-      let dt=r[iDat];
-      if(dt instanceof Date) dt=dt.toISOString().split('T')[0];
-      else if(typeof dt==='number'){ const d=new Date((dt-25569)*86400000); dt=d.toISOString().split('T')[0]; }
-      else dt=String(dt||'').split('T')[0];
       const val=parseFloat(String(r[iVal]).replace(',','.'))||0;
-      if(!dt||!val) continue;
+      if(!val) continue;
+      const dt=_parseExcelDate(r[iDat]);
+      if(!dt){ dataErros++; continue; }
       const nf = iNF>=0 ? String(r[iNF]||'').trim() : '';
-      fcDados.push({fornecedor:String(r[iFor]||'—'),categoria:String(r[iCat]||'—'),nf,data:dt,valor:val});
+      fcDados.push({
+        fornecedor: String(r[iFor]||'—').trim(),
+        categoria: String(r[iCat]||'—').trim(),
+        nf: nf==='null'||nf==='undefined'?'':nf,
+        data: dt,
+        valor: val
+      });
     }
 
     localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
     localStorage.setItem('sl_fc_saldo_ant',String(fcSaldoInicialOmie));
 
-    showToast('✅ '+fcDados.length+' transações importadas! Saldo anterior: '+fmtMoeda(fcSaldoInicialOmie));
+    let msg='✅ '+fcDados.length+' transações importadas!';
+    if(fcSaldoInicialOmie) msg+=' Saldo anterior: '+fmtMoeda(fcSaldoInicialOmie);
+    if(dataErros) msg+=' ⚠️ '+dataErros+' linhas sem data ignoradas.';
+    showToast(msg);
     populaFiltrosFC();
     renderFluxoCaixa();
-  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
+  }catch(e){ showToast('Erro ao importar: '+e.message,'err'); console.error(e); }
   input.value='';
 }
 
 function populaFiltrosFC(){
   const meses=[...new Set(fcDados.map(t=>t.data.substring(0,7)))].sort().reverse();
-  const cats=[...new Set(fcDados.map(t=>t.categoria))].sort();
-
+  const cats=[...new Set(fcDados.map(t=>t.categoria).filter(Boolean))].sort();
   const mesEl=document.getElementById('filtroFC_mes');
   if(mesEl){
     const cur=mesEl.value;
     mesEl.innerHTML='<option value="">Todos os meses</option>'
       +meses.map(m=>{
-        const d=new Date(m+'-01');
+        const d=new Date(m+'-15');
         const label=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
         return '<option value="'+m+'"'+(m===cur?' selected':'')+'>'+label+'</option>';
       }).join('');
@@ -11477,15 +11547,13 @@ function populaFiltrosFC(){
   }
 }
 
-// Migrar pendente → realizado (A Pagar → Pagamento ou A Receber → Recebimento)
-async function migrarParaRealizado(cpId, tipo){
-  if(!confirm('Marcar como '+(tipo==='pagar'?'Pago':'Recebido')+'? Isso moverá para a coluna de realizados.')) return;
+async function migrarParaRealizado(id,tipo){
+  if(!confirm('Marcar como '+(tipo==='pagar'?'Pago ✅':'Recebido ✅')+'?')) return;
   try{
-    const campo = tipo==='pagar'?'dt_pagamento':'dt_recebimento';
-    const statusNovo = tipo==='pagar'?'Paga':'Recebida';
-    await api('PATCH', tipo==='pagar'?'contas_pagar':'contas_receber',
-      {status:statusNovo,[campo]:new Date().toISOString().split('T')[0]},
-      '?id=eq.'+cpId);
+    const tabela=tipo==='pagar'?'contas_pagar':'contas_receber';
+    const dtCampo=tipo==='pagar'?'dt_pagamento':'dt_recebimento';
+    const statusNovo=tipo==='pagar'?'Paga':'Recebida';
+    await api('PATCH',tabela,{status:statusNovo,[dtCampo]:new Date().toISOString().split('T')[0]},'?id=eq.'+id);
     showToast('✅ Movido para realizados!');
     await loadAll();
     renderFluxoCaixa();
@@ -11493,23 +11561,21 @@ async function migrarParaRealizado(cpId, tipo){
 }
 
 function renderFluxoCaixa(){
-  // Carrega do localStorage se vazio
+  // Carrega persistência
   if(!fcDados.length){
     try{ fcDados=JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){}
-    const savedSaldo=parseFloat(localStorage.getItem('sl_fc_saldo_ant')||'0');
-    if(savedSaldo){
-      const el=document.getElementById('fcSaldoAnterior');
-      if(el&&el.value==='0') el.value=savedSaldo.toFixed(2).replace('.',',');
-    }
+    const sa=parseFloat(localStorage.getItem('sl_fc_saldo_ant')||'0');
+    if(sa){ const el=document.getElementById('fcSaldoAnterior'); if(el&&el.value==='0') el.value=sa.toFixed(2).replace('.',','); }
     if(fcDados.length) populaFiltrosFC();
   }
 
   const mesFiltro=document.getElementById('filtroFC_mes')?.value||'';
   const catFiltro=document.getElementById('filtroFC_categoria')?.value||'';
-  const busca=(document.getElementById('filtroFC_busca')?.value||'').toLowerCase();
-  const saldoAnt=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0').replace(/[^0-9,.-]/g,'').replace(',','.'))||0;
+  const busca=(document.getElementById('filtroFC_busca')?.value||'').toLowerCase().trim();
+  const saldoAnt=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0')
+    .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
-  // ── Transações realizadas (do Omie) ──────────────────────────────────────
+  // ── Realizados filtrados ──────────────────────────────────────────────────
   let listaReal=fcDados.filter(t=>{
     if(mesFiltro&&!t.data.startsWith(mesFiltro)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
@@ -11517,201 +11583,194 @@ function renderFluxoCaixa(){
     return true;
   });
 
-  // Agrupa por NF+data (soma notas iguais no mesmo dia)
+  // Agrupa por NF+data (notas iguais no mesmo dia são somadas)
   const grouped={};
   listaReal.forEach(t=>{
-    const chave=t.data+'|'+(t.nf&&t.nf!=='N/D'&&t.nf?t.nf:t.fornecedor+'_'+t.categoria);
-    if(!grouped[chave]) grouped[chave]={...t,valor:0};
-    grouped[chave].valor+=t.valor;
+    const nfKey=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'_';
+    const key=t.data+'|'+(nfKey!=='_'?nfKey:t.fornecedor+':'+t.categoria);
+    if(!grouped[key]) grouped[key]={...t,_qtd:0};
+    grouped[key].valor+=t.valor;
+    grouped[key]._qtd++;
   });
-  listaReal=Object.values(grouped).sort((a,b)=>a.data.localeCompare(b.data));
+  listaReal=Object.values(grouped).sort((a,b)=>a.data.localeCompare(b.data)||a.fornecedor.localeCompare(b.fornecedor));
 
-  // ── Pendentes do sistema (contas a pagar/receber) ─────────────────────────
-  const hoje2=new Date().toISOString().split('T')[0];
-  let aPagarSist=(typeof contasPagar!=='undefined'?contasPagar:[])
+  // ── Pendentes do sistema ──────────────────────────────────────────────────
+  const cp=(typeof contasPagar!=='undefined'?contasPagar:[])
     .filter(c=>c.status!=='Paga'&&c.status!=='Cancelada')
     .filter(c=>!mesFiltro||((c.vencimento||c.dt_vencimento||'').startsWith(mesFiltro)))
-    .filter(c=>!busca||(c.descricao+c.fornecedor+'').toLowerCase().includes(busca));
-  let aReceberSist=(typeof contasReceber!=='undefined'?contasReceber:[])
+    .filter(c=>!busca||(c.descricao||c.fornecedor||'').toLowerCase().includes(busca));
+  const cr=(typeof contasReceber!=='undefined'?contasReceber:[])
     .filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada')
     .filter(c=>!mesFiltro||((c.vencimento||c.dt_vencimento||'').startsWith(mesFiltro)))
-    .filter(c=>!busca||(c.descricao+c.cliente+'').toLowerCase().includes(busca));
-
-  // ── Monta linhas unificadas por data ─────────────────────────────────────
-  const todasDatas=new Set([
-    ...listaReal.map(t=>t.data),
-    ...aPagarSist.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
-    ...aReceberSist.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
-  ]);
-  const diasOrdenados=[...todasDatas].sort();
+    .filter(c=>!busca||(c.descricao||c.cliente||'').toLowerCase().includes(busca));
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
   const totPag=listaReal.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
   const totRec=listaReal.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0);
-  const totAPagar=aPagarSist.reduce((s,c)=>s+(c.valor||0),0);
-  const totAReceber=aReceberSist.reduce((s,c)=>s+(c.valor||0),0);
+  const totAPagar=cp.reduce((s,c)=>s+(c.valor||0),0);
+  const totAReceber=cr.reduce((s,c)=>s+(c.valor||0),0);
   const saldoReal=saldoAnt+totRec-totPag;
-  const saldoPrev=saldoReal+totAReceber-totAPagar;
+  // Saldo Previsto = saldo_ant + A_Receber + Recebimento - A_Pagar - Pagamento
+  const saldoPrev=saldoAnt+totAReceber+totRec-totAPagar-totPag;
 
   const stats=document.getElementById('statsFC');
-  if(stats) stats.innerHTML=`
-    <div class="stat" style="border-left-color:#f57f17;cursor:default">
-      <div class="stat-label">Saldo Anterior</div>
-      <div class="stat-val" style="color:#f57f17">${fmtMoeda(saldoAnt)}</div>
-    </div>
-    <div class="stat" style="border-left-color:#2e7d32;cursor:default">
-      <div class="stat-label">Recebimentos</div>
-      <div class="stat-val" style="color:#2e7d32">+${fmtMoeda(totRec)}</div>
-    </div>
-    <div class="stat" style="border-left-color:#c62828;cursor:default">
-      <div class="stat-label">Pagamentos</div>
-      <div class="stat-val" style="color:#c62828">-${fmtMoeda(totPag)}</div>
-    </div>
-    <div class="stat" style="border-left-color:#1565c0;cursor:default">
-      <div class="stat-label">Saldo Real</div>
-      <div class="stat-val" style="color:${saldoReal>=0?'#1565c0':'#c62828'}">${fmtMoeda(saldoReal)}</div>
-    </div>
-    <div class="stat" style="border-left-color:#6a1b9a;cursor:default">
-      <div class="stat-label">A Pagar</div>
-      <div class="stat-val" style="color:#c62828">-${fmtMoeda(totAPagar)}</div>
-    </div>
-    <div class="stat" style="border-left-color:#00695c;cursor:default">
-      <div class="stat-label">A Receber</div>
-      <div class="stat-val" style="color:#2e7d32">+${fmtMoeda(totAReceber)}</div>
-    </div>
-    <div class="stat" style="border-left-color:#546e7a;cursor:default">
-      <div class="stat-label">Saldo Previsto</div>
-      <div class="stat-val" style="color:${saldoPrev>=0?'#37474f':'#c62828'}">${fmtMoeda(saldoPrev)}</div>
-    </div>`;
+  if(stats) stats.innerHTML=
+    '<div class="stat" style="border-left-color:#f57f17;cursor:default"><div class="stat-label">Saldo Anterior</div><div class="stat-val" style="color:#f57f17">'+fmtMoeda(saldoAnt)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">A Pagar</div><div class="stat-val" style="color:#c62828">-'+fmtMoeda(totAPagar)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#e65100;cursor:default"><div class="stat-label">Pagamentos</div><div class="stat-val" style="color:#e65100">-'+fmtMoeda(totPag)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">A Receber</div><div class="stat-val" style="color:#00695c">+'+fmtMoeda(totAReceber)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Recebimentos</div><div class="stat-val" style="color:#2e7d32">+'+fmtMoeda(totRec)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Saldo Real</div><div class="stat-val" style="color:'+(saldoReal>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(saldoReal)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#6a1b9a;cursor:default"><div class="stat-label">Saldo Previsto</div><div class="stat-val" style="color:'+(saldoPrev>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(saldoPrev)+'</div></div>';
 
-  if(!listaReal.length&&!aPagarSist.length&&!aReceberSist.length){
+  if(!listaReal.length&&!cp.length&&!cr.length){
     document.getElementById('fcTabela').innerHTML='<div class="empty">📂 Importe os dados do Omie para visualizar o fluxo de caixa</div>';
     return;
   }
 
-  // ── Tabela ────────────────────────────────────────────────────────────────
-  let saldoRealAcc=saldoAnt;
-  let saldoPrevAcc=saldoAnt;
+  // ── Monta linhas por dia ──────────────────────────────────────────────────
+  const todasDatas=new Set([
+    ...listaReal.map(t=>t.data),
+    ...cp.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
+    ...cr.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
+  ]);
+  const dias=[...todasDatas].sort();
 
-  let html=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1100px">
-    <thead>
-      <tr style="background:#263238;color:#fff;position:sticky;top:0;z-index:5">
-        <th style="padding:9px 10px;text-align:left;white-space:nowrap">DIA</th>
-        <th style="padding:9px 10px;text-align:left;min-width:150px">FORNECEDOR</th>
-        <th style="padding:9px 10px;text-align:left;min-width:110px">CATEGORIA</th>
-        <th style="padding:9px 10px;text-align:center;min-width:90px">NF</th>
-        <th style="padding:9px 10px;text-align:right;color:#ef9a9a;white-space:nowrap">A PAGAR</th>
-        <th style="padding:9px 10px;text-align:right;color:#ffcc80;white-space:nowrap">PAGAMENTO</th>
-        <th style="padding:9px 10px;text-align:right;color:#80cbc4;white-space:nowrap">A RECEBER</th>
-        <th style="padding:9px 10px;text-align:right;color:#a5d6a7;white-space:nowrap">RECEBIMENTO</th>
-        <th style="padding:9px 10px;text-align:right;color:#90caf9;white-space:nowrap">SALDO REAL</th>
-        <th style="padding:9px 10px;text-align:right;color:#ce93d8;white-space:nowrap">SALDO PREVISTO</th>
-        <th style="padding:9px 10px;width:50px"></th>
-      </tr>
-      <tr style="background:#e65100">
-        <td colspan="4" style="padding:9px 12px;font-weight:700;color:#fff;font-size:12px">💰 SALDO ANTERIOR</td>
-        <td></td><td></td><td></td><td></td>
-        <td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">${fmtMoeda(saldoAnt)}</td>
-        <td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">${fmtMoeda(saldoAnt)}</td>
-        <td></td>
-      </tr>
-    </thead><tbody>`;
+  let srAcc=saldoAnt; // Saldo Real acumulado
+  let spAcc=saldoAnt; // Saldo Previsto acumulado
 
-  diasOrdenados.forEach(dia=>{
-    const dtObj=new Date(dia+'T12:00');
+  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1060px">'+
+    '<thead><tr style="background:#1a237e;color:#fff;position:sticky;top:0;z-index:5">'+
+    '<th style="padding:9px 10px;text-align:center;white-space:nowrap;width:60px">DIA</th>'+
+    '<th style="padding:9px 10px;text-align:left;min-width:150px">DESCRIÇÃO</th>'+
+    '<th style="padding:9px 10px;text-align:left;min-width:100px">CATEGORIA</th>'+
+    '<th style="padding:9px 10px;text-align:center;min-width:80px">NF</th>'+
+    '<th style="padding:9px 10px;text-align:right;color:#ef9a9a;min-width:95px">A PAGAR</th>'+
+    '<th style="padding:9px 10px;text-align:right;color:#ffcc80;min-width:95px">PAGAMENTO</th>'+
+    '<th style="padding:9px 10px;text-align:right;color:#80cbc4;min-width:95px">A RECEBER</th>'+
+    '<th style="padding:9px 10px;text-align:right;color:#a5d6a7;min-width:95px">RECEBIMENTO</th>'+
+    '<th style="padding:9px 10px;text-align:right;color:#90caf9;min-width:95px">SALDO REAL</th>'+
+    '<th style="padding:9px 10px;text-align:right;color:#ce93d8;min-width:95px">SALDO PREVISTO</th>'+
+    '<th style="padding:9px 10px;width:80px"></th>'+
+    '</tr>'+
+    // Linha saldo anterior (amarela)
+    '<tr style="background:#f57f17"><td colspan="4" style="padding:9px 12px;font-weight:700;color:#fff;font-size:12px">💰 SALDO ANTERIOR</td>'+
+    '<td></td><td></td><td></td><td></td>'+
+    '<td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">'+fmtMoeda(saldoAnt)+'</td>'+
+    '<td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">'+fmtMoeda(saldoAnt)+'</td>'+
+    '<td></td></tr></thead><tbody>';
+
+  dias.forEach(function(dia){
+    const dtObj=new Date(dia+'T12:00:00');
     const diaNum=String(dtObj.getDate()).padStart(2,'0');
-    const diaNome=dtObj.toLocaleDateString('pt-BR',{weekday:'short'}).toUpperCase();
+    const diaNome=dtObj.toLocaleDateString('pt-BR',{weekday:'short'}).toUpperCase().replace('.','');
+    const isWeekend=dtObj.getDay()===0||dtObj.getDay()===6;
+    const diaLabel=diaNum+' '+diaNome;
 
-    // Linhas realizadas deste dia
-    const realizadasDia=listaReal.filter(t=>t.data===dia);
-    // Linhas pendentes deste dia
-    const aPagarDia=aPagarSist.filter(c=>(c.vencimento||c.dt_vencimento||'').startsWith(dia));
-    const aReceberDia=aReceberSist.filter(c=>(c.vencimento||c.dt_vencimento||'').startsWith(dia));
+    const realDia=listaReal.filter(t=>t.data===dia);
+    const cpDia=cp.filter(c=>(c.vencimento||c.dt_vencimento||'').startsWith(dia));
+    const crDia=cr.filter(c=>(c.vencimento||c.dt_vencimento||'').startsWith(dia));
+    const totalLinhas=realDia.length+cpDia.length+crDia.length;
 
-    const totalLinhas=realizadasDia.length+aPagarDia.length+aReceberDia.length;
-    let linhasHTML='';
-    let diaAPagar=0, diaPagamento=0, diaAReceber=0, diaRecebimento=0;
+    // Dia vazio (fim de semana sem transações): mostra linha cinza com saldo
+    if(totalLinhas===0&&isWeekend){
+      html+='<tr style="background:#fafafa;border-bottom:1px solid #f0f0f0">'+
+        '<td style="padding:6px 10px;text-align:center;font-weight:700;color:#9e9e9e;font-size:11px">'+diaLabel+'</td>'+
+        '<td colspan="7"></td>'+
+        '<td style="padding:6px 10px;text-align:right;color:#9e9e9e;font-size:11px">'+fmtMoeda(srAcc)+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;color:#9e9e9e;font-size:11px">'+fmtMoeda(spAcc)+'</td>'+
+        '<td></td></tr>';
+      return;
+    }
+    if(totalLinhas===0) return;
 
-    // Linhas A Pagar (pendentes)
-    aPagarDia.forEach(c=>{
-      const v=c.valor||0; diaAPagar+=v;
-      saldoPrevAcc-=v;
-      linhasHTML+=`<tr style="background:#fff8f8;border-bottom:1px solid #fce4ec">
-        <td style="padding:6px 10px;color:#546e7a;font-size:11px"></td>
-        <td style="padding:6px 10px;font-weight:600;color:#263238">${c.descricao||c.fornecedor||'—'}</td>
-        <td style="padding:6px 10px"><span style="background:#ffebee;color:#c62828;padding:1px 7px;border-radius:10px;font-size:10px">${c.categoria||'—'}</span></td>
-        <td style="padding:6px 10px;text-align:center;color:#9e9e9e;font-size:10px">${c.nf||'—'}</td>
-        <td style="padding:6px 10px;text-align:right;color:#c62828;font-weight:700">${fmtMoeda(v)}</td>
-        <td></td><td></td><td></td>
-        <td style="padding:6px 10px;text-align:right;color:#546e7a;font-size:11px">${fmtMoeda(saldoRealAcc)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:700;color:${saldoPrevAcc>=0?'#6a1b9a':'#c62828'}">${fmtMoeda(saldoPrevAcc)}</td>
-        <td style="padding:5px;text-align:center"><button onclick="migrarParaRealizado('${c.id}','pagar')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap" title="Marcar como Pago">✅ Pagar</button></td>
-      </tr>`;
-    });
+    let diaAPag=0,diaPag=0,diaARec=0,diaRec=0;
+    let linhas='';
+    let firstLine=true;
 
-    // Linhas A Receber (pendentes)
-    aReceberDia.forEach(c=>{
-      const v=c.valor||0; diaAReceber+=v;
-      saldoPrevAcc+=v;
-      linhasHTML+=`<tr style="background:#f0fff4;border-bottom:1px solid #c8e6c9">
-        <td style="padding:6px 10px"></td>
-        <td style="padding:6px 10px;font-weight:600;color:#263238">${c.descricao||c.cliente||'—'}</td>
-        <td style="padding:6px 10px"><span style="background:#e8f5e9;color:#2e7d32;padding:1px 7px;border-radius:10px;font-size:10px">${c.categoria||'—'}</span></td>
-        <td style="padding:6px 10px;text-align:center;color:#9e9e9e;font-size:10px">—</td>
-        <td></td><td></td>
-        <td style="padding:6px 10px;text-align:right;color:#2e7d32;font-weight:700">${fmtMoeda(v)}</td>
-        <td></td>
-        <td style="padding:6px 10px;text-align:right;color:#546e7a;font-size:11px">${fmtMoeda(saldoRealAcc)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:700;color:${saldoPrevAcc>=0?'#6a1b9a':'#c62828'}">${fmtMoeda(saldoPrevAcc)}</td>
-        <td style="padding:5px;text-align:center"><button onclick="migrarParaRealizado('${c.id}','receber')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap" title="Marcar como Recebido">✅ Receber</button></td>
-      </tr>`;
-    });
-
-    // Linhas realizadas
-    realizadasDia.forEach(t=>{
-      const isPag=t.valor<0;
-      const vAbs=Math.abs(t.valor);
-      if(isPag){ diaPagamento+=vAbs; saldoRealAcc-=vAbs; saldoPrevAcc-=vAbs; }
-      else { diaRecebimento+=vAbs; saldoRealAcc+=vAbs; saldoPrevAcc+=vAbs; }
-      const srColor=saldoRealAcc>=0?'#1565c0':'#c62828';
-      const spColor=saldoPrevAcc>=0?'#6a1b9a':'#c62828';
-      linhasHTML+=`<tr style="background:#fff;border-bottom:1px solid #f0f0f0">
-        <td style="padding:6px 10px;color:#546e7a;font-size:11px"></td>
-        <td style="padding:6px 10px;font-weight:600;color:#263238">${t.fornecedor}</td>
-        <td style="padding:6px 10px"><span style="background:${isPag?'#ffebee':'#e8f5e9'};color:${isPag?'#c62828':'#2e7d32'};padding:1px 7px;border-radius:10px;font-size:10px">${t.categoria}</span></td>
-        <td style="padding:6px 10px;text-align:center;font-size:10px;color:#546e7a;font-family:monospace">${t.nf&&t.nf!=='N/D'?t.nf:'—'}</td>
-        <td></td>
-        <td style="padding:6px 10px;text-align:right;color:#c62828;font-weight:700">${isPag?'-'+fmtMoeda(vAbs):''}</td>
-        <td></td>
-        <td style="padding:6px 10px;text-align:right;color:#2e7d32;font-weight:700">${!isPag?'+'+fmtMoeda(vAbs):''}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:700;color:${srColor}">${fmtMoeda(saldoRealAcc)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:700;color:${spColor}">${fmtMoeda(saldoPrevAcc)}</td>
-        <td></td>
-      </tr>`;
-    });
-
-    // Subtotal do dia (no FINAL)
-    if(totalLinhas>1){
-      const srDia=saldoRealAcc; const spDia=saldoPrevAcc;
-      linhasHTML+=`<tr style="background:#eceff1;border-top:2px solid #b0bec5;border-bottom:3px solid #90a4ae">
-        <td style="padding:7px 10px;font-weight:700;color:#37474f;font-size:12px">${diaNum} ${diaNome}</td>
-        <td style="padding:7px 10px;color:#546e7a;font-size:11px;font-style:italic">${totalLinhas} transações</td>
-        <td></td><td></td>
-        <td style="padding:7px 10px;text-align:right;color:#c62828;font-weight:700">${diaAPagar?'-'+fmtMoeda(diaAPagar):''}</td>
-        <td style="padding:7px 10px;text-align:right;color:#c62828;font-weight:700">${diaPagamento?'-'+fmtMoeda(diaPagamento):''}</td>
-        <td style="padding:7px 10px;text-align:right;color:#2e7d32;font-weight:700">${diaAReceber?'+'+fmtMoeda(diaAReceber):''}</td>
-        <td style="padding:7px 10px;text-align:right;color:#2e7d32;font-weight:700">${diaRecebimento?'+'+fmtMoeda(diaRecebimento):''}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:900;color:${srDia>=0?'#1565c0':'#c62828'}">${fmtMoeda(srDia)}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:900;color:${spDia>=0?'#6a1b9a':'#c62828'}">${fmtMoeda(spDia)}</td>
-        <td></td>
-      </tr>`;
-    } else if(totalLinhas===1){
-      // Só uma linha no dia — mostra o dia nessa linha
-      linhasHTML=linhasHTML.replace('<td style="padding:6px 10px;color:#546e7a;font-size:11px"></td>',
-        '<td style="padding:6px 10px;color:#546e7a;font-size:11px;font-weight:700">'+diaNum+' '+diaNome+'</td>');
+    function diaCell(){ 
+      if(!firstLine) return '<td style="padding:6px 10px"></td>';
+      firstLine=false;
+      return '<td style="padding:6px 10px;text-align:center;font-weight:700;color:#37474f;font-size:11px;background:#f5f5f5">'+diaLabel+'</td>';
     }
 
-    html+=linhasHTML;
+    // ── A Pagar (pendentes) ──────────────────────────────────────────────
+    cpDia.forEach(function(c){
+      const v=c.valor||0; diaAPag+=v;
+      spAcc-=v;
+      linhas+='<tr style="background:#fff5f5;border-bottom:1px solid #fce4ec">'+
+        diaCell()+
+        '<td style="padding:6px 10px;font-weight:600;color:#263238">'+((c.descricao||c.fornecedor||'—'))+'</td>'+
+        '<td style="padding:6px 10px"><span style="background:#ffebee;color:#c62828;padding:1px 6px;border-radius:8px;font-size:10px">'+((c.categoria||'—'))+'</span></td>'+
+        '<td style="padding:6px 10px;text-align:center;font-size:10px;color:#9e9e9e">'+(c.nf||'—')+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;color:#c62828;font-weight:700">'+fmtMoeda(v)+'</td>'+
+        '<td></td><td></td><td></td>'+
+        '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
+        '<td style="padding:4px;text-align:center">'+
+        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Pagar</button>'+
+        '</td></tr>';
+    });
+
+    // ── A Receber (pendentes) ────────────────────────────────────────────
+    crDia.forEach(function(c){
+      const v=c.valor||0; diaARec+=v;
+      spAcc+=v;
+      linhas+='<tr style="background:#f0fff4;border-bottom:1px solid #c8e6c9">'+
+        diaCell()+
+        '<td style="padding:6px 10px;font-weight:600;color:#263238">'+((c.descricao||c.cliente||'—'))+'</td>'+
+        '<td style="padding:6px 10px"><span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:10px">'+((c.categoria||'—'))+'</span></td>'+
+        '<td style="padding:6px 10px;text-align:center;font-size:10px;color:#9e9e9e">—</td>'+
+        '<td></td><td></td>'+
+        '<td style="padding:6px 10px;text-align:right;color:#00695c;font-weight:700">'+fmtMoeda(v)+'</td>'+
+        '<td></td>'+
+        '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
+        '<td style="padding:4px;text-align:center">'+
+        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Receber</button>'+
+        '</td></tr>';
+    });
+
+    // ── Realizados do dia ────────────────────────────────────────────────
+    realDia.forEach(function(t){
+      const isPag=t.valor<0;
+      const vAbs=Math.abs(t.valor);
+      if(isPag){ diaPag+=vAbs; srAcc-=vAbs; spAcc-=vAbs; }
+      else { diaRec+=vAbs; srAcc+=vAbs; spAcc+=vAbs; }
+      const srColor=srAcc>=0?'#1565c0':'#c62828';
+      const spColor=spAcc>=0?'#6a1b9a':'#c62828';
+      const nfLabel=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'—';
+      linhas+='<tr style="background:#fff;border-bottom:1px solid #f0f0f0">'+
+        diaCell()+
+        '<td style="padding:6px 10px;font-weight:600;color:#263238">'+t.fornecedor+'</td>'+
+        '<td style="padding:6px 10px"><span style="background:'+(isPag?'#fff3e0':'#e8f5e9')+';color:'+(isPag?'#e65100':'#2e7d32')+';padding:1px 6px;border-radius:8px;font-size:10px">'+t.categoria+'</span></td>'+
+        '<td style="padding:6px 10px;text-align:center;font-size:10px;color:#546e7a;font-family:monospace">'+nfLabel+'</td>'+
+        '<td></td>'+
+        '<td style="padding:6px 10px;text-align:right;color:#c62828;font-weight:700">'+(isPag?fmtMoeda(vAbs):'')+'</td>'+
+        '<td></td>'+
+        '<td style="padding:6px 10px;text-align:right;color:#2e7d32;font-weight:700">'+(!isPag?fmtMoeda(vAbs):'')+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+srColor+'">'+fmtMoeda(srAcc)+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+spColor+'">'+fmtMoeda(spAcc)+'</td>'+
+        '<td></td></tr>';
+    });
+
+    // ── Subtotal do dia (no FINAL) ────────────────────────────────────────
+    if(totalLinhas>1){
+      const bg=isWeekend?'#ede7f6':'#e8eaf6';
+      linhas+='<tr style="background:'+bg+';border-top:2px solid #9fa8da;border-bottom:3px solid #7986cb">'+
+        '<td style="padding:7px 10px;text-align:center;font-weight:700;color:#283593;font-size:12px">'+diaLabel+'</td>'+
+        '<td style="padding:7px 10px;color:#546e7a;font-style:italic;font-size:11px">'+totalLinhas+' registros</td>'+
+        '<td colspan="2"></td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#c62828;font-weight:700">'+(diaAPag?fmtMoeda(diaAPag):'')+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#e65100;font-weight:700">'+(diaPag?fmtMoeda(diaPag):'')+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#00695c;font-weight:700">'+(diaARec?fmtMoeda(diaARec):'')+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#2e7d32;font-weight:700">'+(diaRec?fmtMoeda(diaRec):'')+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-weight:900;color:'+(srAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(srAcc)+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-weight:900;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
+        '<td></td></tr>';
+    }
+
+    html+=linhas;
   });
 
   html+='</tbody></table></div>';
@@ -11724,15 +11783,14 @@ function exportarExcelFC(){
   const lista=fcDados.filter(t=>!mesFiltro||t.data.startsWith(mesFiltro))
     .sort((a,b)=>a.data.localeCompare(b.data));
   const saldoAnt=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0').replace(',','.'))||0;
-  let saldo=saldoAnt;
-  const rows=[['DIA','FORNECEDOR','CATEGORIA','NOTA FISCAL','A PAGAR','PAGAMENTO','A RECEBER','RECEBIMENTO','SALDO REAL','SALDO PREVISTO']];
+  let sr=saldoAnt,sp=saldoAnt;
+  const rows=[['DIA','FORNECEDOR','CATEGORIA','NF','A PAGAR','PAGAMENTO','A RECEBER','RECEBIMENTO','SALDO REAL','SALDO PREVISTO']];
   rows.push(['SALDO ANTERIOR','','','','','','','',saldoAnt.toFixed(2),saldoAnt.toFixed(2)]);
   lista.forEach(t=>{
-    saldo+=t.valor;
+    const isPag=t.valor<0; const v=Math.abs(t.valor);
+    if(isPag){sr-=v;sp-=v;}else{sr+=v;sp+=v;}
     rows.push([t.data,t.fornecedor,t.categoria,t.nf||'',
-      t.valor<0?Math.abs(t.valor).toFixed(2):'','',
-      t.valor>0?t.valor.toFixed(2):'','',
-      saldo.toFixed(2),saldo.toFixed(2)]);
+      isPag?v.toFixed(2):'','',!isPag?v.toFixed(2):'','',sr.toFixed(2),sp.toFixed(2)]);
   });
   const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
