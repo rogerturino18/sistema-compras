@@ -4129,114 +4129,105 @@ async function deletarForn(id){
 function renderCotacoes(){
   const b=(document.getElementById('busca3').value||'').toLowerCase();
   const div=document.getElementById('listaCotacoes');
-  const lista=itens.filter(it=>!b||(it.descritivo+it.material+it.descricao_peca+it.pdv+'').toLowerCase().includes(b));
+  const lista=itens.filter(function(it){return !b||(it.descritivo+it.material+it.descricao_peca+it.pdv+'').toLowerCase().includes(b);});
   if(!lista.length){div.innerHTML='<div class="empty">Nenhum item encontrado</div>';return;}
 
   const grupos={};
-  lista.forEach(it=>{ const k=it.pdv||'Sem PDV'; if(!grupos[k])grupos[k]=[]; grupos[k].push(it); });
+  lista.forEach(function(it){ const k=it.pdv||'Sem PDV'; if(!grupos[k])grupos[k]=[]; grupos[k].push(it); });
 
   const paleta=['#1565c0','#2e7d32','#6a1b9a','#c62828','#e65100','#00695c','#37474f','#283593'];
-  const cor = k => paleta[Math.abs([...k].reduce((a,c)=>a+c.charCodeAt(0),0))%paleta.length];
+  function corPDV(k){ return paleta[Math.abs([...k].reduce(function(a,c){return a+c.charCodeAt(0);},0))%paleta.length]; }
 
-  const entries = Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR'));
+  const entries = Object.entries(grupos).sort(function(a,b){return a[0].localeCompare(b[0],'pt-BR');});
 
-  // Quick-jump nav de PDVs
-  const navHtml = entries.length > 2 ? `
-    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;background:#fff;border-radius:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
-      <span style="font-size:11px;color:#9e9e9e;align-self:center;margin-right:4px">Ir para:</span>
-      ${entries.map(([pdv])=>{
-        const c=cor(pdv);
-        return `<button onclick="document.getElementById('cotGroup_${pdv.replace(/\W/g,'_')}')?.scrollIntoView({behavior:'smooth',block:'start'})"
-          style="padding:4px 12px;background:${c};color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer">
-          ${pdv.replace(/PDV\s*/i,'PDV ')}
-        </button>`;
-      }).join('')}
-    </div>` : '';
+  // Barra de navegação rápida
+  let navHtml = '';
+  if(entries.length > 2){
+    navHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;background:#fff;border-radius:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)">'
+      + '<span style="font-size:11px;color:#9e9e9e;align-self:center;margin-right:4px">Ir para:</span>';
+    entries.forEach(function(e){
+      const pdv=e[0], c=corPDV(pdv);
+      const safeId = pdv.replace(/\W/g,'_');
+      navHtml += '<button onclick="document.getElementById(\'cotGroup_'+safeId+'\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})"'
+        +' style="padding:4px 12px;background:'+c+';color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer">'
+        + pdv + '</button>';
+    });
+    navHtml += '</div>';
+  }
 
-  div.innerHTML = navHtml + entries.map(([pdv,itensPDV])=>{
-    const c=cor(pdv);
-    const totalCot=itensPDV.reduce((s,it)=>s+cotacoes.filter(x=>x.item_id===it.id).length,0);
-    const comCot=itensPDV.filter(it=>cotacoes.some(x=>x.item_id===it.id)).length;
-    const colapsado = !b; // inicia colapsado se não há busca ativa
+  let html = navHtml;
+  entries.forEach(function(e){
+    const pdv=e[0], itensPDV=e[1];
+    const c=corPDV(pdv);
+    const totalCot=itensPDV.reduce(function(s,it){return s+cotacoes.filter(function(x){return x.item_id===it.id;}).length;},0);
+    const comCot=itensPDV.filter(function(it){return cotacoes.some(function(x){return x.item_id===it.id;});}).length;
+    const safeId=pdv.replace(/\W/g,'_');
 
-    const cards=itensPDV.map(it=>{
-      const cs=cotacoes.filter(x=>x.item_id===it.id);
-      const melhor=cs.length?cs.reduce((a,b)=>(a.preco||a.valor||Infinity)<(b.preco||b.valor||Infinity)?a:b):null;
+    let cards='';
+    itensPDV.forEach(function(it){
+      const cs=cotacoes.filter(function(x){return x.item_id===it.id;});
+      const melhor=cs.length?cs.reduce(function(a,b){return (a.preco||a.valor||Infinity)<(b.preco||b.valor||Infinity)?a:b;}):null;
       const semCot=!cs.length;
       const medidas=[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ');
+      const val=melhor?(melhor.preco||melhor.valor||0):0;
 
-      return `<div style="background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.07);overflow:hidden;border:1px solid ${semCot?'#ffe082':'#e8f5e9'};transition:transform 0.15s,box-shadow 0.15s"
-        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.12)'"
-        onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(0,0,0,0.07)'">
-        <div style="background:${semCot?'#fff8e1':'#f1f8f1'};padding:10px 14px;border-bottom:1px solid ${semCot?'#ffe082':'#c8e6c9'}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:13px;color:#263238">${it.descritivo||'—'}</div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
-                ${it.material?`<span style="background:${c}18;color:${c};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">${it.material}</span>`:''}
-                ${medidas?`<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 8px;border-radius:10px;font-size:11px;font-family:monospace">${medidas}</span>`:''}
-                ${it.desenho?`<span style="background:#e3f2fd;color:#1565c0;padding:1px 8px;border-radius:10px;font-size:11px">📐 ${it.desenho}</span>`:''}
-                <span style="background:#e8eaf6;color:#37474f;padding:1px 8px;border-radius:10px;font-size:11px">${it.qtd||1} ${it.und||'un'}</span>
-              </div>
-            </div>
-            <button onclick="abrirModalCotacao('${it.id}')" style="padding:5px 12px;background:${c};color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
-              ${semCot?'+ Cotar':'+ Mais cotações'}
-            </button>
-          </div>
-        </div>
-        <div style="padding:10px 14px">
-          ${semCot
-            ? `<div style="text-align:center;padding:8px;color:#bdbdbd;font-size:12px;font-style:italic">⚠️ Sem cotações ainda</div>`
-            : `<div style="display:flex;flex-direction:column;gap:6px">
-              ${cs.map((qt,i)=>{
-                const val=qt.preco||qt.valor||0;
-                const isMelhor=melhor&&qt.id===melhor.id&&cs.length>1;
-                const pct=melhor&&(qt.preco||qt.valor||0)>0?Math.min(100,Math.round(val/(melhor.preco||melhor.valor||1)*100)):100;
-                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:${isMelhor?'#e8f5e9':'#fafafa'};border:1px solid ${isMelhor?'#a5d6a7':'#f0f0f0'}">
-                  ${isMelhor?`<span style="font-size:14px">🏆</span>`:`<span style="font-size:12px;color:#bdbdbd;font-weight:700;min-width:16px">${i+1}º</span>`}
-                  <div style="flex:1;min-width:0">
-                    <div style="font-size:12px;font-weight:600;color:#263238;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qt.fornecedor||'—'}</div>
-                    <div style="background:#e0e0e0;height:3px;border-radius:2px;margin-top:3px">
-                      <div style="background:${isMelhor?'#2e7d32':c};height:3px;border-radius:2px;width:${100-(pct-100)}%"></div>
-                    </div>
-                  </div>
-                  <div style="text-align:right;flex-shrink:0">
-                    <div style="font-size:14px;font-weight:700;color:${isMelhor?'#2e7d32':'#37474f'}">${fmtVal(val)}</div>
-                    ${qt.prazo_entrega||qt.prazo?`<div style="font-size:10px;color:#9e9e9e">${qt.prazo_entrega||qt.prazo} dias</div>`:''}
-                  </div>
-                  <div style="display:flex;gap:4px">
-                    <button onclick="abrirModalItem('${it.id}')" style="width:24px;height:24px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer;font-size:11px">✏️</button>
-                    <button onclick="deletarCotacao('${qt.id}')" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>
-                  </div>
-                </div>`;
-              }).join('')}
-            </div>`
-          }
-        </div>
-      </div>`;
-    }).join('');
+      let cotHtml='';
+      if(semCot){
+        cotHtml='<div style="text-align:center;padding:8px;color:#bdbdbd;font-size:12px;font-style:italic">\u26a0\ufe0f Sem cota\xe7\xf5es ainda</div>';
+      } else {
+        cs.forEach(function(qt,i){
+          const v=qt.preco||qt.valor||0;
+          const isMelhor=!!(melhor&&qt.id===melhor.id&&cs.length>1);
+          const pct=melhor&&v>0?Math.min(100,Math.round(v/(melhor.preco||melhor.valor||1)*100)):100;
+          cotHtml+='<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:'+(isMelhor?'#e8f5e9':'#fafafa')+';border:1px solid '+(isMelhor?'#a5d6a7':'#f0f0f0')+'">'
+            +(isMelhor?'<span style="font-size:14px">\ud83c\udfc6</span>':'<span style="font-size:12px;color:#bdbdbd;font-weight:700;min-width:16px">'+(i+1)+'\xba</span>')
+            +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#263238;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(qt.fornecedor||'\u2014')+'</div>'
+            +'<div style="background:#e0e0e0;height:3px;border-radius:2px;margin-top:3px"><div style="background:'+(isMelhor?'#2e7d32':c)+';height:3px;border-radius:2px;width:'+(100-(pct-100))+'%"></div></div></div>'
+            +'<div style="text-align:right;flex-shrink:0"><div style="font-size:14px;font-weight:700;color:'+(isMelhor?'#2e7d32':'#37474f')+'">'+fmtVal(v)+'</div>'
+            +((qt.prazo_entrega||qt.prazo)?'<div style="font-size:10px;color:#9e9e9e">'+(qt.prazo_entrega||qt.prazo)+' dias</div>':'')
+            +'</div>'
+            +'<div style="display:flex;gap:4px">'
+            +'<button onclick="abrirModalItem(\''+it.id+'\')" style="width:24px;height:24px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer;font-size:11px">\u270f\ufe0f</button>'
+            +'<button onclick="deletarCotacao(\''+qt.id+'\')" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">\ud83d\uddd1</button>'
+            +'</div></div>';
+        });
+      }
 
-    return `<div style="margin-bottom:16px" id="cotGroup_${pdv.replace(/\W/g,'_')}">
-      <!-- Header clicável para colapsar -->
-      <div style="background:${c};border-radius:14px;padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none"
-        onclick="toggleGrupoCot('cotBody_${pdv.replace(/\W/g,'_')}',this)">
-        <div style="width:42px;height:42px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${pdv.replace(/PDV\s*/i,'').substring(0,3)}</div>
-        <div style="flex:1">
-          <div style="color:#fff;font-weight:700;font-size:15px">${pdv}</div>
-          <div style="color:rgba(255,255,255,0.75);font-size:12px">${itensPDV[0]?.cliente||''}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span style="background:rgba(255,255,255,0.2);color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${itensPDV.length} itens</span>
-          <span style="background:${comCot===itensPDV.length?'rgba(76,175,80,0.4)':'rgba(255,152,0,0.4)'};color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${totalCot} cotações</span>
-          <span id="cotArrow_${pdv.replace(/\W/g,'_')}" style="color:#fff;font-size:18px;margin-left:4px">${b?'▼':'▶'}</span>
-        </div>
-      </div>
-      <div id="cotBody_${pdv.replace(/\W/g,'_')}" style="background:#f8faf8;border:1px solid ${c}44;border-top:none;border-radius:0 0 14px 14px;padding:${b?'14':'0'}px;display:${b?'block':'none'};overflow:hidden;transition:padding 0.2s">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>
-      </div>
-    </div>`;
-  }).join('');
+      const chipsMat=(it.material?'<span style="background:'+c+'18;color:'+c+';padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">'+it.material+'</span>':'');
+      const chipsMed=(medidas?'<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 8px;border-radius:10px;font-size:11px;font-family:monospace">'+medidas+'</span>':'');
+      const chipsDes=(it.desenho?'<span style="background:#e3f2fd;color:#1565c0;padding:1px 8px;border-radius:10px;font-size:11px">\ud83d\udcd0 '+it.desenho+'</span>':'');
+
+      cards+='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.07);overflow:hidden;border:1px solid '+(semCot?'#ffe082':'#e8f5e9')+'">'
+        +'<div style="background:'+(semCot?'#fff8e1':'#f1f8f1')+';padding:10px 14px;border-bottom:1px solid '+(semCot?'#ffe082':'#c8e6c9')+'">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+        +'<div style="flex:1"><div style="font-weight:700;font-size:13px;color:#263238">'+(it.descritivo||'\u2014')+'</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'+chipsMat+chipsMed+chipsDes
+        +'<span style="background:#e8eaf6;color:#37474f;padding:1px 8px;border-radius:10px;font-size:11px">'+(it.qtd||1)+' '+(it.und||'un')+'</span></div></div>'
+        +'<button onclick="abrirModalCotacao(\''+it.id+'\')" style="padding:5px 12px;background:'+c+';color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">'
+        +(semCot?'+ Cotar':'+ Mais cota\xe7\xf5es')+'</button></div></div>'
+        +'<div style="padding:10px 14px">'+cotHtml+'</div></div>';
+    });
+
+    html+='<div style="margin-bottom:16px" id="cotGroup_'+safeId+'">'
+      +'<div style="background:'+c+';border-radius:14px;padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none"'
+      +' onclick="toggleGrupoCot(\'cotBody_'+safeId+'\',this)">'
+      +'<div style="width:42px;height:42px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">'+pdv.replace(/PDV\s*/i,'').substring(0,3)+'</div>'
+      +'<div style="flex:1"><div style="color:#fff;font-weight:700;font-size:15px">'+pdv+'</div>'
+      +'<div style="color:rgba(255,255,255,0.75);font-size:12px">'+(itensPDV[0]&&itensPDV[0].cliente||'')+'</div></div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<span style="background:rgba(255,255,255,0.2);color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">'+itensPDV.length+' itens</span>'
+      +'<span style="background:'+(comCot===itensPDV.length?'rgba(76,175,80,0.4)':'rgba(255,152,0,0.4)')+';color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">'+totalCot+' cota\xe7\xf5es</span>'
+      +'</div>'
+      +'<span id="cotArrow_'+safeId+'" style="color:#fff;font-size:18px">'+(b?'\u25bc':'\u25b6')+'</span>'
+      +'</div>'
+      +'<div id="cotBody_'+safeId+'" style="background:#f8faf8;border:1px solid '+c+'44;border-top:none;border-radius:0 0 14px 14px;padding:'+(b?'14':'0')+'px;display:'+(b?'block':'none')+';overflow:hidden">'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">'+cards+'</div>'
+      +'</div></div>';
+  });
+
+  div.innerHTML = html;
 }
+
 
 function toggleGrupoCot(bodyId, headerEl){
   const body = document.getElementById(bodyId);
@@ -4248,95 +4239,7 @@ function toggleGrupoCot(bodyId, headerEl){
   if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
-  const grupos={};
-  lista.forEach(it=>{ const k=it.pdv||'Sem PDV'; if(!grupos[k])grupos[k]=[]; grupos[k].push(it); });
 
-  const paleta=['#1565c0','#2e7d32','#6a1b9a','#c62828','#e65100','#00695c','#37474f','#283593'];
-  const cor = k => paleta[Math.abs([...k].reduce((a,c)=>a+c.charCodeAt(0),0))%paleta.length];
-
-  div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,itensPDV])=>{
-    const c=cor(pdv);
-    const totalCot=itensPDV.reduce((s,it)=>s+cotacoes.filter(x=>x.item_id===it.id).length,0);
-    const comCot=itensPDV.filter(it=>cotacoes.some(x=>x.item_id===it.id)).length;
-
-    const cards=itensPDV.map(it=>{
-      const cs=cotacoes.filter(x=>x.item_id===it.id);
-      const melhor=cs.length?cs.reduce((a,b)=>(a.preco||a.valor||Infinity)<(b.preco||b.valor||Infinity)?a:b):null;
-      const semCot=!cs.length;
-      const medidas=[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ');
-
-      return `<div style="background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.07);overflow:hidden;border:1px solid ${semCot?'#ffe082':'#e8f5e9'};transition:transform 0.15s,box-shadow 0.15s"
-        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.12)'"
-        onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(0,0,0,0.07)'">
-        <!-- Cabeçalho do item -->
-        <div style="background:${semCot?'#fff8e1':'#f1f8f1'};padding:10px 14px;border-bottom:1px solid ${semCot?'#ffe082':'#c8e6c9'}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:13px;color:#263238">${it.descritivo||'—'}</div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
-                ${it.material?`<span style="background:${c}18;color:${c};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">${it.material}</span>`:''}
-                ${medidas?`<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 8px;border-radius:10px;font-size:11px;font-family:monospace">${medidas}</span>`:''}
-                ${it.desenho?`<span style="background:#e3f2fd;color:#1565c0;padding:1px 8px;border-radius:10px;font-size:11px">📐 ${it.desenho}</span>`:''}
-                <span style="background:#e8eaf6;color:#37474f;padding:1px 8px;border-radius:10px;font-size:11px">${it.qtd||1} ${it.und||'un'}</span>
-                ${it.peso?`<span style="background:#fbe9e7;color:#bf360c;padding:1px 8px;border-radius:10px;font-size:11px">⚖️ ${it.peso}kg</span>`:''}
-              </div>
-            </div>
-            <button onclick="abrirModalCotacao('${it.id}')" style="padding:5px 12px;background:${c};color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
-              ${semCot?'+ Cotar':'+ Mais cotações'}
-            </button>
-          </div>
-        </div>
-        <!-- Chips de cotações -->
-        <div style="padding:10px 14px">
-          ${semCot
-            ? `<div style="text-align:center;padding:8px;color:#bdbdbd;font-size:12px;font-style:italic">⚠️ Sem cotações ainda</div>`
-            : `<div style="display:flex;flex-direction:column;gap:6px">
-              ${cs.map((qt,i)=>{
-                const val=qt.preco||qt.valor||0;
-                const isMelhor=melhor&&qt.id===melhor.id&&cs.length>1;
-                const pct=melhor&&(qt.preco||qt.valor||0)>0?Math.min(100,Math.round(val/(melhor.preco||melhor.valor||1)*100)):100;
-                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:${isMelhor?'#e8f5e9':'#fafafa'};border:1px solid ${isMelhor?'#a5d6a7':'#f0f0f0'}">
-                  ${isMelhor?`<span style="font-size:14px">🏆</span>`:`<span style="font-size:12px;color:#bdbdbd;font-weight:700;min-width:16px">${i+1}º</span>`}
-                  <div style="flex:1;min-width:0">
-                    <div style="font-size:12px;font-weight:600;color:#263238;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qt.fornecedor||'—'}</div>
-                    <div style="background:#e0e0e0;height:3px;border-radius:2px;margin-top:3px">
-                      <div style="background:${isMelhor?'#2e7d32':c};height:3px;border-radius:2px;width:${100-(pct-100)}%"></div>
-                    </div>
-                  </div>
-                  <div style="text-align:right;flex-shrink:0">
-                    <div style="font-size:14px;font-weight:700;color:${isMelhor?'#2e7d32':'#37474f'}">${fmtVal(val)}</div>
-                    ${qt.prazo_entrega||qt.prazo?`<div style="font-size:10px;color:#9e9e9e">${qt.prazo_entrega||qt.prazo} dias</div>`:''}
-                  </div>
-                  <div style="display:flex;gap:4px">
-                    <button onclick="abrirModalItem('${it.id}')" style="width:24px;height:24px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer;font-size:11px" title="Editar item">✏️</button>
-                    <button onclick="deletarCotacao('${qt.id}')" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>
-                  </div>
-                </div>`;
-              }).join('')}
-            </div>`
-          }
-        </div>
-      </div>`;
-    }).join('');
-
-    return `<div style="margin-bottom:24px">
-      <div style="background:${c};border-radius:14px 14px 0 0;padding:14px 20px;display:flex;align-items:center;gap:12px">
-        <div style="width:42px;height:42px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${pdv.replace(/PDV\s*/i,'').substring(0,3)}</div>
-        <div style="flex:1">
-          <div style="color:#fff;font-weight:700;font-size:15px">${pdv}</div>
-          <div style="color:rgba(255,255,255,0.75);font-size:12px">${itensPDV[0]?.cliente||''}</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <span style="background:rgba(255,255,255,0.2);color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${itensPDV.length} itens</span>
-          <span style="background:${comCot===itensPDV.length?'rgba(76,175,80,0.4)':'rgba(255,152,0,0.4)'};color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${totalCot} cotações</span>
-        </div>
-      </div>
-      <div style="background:#f8faf8;border:1px solid ${c}44;border-top:none;border-radius:0 0 14px 14px;padding:14px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>
-      </div>
-    </div>`;
-  }).join('');
-}
 
 function renderComparar(){
   const b=(document.getElementById('busca4').value||'').toLowerCase();
