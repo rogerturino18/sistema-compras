@@ -3594,7 +3594,7 @@ function renderItens(){
 
       return `<tr style="${it.comprado?'opacity:0.55':''}">
         <td style="padding:7px 10px">${statusBadge} ${cotBadge}</td>
-        <td style="padding:7px 10px;font-size:12px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.descritivo||''}">${it.descritivo||'—'}</td>
+        <td style="padding:7px 10px;font-size:12px;font-weight:600;min-width:160px">${it.descritivo||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--green)">${it.material||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:#1565c0;font-weight:600">${it.desenho||'—'}</td>
         <td style="padding:7px 8px">${it.categoria?`<span style="background:${it.categoria==='Matéria Prima'?'#e8f5e9':it.categoria==='Insumos'?'#fff3e0':it.categoria==='Ferramentas'?'#eceff1':it.categoria==='Acessórios Comerciais'?'#e3f2fd':'#f3e5f5'};color:${it.categoria==='Matéria Prima'?'#2e7d32':it.categoria==='Insumos'?'#e65100':it.categoria==='Ferramentas'?'#37474f':it.categoria==='Acessórios Comerciais'?'#1565c0':'#6a1b9a'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">${it.categoria}</span>`:'—'}</td>
@@ -3632,7 +3632,7 @@ function renderItens(){
               ['descritivo','Descritivo','min-width:130px', true],
               ['material',  'Material',  '90px', true],
               ['desenho',   'Nº Des.',   '75px', true],
-              ['categoria', 'Tipo',      '100px', true],
+              ['categoria', 'Categoria',  '110px', true],
               ['',          'Medidas',   '120px', false],
               ['qtd',       'Qtd',       '55px',  true],
               ['fornecedor','Fornecedor','100px', true],
