@@ -3092,8 +3092,12 @@ async function fazerLogin(){
     document.getElementById('loginBg').style.display='none';
     document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
     document.getElementById('userName').textContent=usuarioLogado.nome;
-    mostrarApp();
-    await loadAll();
+    mostrarApp(); // mostra app (sem dados ainda)
+    await loadAll(); // carrega dados
+    // Após dados carregados, re-renderiza tiles e dashboard com dados reais
+    if(typeof abrirHomeScreen==='function' && !isExpedicao() && !isProjeto()){
+      abrirHomeScreen();
+    }
   }catch(e){showLoginError('Erro ao conectar. Tente novamente.');console.error(e);}
 }
 
@@ -6729,7 +6733,7 @@ function abrirHomeScreen(){
   atualizarRelogio();
   if(homeInterval) clearInterval(homeInterval);
   homeInterval=setInterval(atualizarRelogio,1000);
-  renderTiles(); // sempre re-renderiza com permissões atuais
+  renderHomeTiles(); // re-renderiza com permissões atuais
   homeInterval=setInterval(atualizarRelogio,1000);
   iniciarSlideshow();
   renderHomeTiles();
@@ -6799,7 +6803,7 @@ function renderHomeTiles(){
 
   // Filtra tiles baseado nas permissões do usuário
   const perms = getPermissoesUsuario(usuarioLogado);
-  const tabsPermitidas = isAprovador() ? null : perms.map(p=>{
+  const tabsPermitidas = (!usuarioLogado || isAprovador()) ? null : perms.map(p=>{
     const m=MODULOS_SISTEMA.find(x=>x.id===p);
     return m?m.tab:null;
   }).filter(t=>t!==null);
@@ -8914,13 +8918,15 @@ function aplicarPermissoes(){
     return m?m.tab:null;
   }).filter(t=>t!==null);
 
-  // Oculta itens do sidebar sem permissão (por tab number no onclick)
+  // Apenas oculta itens do sidebar sem permissão
   document.querySelectorAll('.sbi[onclick*="sbGo("]').forEach(el=>{
     const match = el.getAttribute('onclick').match(/sbGo\((\d+)/);
     if(match){
       const tabN=parseInt(match[1]);
       if(tabN>0 && !tabsPermitidas.includes(tabN)){
         el.style.display='none';
+      } else {
+        el.style.display='';
       }
     }
   });
@@ -9087,8 +9093,7 @@ function mostrarApp(){
     showTab(3);
   } else {
     document.querySelectorAll('.tab').forEach(t=>t.style.display='flex');
-    // Abre a homescreen de tiles ao fazer login
-    abrirHomeScreen();
+    showTab(0); // mostra tab 0 enquanto dados carregam; homeScreen abre após loadAll
   }
   iniciarVerificacaoLembretes();
 }
