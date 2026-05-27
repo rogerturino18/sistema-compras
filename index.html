@@ -1403,34 +1403,43 @@ tr:hover td{background:#f9fbf9}
 
 <!-- TAB 21: FLUXO DE CAIXA -->
 <div class="panel" id="tab21">
-  <div class="stat-row" id="statsFC"></div>
-  <div class="toolbar">
-    <select id="filtroFC_periodo" onchange="renderFluxoCaixa()">
-      <option value="mes">Este mês</option>
-      <option value="3m">Últimos 3 meses</option>
-      <option value="6m">Últimos 6 meses</option>
-      <option value="ano">Este ano</option>
-      <option value="todos">Todos</option>
-    </select>
-    <select id="filtroFC_tipo" onchange="renderFluxoCaixa()">
-      <option value="">Entradas e Saídas</option>
-      <option value="entrada">📥 Só Entradas</option>
-      <option value="saida">📤 Só Saídas</option>
-    </select>
-    <button class="btn" onclick="exportarExcelFC()" style="font-size:12px">📊 Excel</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📊 Fluxo de Caixa</h2>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Importado do Omie — pagamentos e recebimentos realizados</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <!-- Saldo anterior editável -->
+      <div style="display:flex;align-items:center;gap:6px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:6px 12px">
+        <span style="font-size:11px;font-weight:700;color:#f57f17;white-space:nowrap">💰 Saldo Anterior:</span>
+        <input type="text" id="fcSaldoAnterior" value="0" placeholder="0,00"
+          style="width:120px;padding:4px 8px;border:1px solid #ffe082;border-radius:6px;font-size:13px;font-weight:700;color:#2e7d32;text-align:right"
+          onchange="renderFluxoCaixa()">
+      </div>
+      <!-- Filtros -->
+      <select id="filtroFC_mes" onchange="renderFluxoCaixa()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+        <option value="">Todos os meses</option>
+      </select>
+      <select id="filtroFC_categoria" onchange="renderFluxoCaixa()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+        <option value="">Todas as categorias</option>
+      </select>
+      <input type="text" id="filtroFC_busca" placeholder="Buscar fornecedor..." oninput="renderFluxoCaixa()"
+        style="padding:7px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;min-width:180px">
+      <!-- Botão importar -->
+      <label style="padding:8px 16px;background:#6a1b9a;color:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+        📂 Importar Omie
+        <input type="file" id="fcImportInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFluxoOmie(this)">
+      </label>
+      <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
+    </div>
   </div>
-  <!-- Gráfico de barras simples -->
-  <div id="fcGrafico" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:20px;margin-bottom:16px;min-height:200px"></div>
-  <!-- Tabela detalhada -->
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th>
-        <th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th>
-        <th style="text-align:right">Saldo</th>
-      </tr></thead>
-      <tbody id="listaFC"></tbody>
-    </table>
+
+  <!-- KPIs -->
+  <div class="stat-row" id="statsFC" style="margin-bottom:16px"></div>
+
+  <!-- Tabela do fluxo de caixa estilo Excel -->
+  <div id="fcTabela" style="overflow-x:auto">
+    <div class="empty">📂 Importe os dados do Omie para visualizar o fluxo de caixa</div>
   </div>
 </div>
 
@@ -11378,106 +11387,240 @@ async function gerarCRdoPDV(pvId){
 }
 
 // ── FLUXO DE CAIXA ────────────────────────────────────────────────────────
-function renderFluxoCaixa(){
-  const periodo=document.getElementById('filtroFC_periodo')?.value||'mes';
-  const filtTipo=document.getElementById('filtroFC_tipo')?.value||'';
-  const hoje2=hoje();
-  const ano=hoje2.substring(0,4);
-  const mes=hoje2.substring(0,7);
+// ── Fluxo de Caixa (dados importados do Omie) ──────────────────────────────
+let fcDados = []; // array de {fornecedor, categoria, data, valor}
 
-  // Build unified list of realized transactions
-  let entradas=contasReceber.filter(c=>c.status==='Recebida'&&c.dt_recebimento);
-  let saidas=contasPagar.filter(c=>c.status==='Paga'&&c.dt_pagamento);
-
-  // Apply period filter
-  const filtrarPeriodo=(dt)=>{
-    if(periodo==='mes') return (dt||'').startsWith(mes);
-    if(periodo==='3m') return (dt||'')>=(new Date(Date.now()-90*86400000).toISOString().split('T')[0]);
-    if(periodo==='6m') return (dt||'')>=(new Date(Date.now()-180*86400000).toISOString().split('T')[0]);
-    if(periodo==='ano') return (dt||'').startsWith(ano);
-    return true;
-  };
-  entradas=entradas.filter(c=>filtrarPeriodo(c.dt_recebimento));
-  saidas=saidas.filter(c=>filtrarPeriodo(c.dt_pagamento));
-
-  const totalEnt=entradas.reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0);
-  const totalSai=saidas.reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
-  const saldo=totalEnt-totalSai;
-  const aReceber=contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0);
-  const aPagar=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0);
-
-  const el=document.getElementById('statsFC');
-  if(el) el.innerHTML=`
-    <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Entradas Realizadas</div><div class="stat-val" style="color:#2e7d32">${fmtMoeda(totalEnt)}</div></div>
-    <div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">Saídas Realizadas</div><div class="stat-val" style="color:#c62828">${fmtMoeda(totalSai)}</div></div>
-    <div class="stat" style="border-left-color:${saldo>=0?'#1565c0':'#e65100'};cursor:default"><div class="stat-label">Saldo do Período</div><div class="stat-val" style="color:${saldo>=0?'#1565c0':'#c62828'}">${fmtMoeda(saldo)}</div></div>
-    <div class="stat" style="border-left-color:#546e7a;cursor:default"><div class="stat-label">Previsto Líquido</div><div class="stat-val" style="color:#546e7a">${fmtMoeda(aReceber-aPagar)}</div></div>`;
-
-  // Simple bar chart by month
-  const byMes={};
-  entradas.forEach(c=>{const m=(c.dt_recebimento||'').substring(0,7);if(m){if(!byMes[m])byMes[m]={ent:0,sai:0};byMes[m].ent+=(c.valor_recebido||c.valor||0);}});
-  saidas.forEach(c=>{const m=(c.dt_pagamento||'').substring(0,7);if(m){if(!byMes[m])byMes[m]={ent:0,sai:0};byMes[m].sai+=(c.valor_pago||c.valor||0);}});
-  const meses=Object.keys(byMes).sort();
-  const maxVal=Math.max(...meses.map(m=>Math.max(byMes[m].ent,byMes[m].sai)),1);
-
-  const graf=document.getElementById('fcGrafico');
-  if(graf){
-    if(!meses.length){graf.innerHTML='<div style="text-align:center;color:#bdbdbd;padding:40px">Nenhuma movimentação no período</div>';} 
-    else {
-      graf.innerHTML=`<div style="font-size:12px;font-weight:700;color:#263238;margin-bottom:12px">Entradas vs Saídas por Mês</div>
-      <div style="display:flex;gap:4px;align-items:flex-end;height:160px;padding-bottom:20px;overflow-x:auto">
-        ${meses.map(m=>{
-          const pctE=Math.round((byMes[m].ent/maxVal)*140);
-          const pctS=Math.round((byMes[m].sai/maxVal)*140);
-          const label=new Date(m+'-15').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
-          return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:60px">
-            <div style="display:flex;gap:2px;align-items:flex-end;height:140px">
-              <div style="width:22px;background:#a5d6a7;border-radius:4px 4px 0 0;height:${pctE}px" title="Entradas: ${fmtMoeda(byMes[m].ent)}"></div>
-              <div style="width:22px;background:#ef9a9a;border-radius:4px 4px 0 0;height:${pctS}px" title="Saídas: ${fmtMoeda(byMes[m].sai)}"></div>
-            </div>
-            <div style="font-size:10px;color:#546e7a;text-align:center">${label}</div>
-          </div>`;
-        }).join('')}
-      </div>
-      <div style="display:flex;gap:16px;margin-top:4px;font-size:11px">
-        <span><span style="display:inline-block;width:12px;height:12px;background:#a5d6a7;border-radius:2px;margin-right:4px"></span>Entradas</span>
-        <span><span style="display:inline-block;width:12px;height:12px;background:#ef9a9a;border-radius:2px;margin-right:4px"></span>Saídas</span>
-      </div>`;
+async function importarFluxoOmie(input){
+  const file = input.files[0];
+  if(!file) return;
+  showToast('⏳ Lendo arquivo...','ok',5000);
+  try{
+    // Usa SheetJS (carregado dinamicamente)
+    if(!window.XLSX){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=res; s.onerror=rej;
+        document.head.appendChild(s);
+      });
     }
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+
+    // Detecta linha de cabeçalho
+    const headerRow = rows.findIndex(r => r && r.some(v => v && String(v).toLowerCase().includes('fornec')));
+    if(headerRow < 0){ showToast('Formato não reconhecido — verifique o arquivo','err'); return; }
+
+    const hdr = rows[headerRow].map(v => String(v||'').toLowerCase().trim());
+    const iFor = hdr.findIndex(h=>h.includes('fornec'));
+    const iCat = hdr.findIndex(h=>h.includes('categ'));
+    const iDat = hdr.findIndex(h=>h.includes('data'));
+    const iVal = hdr.findIndex(h=>h.includes('pago')||h.includes('valor')||h.includes('receb'));
+
+    fcDados = [];
+    for(let i=headerRow+1; i<rows.length; i++){
+      const r = rows[i];
+      if(!r || !r[iVal]) continue;
+      let dt = r[iDat];
+      if(dt instanceof Date){ dt = dt.toISOString().split('T')[0]; }
+      else if(typeof dt === 'number'){ // Excel serial date
+        const d = new Date((dt-25569)*86400000);
+        dt = d.toISOString().split('T')[0];
+      } else { dt = String(dt||'').split('T')[0]; }
+      const val = parseFloat(String(r[iVal]).replace(',','.'))||0;
+      if(!dt||!val) continue;
+      fcDados.push({fornecedor:String(r[iFor]||'—'), categoria:String(r[iCat]||'—'), data:dt, valor:val});
+    }
+
+    // Salva no localStorage para persistir
+    localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+
+    showToast('✅ '+fcDados.length+' transações importadas!');
+    populaFiltrosFC();
+    renderFluxoCaixa();
+  }catch(e){
+    showToast('Erro ao importar: '+e.message,'err');
+    console.error(e);
+  }
+  input.value='';
+}
+
+function populaFiltrosFC(){
+  const meses = [...new Set(fcDados.map(t=>t.data.substring(0,7)))].sort().reverse();
+  const cats = [...new Set(fcDados.map(t=>t.categoria))].sort();
+
+  const mesEl = document.getElementById('filtroFC_mes');
+  if(mesEl){
+    const cur = mesEl.value;
+    mesEl.innerHTML = '<option value="">Todos os meses</option>'
+      + meses.map(m=>{
+          const d = new Date(m+'-01');
+          const label = d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+          return `<option value="${m}" ${m===cur?'selected':''}>${label}</option>`;
+        }).join('');
+    // Seleciona o mais recente por padrão
+    if(!cur && meses.length) mesEl.value = meses[0];
   }
 
-  // Table
-  const tbody=document.getElementById('listaFC');
-  if(!tbody)return;
-  let movs=[];
-  if(!filtTipo||filtTipo==='entrada') entradas.forEach(c=>movs.push({dt:c.dt_recebimento,tipo:'entrada',desc:c.descricao,cat:'Recebimento',val:c.valor_recebido||c.valor||0}));
-  if(!filtTipo||filtTipo==='saida') saidas.forEach(c=>movs.push({dt:c.dt_pagamento,tipo:'saida',desc:c.descricao,cat:c.categoria||'Pagamento',val:c.valor_pago||c.valor||0}));
-  movs.sort((a,b)=>a.dt?.localeCompare(b.dt||'')||0);
-  let saldoAcc=0;
-  tbody.innerHTML=movs.map(m=>{
-    saldoAcc+=m.tipo==='entrada'?m.val:-m.val;
-    return `<tr>
-      <td style="padding:7px 10px;font-size:12px;white-space:nowrap">${m.dt?new Date(m.dt+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
-      <td style="padding:7px 10px;font-size:12px">${m.desc||'—'}</td>
-      <td style="padding:7px 10px"><span style="background:${m.tipo==='entrada'?'#e8f5e9;color:#2e7d32':'#ffebee;color:#c62828'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${m.tipo==='entrada'?'📥 Entrada':'📤 Saída'}</span></td>
-      <td style="padding:7px 10px;font-size:12px;color:#546e7a">${m.cat}</td>
-      <td style="padding:7px 10px;text-align:right;font-weight:600;color:#2e7d32">${m.tipo==='entrada'?fmtMoeda(m.val):'—'}</td>
-      <td style="padding:7px 10px;text-align:right;font-weight:600;color:#c62828">${m.tipo==='saida'?fmtMoeda(m.val):'—'}</td>
-      <td style="padding:7px 10px;text-align:right;font-weight:700;color:${saldoAcc>=0?'#1565c0':'#c62828'}">${fmtMoeda(saldoAcc)}</td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="7" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação realizada no período</td></tr>`;
+  const catEl = document.getElementById('filtroFC_categoria');
+  if(catEl){
+    const cur = catEl.value;
+    catEl.innerHTML = '<option value="">Todas as categorias</option>'
+      + cats.map(cat=>`<option value="${cat}" ${cat===cur?'selected':''}>${cat}</option>`).join('');
+  }
+}
+
+function renderFluxoCaixa(){
+  // Carrega do localStorage se vazio
+  if(!fcDados.length){
+    try{ fcDados = JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){}
+    if(fcDados.length) populaFiltrosFC();
+  }
+
+  const mesFiltro = document.getElementById('filtroFC_mes')?.value||'';
+  const catFiltro = document.getElementById('filtroFC_categoria')?.value||'';
+  const busca = (document.getElementById('filtroFC_busca')?.value||'').toLowerCase();
+  const saldoAnt = parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0').replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
+
+  let lista = fcDados.filter(t=>{
+    if(mesFiltro && !t.data.startsWith(mesFiltro)) return false;
+    if(catFiltro && t.categoria !== catFiltro) return false;
+    if(busca && !(t.fornecedor+t.categoria).toLowerCase().includes(busca)) return false;
+    return true;
+  }).sort((a,b)=>a.data.localeCompare(b.data)||a.fornecedor.localeCompare(b.fornecedor));
+
+  if(!lista.length && !fcDados.length){
+    document.getElementById('fcTabela').innerHTML='<div class="empty">📂 Importe os dados do Omie para visualizar o fluxo de caixa</div>';
+    document.getElementById('statsFC').innerHTML='';
+    return;
+  }
+
+  // KPIs
+  const totalRec = lista.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0);
+  const totalPag = lista.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
+  const saldoPeriodo = totalRec - totalPag;
+  const saldoFinal = saldoAnt + saldoPeriodo;
+
+  const stats = document.getElementById('statsFC');
+  if(stats) stats.innerHTML=`
+    <div class="stat" style="border-left-color:#f57f17;cursor:default">
+      <div class="stat-label">Saldo Anterior</div>
+      <div class="stat-val" style="color:#f57f17">${fmtMoeda(saldoAnt)}</div>
+    </div>
+    <div class="stat" style="border-left-color:#2e7d32;cursor:default">
+      <div class="stat-label">Total Recebido</div>
+      <div class="stat-val" style="color:#2e7d32">+${fmtMoeda(totalRec)}</div>
+    </div>
+    <div class="stat" style="border-left-color:#c62828;cursor:default">
+      <div class="stat-label">Total Pago</div>
+      <div class="stat-val" style="color:#c62828">-${fmtMoeda(totalPag)}</div>
+    </div>
+    <div class="stat" style="border-left-color:${saldoFinal>=0?'#1565c0':'#c62828'};cursor:default">
+      <div class="stat-label">Saldo Final</div>
+      <div class="stat-val" style="color:${saldoFinal>=0?'#1565c0':'#c62828'}">${fmtMoeda(saldoFinal)}</div>
+    </div>`;
+
+  // Agrupa por dia
+  const porDia = {};
+  lista.forEach(t=>{
+    if(!porDia[t.data]) porDia[t.data]={data:t.data, itens:[]};
+    porDia[t.data].itens.push(t);
+  });
+  const dias = Object.values(porDia).sort((a,b)=>a.data.localeCompare(b.data));
+
+  // Monta tabela estilo planilha
+  let saldoAcc = saldoAnt;
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
+    <thead>
+      <tr style="background:#263238;color:#fff">
+        <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;white-space:nowrap">DIA</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700">DESCRIÇÃO / FORNECEDOR</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700">CATEGORIA</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:#ef9a9a">PAGAMENTO</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:#a5d6a7">RECEBIMENTO</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:#90caf9">SALDO REAL</th>
+      </tr>
+      <tr style="background:#f57f17">
+        <td style="padding:10px 12px;font-weight:700;color:#fff;font-size:12px">—</td>
+        <td style="padding:10px 12px;font-weight:700;color:#fff;font-size:13px">💰 SALDO ANTERIOR</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td style="padding:10px 12px;text-align:right;font-weight:900;color:#fff;font-size:15px">${fmtMoeda(saldoAnt)}</td>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  dias.forEach(dia=>{
+    const dtObj = new Date(dia.data+'T12:00');
+    const diaNum = dtObj.getDate();
+    const diaNome = dtObj.toLocaleDateString('pt-BR',{weekday:'short'});
+    const totalDiaRec = dia.itens.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0);
+    const totalDiaPag = dia.itens.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
+
+    // Linha de totais do dia (subtotal)
+    if(dia.itens.length > 1){
+      html += `<tr style="background:#e8f5e9;border-top:2px solid #a5d6a7">
+        <td style="padding:6px 12px;font-weight:700;color:#2e7d32;font-size:11px">${String(diaNum).padStart(2,'0')} ${diaNome.toUpperCase()}</td>
+        <td style="padding:6px 12px;color:#37474f;font-size:11px;font-style:italic">${dia.itens.length} transações</td>
+        <td></td>
+        <td style="padding:6px 12px;text-align:right;color:#c62828;font-weight:700">${totalDiaPag>0?'-'+fmtMoeda(totalDiaPag):''}</td>
+        <td style="padding:6px 12px;text-align:right;color:#2e7d32;font-weight:700">${totalDiaRec>0?'+'+fmtMoeda(totalDiaRec):''}</td>
+        <td></td>
+      </tr>`;
+    }
+
+    // Linhas individuais do dia
+    dia.itens.forEach((t,i)=>{
+      const isPag = t.valor < 0;
+      saldoAcc += t.valor;
+      const saldoColor = saldoAcc >= 0 ? '#1565c0' : '#c62828';
+
+      html += `<tr style="background:${i%2===0?'#fff':'#fafafa'};border-bottom:1px solid #f0f0f0">
+        <td style="padding:7px 12px;color:#546e7a;font-size:11px;white-space:nowrap">${dia.itens.length===1?String(diaNum).padStart(2,'0')+' '+diaNome.toUpperCase():''}</td>
+        <td style="padding:7px 12px;font-weight:600;font-size:12px;color:#263238">${t.fornecedor}</td>
+        <td style="padding:7px 12px"><span style="background:${isPag?'#ffebee':'#e8f5e9'};color:${isPag?'#c62828':'#2e7d32'};padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600">${t.categoria}</span></td>
+        <td style="padding:7px 12px;text-align:right;color:#c62828;font-weight:700">${isPag?'-'+fmtMoeda(Math.abs(t.valor)):''}</td>
+        <td style="padding:7px 12px;text-align:right;color:#2e7d32;font-weight:700">${!isPag?'+'+fmtMoeda(t.valor):''}</td>
+        <td style="padding:7px 12px;text-align:right;font-weight:700;color:${saldoColor}">${fmtMoeda(saldoAcc)}</td>
+      </tr>`;
+    });
+  });
+
+  html += `</tbody></table>`;
+
+  const tabEl = document.getElementById('fcTabela');
+  if(tabEl) tabEl.innerHTML = `<div style="overflow-x:auto">${html}</div>`;
 }
 
 function exportarExcelFC(){
-  const rows=[['Data','Descrição','Tipo','Categoria','Entrada','Saída','Saldo']];
-  let saldo=0;
-  document.querySelectorAll('#listaFC tr').forEach(tr=>{
-    const cols=[...tr.querySelectorAll('td')].map(td=>td.textContent.trim());
-    if(cols.length) rows.push(cols);
+  if(!fcDados.length){ showToast('Importe os dados primeiro','err'); return; }
+  const mesFiltro = document.getElementById('filtroFC_mes')?.value||'';
+  const lista = fcDados.filter(t=>!mesFiltro||t.data.startsWith(mesFiltro))
+    .sort((a,b)=>a.data.localeCompare(b.data));
+  const saldoAnt = parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0').replace(',','.'))||0;
+
+  let saldo = saldoAnt;
+  const rows = [['DIA','FORNECEDOR','CATEGORIA','PAGAMENTO','RECEBIMENTO','SALDO REAL']];
+  rows.push(['SALDO ANTERIOR','','','','',saldoAnt.toFixed(2)]);
+  lista.forEach(t=>{
+    saldo += t.valor;
+    rows.push([
+      t.data,
+      t.fornecedor,
+      t.categoria,
+      t.valor<0?Math.abs(t.valor).toFixed(2):'',
+      t.valor>0?t.valor.toFixed(2):'',
+      saldo.toFixed(2)
+    ]);
   });
   const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fluxo_caixa.xls';a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='fluxo_caixa_'+((mesFiltro||new Date().toISOString().substring(0,7)))+'.xls';a.click();
 }
+
 
 // ===== PARCELAMENTO AUTOMÁTICO =====
 function gerarParcelas(dtInicio, n, valor){
