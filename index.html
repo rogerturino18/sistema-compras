@@ -3177,21 +3177,21 @@ async function api(method,table,data=null,filter=''){
 async function loadAll(){
   try {
     [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente,entradasNFe]=await Promise.all([
-      api('GET','itens','','?order=created_at.asc'),
-      api('GET','cotacoes','','?order=created_at.desc'),
-      api('GET','fornecedores','','?order=razao_social.asc'),
-      api('GET','emails_enviados','','?order=enviado_em.desc&limit=50'),
-      api('GET','pdvs','','?order=numero.asc&ativo=eq.true'),
-      api('GET','compras_internas','','?order=created_at.desc'),
-      api('GET','produtos_pdv','','?order=created_at.asc'),
-      api('GET','etapas_produto','','?order=iniciado_em.asc'),
-      api('GET','ordens_producao','','?order=numero.desc'),
-      api('GET','tempos_op','','?order=created_at.asc'),
-      api('GET','setores_pdv','','?order=created_at.asc'),
-      api('GET','pecas_projeto','','?order=created_at.asc'),
-      api('GET','sessoes_trabalho','','?order=iniciado_em.desc'),
-      api('GET','estoque_itens','','?order=descricao.asc'),
-      api('GET','estoque_movimentacoes','','?order=data.desc'),
+      api('GET','itens','','?order=created_at.asc').catch(e=>{console.warn('itens:',e.message);return [];}),
+      api('GET','cotacoes','','?order=created_at.desc').catch(()=>[]),
+      api('GET','fornecedores','','?order=razao_social.asc').catch(()=>[]),
+      api('GET','emails_enviados','','?order=enviado_em.desc&limit=50').catch(()=>[]),
+      api('GET','pdvs','','?order=numero.asc&ativo=eq.true').catch(()=>[]),
+      api('GET','compras_internas','','?order=created_at.desc').catch(()=>[]),
+      api('GET','produtos_pdv','','?order=created_at.asc').catch(()=>[]),
+      api('GET','etapas_produto','','?order=iniciado_em.asc').catch(()=>[]),
+      api('GET','ordens_producao','','?order=numero.desc').catch(()=>[]),
+      api('GET','tempos_op','','?order=created_at.asc').catch(()=>[]),
+      api('GET','setores_pdv','','?order=created_at.asc').catch(()=>[]),
+      api('GET','pecas_projeto','','?order=created_at.asc').catch(()=>[]),
+      api('GET','sessoes_trabalho','','?order=iniciado_em.desc').catch(()=>[]),
+      api('GET','estoque_itens','','?order=descricao.asc').catch(()=>[]),
+      api('GET','estoque_movimentacoes','','?order=data.desc').catch(()=>[]),
       api('GET','clientes_fiscal','','?order=nome.asc').catch(()=>[]),
       api('GET','notas_fiscais','','?order=created_at.desc').catch(()=>[]),
       api('GET','clientes','','?order=nome.asc').catch(()=>[]),
@@ -5486,7 +5486,7 @@ function renderOrdens(){
     return `<div style="margin-bottom:20px">
       <div class="kanban-pdv-header" onclick="toggleGrupoPDV('kprod_${pdvId}')">
         <div style="display:flex;align-items:center;gap:10px;flex:1">
-          <span style="font-size:15px;font-weight:700;color:#fff">🔧 ${pdv?'PDV '+pdv.numero:''}</span>
+          <span style="font-size:15px;font-weight:700;color:#fff">🔧 ${pdv?(String(pdv.numero).startsWith('PDV')?pdv.numero:'PDV '+pdv.numero):''}</span>
           ${pdv?.cliente?`<span style="font-size:13px;color:rgba(255,255,255,0.85)">${pdv.cliente}</span>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -9070,7 +9070,20 @@ async function salvarEdicaoUsuario(){
     fecharModal('modalEditarUsuario');
     todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
     renderListaUsuarios();
-  }catch(e){ showToast('Erro: '+e.message,'err'); }
+  }catch(e){
+    if(e.message?.includes('400') || String(e).includes('400')){
+      // Pode ser que a coluna perfil tem limite de caracteres
+      // Tenta salvar sem o campo perfil para verificar
+      const objSemPerfil={...obj}; delete objSemPerfil.perfil;
+      try{
+        await api('PATCH','usuarios',objSemPerfil,`?id=eq.${id}`);
+        showToast('⚠️ Dados salvos mas permissões falharam. Execute no Supabase SQL Editor: ALTER TABLE usuarios ALTER COLUMN perfil TYPE TEXT;','err');
+        fecharModal('modalEditarUsuario');
+        todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
+        renderListaUsuarios();
+      }catch(e2){ showToast('Erro ao salvar: '+e2.message,'err'); }
+    } else { showToast('Erro: '+e.message,'err'); }
+  }
 }
 
 function mostrarApp(){
@@ -10006,7 +10019,8 @@ function renderMovEstoque(){
     const isEntrada=m.tipo==='entrada';
     const depto=m.departamento||'—';
     const pdvObj = m.pdv_id ? pdvs.find(p=>p.id===m.pdv_id) : null;
-    const pdvLabel = pdvObj ? `PDV ${pdvObj.numero}${pdvObj.cliente?' — '+pdvObj.cliente.substring(0,20):''}` : null;
+    const pdvNumero = pdvObj ? (String(pdvObj.numero).startsWith('PDV') ? pdvObj.numero : 'PDV '+pdvObj.numero) : null;
+    const pdvLabel = pdvNumero ? `${pdvNumero}${pdvObj.cliente?' — '+pdvObj.cliente.substring(0,20):''}` : null;
     const deptoDisplay = pdvLabel || depto;
     const obsDisplay = m.observacao || pdvLabel || '—';
     return `<tr>
@@ -10376,7 +10390,7 @@ async function confirmarAprovacao(){
         quantidade:it.qtd, unidade_saida:it.unidade,
         data:r.data||new Date().toISOString().split('T')[0],
         departamento:r.departamento,
-        observacao:`Req. Nº ${r.numero} — ${r.pdv_id?'PDV '+(pdvs.find(p=>p.id===r.pdv_id)?.numero||r.pdv_id):r.departamento}`,
+        observacao:`Req. Nº ${r.numero} — ${r.pdv_id?(()=>{const n=pdvs.find(p=>p.id===r.pdv_id)?.numero||r.pdv_id;return String(n).startsWith('PDV')?n:'PDV '+n;})():r.departamento}`,
         criado_por:usuarioLogado?.nome||null
       });
     }
@@ -12714,35 +12728,48 @@ async function diagnosticoNFeSEFAZ(){
       }catch(e){ log('Erro de rede: '+e.message, false); }
 
     } else if(tipo==='consultar'){
+      // Testa TRÊS variações para identificar o problema
       const nsu2 = localStorage.getItem('nfe_ult_nsu')||'000000000000000';
       const dtDe = document.getElementById('nfeDtDe')?.value;
       const dtAte = document.getElementById('nfeDtAte')?.value;
-      log(`Testando /api/consultar-nfe com NSU=${parseInt(nsu2)||0}${dtDe?' dtIni='+dtDe.replace(/-/g,''):''}...`, null);
+
+      // Variação 1: sem data
+      log('--- TESTE 1: sem filtro de data ---', null);
+      log(`NSU=${parseInt(nsu2)||0}`, null);
       try{
-        const body = {cnpj:'08363498000169', ultNSU: nsu2};
-        if(dtDe) body.dtIni = dtDe.replace(/-/g,'');
-        if(dtAte) body.dtFin = dtAte.replace(/-/g,'');
-        const r = await fetch(cfg2.url+'/api/consultar-nfe', {
+        const r1 = await fetch(cfg2.url+'/api/consultar-nfe', {
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':cfg2.apiKey},
-          body: JSON.stringify(body)
+          body: JSON.stringify({cnpj:'08363498000169', ultNSU:'000000000000000'})
         });
-        const text = await r.text();
-        log(`HTTP ${r.status}`, r.ok);
+        const d1 = await r1.json();
+        log(`HTTP ${r1.status} | sucesso:${d1.sucesso} | notas:${d1.notas?.length??'?'} | ultNSU:${parseInt(d1.ultNSU)||0}`, r1.ok);
+        if(d1.erro||d1.message) log('Erro SEFAZ: '+(d1.erro||d1.message), false);
+        if(d1.notas?.length===0) log('ℹ️ SEFAZ retornou 0 notas — possíveis causas abaixo:', null);
+      }catch(e){ log('Erro: '+e.message, false); }
+
+      // Variação 2: com data
+      if(dtDe){
+        log(`--- TESTE 2: com data ${dtDe} ---`, null);
         try{
-          const d = JSON.parse(text);
-          log(`sucesso: ${d.sucesso}`, d.sucesso);
-          if(d.ultNSU) log(`ultNSU: ${parseInt(d.ultNSU)}`, null);
-          if(d.notas) log(`notas recebidas: ${d.notas.length}`, d.notas.length>0);
-          if(d.hasMore!==undefined) log(`hasMore: ${d.hasMore}`, null);
-          if(d.erro||d.message) log(`erro/message: ${d.erro||d.message}`, false);
-          if(d.notas?.length===0){
-            if(!dtDe) log('DICA: Defina um período (📅) e tente novamente — o SEFAZ exige data de início para buscar notas.', null);
-            else log('SEFAZ retornou 0 notas para este período. Tente outro intervalo de datas ou contate o suporte do backend.', null);
-          }
-          if(d.notas?.length>0) log(`Fornecedores: ${[...new Set(d.notas.map(n=>n.fornecedor||'?'))].slice(0,3).join(', ')}`, null);
-        }catch(e2){ log('Resposta bruta: '+text.substring(0,500), null); }
-      }catch(e){ log('Erro de rede (CORS?): '+e.message, false); }
+          const r2 = await fetch(cfg2.url+'/api/consultar-nfe', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','x-api-key':cfg2.apiKey},
+            body: JSON.stringify({cnpj:'08363498000169', ultNSU:'000000000000000', dtIni:dtDe.replace(/-/g,''), dtFin:(dtAte||dtDe).replace(/-/g,'')})
+          });
+          const d2 = await r2.json();
+          log(`HTTP ${r2.status} | sucesso:${d2.sucesso} | notas:${d2.notas?.length??'?'}`, r2.ok);
+          if(d2.erro||d2.message) log('Erro: '+(d2.erro||d2.message), false);
+        }catch(e){ log('Erro: '+e.message, false); }
+      }
+
+      log('', null);
+      log('━━━━ DIAGNÓSTICO ━━━━', null);
+      log('O DistDFeInt do SEFAZ retorna APENAS notas onde seu CNPJ é o DESTINATÁRIO (comprador).', null);
+      log('Se há notas no Omie mas não aparecem aqui, verifique:', null);
+      log('  1. O fornecedor emitiu as notas com seu CNPJ como destinatário?', null);
+      log('  2. O certificado está em ambiente PRODUÇÃO (não homologação)?', null);
+      log('  3. Tente importar o XML diretamente: botão "📂 Importar XML"', null);
     }
   };
 
