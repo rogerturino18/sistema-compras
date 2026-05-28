@@ -11717,8 +11717,9 @@ async function importarFluxoOmie(input){
     if(iDat<0){ showToast('⚠️ Coluna de data não encontrada. Colunas: '+hdr.join(', '),'err'); return; }
     if(iVal<0){ showToast('⚠️ Coluna de valor não encontrada. Colunas: '+hdr.join(', '),'err'); return; }
 
-    const novos=[];
+    const novos=[], duplicados=[];
     let dataErros=0;
+
     for(let i=headerRow+1;i<rows.length;i++){
       const r=rows[i]; if(!r||r[iVal]==null) continue;
       const val=parseFloat(String(r[iVal]).replace(',','.'))||0;
@@ -11726,29 +11727,166 @@ async function importarFluxoOmie(input){
       const dt=_parseExcelDate(r[iDat]);
       if(!dt){ dataErros++; continue; }
       const nf = iNF>=0 ? String(r[iNF]||'').trim() : '';
-      novos.push({
+      const item = {
         fornecedor: String(r[iFor>=0?iFor:0]||'—').trim(),
         categoria: String(r[iCat>=0?iCat:1]||'—').trim(),
         nf: nf==='null'||nf==='undefined'?'':nf,
-        data: dt,
-        valor: val,
-        pendente: isPendente
+        data: dt, valor: val, pendente: isPendente
+      };
+
+      // Chave de deduplicação: data + fornecedor + nf + valor (arredondado 2 casas)
+      const chave = item.data+'|'+item.fornecedor.toLowerCase()+'|'+(item.nf||'nd')+'|'+Math.abs(item.valor).toFixed(2);
+      const jaExiste = fcDados.some(x=>{
+        const xChave = x.data+'|'+x.fornecedor.toLowerCase()+'|'+(x.nf||'nd')+'|'+Math.abs(x.valor).toFixed(2);
+        return xChave===chave;
       });
+
+      if(jaExiste) duplicados.push(item);
+      else novos.push(item);
     }
 
-    // ADICIONA aos dados existentes (não substitui)
-    fcDados = [...fcDados, ...novos];
-    localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
-    if(fcSaldoInicialOmie) localStorage.setItem('sl_fc_saldo_ant',String(fcSaldoInicialOmie));
+    showToast('Análise concluída — abrindo prévia...','ok',3000);
+    abrirPreviaImportacaoFC(novos, duplicados, dataErros);
 
-    let msg='✅ '+novos.length+' transações adicionadas! Total acumulado: '+fcDados.length;
-    if(fcSaldoInicialOmie) msg+=' | Saldo ant.: '+fmtMoeda(fcSaldoInicialOmie);
-    if(dataErros) msg+=' ⚠️ '+dataErros+' sem data ignoradas';
-    showToast(msg);
-    populaFiltrosFC();
-    renderFluxoCaixa();
   }catch(e){ showToast('Erro ao importar: '+e.message,'err'); console.error(e); }
   input.value='';
+}
+
+function abrirPreviaImportacaoFC(novos, duplicados, dataErros){
+  const existing = document.getElementById('modalPreviaFC');
+  if(existing) existing.remove();
+
+  const total = novos.length + duplicados.length;
+  const modal = document.createElement('div');
+  modal.id = 'modalPreviaFC';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  const novosHtml = novos.map((t,i)=>{
+    const dtFmt = new Date(t.data+'T12:00').toLocaleDateString('pt-BR');
+    const isPag = t.valor<0;
+    return `<tr id="prev_row_${i}" style="background:#fff;border-bottom:1px solid #f0f0f0">
+      <td style="padding:6px 8px;text-align:center">
+        <input type="checkbox" id="prev_chk_${i}" checked style="width:15px;height:15px;accent-color:#2e7d32;cursor:pointer">
+      </td>
+      <td style="padding:6px 8px;font-size:12px;white-space:nowrap">${dtFmt}</td>
+      <td style="padding:6px 8px;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.fornecedor}">${t.fornecedor}</td>
+      <td style="padding:6px 8px;font-size:11px;color:#546e7a">${t.nf||'—'}</td>
+      <td style="padding:6px 8px;font-size:12px;font-weight:700;color:${isPag?'#c62828':'#2e7d32'};text-align:right">${isPag?'-':'+'} ${fmtMoeda(Math.abs(t.valor))}</td>
+      <td style="padding:6px 8px"><span style="background:${t.pendente?'#fff3e0':'#e8f5e9'};color:${t.pendente?'#e65100':'#2e7d32'};padding:1px 6px;border-radius:6px;font-size:10px">${t.pendente?'A Pagar/Receber':'Realizado'}</span></td>
+    </tr>`;
+  }).join('');
+
+  const dupHtml = duplicados.length ? `
+    <div style="margin-top:14px">
+      <div style="font-size:13px;font-weight:700;color:#f57f17;margin-bottom:6px">
+        ⚠️ ${duplicados.length} duplicados encontrados — serão ignorados automaticamente
+      </div>
+      <div style="max-height:120px;overflow-y:auto;border:1px solid #ffe082;border-radius:8px;background:#fffde7">
+        ${duplicados.map(t=>{
+          const dtFmt = new Date(t.data+'T12:00').toLocaleDateString('pt-BR');
+          return `<div style="padding:5px 10px;font-size:11px;color:#546e7a;border-bottom:1px solid #fff9c4">
+            ${dtFmt} — ${t.fornecedor.substring(0,35)} — ${fmtMoeda(Math.abs(t.valor))} ${t.nf?'NF:'+t.nf:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:900px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <!-- Header -->
+      <div style="background:#2e7d32;border-radius:16px 16px 0 0;padding:16px 24px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:#fff;font-size:17px;font-weight:700">📋 Prévia de Importação</div>
+          <div style="color:rgba(255,255,255,0.75);font-size:12px">${total} transações analisadas · ${novos.length} novas · ${duplicados.length} duplicadas${dataErros?' · '+dataErros+' sem data':''}</div>
+        </div>
+        <button onclick="document.getElementById('modalPreviaFC').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px">✕</button>
+      </div>
+
+      <!-- KPIs rápidos -->
+      <div style="display:flex;gap:0;border-bottom:1px solid #e0e0e0">
+        <div style="flex:1;padding:12px 16px;text-align:center;border-right:1px solid #e0e0e0">
+          <div style="font-size:11px;color:#546e7a;text-transform:uppercase;font-weight:700">Novas</div>
+          <div style="font-size:22px;font-weight:900;color:#2e7d32">${novos.length}</div>
+        </div>
+        <div style="flex:1;padding:12px 16px;text-align:center;border-right:1px solid #e0e0e0">
+          <div style="font-size:11px;color:#546e7a;text-transform:uppercase;font-weight:700">Duplicadas</div>
+          <div style="font-size:22px;font-weight:900;color:#f57f17">${duplicados.length}</div>
+        </div>
+        <div style="flex:1;padding:12px 16px;text-align:center;border-right:1px solid #e0e0e0">
+          <div style="font-size:11px;color:#c62828;text-transform:uppercase;font-weight:700">Total A Pagar</div>
+          <div style="font-size:16px;font-weight:900;color:#c62828">${fmtMoeda(novos.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0))}</div>
+        </div>
+        <div style="flex:1;padding:12px 16px;text-align:center">
+          <div style="font-size:11px;color:#2e7d32;text-transform:uppercase;font-weight:700">Total A Receber</div>
+          <div style="font-size:16px;font-weight:900;color:#2e7d32">${fmtMoeda(novos.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0))}</div>
+        </div>
+      </div>
+
+      <!-- Lista de novos com checkboxes -->
+      <div style="flex:1;overflow-y:auto;padding:16px 24px">
+        ${novos.length===0 ? '<div style="text-align:center;padding:30px;color:#9e9e9e;font-size:14px">✅ Todos os lançamentos já estão importados (sem novidades)</div>' : `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:700;color:#263238">Selecione os lançamentos para importar:</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="fcPreviaMarcarTodos(true)" style="padding:4px 10px;background:#e8f5e9;border:1px solid #a5d6a7;color:#2e7d32;border-radius:6px;font-size:12px;cursor:pointer;font-weight:700">✅ Marcar todos</button>
+            <button onclick="fcPreviaMarcarTodos(false)" style="padding:4px 10px;background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;font-size:12px;cursor:pointer;font-weight:700">❌ Desmarcar</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:#f5f5f5;position:sticky;top:0">
+              <th style="padding:7px 8px;width:36px"></th>
+              <th style="padding:7px 8px;text-align:left;color:#546e7a;font-size:11px">DATA</th>
+              <th style="padding:7px 8px;text-align:left;color:#546e7a;font-size:11px">FORNECEDOR</th>
+              <th style="padding:7px 8px;text-align:left;color:#546e7a;font-size:11px">NF</th>
+              <th style="padding:7px 8px;text-align:right;color:#546e7a;font-size:11px">VALOR</th>
+              <th style="padding:7px 8px;color:#546e7a;font-size:11px">TIPO</th>
+            </tr></thead>
+            <tbody>${novosHtml}</tbody>
+          </table>
+        </div>`}
+        ${dupHtml}
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:14px 24px;border-top:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;background:#fafafa;border-radius:0 0 16px 16px">
+        <div style="font-size:12px;color:#546e7a">Os duplicados são ignorados automaticamente com base em: data + fornecedor + NF + valor</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="document.getElementById('modalPreviaFC').remove()" style="padding:10px 20px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">Cancelar</button>
+          <button onclick="confirmarImportacaoFC()" style="padding:10px 24px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Importar Selecionados</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Guarda novos no window para confirmar depois
+  window._fcPreviaNovos = novos;
+  document.body.appendChild(modal);
+}
+
+function fcPreviaMarcarTodos(marcar){
+  window._fcPreviaNovos?.forEach((_,i)=>{
+    const chk=document.getElementById('prev_chk_'+i);
+    if(chk) chk.checked=marcar;
+  });
+}
+
+function confirmarImportacaoFC(){
+  const novos = window._fcPreviaNovos||[];
+  const selecionados = novos.filter((_,i)=>{
+    const chk=document.getElementById('prev_chk_'+i);
+    return chk?chk.checked:true;
+  });
+
+  if(!selecionados.length){ showToast('Nenhum lançamento selecionado','err'); return; }
+
+  fcDados = [...fcDados, ...selecionados];
+  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+
+  document.getElementById('modalPreviaFC')?.remove();
+  showToast('✅ '+selecionados.length+' lançamentos importados! Total: '+fcDados.length);
+  populaFiltrosFC();
+  renderFluxoCaixa();
+  window._fcPreviaNovos = null;
 }
 
 function populaFiltrosFC(){
