@@ -9188,8 +9188,10 @@ function mostrarApp(){
   } else {
     document.querySelectorAll('.tab').forEach(t=>t.style.display='flex');
     showTab(0);
-    // Mostra homescreen imediatamente para evitar flash do tab0
-    if(typeof abrirHomeScreen==='function') abrirHomeScreen();
+    // Abre homescreen imediatamente (sem tiles ainda) para evitar flash do tab0
+    const home=document.getElementById('homeScreen');
+    if(home){ home.classList.add('open'); }
+    document.getElementById('homeNome').textContent=usuarioLogado?.nome?.split(' ')[0]||'';
   }
   iniciarVerificacaoLembretes();
 }
@@ -11734,10 +11736,10 @@ async function importarFluxoOmie(input){
         data: dt, valor: val, pendente: isPendente
       };
 
-      // Chave de deduplicação: data + fornecedor + nf + valor (arredondado 2 casas)
-      const chave = item.data+'|'+item.fornecedor.toLowerCase()+'|'+(item.nf||'nd')+'|'+Math.abs(item.valor).toFixed(2);
+      // Chave de deduplicação: data + fornecedor + nf + valor + tipo(pendente/realizado)
+      const chave = item.data+'|'+item.fornecedor.toLowerCase()+'|'+(item.nf||'nd')+'|'+Math.abs(item.valor).toFixed(2)+'|'+(item.pendente?'p':'r');
       const jaExiste = fcDados.some(x=>{
-        const xChave = x.data+'|'+x.fornecedor.toLowerCase()+'|'+(x.nf||'nd')+'|'+Math.abs(x.valor).toFixed(2);
+        const xChave = x.data+'|'+x.fornecedor.toLowerCase()+'|'+(x.nf||'nd')+'|'+Math.abs(x.valor).toFixed(2)+'|'+((x.pendente||false)?'p':'r');
         return xChave===chave;
       });
 
@@ -12020,7 +12022,7 @@ function renderFluxoCaixa(){
   };
 
   // Índices reais no fcDados para pendentes
-  const pendentesComIdx = pendentesOmie.map((t,i)=>({...t, _fcGlobalIdx: fcDados.indexOf(t)}));
+  // pendentesOmie já tem os dados corretos
 
   const cpOmie=groupPend(pendentesOmie.filter(t=>t.valor<0), 'pagar').map(t=>{
     const fcIdx=fcDados.findIndex(x=>x===t||(!x.pendente===false&&x.data===t.data&&x.fornecedor===t.fornecedor&&x.pendente&&x.valor<0&&Math.abs(Math.abs(x.valor)-Math.abs(t.valor))<0.5));
@@ -12147,9 +12149,11 @@ function renderFluxoCaixa(){
         '<td></td><td></td><td></td>'+
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td style="padding:4px;text-align:center">'+
-        (c._omie?'<button onclick="excluirLancamentoPendenteFC(\''+c.vencimento+'\',\''+c.fornecedor.substring(0,15).replace(/'/g,'')+'\','+c.valor+')" title="Excluir" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>':
-        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Pagar</button>')+
+        '<td style="padding:4px;text-align:center;white-space:nowrap">'+
+        (c._omie?
+          '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 7px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;margin-right:2px">✅ Pagar</button>'+
+          '<button onclick="excluirLancamentoPendenteFC(\''+c.vencimento+'\',\''+c.fornecedor.substring(0,15).replace(/'/g,'')+'\','+c.valor+')" title="Excluir" style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>':
+          '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Pagar</button>')+
         '</td></tr>';
     });
 
@@ -12167,9 +12171,11 @@ function renderFluxoCaixa(){
         '<td></td>'+
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td style="padding:4px;text-align:center">'+
-        (c._omie?'<button onclick="excluirLancamentoPendenteFC(\''+c.vencimento+'\',\''+c.fornecedor.substring(0,15).replace(/'/g,'')+'\','+c.valor+')" title="Excluir" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>':
-        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Receber</button>')+
+        '<td style="padding:4px;text-align:center;white-space:nowrap">'+
+        (c._omie?
+          '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 7px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;margin-right:2px">✅ Receber</button>'+
+          '<button onclick="excluirLancamentoPendenteFC(\''+c.vencimento+'\',\''+c.fornecedor.substring(0,15).replace(/'/g,'')+'\','+c.valor+')" title="Excluir" style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>':
+          '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Receber</button>')+
         '</td></tr>';
     });
 
