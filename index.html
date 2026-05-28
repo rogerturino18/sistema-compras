@@ -9106,7 +9106,9 @@ function mostrarApp(){
     showTab(3);
   } else {
     document.querySelectorAll('.tab').forEach(t=>t.style.display='flex');
-    showTab(0); // mostra tab 0 enquanto dados carregam; homeScreen abre após loadAll
+    showTab(0);
+    // Mostra homescreen imediatamente para evitar flash do tab0
+    if(typeof abrirHomeScreen==='function') abrirHomeScreen();
   }
   iniciarVerificacaoLembretes();
 }
@@ -10022,7 +10024,7 @@ function renderMovEstoque(){
     const pdvNumero = pdvObj ? (String(pdvObj.numero).startsWith('PDV') ? pdvObj.numero : 'PDV '+pdvObj.numero) : null;
     const pdvLabel = pdvNumero ? `${pdvNumero}${pdvObj.cliente?' — '+pdvObj.cliente.substring(0,20):''}` : null;
     const deptoDisplay = pdvLabel || depto;
-    const obsDisplay = m.observacao || pdvLabel || '—';
+    const obsDisplay = (m.observacao || pdvNumero || '—').replace(/PDV\s+PDV\s*/gi,'PDV ');
     return `<tr>
       <td style="padding:7px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
       <td style="padding:7px 10px">
@@ -10645,18 +10647,17 @@ function renderDepartamentos(){
   // 2. Fixed departments (for requisitions NOT linked to a PDV)
   let centros=[];
 
-  // PDVs
+  // PDVs (usando tabela pdvs, não pedidosVenda)
   if(!filtTipo||filtTipo==='pdv'){
-    pedidosVenda.forEach(p=>{
+    pdvs.forEach(p=>{
       if(filtSt&&p.status!==filtSt) return;
-      const label=`PDV ${p.numero}${p.cliente_nome?' — '+p.cliente_nome.substring(0,30):''}`;
+      const nrLabel=String(p.numero).startsWith('PDV')?p.numero:'PDV '+p.numero;
+      const label=`${nrLabel}${p.cliente?' — '+p.cliente.substring(0,30):''}`;
       if(busca&&!label.toLowerCase().includes(busca)) return;
-      // Count requisitions for this PDV
-      const reqs=requisicoes.filter(r=>r.pdv_id===p.id||(r.departamento==='PDV'&&r.pdv_id===p.id));
+      const reqs=requisicoes.filter(r=>r.pdv_id===p.id);
       const matUsados=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
-      // Count ordens
       const opsCount=ordens.filter(o=>o.pdv_id===p.id).length;
-      centros.push({id:p.id,tipo:'pdv',nome:`PDV ${p.numero}`,cliente:p.cliente_nome||'',status:p.status,cor:getCor(p.departamento||'COMERCIAL'),total:p.total||0,matUsados,opsCount,pvData:p});
+      centros.push({id:p.id,tipo:'pdv',nome:nrLabel,cliente:p.cliente||'',status:p.status,cor:getCor(p.equipamento||'COMERCIAL'),total:0,matUsados,opsCount,pvData:p});
     });
   }
 
@@ -10674,9 +10675,9 @@ function renderDepartamentos(){
   // Summary cards
   const cardsEl=document.getElementById('deptoResumoCards');
   if(cardsEl){
-    const totalPVs=pedidosVenda.length;
-    const emAberto=pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length;
-    const totalVal=pedidosVenda.filter(p=>['Aprovado','Em Produção'].includes(p.status)).reduce((s,p)=>s+(p.total||0),0);
+    const totalPVs=pdvs.length;
+    const emAberto=pdvs.filter(p=>!['Concluído','Cancelado'].includes(p.status||'')).length;
+    const totalVal=0;
     const totalReqs=requisicoes.filter(r=>r.status==='Atendida').length;
     cardsEl.innerHTML=`
       <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 16px;border-left:4px solid #1a237e;min-width:160px">
