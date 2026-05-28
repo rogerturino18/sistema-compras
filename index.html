@@ -533,8 +533,7 @@ tr:hover td{background:#f9fbf9}
     <div class="sbi" onclick="sbGo(1,'Lista de Compras')">📋 Lista de Compras</div>
     <div class="sbi" onclick="sbGo(24,'Entrada NF-e')">🧾 Entrada NF-e</div>
     <div class="sbi" onclick="sbGo(2,'Fornecedores')">🏢 Fornecedores</div>
-    <div class="sbi" onclick="sbGo(6,'Cotações')">💰 Cotações</div>
-    <div class="sbi" onclick="sbGo(7,'Comparar')">📊 Comparar</div>
+    <div class="sbi" onclick="sbGo(7,'Comparar Orçamentos')">📊 Comparar Orçamentos</div>
     <div style="font-size:10px;font-weight:600;color:#9e9e9e;text-transform:uppercase;padding:8px 14px 2px">Interno</div>
     <div class="sbi" onclick="sbGo(9,'Compras Internas')">🛒 Compras Internas</div>
     <div class="sbi" onclick="sbGo(10,'Enviar Cotação')">📧 Enviar Cotação</div>
@@ -704,15 +703,26 @@ tr:hover td{background:#f9fbf9}
   <div id="listaCotacoes"></div>
 </div>
 
-<!-- TAB 7: COMPARAR -->
+<!-- TAB 7: COMPARAR ORÇAMENTOS -->
 <div class="panel" id="tab7">
-  <div class="toolbar">
-    <input type="text" id="busca4" placeholder="Buscar item..." oninput="renderComparar()" style="flex:1;min-width:150px">
-    <button class="btn" onclick="exportarExcel('comparar')" style="white-space:nowrap">📊 Excel</button>
-    <select id="filtroComp" onchange="renderComparar()">
-      <option value="">Todos</option><option value="cotado">Com cotação</option><option value="sem">Sem cotação</option>
-    </select>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📊 Comparar Orçamentos Recebidos</h2>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Mostra apenas itens com orçamentos respondidos pelos fornecedores</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input type="text" id="busca4" placeholder="🔍 Buscar item, PDV, fornecedor..." oninput="renderComparar()"
+        style="padding:8px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;min-width:220px">
+      <select id="filtroCompPDV" onchange="renderComparar()" style="padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+        <option value="">Todos os PDVs</option>
+      </select>
+    </div>
   </div>
+
+  <!-- KPIs -->
+  <div class="stat-row" id="statsComparar" style="margin-bottom:16px"></div>
+
+  <!-- Lista de comparação -->
   <div id="listaComparar"></div>
 </div>
 
@@ -2173,7 +2183,7 @@ tr:hover td{background:#f9fbf9}
       <!-- Sub-abas -->
       <div style="display:flex;background:#fff;border-bottom:2px solid #e0e0e0;padding:0 20px">
         <button onclick="showCCTab('req')" id="ccTab_req" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:700;font-size:12px;color:#37474f;border-bottom:3px solid #37474f;margin-bottom:-2px">📦 Materiais Usados</button>
-        <button onclick="showCCTab('op')" id="ccTab_op" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">⚙️ Ordens de Produção</button>
+        <button onclick="showCCTab('op')" id="ccTab_op" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📦 Movimentações / Ordens</button>
         <button onclick="showCCTab('info')" id="ccTab_info" style="padding:9px 16px;border:none;background:none;cursor:pointer;font-weight:500;font-size:12px;color:#546e7a;border-bottom:3px solid transparent;margin-bottom:-2px">📋 Dados do PDV</button>
       </div>
       <div style="padding:16px 20px;min-height:300px;max-height:60vh;overflow-y:auto">
@@ -4270,136 +4280,164 @@ function toggleGrupoCot(bodyId, headerEl){
 
 
 function renderComparar(){
-  const b=(document.getElementById('busca4').value||'').toLowerCase();
-  const filtro=document.getElementById('filtroComp').value;
+  const b=(document.getElementById('busca4')?.value||'').toLowerCase();
+  const pdvFiltro=document.getElementById('filtroCompPDV')?.value||'';
   const div=document.getElementById('listaComparar');
-  const lista=itens.filter(it=>{
-    if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+'').toLowerCase().includes(b))return false;
+  const stats=document.getElementById('statsComparar');
+
+  // Popula filtro de PDVs
+  const pdvSel=document.getElementById('filtroCompPDV');
+  if(pdvSel&&pdvSel.options.length<=1){
+    const pdvsComCot=[...new Set(cotacoes.map(c=>{
+      const it=itens.find(i=>i.id===c.item_id);
+      return it?.pdv||'';
+    }).filter(Boolean))].sort();
+    pdvsComCot.forEach(p=>{
+      const o=document.createElement('option'); o.value=p; o.textContent=p;
+      pdvSel.appendChild(o);
+    });
+  }
+
+  // Filtra apenas itens que têm cotações recebidas
+  const itensComCot=itens.filter(it=>{
     const cs=cotacoes.filter(c=>c.item_id===it.id);
-    if(filtro==='cotado'&&!cs.length)return false;
-    if(filtro==='sem'&&cs.length)return false;
+    if(!cs.length) return false;
+    if(b&&!(it.descritivo+it.material+it.pdv+it.cliente+cs.map(c=>c.fornecedor).join('')).toLowerCase().includes(b)) return false;
+    if(pdvFiltro&&it.pdv!==pdvFiltro) return false;
     return true;
   });
-  if(!lista.length){div.innerHTML='<div class="empty">Nenhum item</div>';return;}
 
+  // KPIs
+  const totalItens=itensComCot.length;
+  const totalCots=cotacoes.filter(c=>itensComCot.some(it=>it.id===c.item_id)).length;
+  const itensMelhorEsc=itensComCot.filter(it=>{
+    const cs=cotacoes.filter(c=>c.item_id===it.id);
+    return cs.some(c=>c.selecionado||c.melhor);
+  }).length;
+  const economiaTotal=itensComCot.reduce((s,it)=>{
+    const cs=cotacoes.filter(c=>c.item_id===it.id).map(c=>c.preco||c.valor||0).filter(v=>v>0);
+    if(cs.length<2) return s;
+    return s+(Math.max(...cs)-Math.min(...cs))*(it.qtd||1);
+  },0);
+
+  if(stats) stats.innerHTML=`
+    <div class="stat" style="cursor:default;border-left-color:#1565c0">
+      <div class="stat-label">Itens cotados</div>
+      <div class="stat-val" style="color:#1565c0">${totalItens}</div>
+    </div>
+    <div class="stat" style="cursor:default;border-left-color:#2e7d32">
+      <div class="stat-label">Total orçamentos</div>
+      <div class="stat-val" style="color:#2e7d32">${totalCots}</div>
+    </div>
+    <div class="stat" style="cursor:default;border-left-color:#e65100">
+      <div class="stat-label">Economia potencial</div>
+      <div class="stat-val" style="color:#e65100">${fmtMoeda(economiaTotal)}</div>
+      <div class="stat-sub">melhor vs pior preço</div>
+    </div>`;
+
+  if(!totalItens){
+    div.innerHTML=`<div style="text-align:center;padding:60px 20px">
+      <div style="font-size:48px;margin-bottom:16px">📬</div>
+      <div style="font-size:16px;font-weight:700;color:#37474f;margin-bottom:8px">Nenhum orçamento recebido ainda</div>
+      <div style="font-size:13px;color:#9e9e9e;margin-bottom:20px">Envie cotações para os fornecedores pela aba "Enviar Cotação".<br>Quando eles responderem, os preços aparecerão aqui para comparação.</div>
+      <button onclick="sbGo(10,'Enviar Cotação')" style="padding:10px 24px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">📧 Enviar Cotações</button>
+    </div>`;
+    return;
+  }
+
+  // Agrupa por PDV
   const grupos={};
-  lista.forEach(it=>{ const k=it.pdv||'Sem PDV'; if(!grupos[k])grupos[k]=[]; grupos[k].push(it); });
+  itensComCot.forEach(it=>{ const k=it.pdv||'Sem PDV'; if(!grupos[k])grupos[k]=[]; grupos[k].push(it); });
 
   const paleta=['#1565c0','#2e7d32','#6a1b9a','#c62828','#e65100','#00695c','#37474f','#283593'];
-  const cor = k => paleta[Math.abs([...k].reduce((a,c)=>a+c.charCodeAt(0),0))%paleta.length];
-  const normKey=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim().split(' ').slice(0,3).join(' ');
-  const entries3=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR'));
+  const cor=k=>paleta[Math.abs([...k].reduce((a,c)=>a+c.charCodeAt(0),0))%paleta.length];
 
-  const navHtml3 = entries3.length>2?`
-    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;background:#fff;border-radius:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
-      <span style="font-size:11px;color:#9e9e9e;align-self:center;margin-right:4px">Ir para:</span>
-      ${entries3.map(([pdv])=>`<button onclick="document.getElementById('cmpGroup_${pdv.replace(/\W/g,'_')}')?.scrollIntoView({behavior:'smooth',block:'start'})"
-        style="padding:4px 12px;background:${cor(pdv)};color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer">${pdv.replace(/PDV\s*/i,'PDV ')}</button>`).join('')}
-    </div>`:'';
-
-  div.innerHTML=navHtml3+entries3.map(([pdv,itensPDV])=>{
+  div.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([pdv,itensPDV])=>{
     const c=cor(pdv);
-    const cards=itensPDV.map(it=>{
-      const cs=cotacoes.filter(x=>x.item_id===it.id);
-      const allRaw=[...cs.map(x=>({forn:x.fornecedor,val:x.preco||x.valor,prazo:x.prazo_entrega||x.prazo,obs:x.observacao}))];
-      if(it.valor_unitario&&it.fornecedor) allRaw.push({forn:it.fornecedor,val:it.valor_unitario,via:'planilha'});
-
-      const byForn={};
-      allRaw.forEach(p=>{
-        const k2=normKey(p.forn);
-        const existKey=Object.keys(byForn).find(ek=>ek.includes(k2)||k2.includes(ek));
-        if(!byForn[existKey||k2]||(p.val||Infinity)<(byForn[existKey||k2].val||Infinity)) byForn[existKey||k2]=p;
-      });
-      const all=Object.values(byForn).filter(x=>x.val>0).sort((a,b)=>a.val-b.val);
-      const melhor=all[0];
-      const semCot=!all.length;
-      const und=(it.und||'').toUpperCase();
-      const totalMelhor=melhor?(und==='KG'?(melhor.val*(it.peso||0)):(melhor.val*(it.qtd||1))):0;
-      const medidas=[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ');
-
-      return `<div style="background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.07);overflow:hidden;border:1px solid ${semCot?'#ffe082':'#e8f5e9'}">
-        <!-- Item header -->
-        <div style="padding:12px 16px;background:${semCot?'#fff8e1':'linear-gradient(135deg,'+c+'12,#fff)'}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:#263238">${it.descritivo||'—'}</div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">
-                ${it.material?`<span style="background:${c}18;color:${c};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">${it.material}</span>`:''}
-                ${medidas?`<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 8px;border-radius:10px;font-size:11px;font-family:monospace">${medidas}</span>`:''}
-                ${it.desenho?`<span style="background:#e3f2fd;color:#1565c0;padding:1px 8px;border-radius:10px;font-size:11px">📐 ${it.desenho}</span>`:''}
-                <span style="background:#e8eaf6;color:#37474f;padding:1px 8px;border-radius:10px;font-size:11px">${it.qtd||1} ${it.und||'un'}</span>
-              </div>
-            </div>
-            ${melhor?`<div style="text-align:right;flex-shrink:0">
-              <div style="font-size:10px;color:#9e9e9e;text-transform:uppercase">Melhor total</div>
-              <div style="font-size:18px;font-weight:900;color:#2e7d32">${fmtVal(totalMelhor)}</div>
-              <div style="font-size:10px;color:#546e7a">${fmtVal(melhor.val)}/un · ${melhor.forn.split(' ')[0]}</div>
-            </div>`:''}
-          </div>
-        </div>
-        <!-- Corrida de preços -->
-        <div style="padding:12px 16px">
-          ${semCot
-            ? `<div style="text-align:center;padding:8px;color:#bdbdbd;font-size:12px">⚠️ Sem cotações</div>`
-            : all.map((p,i)=>{
-                const pct=Math.round((p.val/melhor.val)*100);
-                const isBest=i===0;
-                const barPct=100-Math.min(50,pct-100);
-                const barColor=isBest?'#2e7d32':pct<=110?'#f57f17':'#ef5350';
-                const economia=i>0?((p.val-melhor.val)/p.val*100).toFixed(0):null;
-                return `<div style="margin-bottom:8px">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      ${isBest?`<span style="font-size:14px">🏆</span>`:`<span style="width:20px;height:20px;background:#f5f5f5;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#9e9e9e">${i+1}</span>`}
-                      <span style="font-size:12px;font-weight:${isBest?700:500};color:${isBest?'#263238':'#546e7a'}">${p.forn}</span>
-                      ${p.prazo?`<span style="font-size:10px;color:#9e9e9e">${p.prazo}d</span>`:''}
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px">
-                      ${economia?`<span style="font-size:10px;color:#ef5350">+${economia}%</span>`:''}
-                      <span style="font-size:13px;font-weight:700;color:${isBest?'#2e7d32':'#546e7a'}">${fmtVal(p.val)}</span>
-                    </div>
-                  </div>
-                  <div style="background:#f5f5f5;border-radius:4px;height:5px">
-                    <div style="background:${barColor};height:5px;border-radius:4px;width:${barPct}%;transition:width 0.3s"></div>
-                  </div>
-                </div>`;
-              }).join('')
-          }
-        </div>
-      </div>`;
-    }).join('');
-
-    const totalCot=itensPDV.reduce((s,it)=>s+cotacoes.filter(x=>x.item_id===it.id).length,0);
     const melhorTotal=itensPDV.reduce((s,it)=>{
       const cs=cotacoes.filter(x=>x.item_id===it.id);
       if(!cs.length) return s;
-      const best=cs.reduce((a,b)=>(a.preco||a.valor||Infinity)<(b.preco||b.valor||Infinity)?a:b);
-      const val=best.preco||best.valor||0;
-      const und=(it.und||'').toUpperCase();
-      return s+(und==='KG'?val*(it.peso||0):val*(it.qtd||1));
+      const best=Math.min(...cs.map(x=>x.preco||x.valor||Infinity).filter(v=>v>0));
+      return s+(best===Infinity?0:best*(it.qtd||1));
     },0);
 
-    return `<div style="margin-bottom:16px" id="cmpGroup_${pdv.replace(/\W/g,'_')}">
-      <div style="background:${c};border-radius:14px;padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none"
-        onclick="toggleGrupoCot('cmpBody_${pdv.replace(/\W/g,'_')}',this)">
-        <div style="width:42px;height:42px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${pdv.replace(/PDV\s*/i,'').substring(0,3)}</div>
-        <div style="flex:1">
-          <div style="color:#fff;font-weight:700;font-size:15px">${pdv}</div>
-          <div style="color:rgba(255,255,255,0.7);font-size:12px">${itensPDV[0]?.cliente||''}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="color:rgba(255,255,255,0.7);font-size:11px">Melhor cenário</div>
-          <div style="color:#fff;font-size:18px;font-weight:900">${melhorTotal>0?fmtVal(melhorTotal):'—'}</div>
-        </div>
-        <span style="background:rgba(255,255,255,0.2);color:#fff;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700">${totalCot} cotações</span>
-        <span id="cotArrow_cmp_${pdv.replace(/\W/g,'_')}" style="color:#fff;font-size:18px">▶</span>
-      </div>
-      <div id="cmpBody_${pdv.replace(/\W/g,'_')}" style="background:#f8faf8;border:1px solid ${c}44;border-top:none;border-radius:0 0 14px 14px;padding:0;display:none;overflow:hidden">
-        <div style="padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cards}</div>
-      </div>
-    </div>`;
+    const cards=itensPDV.map(it=>{
+      const cs=cotacoes.filter(x=>x.item_id===it.id)
+        .map(x=>({...x,val:x.preco||x.valor||0}))
+        .filter(x=>x.val>0)
+        .sort((a,b)=>a.val-b.val);
+      const melhor=cs[0];
+      const medidas=[it.espessura,it.medida1,it.medida2].filter(Boolean).join(' × ');
+
+      const barras=cs.map((qt,i)=>{
+        const pct=Math.round((qt.val/melhor.val)*100);
+        const isBest=i===0;
+        const diff=i>0?'+'+((qt.val-melhor.val)/melhor.val*100).toFixed(0)+'%':'';
+        return '<div style="margin-bottom:8px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'+
+            '<div style="display:flex;align-items:center;gap:6px">'+
+              (isBest?'<span style="font-size:13px">🏆</span>':'<span style="width:18px;height:18px;background:#f5f5f5;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#9e9e9e">'+(i+1)+'</span>')+
+              '<span style="font-size:12px;font-weight:'+(isBest?700:500)+';color:'+(isBest?'#263238':'#546e7a')+'">'+qt.fornecedor+'</span>'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:6px">'+
+              (diff?'<span style="font-size:10px;color:#ef5350">'+diff+'</span>':'')+
+              '<span style="font-size:13px;font-weight:700;color:'+(isBest?'#2e7d32':'#546e7a')+'">'+fmtMoeda(qt.val)+'</span>'+
+              '<button data-item="'+it.id+'" data-forn="'+encodeURIComponent(qt.fornecedor)+'" data-val="'+qt.val+'" onclick="aplicarMelhorPreco(this.dataset.item,decodeURIComponent(this.dataset.forn),parseFloat(this.dataset.val))" title="Aplicar este preço" style="padding:2px 8px;background:'+(isBest?'#2e7d32':'#546e7a')+';color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer">Aplicar</button>'+
+            '</div>'+
+          '</div>'+
+          '<div style="background:#f5f5f5;border-radius:4px;height:5px">'+
+            '<div style="background:'+(isBest?'#2e7d32':pct<=110?'#f57f17':'#ef5350')+';height:5px;border-radius:4px;width:'+Math.min(100,Math.round(100-(pct-100)*0.5))+'%"></div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+
+      return '<div style="background:#fff;border-radius:12px;border:1px solid #e8f5e9;box-shadow:0 2px 8px rgba(0,0,0,0.06);overflow:hidden">'+
+        '<div style="background:linear-gradient(135deg,'+c+'12,#fff);padding:10px 14px;border-bottom:1px solid #e8f5e9">'+
+          '<div style="font-weight:700;font-size:13px;color:#263238">'+it.descritivo+'</div>'+
+          '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">'+
+            (it.material?'<span style="background:'+c+'18;color:'+c+';padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600">'+it.material+'</span>':'')+
+            (medidas?'<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 8px;border-radius:10px;font-size:11px;font-family:monospace">'+medidas+'</span>':'')+
+            (it.desenho?'<span style="background:#e3f2fd;color:#1565c0;padding:1px 8px;border-radius:10px;font-size:11px">📐 '+it.desenho+'</span>':'')+
+            '<span style="background:#e8eaf6;color:#37474f;padding:1px 8px;border-radius:10px;font-size:11px">'+(it.qtd||1)+' '+(it.und||'un')+'</span>'+
+          '</div>'+
+        '</div>'+
+        '<div style="padding:10px 14px">'+barras+'</div>'+
+      '</div>';
+    }).join('');
+
+    return '<div style="margin-bottom:20px" id="cmpGroup_'+pdv.replace(/\W/g,'_')+'">'+
+      '<div style="background:'+c+';border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none"'+
+        ' onclick="toggleGrupoCot(this.dataset.body,this)" data-body="cmpBody_'+pdv.replace(/[^a-zA-Z0-9]/g,'_')+'">'+
+        '<div style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff">'+pdv.replace(/PDV\s*/i,'').substring(0,3)+'</div>'+
+        '<div style="flex:1">'+
+          '<div style="color:#fff;font-weight:700;font-size:14px">'+pdv+'</div>'+
+          '<div style="color:rgba(255,255,255,0.7);font-size:12px">'+(itensPDV[0]?.cliente||itensPDV[0]?.descritivo||'')+'</div>'+
+        '</div>'+
+        '<div style="text-align:right">'+
+          '<div style="color:rgba(255,255,255,0.7);font-size:11px">Melhor cenário</div>'+
+          '<div style="color:#fff;font-size:16px;font-weight:900">'+fmtMoeda(melhorTotal)+'</div>'+
+        '</div>'+
+        '<span style="background:rgba(255,255,255,0.2);color:#fff;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700">'+itensPDV.length+' itens</span>'+
+        '<span style="color:#fff;font-size:16px">▶</span>'+
+      '</div>'+
+      '<div id="cmpBody_'+pdv.replace(/\W/g,'_')+'" style="background:#f8faf8;border:1px solid '+c+'44;border-top:none;border-radius:0 0 14px 14px;padding:0;display:none;overflow:hidden">'+
+        '<div style="padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">'+cards+'</div>'+
+      '</div>'+
+    '</div>';
   }).join('');
 }
+
+async function aplicarMelhorPreco(itemId, fornecedor, preco){
+  if(!confirm('Aplicar preço '+fmtMoeda(preco)+' de "'+fornecedor+'" na lista de compras?')) return;
+  try{
+    await api('PATCH','itens',{valor_unitario:preco,fornecedor},'?id=eq.'+itemId);
+    showToast('✅ Preço aplicado na lista de compras!');
+    await loadAll();
+    renderComparar();
+  }catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+
 
 function renderStatsCompras(){
   const el=document.getElementById('statsCompras');
@@ -10735,49 +10773,63 @@ function abrirCentroCusto(id, tipo){
   _ccAtual={id,tipo};
   let titulo='', cor='#37474f';
   if(tipo==='pdv'){
-    const p=pedidosVenda.find(x=>x.id===id);
-    if(!p) return;
-    titulo=`PDV ${p.numero} — ${p.cliente_nome||''}`;
-    cor=getCor(p.departamento||'COMERCIAL');
-    // Stats
+    const p=pdvs.find(x=>x.id===id);
+    if(!p){ showToast('PDV não encontrado','err'); return; }
+    const nrLabel=String(p.numero).startsWith('PDV')?p.numero:'PDV '+p.numero;
+    titulo=`${nrLabel} — ${p.cliente||''}`;
+    cor=getCor(p.equipamento||'COMERCIAL');
+
     const reqs=requisicoes.filter(r=>r.pdv_id===p.id);
     const opsLocal=ordens.filter(o=>o.pdv_id===p.id);
     const matTotal=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.reduce((ss,it)=>ss+(it.qtd||0),0):0),0);
+
+    // Movimentações de estoque vinculadas a este PDV
+    const movs=estoqueMov.filter(m=>{
+      if(m.pdv_id===p.id) return true;
+      const obs=(m.observacao||'').toLowerCase();
+      const pdvN=String(p.numero).toLowerCase();
+      return obs.includes(pdvN)||obs.includes('pdv '+pdvN);
+    });
+    const entradas=movs.filter(m=>m.tipo==='entrada');
+    const saidas=movs.filter(m=>m.tipo==='saida');
+
     document.getElementById('modalCCStats').innerHTML=`
       <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
-        <div style="font-size:10px;color:#546e7a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Valor PDV</div>
-        <div style="font-size:18px;font-weight:800;color:${cor}">${fmtVal(p.total||0)}</div>
+        <div style="font-size:10px;color:#546e7a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Cliente</div>
+        <div style="font-size:13px;font-weight:700;color:#263238">${p.cliente||'—'}</div>
       </div>
       <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
         <div style="font-size:10px;color:#546e7a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Status</div>
         <div style="font-size:14px;font-weight:700;color:#263238">${p.status||'—'}</div>
       </div>
       <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
-        <div style="font-size:10px;color:#6a1b9a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Materiais Retirados</div>
+        <div style="font-size:10px;color:#2e7d32;font-weight:700;text-transform:uppercase;margin-bottom:4px">Entradas</div>
+        <div style="font-size:18px;font-weight:800;color:#2e7d32">${entradas.length}</div>
+      </div>
+      <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
+        <div style="font-size:10px;color:#e65100;font-weight:700;text-transform:uppercase;margin-bottom:4px">Saídas</div>
+        <div style="font-size:18px;font-weight:800;color:#e65100">${saidas.length}</div>
+      </div>
+      <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
+        <div style="font-size:10px;color:#6a1b9a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Mat. Retirados</div>
         <div style="font-size:18px;font-weight:800;color:#6a1b9a">${matTotal}</div>
       </div>
       <div style="padding:14px 16px;text-align:center">
-        <div style="font-size:10px;color:#e65100;font-weight:700;text-transform:uppercase;margin-bottom:4px">Ordens de Produção</div>
+        <div style="font-size:10px;color:#e65100;font-weight:700;text-transform:uppercase;margin-bottom:4px">Ordens Produção</div>
         <div style="font-size:18px;font-weight:800;color:#e65100">${opsLocal.length}</div>
       </div>`;
-    // Materiais tab
+
     document.getElementById('ccReqConteudo').innerHTML=renderCCMateriais(reqs);
-    // Ordens tab
-    document.getElementById('ccOPConteudo').innerHTML=renderCCOrdens(opsLocal);
-    // Info tab
+    document.getElementById('ccOPConteudo').innerHTML=renderCCMovimentacoes(movs, p);
     document.getElementById('ccInfoConteudo').innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
-        <div><b>Cliente:</b> ${p.cliente_nome||'—'}</div>
-        <div><b>CNPJ:</b> ${p.cliente_cnpj||'—'}</div>
-        <div><b>Vendedor:</b> ${p.vendedor||'—'}</div>
-        <div><b>Departamento:</b> ${p.departamento||'—'}</div>
-        <div><b>Prev. Faturamento:</b> ${p.prev_faturamento?new Date(p.prev_faturamento+'T12:00').toLocaleDateString('pt-BR'):'—'}</div>
-        <div><b>Data inclusão:</b> ${p.data_inclusao?new Date(p.data_inclusao).toLocaleDateString('pt-BR'):'—'}</div>
-        <div style="grid-column:1/-1"><b>Endereço:</b> ${[p.cliente_endereco,p.cliente_cidade].filter(Boolean).join(', ')||'—'}</div>
+        <div><b>PDV:</b> ${nrLabel}</div>
+        <div><b>Cliente:</b> ${p.cliente||'—'}</div>
+        <div><b>Equipamento:</b> ${p.equipamento||'—'}</div>
+        <div><b>Status:</b> ${p.status||'—'}</div>
         ${p.observacoes?`<div style="grid-column:1/-1"><b>Obs:</b> ${p.observacoes}</div>`:''}
       </div>`;
   } else {
-    // Fixed department
     const nome=DEPTOS_FIXOS.find(d=>d.id===id)?.nome||departamentos.find(d=>d.id===id)?.nome||id;
     titulo=nome; cor=getCor(nome);
     const reqs=requisicoes.filter(r=>r.departamento===nome&&r.status==='Atendida');
@@ -10792,7 +10844,7 @@ function abrirCentroCusto(id, tipo){
         <div style="font-size:18px;font-weight:800;color:#6a1b9a">${matTotal}</div>
       </div>`;
     document.getElementById('ccReqConteudo').innerHTML=renderCCMateriais(reqs);
-    document.getElementById('ccOPConteudo').innerHTML='<p style="color:#bdbdbd;font-size:13px">Ordens de produção não vinculadas a departamentos fixos.</p>';
+    document.getElementById('ccOPConteudo').innerHTML='<p style="color:#bdbdbd;font-size:13px;padding:20px">Ordens de produção não vinculadas a departamentos fixos.</p>';
     document.getElementById('ccInfoConteudo').innerHTML=`<div style="font-size:13px"><b>Departamento:</b> ${nome}</div>`;
   }
   document.getElementById('modalCCTitulo').textContent=titulo;
@@ -10826,6 +10878,49 @@ function renderCCMateriais(reqs){
       <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Quantidade</th>
       <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Requisição</th>
       <th style="padding:7px 10px;color:#6a1b9a;font-size:11px">Solicitante</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderCCMovimentacoes(movs, pdv){
+  if(!movs.length) return '<p style="color:#bdbdbd;padding:20px;text-align:center">Nenhuma movimentação de estoque para este PDV.</p>';
+
+  const rows = movs.sort((a,b)=>(b.data||b.created_at||'').localeCompare(a.data||a.created_at||'')).map(m=>{
+    const item = estoqueItens.find(i=>i.id===m.item_id);
+    const nome = item?.descricao||item?.tipo_peca||'Item';
+    const dt = (m.data||m.created_at||'').substring(0,10);
+    const dtFmt = dt?new Date(dt+'T12:00').toLocaleDateString('pt-BR'):'—';
+    const isEnt = m.tipo==='entrada';
+    return `<tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:7px 10px;font-size:11px;color:#9e9e9e">${dtFmt}</td>
+      <td style="padding:7px 10px">
+        <span style="background:${isEnt?'#e8f5e9':'#fff3e0'};color:${isEnt?'#2e7d32':'#e65100'};padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700">${isEnt?'📥 Entrada':'📤 Saída'}</span>
+      </td>
+      <td style="padding:7px 10px;font-weight:600;font-size:12px">${nome}</td>
+      <td style="padding:7px 10px;font-size:11px;color:var(--green)">${item?.material||'—'}</td>
+      <td style="padding:7px 10px;font-weight:700;font-size:13px;color:${isEnt?'#2e7d32':'#e65100'}">${isEnt?'+':'−'}${m.quantidade||0} ${m.unidade_saida||item?.unidade||''}</td>
+      <td style="padding:7px 10px;font-size:11px;color:#546e7a">${(m.observacao||'—').replace(/PDV PDV/gi,'PDV')}</td>
+      <td style="padding:7px 10px;font-size:11px;color:#9e9e9e">${m.criado_por||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const totEnt = movs.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+(m.quantidade||0),0);
+  const totSai = movs.filter(m=>m.tipo==='saida').reduce((s,m)=>s+(m.quantidade||0),0);
+
+  return `<div style="display:flex;gap:12px;margin-bottom:12px">
+    <div style="background:#e8f5e9;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;color:#2e7d32">📥 Total entradas: ${totEnt} itens</div>
+    <div style="background:#fff3e0;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;color:#e65100">📤 Total saídas: ${totSai} itens</div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#f5f5f5">
+      <th style="padding:7px 10px;color:#546e7a;font-size:11px;text-align:left">Data</th>
+      <th style="padding:7px 10px;color:#546e7a;font-size:11px;text-align:left">Tipo</th>
+      <th style="padding:7px 10px;color:#546e7a;font-size:11px;text-align:left">Item</th>
+      <th style="padding:7px 10px;color:#546e7a;font-size:11px;text-align:left">Material</th>
+      <th style="padding:7px 10px;color:#546e7a;font-size:11px;text-align:left">Quantidade</th>
+      <th style="padding:7px 10px;color:#546e7a;font-size:11px;text-align:left">Referência</th>
+      <th style="padding:7px 10px;color:#546e7a;font-size:11px;text-align:left">Por</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
