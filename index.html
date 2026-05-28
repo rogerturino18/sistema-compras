@@ -11737,15 +11737,31 @@ function renderFluxoCaixa(){
     .filter(c=>!mesFiltro||((c.vencimento||c.dt_vencimento||'').startsWith(mesFiltro)))
     .filter(c=>!busca||(c.descricao||c.cliente||'').toLowerCase().includes(busca));
 
-  // Pendentes importados do Omie (negativo=A Pagar, positivo=A Receber)
-  const cpOmie=pendentesOmie.filter(t=>t.valor<0).map(t=>({
-    id:'omie_cp_'+t.data+'_'+Math.random().toString(36).substr(2,5),
+  // Pendentes importados do Omie — agrupa por NF+data+fornecedor
+  const groupPend=(lista, tipo)=>{
+    const grp={};
+    lista.forEach(t=>{
+      const nfKey=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'_';
+      const key=t.data+'|'+nfKey+'|'+t.fornecedor.substring(0,20);
+      if(!grp[key]) grp[key]={...t, valor:0, categorias:[]};
+      grp[key].valor+=t.valor;
+      if(t.categoria&&!grp[key].categorias.includes(t.categoria)) grp[key].categorias.push(t.categoria);
+    });
+    return Object.values(grp).map(t=>({
+      ...t,
+      categoria: t.categorias.length===1?t.categorias[0]:t.categorias.join(', '),
+      _agrupado: true
+    }));
+  };
+
+  const cpOmie=groupPend(pendentesOmie.filter(t=>t.valor<0), 'pagar').map(t=>({
+    id:'omie_cp_'+t.data+'_'+t.nf+'_'+Math.random().toString(36).substr(2,4),
     descricao:t.fornecedor, fornecedor:t.fornecedor,
     valor:Math.abs(t.valor), categoria:t.categoria,
     vencimento:t.data, nf:t.nf, _omie:true
   }));
-  const crOmie=pendentesOmie.filter(t=>t.valor>0).map(t=>({
-    id:'omie_cr_'+t.data+'_'+Math.random().toString(36).substr(2,5),
+  const crOmie=groupPend(pendentesOmie.filter(t=>t.valor>0), 'receber').map(t=>({
+    id:'omie_cr_'+t.data+'_'+t.nf+'_'+Math.random().toString(36).substr(2,4),
     descricao:t.fornecedor, cliente:t.fornecedor,
     valor:t.valor, categoria:t.categoria,
     vencimento:t.data, nf:t.nf, _omie:true
