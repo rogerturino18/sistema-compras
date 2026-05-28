@@ -11530,6 +11530,18 @@ async function gerarCRdoPDV(pvId){
 let fcDados = [];
 let fcSaldoInicialOmie = 0;
 
+function excluirLancamentoFC(idx){
+  const t = fcDados[idx];
+  if(!t) return;
+  const desc = (t.fornecedor||'—').substring(0,30);
+  const val = fmtMoeda(Math.abs(t.valor));
+  if(!confirm('Excluir lançamento:\n"'+desc+'" — '+val+' ('+t.data+')?')) return;
+  fcDados.splice(idx, 1);
+  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+  showToast('Lançamento excluído!');
+  renderFluxoCaixa();
+}
+
 function limparDadosFC(){
   if(!confirm('Apagar todos os dados importados do Fluxo de Caixa?')) return;
   fcDados = [];
@@ -11604,19 +11616,20 @@ async function importarFluxoOmie(input){
       if(el) el.value=fcSaldoInicialOmie.toFixed(2).replace('.',',');
     }
 
-    const hdr = rows[headerRow].map(v=>String(v||'').toLowerCase().trim());
     const iFor = hdr.findIndex(h=>h.includes('fornec')||h.includes('razão social')||h.includes('razao social')||h.includes('nome'));
     const iCat = hdr.findIndex(h=>h.includes('categ'));
     const iNF  = hdr.findIndex(h=>h.includes('nota')||h.includes('nf')||h.includes('cf'));
-    const iDat = hdr.findIndex(h=>h.includes('data'));
+    const iDat = hdr.findIndex(h=>h.includes('data')||h.includes('previsão')||h.includes('previsao')||h.includes('vencimento')||h.includes('competencia'));
     const iVal = hdr.findIndex(h=>h.includes('pago')||h.includes('receb')||h.includes('valor')||h.includes('pagar'));
 
     // Detecta se é arquivo de realizados ou pendentes
-    const isPendente = hdr.some(h=>h.includes('previsão')||h.includes('previsao')||h.includes('a pagar'));
-    console.log('[FC] Formato detectado:', isPendente?'Contas a Pagar/Receber (pendentes)':'Realizados');
-    console.log('[FC] Colunas:', {iFor,iCat,iNF,iDat,iVal,hdr});
+    const isPendente = hdr.some(h=>h.includes('previsão')||h.includes('previsao')||h.includes('a pagar')||h.includes('vencimento'));
+    console.log('[FC] Formato detectado:', isPendente?'Pendentes':'Realizados');
+    console.log('[FC] Colunas idx:', {iFor,iCat,iNF,iDat,iVal});
+    if(iDat<0){ showToast('⚠️ Coluna de data não encontrada. Colunas: '+hdr.join(', '),'err'); return; }
+    if(iVal<0){ showToast('⚠️ Coluna de valor não encontrada. Colunas: '+hdr.join(', '),'err'); return; }
 
-    fcDados=[];
+    const novos=[];
     let dataErros=0;
     for(let i=headerRow+1;i<rows.length;i++){
       const r=rows[i]; if(!r||r[iVal]==null) continue;
@@ -11625,22 +11638,24 @@ async function importarFluxoOmie(input){
       const dt=_parseExcelDate(r[iDat]);
       if(!dt){ dataErros++; continue; }
       const nf = iNF>=0 ? String(r[iNF]||'').trim() : '';
-      fcDados.push({
-        fornecedor: String(r[iFor]||'—').trim(),
-        categoria: String(r[iCat]||'—').trim(),
+      novos.push({
+        fornecedor: String(r[iFor>=0?iFor:0]||'—').trim(),
+        categoria: String(r[iCat>=0?iCat:1]||'—').trim(),
         nf: nf==='null'||nf==='undefined'?'':nf,
         data: dt,
         valor: val,
-        pendente: isPendente  // true = A Pagar/Receber, false = realizado
+        pendente: isPendente
       });
     }
 
+    // ADICIONA aos dados existentes (não substitui)
+    fcDados = [...fcDados, ...novos];
     localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
-    localStorage.setItem('sl_fc_saldo_ant',String(fcSaldoInicialOmie));
+    if(fcSaldoInicialOmie) localStorage.setItem('sl_fc_saldo_ant',String(fcSaldoInicialOmie));
 
-    let msg='✅ '+fcDados.length+' transações importadas!';
-    if(fcSaldoInicialOmie) msg+=' Saldo anterior: '+fmtMoeda(fcSaldoInicialOmie);
-    if(dataErros) msg+=' ⚠️ '+dataErros+' linhas sem data ignoradas.';
+    let msg='✅ '+novos.length+' transações adicionadas! Total acumulado: '+fcDados.length;
+    if(fcSaldoInicialOmie) msg+=' | Saldo ant.: '+fmtMoeda(fcSaldoInicialOmie);
+    if(dataErros) msg+=' ⚠️ '+dataErros+' sem data ignoradas';
     showToast(msg);
     populaFiltrosFC();
     renderFluxoCaixa();
@@ -11906,6 +11921,8 @@ function renderFluxoCaixa(){
       const srColor=srAcc>=0?'#1565c0':'#c62828';
       const spColor=spAcc>=0?'#6a1b9a':'#c62828';
       const nfLabel=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'—';
+      // Índice no fcDados para exclusão
+      const fcIdx=fcDados.findIndex(x=>!x.pendente&&x.data===t.data&&x.fornecedor===t.fornecedor&&Math.abs(Math.abs(x.valor)-vAbs)<0.01);
       linhas+='<tr style="background:#fff;border-bottom:1px solid #f0f0f0">'+
         diaCell()+
         '<td style="padding:6px 10px;font-weight:600;color:#263238">'+t.fornecedor+'</td>'+
@@ -11917,7 +11934,9 @@ function renderFluxoCaixa(){
         '<td style="padding:6px 10px;text-align:right;color:#2e7d32;font-weight:700">'+(!isPag?fmtMoeda(vAbs):'')+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+srColor+'">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+spColor+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td></td></tr>';
+        '<td style="padding:4px 6px;text-align:center">'+
+          (fcIdx>=0?'<button onclick="excluirLancamentoFC('+fcIdx+')" title="Excluir lançamento" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>':'')
+        +'</td></tr>';
     });
 
     // ── Subtotal do dia (no FINAL) ────────────────────────────────────────
