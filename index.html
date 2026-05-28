@@ -1440,6 +1440,7 @@ tr:hover td{background:#f9fbf9}
         📂 Importar Omie
         <input type="file" id="fcImportInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFluxoOmie(this)">
       </label>
+      <button onclick="abrirModalLancamentoFC()" style="padding:8px 16px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✏️ Lançamento Manual</button>
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
       <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar Dados</button>
     </div>
@@ -1659,6 +1660,48 @@ tr:hover td{background:#f9fbf9}
   <div class="modal-actions" style="padding:0 22px 22px;gap:8px">
     <button class="btn" onclick="fecharModal('modalEditarUsuario')">Cancelar</button>
     <button class="btn primary" onclick="salvarEdicaoUsuario()">💾 Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL LANÇAMENTO MANUAL FLUXO DE CAIXA -->
+<div class="modal-bg" id="modalLancamentoFC">
+<div class="modal" style="width:480px">
+  <div class="modal-header" style="background:#1565c0">
+    <h3>✏️ Lançamento Manual</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalLancamentoFC')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <div class="form-grid" style="gap:12px">
+      <div class="form-group full">
+        <label>Tipo *</label>
+        <div style="display:flex;gap:8px">
+          <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
+            <input type="radio" name="fcTipo" id="fcTipoPagar" value="pagar" checked onchange="document.getElementById('fcTipoLabel').textContent='Valor a Pagar (R$)'"> <span style="color:#c62828;font-weight:700">💸 A Pagar</span>
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
+            <input type="radio" name="fcTipo" id="fcTipoPagamento" value="pagamento" onchange="document.getElementById('fcTipoLabel').textContent='Valor Pago (R$)'"> <span style="color:#e65100;font-weight:700">✅ Pagamento</span>
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
+            <input type="radio" name="fcTipo" id="fcTipoReceber" value="receber" onchange="document.getElementById('fcTipoLabel').textContent='Valor a Receber (R$)'"> <span style="color:#00695c;font-weight:700">💰 A Receber</span>
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
+            <input type="radio" name="fcTipo" id="fcTipoRecebimento" value="recebimento" onchange="document.getElementById('fcTipoLabel').textContent='Valor Recebido (R$)'"> <span style="color:#2e7d32;font-weight:700">✅ Recebimento</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group full"><label>Descrição / Fornecedor *</label><input id="fcLanc_fornecedor" placeholder="Ex: CEMACO BETIM, Aluguel..."></div>
+      <div class="form-group"><label>Data *</label><input id="fcLanc_data" type="date"></div>
+      <div class="form-group"><label id="fcTipoLabel">Valor a Pagar (R$) *</label><input id="fcLanc_valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
+      <div class="form-group"><label>Categoria</label><input id="fcLanc_categoria" placeholder="Ex: Matéria Prima, Serviços..."></div>
+      <div class="form-group"><label>Nota Fiscal</label><input id="fcLanc_nf" placeholder="Ex: 000007484"></div>
+    </div>
+  </div>
+  <div class="modal-actions" style="padding:0 22px 22px;gap:8px">
+    <button class="btn" onclick="fecharModal('modalLancamentoFC')">Cancelar</button>
+    <button class="btn primary" onclick="salvarLancamentoFC()">💾 Salvar Lançamento</button>
   </div>
 </div>
 </div>
@@ -11530,6 +11573,49 @@ async function gerarCRdoPDV(pvId){
 let fcDados = [];
 let fcSaldoInicialOmie = 0;
 
+function excluirLancamentoPendenteFC(data, fornParcial, valor){
+  // Busca no fcDados pelo critério
+  const idx = fcDados.findIndex(x=>x.pendente&&x.data===data&&x.fornecedor.substring(0,15).replace(/'/g,'')===fornParcial&&Math.abs(Math.abs(x.valor)-Math.abs(valor))<0.01);
+  if(idx<0){ showToast('Lançamento não encontrado','err'); return; }
+  excluirLancamentoFC(idx);
+}
+
+function abrirModalLancamentoFC(){
+  // Preenche data de hoje
+  document.getElementById('fcLanc_data').value = new Date().toISOString().split('T')[0];
+  ['fcLanc_fornecedor','fcLanc_valor','fcLanc_categoria','fcLanc_nf'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('fcTipoPagar').checked=true;
+  document.getElementById('fcTipoLabel').textContent='Valor a Pagar (R$)';
+  abrirModal('modalLancamentoFC');
+}
+
+function salvarLancamentoFC(){
+  const tipo = document.querySelector('input[name="fcTipo"]:checked')?.value;
+  const fornecedor = document.getElementById('fcLanc_fornecedor').value.trim();
+  const data = document.getElementById('fcLanc_data').value;
+  const valorRaw = parseFloat(document.getElementById('fcLanc_valor').value)||0;
+  const categoria = document.getElementById('fcLanc_categoria').value.trim()||'Manual';
+  const nf = document.getElementById('fcLanc_nf').value.trim();
+
+  if(!fornecedor){ showToast('Informe a descrição/fornecedor','err'); return; }
+  if(!data){ showToast('Informe a data','err'); return; }
+  if(!valorRaw){ showToast('Informe o valor','err'); return; }
+
+  // Valor: pagar/pagamento = negativo; receber/recebimento = positivo
+  const isPag = tipo==='pagar'||tipo==='pagamento';
+  const isPendente = tipo==='pagar'||tipo==='receber';
+  const valor = isPag ? -Math.abs(valorRaw) : Math.abs(valorRaw);
+
+  fcDados.push({fornecedor, categoria, nf, data, valor, pendente:isPendente, manual:true});
+  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+  showToast('✅ Lançamento adicionado!');
+  fecharModal('modalLancamentoFC');
+  populaFiltrosFC();
+  renderFluxoCaixa();
+}
+
 function excluirLancamentoFC(idx){
   const t = fcDados[idx];
   if(!t) return;
@@ -11687,7 +11773,21 @@ function populaFiltrosFC(){
   }
 }
 
-async function migrarParaRealizado(id,tipo){
+async function migrarParaRealizado(id, tipo){
+  // Rows locais (Omie importado) têm ID "local_N" — atualiza fcDados diretamente
+  if(String(id).startsWith('local_')){
+    const idx = parseInt(id.split('_')[1]);
+    if(!confirm('Marcar como '+(tipo==='pagar'?'Pago ✅':'Recebido ✅')+'?')) return;
+    if(fcDados[idx]){
+      fcDados[idx].pendente = false;
+      fcDados[idx]._pagoEm = new Date().toISOString().split('T')[0];
+      localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+      showToast('✅ Movido para realizados!');
+      renderFluxoCaixa();
+    } else { showToast('Lançamento não encontrado','err'); }
+    return;
+  }
+  // Rows do Supabase (sistema)
   if(!confirm('Marcar como '+(tipo==='pagar'?'Pago ✅':'Recebido ✅')+'?')) return;
   try{
     const tabela=tipo==='pagar'?'contas_pagar':'contas_receber';
@@ -11698,6 +11798,17 @@ async function migrarParaRealizado(id,tipo){
     await loadAll();
     renderFluxoCaixa();
   }catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+function desfazerPagamentoFC(idx){
+  if(!confirm('Desfazer pagamento e mover de volta para A Pagar?')) return;
+  if(fcDados[idx]){
+    fcDados[idx].pendente = true;
+    delete fcDados[idx]._pagoEm;
+    localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+    showToast('↩️ Movido de volta para A Pagar!');
+    renderFluxoCaixa();
+  }
 }
 
 function renderFluxoCaixa(){
@@ -11757,32 +11868,40 @@ function renderFluxoCaixa(){
   // Pendentes importados do Omie — agrupa por NF+data+fornecedor
   const groupPend=(lista, tipo)=>{
     const grp={};
-    lista.forEach(t=>{
+    lista.forEach((t,origIdx)=>{
       const nfKey=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'_';
       const key=t.data+'|'+nfKey+'|'+t.fornecedor.substring(0,20);
-      if(!grp[key]) grp[key]={...t, valor:0, categorias:[]};
+      if(!grp[key]){ grp[key]={...t, valor:0, categorias:[], _fcIdx:origIdx}; }
       grp[key].valor+=t.valor;
       if(t.categoria&&!grp[key].categorias.includes(t.categoria)) grp[key].categorias.push(t.categoria);
     });
     return Object.values(grp).map(t=>({
       ...t,
-      categoria: t.categorias.length===1?t.categorias[0]:t.categorias.join(', '),
-      _agrupado: true
+      categoria: t.categorias.length===1?t.categorias[0]:t.categorias.join(', ')
     }));
   };
 
-  const cpOmie=groupPend(pendentesOmie.filter(t=>t.valor<0), 'pagar').map(t=>({
-    id:'omie_cp_'+t.data+'_'+t.nf+'_'+Math.random().toString(36).substr(2,4),
-    descricao:t.fornecedor, fornecedor:t.fornecedor,
-    valor:Math.abs(t.valor), categoria:t.categoria,
-    vencimento:t.data, nf:t.nf, _omie:true
-  }));
-  const crOmie=groupPend(pendentesOmie.filter(t=>t.valor>0), 'receber').map(t=>({
-    id:'omie_cr_'+t.data+'_'+t.nf+'_'+Math.random().toString(36).substr(2,4),
-    descricao:t.fornecedor, cliente:t.fornecedor,
-    valor:t.valor, categoria:t.categoria,
-    vencimento:t.data, nf:t.nf, _omie:true
-  }));
+  // Índices reais no fcDados para pendentes
+  const pendentesComIdx = pendentesOmie.map((t,i)=>({...t, _fcGlobalIdx: fcDados.indexOf(t)}));
+
+  const cpOmie=groupPend(pendentesOmie.filter(t=>t.valor<0), 'pagar').map(t=>{
+    const fcIdx=fcDados.findIndex(x=>x===t||(!x.pendente===false&&x.data===t.data&&x.fornecedor===t.fornecedor&&x.pendente&&x.valor<0&&Math.abs(Math.abs(x.valor)-Math.abs(t.valor))<0.5));
+    return {
+      id:'local_'+fcIdx,
+      descricao:t.fornecedor, fornecedor:t.fornecedor,
+      valor:Math.abs(t.valor), categoria:t.categoria,
+      vencimento:t.data, nf:t.nf, _omie:true, _fcIdx:fcIdx
+    };
+  });
+  const crOmie=groupPend(pendentesOmie.filter(t=>t.valor>0), 'receber').map(t=>{
+    const fcIdx=fcDados.findIndex(x=>x.data===t.data&&x.fornecedor===t.fornecedor&&x.pendente&&x.valor>0&&Math.abs(x.valor-t.valor)<0.5);
+    return {
+      id:'local_'+fcIdx,
+      descricao:t.fornecedor, cliente:t.fornecedor,
+      valor:t.valor, categoria:t.categoria,
+      vencimento:t.data, nf:t.nf, _omie:true, _fcIdx:fcIdx
+    };
+  });
 
   const cp=[...cpSistema,...cpOmie];
   const cr=[...crSistema,...crOmie];
@@ -11891,7 +12010,8 @@ function renderFluxoCaixa(){
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
         '<td style="padding:4px;text-align:center">'+
-        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Pagar</button>'+
+        (c._omie?'<button onclick="excluirLancamentoPendenteFC(\''+c.vencimento+'\',\''+c.fornecedor.substring(0,15).replace(/'/g,'')+'\','+c.valor+')" title="Excluir" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>':
+        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Pagar</button>')+
         '</td></tr>';
     });
 
@@ -11910,7 +12030,8 @@ function renderFluxoCaixa(){
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
         '<td style="padding:4px;text-align:center">'+
-        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Receber</button>'+
+        (c._omie?'<button onclick="excluirLancamentoPendenteFC(\''+c.vencimento+'\',\''+c.fornecedor.substring(0,15).replace(/'/g,'')+'\','+c.valor+')" title="Excluir" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>':
+        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;white-space:nowrap">✅ Receber</button>')+
         '</td></tr>';
     });
 
@@ -11923,8 +12044,9 @@ function renderFluxoCaixa(){
       const srColor=srAcc>=0?'#1565c0':'#c62828';
       const spColor=spAcc>=0?'#6a1b9a':'#c62828';
       const nfLabel=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'—';
-      // Índice no fcDados para exclusão
+      // Índice no fcDados para exclusão/desfazer
       const fcIdx=fcDados.findIndex(x=>!x.pendente&&x.data===t.data&&x.fornecedor===t.fornecedor&&Math.abs(Math.abs(x.valor)-vAbs)<0.01);
+      const podDesfazer = fcIdx>=0 && fcDados[fcIdx]?._pagoEm; // foi marcado como pago manualmente
       linhas+='<tr style="background:#fff;border-bottom:1px solid #f0f0f0">'+
         diaCell()+
         '<td style="padding:6px 10px;font-weight:600;color:#263238">'+t.fornecedor+'</td>'+
@@ -11936,7 +12058,8 @@ function renderFluxoCaixa(){
         '<td style="padding:6px 10px;text-align:right;color:#2e7d32;font-weight:700">'+(!isPag?fmtMoeda(vAbs):'')+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+srColor+'">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+spColor+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td style="padding:4px 6px;text-align:center">'+
+        '<td style="padding:4px 6px;text-align:center;white-space:nowrap">'+
+          (podDesfazer?'<button onclick="desfazerPagamentoFC('+fcIdx+')" title="Desfazer — mover de volta para A Pagar/Receber" style="width:24px;height:24px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;cursor:pointer;font-size:12px;margin-right:2px">↩️</button>':'')+
           (fcIdx>=0?'<button onclick="excluirLancamentoFC('+fcIdx+')" title="Excluir lançamento" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>':'')
         +'</td></tr>';
     });
