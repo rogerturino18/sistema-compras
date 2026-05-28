@@ -11616,6 +11616,8 @@ async function importarFluxoOmie(input){
       if(el) el.value=fcSaldoInicialOmie.toFixed(2).replace('.',',');
     }
 
+    const hdr = rows[headerRow].map(v=>String(v||'').toLowerCase().trim());
+
     const iFor = hdr.findIndex(h=>h.includes('fornec')||h.includes('razão social')||h.includes('razao social')||h.includes('nome'));
     const iCat = hdr.findIndex(h=>h.includes('categ'));
     const iNF  = hdr.findIndex(h=>h.includes('nota')||h.includes('nf')||h.includes('cf'));
