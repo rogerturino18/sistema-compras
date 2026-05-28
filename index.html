@@ -11584,12 +11584,16 @@ async function importarFluxoOmie(input){
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
 
-    // Linha 0 (antes do header) = saldo anterior (valor numérico sem data/fornecedor)
+    // Detecta linha de cabeçalho — aceita "Fornecedor", "Razão Social" ou "Categoria"
     fcSaldoInicialOmie = 0;
-    const headerRow = rows.findIndex(r=>r&&r.some(v=>v&&String(v).toLowerCase().includes('fornec')));
-    if(headerRow<0){ showToast('Formato não reconhecido — precisa ter coluna "Fornecedor"','err'); return; }
+    const headerRow = rows.findIndex(r=>r&&r.some(v=>v&&(
+      String(v).toLowerCase().includes('fornec')||
+      String(v).toLowerCase().includes('raz') ||
+      String(v).toLowerCase().includes('categ')
+    )));
+    if(headerRow<0){ showToast('Formato não reconhecido — precisa ter coluna "Fornecedor", "Razão Social" ou "Categoria"','err'); return; }
 
-    // Saldo anterior: linha antes do header com valor numérico
+    // Saldo anterior: linha antes do header com valor numérico isolado
     for(let i=0;i<headerRow;i++){
       const r=rows[i]; if(!r) continue;
       const v=r.find(x=>typeof x==='number'&&Math.abs(x)>100);
@@ -11601,13 +11605,16 @@ async function importarFluxoOmie(input){
     }
 
     const hdr = rows[headerRow].map(v=>String(v||'').toLowerCase().trim());
-    const iFor = hdr.findIndex(h=>h.includes('fornec'));
+    const iFor = hdr.findIndex(h=>h.includes('fornec')||h.includes('razão social')||h.includes('razao social')||h.includes('nome'));
     const iCat = hdr.findIndex(h=>h.includes('categ'));
-    const iNF  = hdr.findIndex(h=>h.includes('nota')||h.includes('nf'));
+    const iNF  = hdr.findIndex(h=>h.includes('nota')||h.includes('nf')||h.includes('cf'));
     const iDat = hdr.findIndex(h=>h.includes('data'));
-    const iVal = hdr.findIndex(h=>h.includes('pago')||h.includes('receb')||h.includes('valor'));
+    const iVal = hdr.findIndex(h=>h.includes('pago')||h.includes('receb')||h.includes('valor')||h.includes('pagar'));
 
-    console.log('Colunas detectadas:',{iFor,iCat,iNF,iDat,iVal,hdr});
+    // Detecta se é arquivo de realizados ou pendentes
+    const isPendente = hdr.some(h=>h.includes('previsão')||h.includes('previsao')||h.includes('a pagar'));
+    console.log('[FC] Formato detectado:', isPendente?'Contas a Pagar/Receber (pendentes)':'Realizados');
+    console.log('[FC] Colunas:', {iFor,iCat,iNF,iDat,iVal,hdr});
 
     fcDados=[];
     let dataErros=0;
@@ -11623,7 +11630,8 @@ async function importarFluxoOmie(input){
         categoria: String(r[iCat]||'—').trim(),
         nf: nf==='null'||nf==='undefined'?'':nf,
         data: dt,
-        valor: val
+        valor: val,
+        pendente: isPendente  // true = A Pagar/Receber, false = realizado
       });
     }
 
@@ -11692,6 +11700,16 @@ function renderFluxoCaixa(){
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
   let listaReal=fcDados.filter(t=>{
+    if(t.pendente) return false; // pendentes ficam na seção de CP/CR
+    if(mesFiltro&&!t.data.startsWith(mesFiltro)) return false;
+    if(catFiltro&&t.categoria!==catFiltro) return false;
+    if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
+  // ── Pendentes importados do Omie (A Pagar / A Receber) ───────────────────
+  const pendentesOmie = fcDados.filter(t=>{
+    if(!t.pendente) return false;
     if(mesFiltro&&!t.data.startsWith(mesFiltro)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
     if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
@@ -11709,15 +11727,32 @@ function renderFluxoCaixa(){
   });
   listaReal=Object.values(grouped).sort((a,b)=>a.data.localeCompare(b.data)||a.fornecedor.localeCompare(b.fornecedor));
 
-  // ── Pendentes do sistema ──────────────────────────────────────────────────
-  const cp=(typeof contasPagar!=='undefined'?contasPagar:[])
+  // ── Pendentes do sistema + pendentes importados do Omie ──────────────────
+  const cpSistema=(typeof contasPagar!=='undefined'?contasPagar:[])
     .filter(c=>c.status!=='Paga'&&c.status!=='Cancelada')
     .filter(c=>!mesFiltro||((c.vencimento||c.dt_vencimento||'').startsWith(mesFiltro)))
     .filter(c=>!busca||(c.descricao||c.fornecedor||'').toLowerCase().includes(busca));
-  const cr=(typeof contasReceber!=='undefined'?contasReceber:[])
+  const crSistema=(typeof contasReceber!=='undefined'?contasReceber:[])
     .filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada')
     .filter(c=>!mesFiltro||((c.vencimento||c.dt_vencimento||'').startsWith(mesFiltro)))
     .filter(c=>!busca||(c.descricao||c.cliente||'').toLowerCase().includes(busca));
+
+  // Pendentes importados do Omie (negativo=A Pagar, positivo=A Receber)
+  const cpOmie=pendentesOmie.filter(t=>t.valor<0).map(t=>({
+    id:'omie_cp_'+t.data+'_'+Math.random().toString(36).substr(2,5),
+    descricao:t.fornecedor, fornecedor:t.fornecedor,
+    valor:Math.abs(t.valor), categoria:t.categoria,
+    vencimento:t.data, nf:t.nf, _omie:true
+  }));
+  const crOmie=pendentesOmie.filter(t=>t.valor>0).map(t=>({
+    id:'omie_cr_'+t.data+'_'+Math.random().toString(36).substr(2,5),
+    descricao:t.fornecedor, cliente:t.fornecedor,
+    valor:t.valor, categoria:t.categoria,
+    vencimento:t.data, nf:t.nf, _omie:true
+  }));
+
+  const cp=[...cpSistema,...cpOmie];
+  const cr=[...crSistema,...crOmie];
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
   const totPag=listaReal.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
