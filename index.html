@@ -11927,14 +11927,16 @@ async function importarPlanilhaFC(input){
       if(countAba > 0) showToast('📋 '+aba.trim()+': '+countAba+' registros lidos','ok',2000);
     }
 
-    // Auto-define saldo anterior do primeiro mês
+    // Auto-define e sincroniza saldo anterior do primeiro mês
     if(primeiroSaldoInicial!==null&&primeiroSaldoInicial!==0){
       const el=document.getElementById('fcSaldoAnterior');
       if(el){
         const saldoStr=primeiroSaldoInicial.toFixed(2).replace('.',',');
         el.value=saldoStr;
-        localStorage.setItem('sl_fc_saldo_ant',String(primeiroSaldoInicial));
-        showToast('💰 Saldo inicial detectado: R$ '+saldoStr.replace(/\B(?=(\d{3})+(?!\d))/g,'.'),'ok',4000);
+        const saldoVal=String(primeiroSaldoInicial);
+        localStorage.setItem('sl_fc_saldo_ant',saldoVal);
+        sincronizarFcSaldoAnt(saldoVal); // sincroniza com Supabase
+        showToast('💰 Saldo inicial detectado: R$ '+fmtMoeda(primeiroSaldoInicial),'ok',4000);
       }
     }
 
@@ -12363,12 +12365,26 @@ async function sincronizarFcSaldoAnt(val){
 
 async function carregarFcDadosSupabase(){
   try{
-    const rows=await api('GET','app_config','','?chave=eq.sl_fc_dados');
-    if(rows&&rows.length&&rows[0].valor){
-      const arr=JSON.parse(rows[0].valor);
+    // Carrega dados E saldo anterior em paralelo
+    const [rowsDados, rowsSaldo] = await Promise.all([
+      api('GET','app_config','','?chave=eq.sl_fc_dados'),
+      api('GET','app_config','','?chave=eq.sl_fc_saldo_ant')
+    ]);
+    // Aplica saldo anterior
+    if(rowsSaldo&&rowsSaldo.length&&rowsSaldo[0].valor){
+      const sa=rowsSaldo[0].valor;
+      localStorage.setItem('sl_fc_saldo_ant',sa);
+      const el=document.getElementById('fcSaldoAnterior');
+      if(el&&(!el.value||parseFloat(el.value.replace(',','.'))==0)){
+        el.value=parseFloat(sa).toFixed(2).replace('.',',');
+      }
+    }
+    // Aplica dados
+    if(rowsDados&&rowsDados.length&&rowsDados[0].valor){
+      const arr=JSON.parse(rowsDados[0].valor);
       if(arr&&arr.length){
         fcDados=arr;
-        localStorage.setItem('sl_fc_dados',rows[0].valor);
+        localStorage.setItem('sl_fc_dados',rowsDados[0].valor);
         return true;
       }
     }
