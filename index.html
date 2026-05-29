@@ -1530,6 +1530,7 @@ tr:hover td{background:#f9fbf9}
         <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
       </label>
       <button class="btn" onclick="abrirModalNFe(null)" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:14px;padding:9px 18px">+ Lançar Manual</button>
+      <button onclick="diagnosticoFC()" style="padding:8px 12px;background:#37474f;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer" title="Mostra o que está armazenado no fluxo de caixa">🔍 Debug FC</button>
     </div>
   </div>
 
@@ -11651,6 +11652,47 @@ function excluirFC_grp(id){
       renderFluxoCaixa();
     }catch(e){showToast('Erro: '+e.message,'err');}
   }
+}
+
+function diagnosticoFC(){
+  let dados;
+  try{ dados=JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){ dados=[]; }
+  if(!dados.length){ alert('fcDados está VAZIO no localStorage.'); return; }
+
+  // Encontra duplicatas
+  const contagem={};
+  dados.forEach(x=>{
+    const tp=(x.pendente||false)?'p':'r';
+    const k=x.data+'|'+x.fornecedor+'|'+Math.abs(x.valor).toFixed(2)+'|'+tp;
+    contagem[k]=(contagem[k]||0)+1;
+  });
+  const dupes=Object.entries(contagem).filter(([k,v])=>v>1);
+
+  // Conta por mês
+  const porMes={};
+  dados.forEach(x=>{ const m=x.data?x.data.substring(0,7):'??'; porMes[m]=(porMes[m]||0)+1; });
+
+  let msg=`📊 DIAGNÓSTICO FLUXO DE CAIXA\n`;
+  msg+=`Total no localStorage: ${dados.length} registros\n`;
+  msg+=`Total em memória (fcDados): ${fcDados.length} registros\n\n`;
+  msg+=`Por mês:\n`;
+  Object.entries(porMes).sort().forEach(([m,n])=>msg+=`  ${m}: ${n} registros\n`);
+  msg+=`\nDuplicatas encontradas: ${dupes.length}\n`;
+  if(dupes.length>0){
+    msg+=`Primeiras 5:\n`;
+    dupes.slice(0,5).forEach(([k,v])=>msg+=`  ${k} → ${v}×\n`);
+  }
+  
+  // Verifica o primeiro dia da planilha (Jan 1 2026)
+  const jan1=dados.filter(x=>x.data==='2026-01-01');
+  if(jan1.length>0){
+    msg+=`\nEntradas em 2026-01-01: ${jan1.length}\n`;
+    jan1.slice(0,6).forEach(x=>msg+=`  ${x.fornecedor} | ${x.valor.toFixed(2)} | pend=${x.pendente} | fonte=${x._fonte||'omie'}\n`);
+  }
+
+  alert(msg);
+  console.log('[FC DIAG] dados completos:', dados);
+  console.log('[FC DIAG] duplicatas:', dupes);
 }
 
 function limparDadosFC(){
