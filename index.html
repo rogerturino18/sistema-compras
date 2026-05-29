@@ -11747,21 +11747,25 @@ async function importarPlanilhaFC(input){
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf,{type:'array',cellDates:true});
 
-    // Só aceita abas que explicitamente mencionam o ano (ex: "JANEIRO 2026", "MAIO 2026")
-    // Evita processar abas históricas de outros anos (FEV 23, MAR 23 etc.)
+    // Detecta abas de meses — exige ano explícito no nome
+    const mesesPT=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
     const abasMeses = wb.SheetNames.filter(n=>{
       const nl=n.toLowerCase().trim();
-      // Deve conter um ano de 4 dígitos (2024, 2025, 2026, etc.)
-      const temAno = /20\d{2}/.test(nl);
-      if(!temAno) return false;
-      // Deve conter nome de mês
-      const mesesPT=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-      const temMes = mesesPT.some(m=>nl.startsWith(m)||nl.includes(' '+m));
-      // Exclui abas de bancos
-      const excluir=['itau','santander','brasil p','macoex','brasil pf'];
-      const ehBanco = excluir.some(x=>nl.includes(x));
+      if(!/20\d{2}/.test(nl)) return false; // deve ter ano
+      const temMes = mesesPT.some(m=>nl.startsWith(m)||nl.includes(' '+m)||nl.includes('-'+m));
+      const ehBanco = ['itau','santander','brasil p','macoex','brasil pf'].some(x=>nl.includes(x));
       return temMes && !ehBanco;
     });
+
+    if(!abasMeses.length){
+      showToast('Nenhuma aba de mês encontrada','err'); return;
+    }
+
+    // Mostra quais abas foram detectadas para confirmação
+    const listaAbas = abasMeses.map(n=>n.trim()).join(', ');
+    if(!confirm(`Abas detectadas para importação (${abasMeses.length}):\n\n${listaAbas}\n\nConfirmar importação?`)){
+      return;
+    }
 
     if(!abasMeses.length){
       showToast('Nenhuma aba de mês encontrada. Abas: '+wb.SheetNames.slice(0,5).join(', '),'err');
