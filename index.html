@@ -1682,22 +1682,23 @@ tr:hover td{background:#f9fbf9}
         <label>Tipo *</label>
         <div style="display:flex;gap:8px">
           <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
-            <input type="radio" name="fcTipo" id="fcTipoPagar" value="pagar" checked onchange="document.getElementById('fcTipoLabel').textContent='Valor a Pagar (R$)'"> <span style="color:#c62828;font-weight:700">💸 A Pagar</span>
+            <input type="radio" name="fcTipo" id="fcTipoPagar" value="pagar" checked onchange="document.getElementById('fcTipoLabel').textContent='Valor a Pagar (R$)';document.getElementById('fcTipoInfo').textContent='→ Afeta apenas Saldo Previsto'"> <span style="color:#c62828;font-weight:700">💸 A Pagar</span> <span style="font-size:10px;color:#9e9e9e">(pendente)</span>
           </label>
           <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
-            <input type="radio" name="fcTipo" id="fcTipoPagamento" value="pagamento" onchange="document.getElementById('fcTipoLabel').textContent='Valor Pago (R$)'"> <span style="color:#e65100;font-weight:700">✅ Pagamento</span>
+            <input type="radio" name="fcTipo" id="fcTipoPagamento" value="pagamento" onchange="document.getElementById('fcTipoLabel').textContent='Valor Pago (R$)';document.getElementById('fcTipoInfo').textContent='→ Afeta Saldo Real e Saldo Previsto'"> <span style="color:#e65100;font-weight:700">✅ Pagamento</span> <span style="font-size:10px;color:#9e9e9e">(realizado)</span>
           </label>
           <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
-            <input type="radio" name="fcTipo" id="fcTipoReceber" value="receber" onchange="document.getElementById('fcTipoLabel').textContent='Valor a Receber (R$)'"> <span style="color:#00695c;font-weight:700">💰 A Receber</span>
+            <input type="radio" name="fcTipo" id="fcTipoReceber" value="receber" onchange="document.getElementById('fcTipoLabel').textContent='Valor a Receber (R$)';document.getElementById('fcTipoInfo').textContent='→ Afeta apenas Saldo Previsto'"> <span style="color:#00695c;font-weight:700">💰 A Receber</span> <span style="font-size:10px;color:#9e9e9e">(pendente)</span>
           </label>
           <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer">
-            <input type="radio" name="fcTipo" id="fcTipoRecebimento" value="recebimento" onchange="document.getElementById('fcTipoLabel').textContent='Valor Recebido (R$)'"> <span style="color:#2e7d32;font-weight:700">✅ Recebimento</span>
+            <input type="radio" name="fcTipo" id="fcTipoRecebimento" value="recebimento" onchange="document.getElementById('fcTipoLabel').textContent='Valor Recebido (R$)';document.getElementById('fcTipoInfo').textContent='→ Afeta Saldo Real e Saldo Previsto'"> <span style="color:#2e7d32;font-weight:700">✅ Recebimento</span> <span style="font-size:10px;color:#9e9e9e">(realizado)</span>
           </label>
         </div>
       </div>
       <div class="form-group full"><label>Descrição / Fornecedor *</label><input id="fcLanc_fornecedor" placeholder="Ex: CEMACO BETIM, Aluguel..."></div>
       <div class="form-group"><label>Data *</label><input id="fcLanc_data" type="date"></div>
-      <div class="form-group"><label id="fcTipoLabel">Valor a Pagar (R$) *</label><input id="fcLanc_valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
+      <div class="form-group"><label id="fcTipoLabel">Valor a Pagar (R$) *</label><input id="fcLanc_valor" type="number" step="0.01" min="0" placeholder="0,00">
+      <small id="fcTipoInfo" style="color:#757575;font-size:11px;margin-top:2px;display:block">→ Afeta apenas Saldo Previsto</small></div>
       <div class="form-group"><label>Categoria</label><input id="fcLanc_categoria" placeholder="Ex: Matéria Prima, Serviços..."></div>
       <div class="form-group"><label>Nota Fiscal</label><input id="fcLanc_nf" placeholder="Ex: 000007484"></div>
     </div>
@@ -9125,21 +9126,30 @@ function abrirEditarUsuario(id){
   document.getElementById('eu_senha').value = '';
   document.getElementById('eu_cargo').value = u.cargo||'';
   document.getElementById('eu_ativo').value = u.ativo?'true':'false';
+  // Pré-renderiza grid de permissões (garante checkboxes mesmo sem clicar na aba)
+  renderPermissoesGrid();
   showEuTab(1);
   abrirModal('modalEditarUsuario');
 }
 
 async function salvarEdicaoUsuario(){
   const id = document.getElementById('eu_id').value;
-  // Coleta permissões marcadas
-  const permsSelecionadas = MODULOS_SISTEMA.filter(m=>document.getElementById('perm_'+m.id)?.checked).map(m=>m.id);
-  const todasMarcadas = permsSelecionadas.length === MODULOS_SISTEMA.length;
-  // Salva perfil com permissões embutidas (formato: "Cargo|PERMS:mod1,mod2")
-  const cargoAtual = document.getElementById('eu_cargo').value.trim()||'';
-  // Determina rótulo do perfil pelo cargo
-  const perfilLabel = cargoAtual || 'Usuário';
-  const perfilComPerms = todasMarcadas ? perfilLabel : `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
-
+  
+  // Verifica se checkboxes existem (grid foi renderizado)
+  const checksExistem = MODULOS_SISTEMA.some(m=>document.getElementById('perm_'+m.id));
+  
+  let perfilComPerms;
+  if(checksExistem){
+    const permsSelecionadas = MODULOS_SISTEMA.filter(m=>document.getElementById('perm_'+m.id)?.checked).map(m=>m.id);
+    const todasMarcadas = permsSelecionadas.length === MODULOS_SISTEMA.length;
+    const cargoAtual = document.getElementById('eu_cargo').value.trim()||'';
+    const perfilLabel = cargoAtual || 'Usuário';
+    perfilComPerms = todasMarcadas ? perfilLabel : `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
+  } else {
+    // Segurança: se checkboxes não foram renderizados, mantém permissões atuais
+    const u = todosUsuarios.find(x=>x.id===id);
+    perfilComPerms = u?.perfil || (document.getElementById('eu_cargo').value.trim()||'Usuário');
+  }
   const obj = {
     nome: document.getElementById('eu_nome').value.trim(),
     email: document.getElementById('eu_email').value.trim().toLowerCase(),
@@ -12292,6 +12302,24 @@ function desfazerRealizadoFC(data, fornParcial, tipo){
   renderFluxoCaixa();
 }
 
+function excluirRealizadoFC(data, fornParcial){
+  // Remove TODOS os lançamentos realizados deste fornecedor nesta data
+  const candidatos = fcDados.reduce((arr,x,i)=>{
+    if(x.pendente) return arr;
+    if(x.data!==data) return arr;
+    if(!x.fornecedor.toLowerCase().startsWith(fornParcial.toLowerCase().substring(0,10))) return arr;
+    arr.push(i);
+    return arr;
+  },[]);
+  if(!candidatos.length){ showToast('Lançamento não encontrado','err'); return; }
+  if(!confirm('Excluir '+candidatos.length+' lançamento(s) de "'+fornParcial+'" em '+data+'?')) return;
+  // Remove de trás para frente para não deslocar índices
+  [...candidatos].reverse().forEach(i=>fcDados.splice(i,1));
+  localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
+  showToast('🗑 '+candidatos.length+' lançamento(s) excluído(s)!');
+  renderFluxoCaixa();
+}
+
 function desfazerPagamentoFC(idx){
   if(!confirm('Desfazer pagamento e mover de volta para A Pagar/Receber?')) return;
   if(fcDados[idx]){
@@ -12547,6 +12575,8 @@ function renderFluxoCaixa(){
       // Índice no fcDados para ações
       const fcIdx=fcDados.findIndex(x=>!x.pendente&&x.data===t.data&&x.fornecedor===t.fornecedor&&Math.abs(Math.abs(x.valor)-vAbs)<0.01);
       const tipoDesfazer = isPag ? 'A Pagar' : 'A Receber';
+      // Busca por data+fornecedor (não por valor, pois itens agrupados têm soma diferente dos individuais)
+      const fcIdxDel = fcDados.findIndex(x=>!x.pendente&&x.data===t.data&&x.fornecedor===t.fornecedor);
       linhas+='<tr style="background:#fff;border-bottom:1px solid #f0f0f0">'+
         diaCell()+
         '<td style="padding:6px 10px;font-weight:600;color:#263238">'+t.fornecedor+'</td>'+
@@ -12562,10 +12592,10 @@ function renderFluxoCaixa(){
           '<button onclick="desfazerRealizadoFC(\''+t.data+'\',\''+t.fornecedor.replace(/'/g,'').substring(0,25)+'\',\''+tipoDesfazer+'\')" '+
           'title="↩️ Voltar para '+tipoDesfazer+'" '+
           'style="padding:2px 7px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;cursor:pointer;font-size:11px;color:#f57f17;font-weight:700">↩️</button>'+
-          (fcIdx>=0?'<button onclick="excluirLancamentoFC('+fcIdx+')" title="Excluir" style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px;margin-left:2px">🗑</button>':'')+
+          '<button onclick="excluirRealizadoFC(\''+t.data+'\',\''+t.fornecedor.replace(/'/g,'').substring(0,25)+'\')" '+
+          'title="Excluir lançamento" '+
+          'style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px;margin-left:2px">🗑</button>'+
         '</td></tr>';
-          (fcIdx>=0?'<button onclick="excluirLancamentoFC('+fcIdx+')" title="Excluir lançamento" style="width:24px;height:24px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:12px">🗑</button>':'')
-        +'</td></tr>';
     });
 
     // ── Subtotal do dia (no FINAL) ────────────────────────────────────────
