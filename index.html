@@ -1530,7 +1530,7 @@ tr:hover td{background:#f9fbf9}
         <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
       </label>
       <button class="btn" onclick="abrirModalNFe(null)" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:14px;padding:9px 18px">+ Lançar Manual</button>
-      <button onclick="diagnosticoFC()" style="padding:8px 12px;background:#37474f;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer" title="Mostra o que está armazenado no fluxo de caixa">🔍 Debug FC</button>
+      <button onclick="forceSyncFC()" style="padding:8px 14px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Sincronizar dados com o servidor para todos os usuários">🔄 Sincronizar</button>
     </div>
   </div>
 
@@ -12330,11 +12330,28 @@ function desfazerPagamentoFC(idx){
 // ── Sincronização Fluxo de Caixa com Supabase ─────────────────────────────
 async function sincronizarFC(json){
   try{
-    // Tenta PATCH primeiro
-    const r = await api('PATCH','app_config',{valor:json,atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
-    // Se nenhuma linha atualizada, faz POST
+    const r=await api('PATCH','app_config',{valor:json,atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
     if(!r||!r.length) await api('POST','app_config',{chave:'sl_fc_dados',valor:json});
-  }catch(e){ console.warn('[FC] Sync Supabase falhou (dados salvos localmente):',e.message||e); }
+    console.log('[FC] Sincronizado com Supabase ✅');
+  }catch(e){
+    console.error('[FC] Sync falhou:',e.message||e);
+    showToast('⚠️ Dados não sincronizados com servidor. Clique em 🔄 Sincronizar na toolbar.','err',5000);
+  }
+}
+
+async function forceSyncFC(){
+  if(!fcDados.length){ showToast('Sem dados para sincronizar','err'); return; }
+  showToast('⏳ Sincronizando...','ok',3000);
+  const json=JSON.stringify(fcDados);
+  try{
+    const r=await api('PATCH','app_config',{valor:json,atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
+    if(!r||!r.length) await api('POST','app_config',{chave:'sl_fc_dados',valor:json});
+    await sincronizarFcSaldoAnt(localStorage.getItem('sl_fc_saldo_ant')||'0');
+    showToast('✅ '+fcDados.length+' lançamentos sincronizados com sucesso!');
+  }catch(e){
+    showToast('❌ Erro: '+e.message+'\n\nExecute no Supabase SQL Editor:\nCREATE TABLE IF NOT EXISTS app_config (chave TEXT PRIMARY KEY, valor TEXT, atualizado TIMESTAMP WITH TIME ZONE DEFAULT NOW());','err',8000);
+    console.error('[FC] Force sync error:',e);
+  }
 }
 
 async function sincronizarFcSaldoAnt(val){
