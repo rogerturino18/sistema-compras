@@ -12077,17 +12077,52 @@ function confirmarImportacaoFC(){
     const chk=document.getElementById('prev_chk_'+i);
     return chk?chk.checked:true;
   });
-
   if(!selecionados.length){ showToast('Nenhum lançamento selecionado','err'); return; }
 
-  fcDados = [...fcDados, ...selecionados];
-  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+  // Sempre recarrega do localStorage para garantir estado atual
+  let base = [];
+  try{ base = JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){}
 
+  // Deduplicação final por contagem — última linha de defesa contra qualquer duplicata
+  const contagem = {};
+  base.forEach(x=>{
+    const tp=(x.pendente||false)?'p':'r';
+    const k=x.data+'|'+x.fornecedor.toLowerCase()+'|'+Math.abs(x.valor).toFixed(2)+'|'+tp;
+    contagem[k]=(contagem[k]||0)+1;
+  });
+
+  const contagemNovos = {};
+  const reaisNovos = [];
+  selecionados.forEach(item=>{
+    const tp=(item.pendente||false)?'p':'r';
+    const k=item.data+'|'+item.fornecedor.toLowerCase()+'|'+Math.abs(item.valor).toFixed(2)+'|'+tp;
+    contagemNovos[k]=(contagemNovos[k]||0)+1;
+    const jaExistem=contagem[k]||0;
+    if(contagemNovos[k] > jaExistem){
+      reaisNovos.push(item);
+      contagem[k]=jaExistem+1; // atualiza contagem para próximas iterações
+    }
+  });
+
+  const ignorados = selecionados.length - reaisNovos.length;
+  if(ignorados>0) console.warn('[FC] '+ignorados+' itens ignorados por dedup final');
+
+  fcDados = [...base, ...reaisNovos];
+  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
   document.getElementById('modalPreviaFC')?.remove();
-  showToast('✅ '+selecionados.length+' lançamentos importados! Total: '+fcDados.length);
+  showToast('✅ '+reaisNovos.length+' lançamentos importados! Total: '+fcDados.length+(ignorados?' ('+ignorados+' duplicatas ignoradas)':''));
   populaFiltrosFC();
-  renderFluxoCaixa();
+  // Não recarrega do localStorage — usa o fcDados já correto
+  _renderFluxoCaixaSemReload();
   window._fcPreviaNovos = null;
+}
+
+// Versão do render que NÃO recarrega do localStorage (usa fcDados já carregado)
+function _renderFluxoCaixaSemReload(){
+  const _skip = window._fcSkipReload;
+  window._fcSkipReload = true;
+  renderFluxoCaixa();
+  window._fcSkipReload = _skip;
 }
 
 function populaFiltrosFC(){
@@ -12189,12 +12224,15 @@ function desfazerPagamentoFC(idx){
 }
 
 function renderFluxoCaixa(){
-  // Carrega persistência
-  if(!fcDados.length){
-    try{ fcDados=JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){}
-    const sa=parseFloat(localStorage.getItem('sl_fc_saldo_ant')||'0');
-    if(sa){ const el=document.getElementById('fcSaldoAnterior'); if(el&&el.value==='0') el.value=sa.toFixed(2).replace('.',','); }
-    if(fcDados.length) populaFiltrosFC();
+  // Carrega persistência — só quando não tiver dados em memória
+  // e quando _fcSkipReload não estiver ativo (pós-importação)
+  if(!window._fcSkipReload){
+    if(!fcDados.length){
+      try{ fcDados=JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){}
+      const sa=parseFloat(localStorage.getItem('sl_fc_saldo_ant')||'0');
+      if(sa){ const el=document.getElementById('fcSaldoAnterior'); if(el&&el.value==='0') el.value=sa.toFixed(2).replace('.',','); }
+      if(fcDados.length) populaFiltrosFC();
+    }
   }
 
   const mesFiltro=document.getElementById('filtroFC_mes')?.value||'';
