@@ -1423,11 +1423,13 @@ tr:hover td{background:#f9fbf9}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <!-- Saldo anterior editável -->
-      <div style="display:flex;align-items:center;gap:6px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:6px 12px">
-        <span style="font-size:11px;font-weight:700;color:#f57f17;white-space:nowrap">💰 Saldo Anterior:</span>
-        <input type="text" id="fcSaldoAnterior" value="0" placeholder="0,00"
-          style="width:120px;padding:4px 8px;border:1px solid #ffe082;border-radius:6px;font-size:13px;font-weight:700;color:#2e7d32;text-align:right"
-          onchange="localStorage.setItem('sl_fc_saldo_ant',this.value.replace(',','.'));renderFluxoCaixa()">
+      <div style="display:flex;align-items:center;gap:6px;background:#fff8e1;border:2px solid #ffa000;border-radius:8px;padding:6px 12px">
+        <span style="font-size:11px;font-weight:700;color:#f57f17;white-space:nowrap">💰 Saldo Inicial:</span>
+        <input type="text" id="fcSaldoAnterior" value="0" placeholder="Ex: 199.955,87"
+          style="width:130px;padding:4px 8px;border:1px solid #ffe082;border-radius:6px;font-size:13px;font-weight:700;color:#2e7d32;text-align:right"
+          onchange="localStorage.setItem('sl_fc_saldo_ant',this.value.replace(',','.'));renderFluxoCaixa()"
+          title="Saldo do 1º mês. Os demais meses calculam em cascata automaticamente.">
+        <span style="font-size:10px;color:#f57f17" title="Digite o saldo do banco no início do 1º mês importado. Fevereiro, Março etc. calculam automaticamente a partir do saldo final do mês anterior.">🔁</span>
       </div>
       <!-- Filtros -->
       <select id="filtroFC_mes" onchange="renderFluxoCaixa()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
@@ -11718,115 +11720,141 @@ async function importarPlanilhaFC(input){
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf,{type:'array',cellDates:true});
 
-    // Detecta abas de meses (procura abas com "2026" ou nomes de meses)
-    const mesesNomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    // Detecta abas de meses 2026 ou outros anos
+    const mesesPT=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
     const abasMeses = wb.SheetNames.filter(n=>{
-      const nl = n.toLowerCase();
-      return nl.includes('2026') || nl.includes('2025') || mesesNomes.some(m=>nl.includes(m));
+      const nl=n.toLowerCase();
+      return (nl.includes('2026')||nl.includes('2025')||nl.includes('2027')||
+              mesesPT.some(m=>nl.startsWith(m)||nl.includes(' '+m)));
+    }).filter(n=>{
+      // Exclui abas de bancos ou auxiliares
+      const nl=n.toLowerCase();
+      return !nl.includes('itau')&&!nl.includes('santander')&&!nl.includes('brasil p')&&!nl.includes('macoex');
     });
 
     if(!abasMeses.length){
-      showToast('Nenhuma aba de mês encontrada. Abas disponíveis: '+wb.SheetNames.slice(0,5).join(', '),'err');
+      showToast('Nenhuma aba de mês encontrada. Abas: '+wb.SheetNames.slice(0,5).join(', '),'err');
       return;
     }
 
-    const novos=[], duplicados=[], erros=[];
-    let totalAbas=0;
+    showToast('📋 Processando '+abasMeses.length+' abas: '+abasMeses.map(a=>a.trim()).join(', '),'ok',5000);
+
+    const novos=[], duplicados=[];
+    let primeiroSaldoInicial = null;
 
     for(const aba of abasMeses){
       const ws = wb.Sheets[aba];
       const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
       if(!rows||rows.length<3) continue;
 
-      // Detecta linha de cabeçalho (tem "DESCRIÇÃO" ou "PAGAMENTO")
-      let hdrRow = rows.findIndex(r=>r&&r.some(v=>v&&String(v).toUpperCase().includes('DESCRIÇÃO')||String(v||'').toUpperCase().includes('PAGAMENTO')));
-      if(hdrRow<0) hdrRow=1; // assume linha 1
-
-      const hdr = (rows[hdrRow]||[]).map(v=>String(v||'').toLowerCase().trim());
-
-      // Detecta colunas
-      const iData = 0; // Coluna A = Data
-      const iDesc = 1; // Coluna B = Descrição
-      const iAPagar    = hdr.findIndex(h=>h.includes('a pagar'));
-      const iPagamento = hdr.findIndex(h=>h.includes('pagamento'));
-      const iAReceber  = hdr.findIndex(h=>h.includes('a receber'));
-      const iRecebimento = hdr.findIndex(h=>h.includes('recebimento'));
-      const iSaldoReal = hdr.findIndex(h=>h.includes('saldo real'));
-
-      // Saldo anterior: linha 0, coluna Saldo Real
-      let saldoAba = 0;
-      if(rows[0]&&rows[0][iSaldoReal]&&typeof rows[0][iSaldoReal]==='number'){
-        saldoAba = rows[0][iSaldoReal];
-      } else if(rows[0]){
-        // Tenta qualquer número grande na linha 0
-        const nums = rows[0].filter(v=>typeof v==='number'&&Math.abs(v)>100);
-        if(nums.length) saldoAba = nums[0];
+      // Detecta linha de cabeçalho (tem PAGAMENTO ou DESCRIÇÃO)
+      let hdrRow=-1;
+      for(let i=0;i<Math.min(5,rows.length);i++){
+        const r=rows[i]||[];
+        const str=r.map(v=>String(v||'').toUpperCase()).join('|');
+        if(str.includes('PAGAMENTO')||str.includes('DESCRIÇÃO')||str.includes('DESCRICAO')){
+          hdrRow=i; break;
+        }
       }
+      if(hdrRow<0) continue;
+
+      const hdr=(rows[hdrRow]||[]).map(v=>String(v||'').toLowerCase().trim());
+
+      // Índices das colunas
+      const iData   = 0;
+      const iDesc   = 1;
+      const iAPagar = hdr.findIndex(h=>h==='a pagar'||h==='apagar');
+      const iPag    = hdr.findIndex(h=>h==='pagamento');
+      const iARec   = hdr.findIndex(h=>h==='a receber'||h==='areceber');
+      const iRec    = hdr.findIndex(h=>h==='recebimento');
+      const iSR     = hdr.findIndex(h=>h.includes('saldo real'));
+
+      if(iPag<0&&iRec<0){ console.warn('[PlanilhaFC] Aba '+aba+' sem colunas de valor'); continue; }
+
+      // Saldo inicial da aba (linha 0, coluna SALDO REAL)
+      let saldoInicial=0;
+      if(iSR>=0&&rows[0]&&rows[0][iSR]!=null&&typeof rows[0][iSR]==='number'){
+        saldoInicial=rows[0][iSR];
+      }
+      if(primeiroSaldoInicial===null) primeiroSaldoInicial=saldoInicial;
 
       let countAba=0;
       for(let i=hdrRow+1;i<rows.length;i++){
         const r=rows[i]; if(!r) continue;
 
-        // Data
-        let dt = r[iData];
+        // Data: deve ser um Date válido
+        let dt=r[iData];
         if(!dt) continue;
         if(dt instanceof Date){
-          if(dt.getFullYear()<2000||dt.getFullYear()>2030) continue;
-          dt = dt.toISOString().split('T')[0];
-        } else if(typeof dt==='number'){
-          const d=new Date((dt-25569)*86400000);
-          if(d.getFullYear()<2000||d.getFullYear()>2030) continue;
-          dt=d.toISOString().split('T')[0];
-        } else { continue; }
+          if(dt.getFullYear()<2000||dt.getFullYear()>2035) continue;
+          const y=dt.getFullYear(), m=String(dt.getMonth()+1).padStart(2,'0'), d=String(dt.getDate()).padStart(2,'0');
+          dt=y+'-'+m+'-'+d;
+        } else continue;
 
-        const desc = String(r[iDesc]||'').trim();
+        // Descrição
+        const desc=String(r[iDesc]||'').trim();
         if(!desc||desc.length<2) continue;
 
-        // Processa cada coluna com valor
-        const colunas = [
-          {idx:iAPagar,    tipo:'apagar',     sinal:-1, pendente:true},
-          {idx:iPagamento, tipo:'pagamento',  sinal:-1, pendente:false},
-          {idx:iAReceber,  tipo:'areceber',   sinal:1,  pendente:true},
-          {idx:iRecebimento,tipo:'recebimento',sinal:1, pendente:false},
+        // Processa cada coluna de valor
+        const colunas=[
+          {ci:iAPagar, pendente:true,  sinal:-1, tipo:'apagar'},
+          {ci:iPag,    pendente:false, sinal:-1, tipo:'pagamento'},
+          {ci:iARec,   pendente:true,  sinal:1,  tipo:'areceber'},
+          {ci:iRec,    pendente:false, sinal:1,  tipo:'recebimento'},
         ];
 
         for(const col of colunas){
-          if(col.idx<0) continue;
-          const rawVal = r[col.idx];
-          if(!rawVal||typeof rawVal!=='number'||rawVal===0) continue;
-          const valor = col.sinal * Math.abs(rawVal);
+          if(col.ci<0) continue;
+          const raw=r[col.ci];
+          if(raw===null||raw===undefined||raw===''||raw===0) continue;
+          const num=typeof raw==='number'?raw:parseFloat(String(raw).replace(',','.'));
+          if(!num||isNaN(num)) continue;
 
+          const valor=col.sinal*Math.abs(num);
           const item={
             fornecedor:desc,
-            categoria: r[hdr.indexOf('categoria')]||'—',
+            categoria:'—',
             nf:'',
             data:dt,
             valor:valor,
             pendente:col.pendente,
-            _fonte: 'planilha_'+aba.trim()
+            _fonte:'hist_'+aba.trim().replace(/\s+/g,'_')
           };
 
           // Deduplicação
-          const chave=dt+'|'+desc.toLowerCase()+'|nd|'+Math.abs(valor).toFixed(2)+'|'+(col.pendente?'p':'r');
-          const jaExiste=fcDados.some(x=>(x.data+'|'+x.fornecedor.toLowerCase()+'|'+(x.nf||'nd')+'|'+Math.abs(x.valor).toFixed(2)+'|'+((x.pendente||false)?'p':'r'))===chave);
+          const tp=col.pendente?'p':'r';
+          const chave=dt+'|'+desc.toLowerCase()+'|nd|'+Math.abs(valor).toFixed(2)+'|'+tp;
+          const existe=fcDados.some(x=>{
+            const xtp=(x.pendente||false)?'p':'r';
+            return x.data===dt&&x.fornecedor.toLowerCase()===desc.toLowerCase()&&
+                   Math.abs(Math.abs(x.valor)-Math.abs(valor))<0.02&&xtp===tp;
+          });
 
-          if(jaExiste) duplicados.push(item);
-          else { novos.push(item); countAba++; }
+          if(existe) duplicados.push(item);
+          else{ novos.push(item); countAba++; }
         }
       }
-      totalAbas++;
-      console.log('[PlanilhaFC]',aba.trim(),': '+countAba+' registros, saldo anterior: '+saldoAba);
+      console.log('[PlanilhaFC]',aba.trim(),':',countAba,'registros, saldo inicial: R$'+saldoInicial.toFixed(2));
+    }
+
+    // Auto-define saldo anterior do primeiro mês
+    if(primeiroSaldoInicial!==null&&primeiroSaldoInicial!==0){
+      const el=document.getElementById('fcSaldoAnterior');
+      if(el){
+        const saldoStr=primeiroSaldoInicial.toFixed(2).replace('.',',');
+        el.value=saldoStr;
+        localStorage.setItem('sl_fc_saldo_ant',String(primeiroSaldoInicial));
+        showToast('💰 Saldo inicial detectado: R$ '+saldoStr.replace(/\B(?=(\d{3})+(?!\d))/g,'.'),'ok',4000);
+      }
     }
 
     if(!novos.length&&!duplicados.length){
-      showToast('Nenhum dado encontrado nas abas: '+abasMeses.join(', '),'err');
-      return;
+      showToast('Nenhum dado encontrado nas abas selecionadas','err'); return;
     }
 
-    showToast('✅ Análise concluída — abrindo prévia...','ok',3000);
     abrirPreviaImportacaoFC(novos, duplicados, 0);
 
-  }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
+  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
   input.value='';
 }
 
@@ -12168,8 +12196,22 @@ function renderFluxoCaixa(){
   const mesFiltro=document.getElementById('filtroFC_mes')?.value||'';
   const catFiltro=document.getElementById('filtroFC_categoria')?.value||'';
   const busca=(document.getElementById('filtroFC_busca')?.value||'').toLowerCase().trim();
-  const saldoAnt=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0')
+
+  // Saldo anterior inicial (digitado pelo usuário para o primeiro mês)
+  const saldoAntBase=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0')
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
+
+  // Calcula saldo anterior em cascata:
+  // Se filtro de mês está ativo, soma todos os lançamentos dos meses ANTERIORES
+  let saldoAnt = saldoAntBase;
+  if(mesFiltro){
+    const transAntes = fcDados.filter(t=>t.data && t.data < mesFiltro+'-01' && !t.pendente);
+    const somaAntes = transAntes.reduce((s,t)=>s+t.valor, 0);
+    saldoAnt = saldoAntBase + somaAntes;
+    // Atualiza display do campo (somente visual, não altera o valor base)
+    const elSA = document.getElementById('fcSaldoAnterior');
+    if(elSA) elSA.title = 'Saldo base: '+fmtMoeda(saldoAntBase)+' + acumulado anterior: '+fmtMoeda(somaAntes);
+  }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
   let listaReal=fcDados.filter(t=>{
@@ -12253,7 +12295,7 @@ function renderFluxoCaixa(){
 
   const stats=document.getElementById('statsFC');
   if(stats) stats.innerHTML=
-    '<div class="stat" style="border-left-color:#f57f17;cursor:default"><div class="stat-label">Saldo Anterior</div><div class="stat-val" style="color:#f57f17">'+fmtMoeda(saldoAnt)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#f57f17;cursor:default"><div class="stat-label">Saldo Anterior'+(mesFiltro?' ('+mesFiltro.replace(/(\d{4})-(\d{2})/,'$2/$1')+')':'')+'</div><div class="stat-val" style="color:#f57f17">'+fmtMoeda(saldoAnt)+'</div>'+(mesFiltro&&saldoAnt!==saldoAntBase?'<div class="stat-sub" style="font-size:9px;color:#bbb">base '+fmtMoeda(saldoAntBase)+'</div>':'')+'</div>'+
     '<div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">A Pagar</div><div class="stat-val" style="color:#c62828">-'+fmtMoeda(totAPagar)+'</div></div>'+
     '<div class="stat" style="border-left-color:#e65100;cursor:default"><div class="stat-label">Pagamentos</div><div class="stat-val" style="color:#e65100">-'+fmtMoeda(totPag)+'</div></div>'+
     '<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">A Receber</div><div class="stat-val" style="color:#00695c">+'+fmtMoeda(totAReceber)+'</div></div>'+
