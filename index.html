@@ -12358,7 +12358,7 @@ function renderFluxoCaixa(){
   listaReal.forEach(t=>{
     const nfKey=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'_';
     const key=t.data+'|'+(nfKey!=='_'?nfKey:t.fornecedor+':'+t.categoria);
-    if(!grouped[key]) grouped[key]={...t,_qtd:0};
+    if(!grouped[key]) grouped[key]={...t, valor:0, _qtd:0};  // valor:0 impede dupla contagem
     grouped[key].valor+=t.valor;
     grouped[key]._qtd++;
   });
