@@ -1427,7 +1427,7 @@ tr:hover td{background:#f9fbf9}
         <span style="font-size:11px;font-weight:700;color:#f57f17;white-space:nowrap">💰 Saldo Inicial:</span>
         <input type="text" id="fcSaldoAnterior" value="0" placeholder="Ex: 199.955,87"
           style="width:130px;padding:4px 8px;border:1px solid #ffe082;border-radius:6px;font-size:13px;font-weight:700;color:#2e7d32;text-align:right"
-          onchange="localStorage.setItem('sl_fc_saldo_ant',this.value.replace(',','.'));renderFluxoCaixa()"
+          onchange="const v=this.value.replace(',','.');localStorage.setItem('sl_fc_saldo_ant',v);sincronizarFcSaldoAnt(v);renderFluxoCaixa()"
           title="Saldo do 1º mês. Os demais meses calculam em cascata automaticamente.">
         <span style="font-size:10px;color:#f57f17" title="Digite o saldo do banco no início do 1º mês importado. Fevereiro, Março etc. calculam automaticamente a partir do saldo final do mês anterior.">🔁</span>
       </div>
@@ -11621,7 +11621,7 @@ function salvarLancamentoFC(){
   const valor = isPag ? -Math.abs(valorRaw) : Math.abs(valorRaw);
 
   fcDados.push({fornecedor, categoria, nf, data, valor, pendente:isPendente, manual:true});
-  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+  _salvarFcDados();
   showToast('✅ Lançamento adicionado!');
   fecharModal('modalLancamentoFC');
   populaFiltrosFC();
@@ -11635,7 +11635,7 @@ function excluirLancamentoFC(idx){
   const val = fmtMoeda(Math.abs(t.valor));
   if(!confirm('Excluir lançamento:\n"'+desc+'" — '+val+' ('+t.data+')?')) return;
   fcDados.splice(idx, 1);
-  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+  _salvarFcDados();
   showToast('Lançamento excluído!');
   renderFluxoCaixa();
 }
@@ -11653,7 +11653,7 @@ function excluirFC_grp(id){
         if(nfKey&&x.nf&&x.nf!=='N/D'&&x.nf.toLowerCase()!==nfKey.toLowerCase()) return true;
         return false;
       });
-      localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
+      _salvarFcDados();
       showToast('🗑 '+(antes-fcDados.length)+' lançamento(s) excluído(s)!');
       renderFluxoCaixa();
     }catch(e){showToast('Erro: '+e.message,'err');}
@@ -12194,7 +12194,7 @@ function confirmarImportacaoFC(){
   if(ignorados>0) console.warn('[FC] '+ignorados+' itens ignorados por dedup final');
 
   fcDados = [...base, ...reaisNovos];
-  localStorage.setItem('sl_fc_dados', JSON.stringify(fcDados));
+  _salvarFcDados();
   document.getElementById('modalPreviaFC')?.remove();
   showToast('✅ '+reaisNovos.length+' lançamentos importados! Total: '+fcDados.length+(ignorados?' ('+ignorados+' duplicatas ignoradas)':''));
   populaFiltrosFC();
@@ -12255,7 +12255,7 @@ async function migrarParaRealizado(id, tipo){
       count++;
     });
     if(!count){ showToast('Nenhum lançamento encontrado — reimporte os dados','err'); return; }
-    localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
+    _salvarFcDados();
     showToast('✅ '+count+' lançamento(s) movido(s) para '+( tipo==='pagar'?'Pagamento':'Recebimento')+'!');
     renderFluxoCaixa();
     return;
@@ -12293,7 +12293,7 @@ function desfazerRealizadoFC(data, fornParcial, tipo){
     if(tipo==='A Pagar' && fcDados[i].valor>0) fcDados[i].valor = -fcDados[i].valor;
     if(tipo==='A Receber' && fcDados[i].valor<0) fcDados[i].valor = -fcDados[i].valor;
   });
-  localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
+  _salvarFcDados();
   showToast('↩️ '+candidatos.length+' lançamento(s) voltaram para '+tipo+'!');
   renderFluxoCaixa();
 }
@@ -12311,7 +12311,7 @@ function excluirRealizadoFC(data, fornParcial){
   if(!confirm('Excluir '+candidatos.length+' lançamento(s) de "'+fornParcial+'" em '+data+'?')) return;
   // Remove de trás para frente para não deslocar índices
   [...candidatos].reverse().forEach(i=>fcDados.splice(i,1));
-  localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
+  _salvarFcDados();
   showToast('🗑 '+candidatos.length+' lançamento(s) excluído(s)!');
   renderFluxoCaixa();
 }
@@ -12321,23 +12321,73 @@ function desfazerPagamentoFC(idx){
   if(fcDados[idx]){
     fcDados[idx].pendente=true;
     delete fcDados[idx]._pagoEm;
-    localStorage.setItem('sl_fc_dados',JSON.stringify(fcDados));
+    _salvarFcDados();
     showToast('↩️ Movido de volta para pendente!');
     renderFluxoCaixa();
   }
 }
 
-function renderFluxoCaixa(){
-  // Carrega persistência — só quando não tiver dados em memória
-  // e quando _fcSkipReload não estiver ativo (pós-importação)
-  if(!window._fcSkipReload){
-    if(!fcDados.length){
-      try{ fcDados=JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){}
-      const sa=parseFloat(localStorage.getItem('sl_fc_saldo_ant')||'0');
-      if(sa){ const el=document.getElementById('fcSaldoAnterior'); if(el&&el.value==='0') el.value=sa.toFixed(2).replace('.',','); }
-      if(fcDados.length) populaFiltrosFC();
+// ── Sincronização Fluxo de Caixa com Supabase ─────────────────────────────
+async function sincronizarFC(json){
+  try{
+    // Tenta PATCH primeiro
+    const r = await api('PATCH','app_config',{valor:json,atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
+    // Se nenhuma linha atualizada, faz POST
+    if(!r||!r.length) await api('POST','app_config',{chave:'sl_fc_dados',valor:json});
+  }catch(e){ console.warn('[FC] Sync Supabase falhou (dados salvos localmente):',e.message||e); }
+}
+
+async function sincronizarFcSaldoAnt(val){
+  try{
+    const r=await api('PATCH','app_config',{valor:String(val),atualizado:new Date().toISOString()},'?chave=eq.sl_fc_saldo_ant');
+    if(!r||!r.length) await api('POST','app_config',{chave:'sl_fc_saldo_ant',valor:String(val)});
+  }catch(e){ console.warn('[FC] Sync saldo ant falhou:',e.message||e); }
+}
+
+async function carregarFcDadosSupabase(){
+  try{
+    const rows=await api('GET','app_config','','?chave=eq.sl_fc_dados');
+    if(rows&&rows.length&&rows[0].valor){
+      const arr=JSON.parse(rows[0].valor);
+      if(arr&&arr.length){
+        fcDados=arr;
+        localStorage.setItem('sl_fc_dados',rows[0].valor);
+        return true;
+      }
     }
+  }catch(e){ console.warn('[FC] Load Supabase falhou, usando localStorage:',e.message||e); }
+  // Fallback: localStorage
+  try{
+    const stored=localStorage.getItem('sl_fc_dados');
+    if(stored){ const arr=JSON.parse(stored); if(arr&&arr.length){ fcDados=arr; return true; } }
+  }catch(e){}
+  return false;
+}
+
+function _salvarFcDados(){
+  const json=JSON.stringify(fcDados);
+  localStorage.setItem('sl_fc_dados',json);
+  sincronizarFC(json); // async — não bloqueia UI
+}
+
+function renderFluxoCaixa(){
+  // Carrega do Supabase (compartilhado) se não tiver dados em memória
+  if(!window._fcSkipReload && !fcDados.length){
+    // Mostra loading enquanto carrega do Supabase
+    const tbl=document.getElementById('fcTabela');
+    if(tbl) tbl.innerHTML='<div class="empty" style="color:#1565c0">⏳ Carregando dados do servidor...</div>';
+    carregarFcDadosSupabase().then(ok=>{
+      const saVal=localStorage.getItem('sl_fc_saldo_ant');
+      if(saVal){ const el=document.getElementById('fcSaldoAnterior'); if(el&&(!el.value||parseFloat(el.value)===0)) el.value=parseFloat(saVal).toFixed(2).replace('.',','); }
+      if(fcDados.length) populaFiltrosFC();
+      _renderFluxoCaixaCore();
+    });
+    return; // retorna — a renderização acontece no callback
   }
+  _renderFluxoCaixaCore();
+}
+
+function _renderFluxoCaixaCore(){
 
   const mesFiltro=document.getElementById('filtroFC_mes')?.value||'';
   const catFiltro=document.getElementById('filtroFC_categoria')?.value||'';
