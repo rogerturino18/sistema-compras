@@ -1420,11 +1420,13 @@ tr:hover td{background:#f9fbf9}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <!-- Saldo anterior editável -->
-      <div style="display:flex;align-items:center;gap:6px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:6px 12px">
+      <div style="display:flex;align-items:center;gap:6px;background:#fff8e1;border:2px solid #ffa000;border-radius:8px;padding:6px 12px">
         <span style="font-size:11px;font-weight:700;color:#f57f17;white-space:nowrap">💰 Saldo Anterior:</span>
-        <input type="text" id="fcSaldoAnterior" value="0" placeholder="0,00"
-          style="width:120px;padding:4px 8px;border:1px solid #ffe082;border-radius:6px;font-size:13px;font-weight:700;color:#2e7d32;text-align:right"
-          onchange="renderFluxoCaixa()">
+        <input type="text" id="fcSaldoAnterior" value="0" placeholder="Ex: 184.452,91"
+          style="width:140px;padding:4px 8px;border:1px solid #ffe082;border-radius:6px;font-size:13px;font-weight:700;color:#2e7d32;text-align:right"
+          onchange="localStorage.setItem('sl_fc_saldo_ant',this.value.replace(/[^0-9,.\\-]/g,'').replace(',','.'));renderFluxoCaixa()"
+          title="Digite o saldo do banco no início do período">
+        <span style="font-size:10px;color:#f57f17" title="Informe o saldo inicial do banco para cálculo correto">ℹ️</span>
       </div>
       <!-- Filtros -->
       <select id="filtroFC_mes" onchange="renderFluxoCaixa()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
@@ -9188,10 +9190,20 @@ function mostrarApp(){
   } else {
     document.querySelectorAll('.tab').forEach(t=>t.style.display='flex');
     showTab(0);
-    // Abre homescreen imediatamente (sem tiles ainda) para evitar flash do tab0
+    // Abre homescreen IMEDIATAMENTE — cobre o app antes de qualquer frame ser pintado
     const home=document.getElementById('homeScreen');
-    if(home){ home.classList.add('open'); }
-    document.getElementById('homeNome').textContent=usuarioLogado?.nome?.split(' ')[0]||'';
+    if(home){
+      home.style.display='flex';
+      home.style.flexDirection='column';
+      home.classList.add('open');
+      const nomeEl=document.getElementById('homeNome');
+      if(nomeEl) nomeEl.textContent=usuarioLogado?.nome?.split(' ')[0]||'';
+      atualizarRelogio();
+      if(homeInterval) clearInterval(homeInterval);
+      homeInterval=setInterval(atualizarRelogio,1000);
+      const tilesDiv=document.getElementById('homeTiles');
+      if(tilesDiv) tilesDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:200px;color:rgba(255,255,255,0.5);font-size:16px;letter-spacing:2px">⏳ Carregando dados...</div>';
+    }
   }
   iniciarVerificacaoLembretes();
 }
@@ -11709,13 +11721,17 @@ async function importarFluxoOmie(input){
     const iFor = hdr.findIndex(h=>h.includes('fornec')||h.includes('razão social')||h.includes('razao social')||h.includes('nome'));
     const iCat = hdr.findIndex(h=>h.includes('categ'));
     const iNF  = hdr.findIndex(h=>h.includes('nota')||h.includes('nf')||h.includes('cf'));
-    const iDat = hdr.findIndex(h=>h.includes('data')||h.includes('previsão')||h.includes('previsao')||h.includes('vencimento')||h.includes('competencia'));
-    const iVal = hdr.findIndex(h=>h.includes('pago')||h.includes('receb')||h.includes('valor')||h.includes('pagar'));
+    // Normaliza sem acentos para comparação segura (evita problemas de encoding do xlsx)
+    const _norm = s => s.normalize ? s.normalize('NFD').replace(/[\u0300-\u036f]/g,'') : s;
+    const nhdr = hdr.map(_norm);
+    const iDat = nhdr.findIndex(h=>h.includes('data')||h.includes('previsao')||h.includes('prev')||h.includes('vencimento')||h.includes('competencia'));
+    const iVal = nhdr.findIndex(h=>h.includes('pago')||h.includes('receb')||h.includes('valor')||h.includes('pagar'));
 
-    // Detecta se é arquivo de realizados ou pendentes
-    const isPendente = hdr.some(h=>h.includes('previsão')||h.includes('previsao')||h.includes('a pagar')||h.includes('vencimento'));
+    // Detecta se é arquivo de realizados ou pendentes (sem depender de acento)
+    const isPendente = nhdr.some(h=>h.includes('previsao')||h.includes('prev')||h.includes('a pagar')||h.includes('vencimento'));
     console.log('[FC] Formato detectado:', isPendente?'Pendentes':'Realizados');
     console.log('[FC] Colunas idx:', {iFor,iCat,iNF,iDat,iVal});
+    console.log('[FC] nhdr:', nhdr, 'iFor:', iFor, 'iDat:', iDat, 'iVal:', iVal, 'isPendente:', isPendente);
     if(iDat<0){ showToast('⚠️ Coluna de data não encontrada. Colunas: '+hdr.join(', '),'err'); return; }
     if(iVal<0){ showToast('⚠️ Coluna de valor não encontrada. Colunas: '+hdr.join(', '),'err'); return; }
 
@@ -11892,7 +11908,7 @@ function confirmarImportacaoFC(){
 }
 
 function populaFiltrosFC(){
-  const meses=[...new Set(fcDados.map(t=>t.data.substring(0,7)))].sort().reverse();
+  const meses=[...new Set(fcDados.filter(t=>t&&t.data).map(t=>t.data.substring(0,7)))].sort().reverse();
   const cats=[...new Set(fcDados.map(t=>t.categoria).filter(Boolean))].sort();
   const mesEl=document.getElementById('filtroFC_mes');
   if(mesEl){
@@ -11952,13 +11968,14 @@ function desfazerPagamentoFC(idx){
 }
 
 function renderFluxoCaixa(){
-  // Carrega persistência
-  if(!fcDados.length){
-    try{ fcDados=JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){}
-    const sa=parseFloat(localStorage.getItem('sl_fc_saldo_ant')||'0');
-    if(sa){ const el=document.getElementById('fcSaldoAnterior'); if(el&&el.value==='0') el.value=sa.toFixed(2).replace('.',','); }
-    if(fcDados.length) populaFiltrosFC();
-  }
+  // Sempre recarrega do localStorage (garante dados após refresh de página)
+  try{
+    const _stored=localStorage.getItem('sl_fc_dados');
+    if(_stored){ const _arr=JSON.parse(_stored); if(_arr.length) fcDados=_arr; }
+  }catch(e){}
+  const _sa=localStorage.getItem('sl_fc_saldo_ant');
+  if(_sa){ const el=document.getElementById('fcSaldoAnterior'); if(el&&(!el.value||el.value==='0'||parseFloat(el.value)===0)) el.value=parseFloat(_sa).toFixed(2).replace('.',','); }
+  if(fcDados.length&&(document.getElementById('filtroFC_mes')?.options?.length||0)<=1) populaFiltrosFC();
 
   const mesFiltro=document.getElementById('filtroFC_mes')?.value||'';
   const catFiltro=document.getElementById('filtroFC_categoria')?.value||'';
@@ -11967,6 +11984,9 @@ function renderFluxoCaixa(){
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
+  // Remove items sem data (corruptos)
+  fcDados=fcDados.filter(t=>t&&t.data);
+
   let listaReal=fcDados.filter(t=>{
     if(t.pendente) return false; // pendentes ficam na seção de CP/CR
     if(mesFiltro&&!t.data.startsWith(mesFiltro)) return false;
@@ -12024,23 +12044,25 @@ function renderFluxoCaixa(){
   // Índices reais no fcDados para pendentes
   // pendentesOmie já tem os dados corretos
 
+  // Mapeia pendentes do Omie com índice real no fcDados para ações confiáveis
+  const _idxPend = (t)=>{
+    for(let i=0;i<fcDados.length;i++){
+      const x=fcDados[i];
+      if(!x.pendente) continue;
+      if(x.data===t.data && x.fornecedor.toLowerCase()===t.fornecedor.toLowerCase() && Math.sign(x.valor)===Math.sign(t.valor) && Math.abs(Math.abs(x.valor)-Math.abs(t.valor))<0.5) return i;
+    }
+    return -1;
+  };
+
   const cpOmie=groupPend(pendentesOmie.filter(t=>t.valor<0), 'pagar').map(t=>{
-    const fcIdx=fcDados.findIndex(x=>x===t||(!x.pendente===false&&x.data===t.data&&x.fornecedor===t.fornecedor&&x.pendente&&x.valor<0&&Math.abs(Math.abs(x.valor)-Math.abs(t.valor))<0.5));
-    return {
-      id:'local_'+fcIdx,
-      descricao:t.fornecedor, fornecedor:t.fornecedor,
-      valor:Math.abs(t.valor), categoria:t.categoria,
-      vencimento:t.data, nf:t.nf, _omie:true, _fcIdx:fcIdx
-    };
+    const fcIdx=_idxPend(t);
+    return {id:'local_'+fcIdx, descricao:t.fornecedor, fornecedor:t.fornecedor,
+      valor:Math.abs(t.valor), categoria:t.categoria, vencimento:t.data, nf:t.nf, _omie:true, _fcIdx:fcIdx};
   });
   const crOmie=groupPend(pendentesOmie.filter(t=>t.valor>0), 'receber').map(t=>{
-    const fcIdx=fcDados.findIndex(x=>x.data===t.data&&x.fornecedor===t.fornecedor&&x.pendente&&x.valor>0&&Math.abs(x.valor-t.valor)<0.5);
-    return {
-      id:'local_'+fcIdx,
-      descricao:t.fornecedor, cliente:t.fornecedor,
-      valor:t.valor, categoria:t.categoria,
-      vencimento:t.data, nf:t.nf, _omie:true, _fcIdx:fcIdx
-    };
+    const fcIdx=_idxPend(t);
+    return {id:'local_'+fcIdx, descricao:t.fornecedor, cliente:t.fornecedor,
+      valor:t.valor, categoria:t.categoria, vencimento:t.data, nf:t.nf, _omie:true, _fcIdx:fcIdx};
   });
 
   const cp=[...cpSistema,...cpOmie];
@@ -12140,7 +12162,7 @@ function renderFluxoCaixa(){
     cpDia.forEach(function(c){
       const v=c.valor||0; diaAPag+=v;
       spAcc-=v;
-      linhas+='<tr style="background:#fff5f5;border-bottom:1px solid #fce4ec">'+
+      linhas+='<tr style="background:#fff;border-bottom:1px solid #e8f5e9">'+
         diaCell()+
         '<td style="padding:6px 10px;font-weight:600;color:#263238">'+((c.descricao||c.fornecedor||'—'))+'</td>'+
         '<td style="padding:6px 10px"><span style="background:#ffebee;color:#c62828;padding:1px 6px;border-radius:8px;font-size:10px">'+((c.categoria||'—'))+'</span></td>'+
@@ -12148,7 +12170,7 @@ function renderFluxoCaixa(){
         '<td style="padding:6px 10px;text-align:right;color:#c62828;font-weight:700">'+fmtMoeda(v)+'</td>'+
         '<td></td><td></td><td></td>'+
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
-        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
         '<td style="padding:4px;text-align:center;white-space:nowrap">'+
         (c._omie?
           '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 7px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;margin-right:2px">✅ Pagar</button>'+
@@ -12170,7 +12192,7 @@ function renderFluxoCaixa(){
         '<td style="padding:6px 10px;text-align:right;color:#00695c;font-weight:700">'+fmtMoeda(v)+'</td>'+
         '<td></td>'+
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
-        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
         '<td style="padding:4px;text-align:center;white-space:nowrap">'+
         (c._omie?
           '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 7px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;margin-right:2px">✅ Receber</button>'+
@@ -12186,7 +12208,7 @@ function renderFluxoCaixa(){
       if(isPag){ diaPag+=vAbs; srAcc-=vAbs; spAcc-=vAbs; }
       else { diaRec+=vAbs; srAcc+=vAbs; spAcc+=vAbs; }
       const srColor=srAcc>=0?'#1565c0':'#c62828';
-      const spColor=spAcc>=0?'#6a1b9a':'#c62828';
+      const spColor=spAcc>=0?'#1565c0':'#c62828';
       const nfLabel=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'—';
       // Índice no fcDados para exclusão/desfazer
       const fcIdx=fcDados.findIndex(x=>!x.pendente&&x.data===t.data&&x.fornecedor===t.fornecedor&&Math.abs(Math.abs(x.valor)-vAbs)<0.01);
@@ -12220,7 +12242,7 @@ function renderFluxoCaixa(){
         '<td style="padding:7px 10px;text-align:right;color:#00695c;font-weight:700">'+(diaARec?fmtMoeda(diaARec):'')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;color:#2e7d32;font-weight:700">'+(diaRec?fmtMoeda(diaRec):'')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;font-weight:900;color:'+(srAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(srAcc)+'</td>'+
-        '<td style="padding:7px 10px;text-align:right;font-weight:900;color:'+(spAcc>=0?'#6a1b9a':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-weight:900;color:'+(spAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
         '<td></td></tr>';
     }
 
