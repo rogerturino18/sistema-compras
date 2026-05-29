@@ -11838,6 +11838,7 @@ async function importarPlanilhaFC(input){
         }
       }
       console.log('[PlanilhaFC]',aba.trim(),':',countAba,'registros, saldo inicial: R$'+saldoInicial.toFixed(2));
+      if(countAba > 0) showToast('📋 '+aba.trim()+': '+countAba+' registros lidos','ok',2000);
     }
 
     // Auto-define saldo anterior do primeiro mês
