@@ -11720,16 +11720,20 @@ async function importarPlanilhaFC(input){
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf,{type:'array',cellDates:true});
 
-    // Detecta abas de meses 2026 ou outros anos
-    const mesesPT=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    // Só aceita abas que explicitamente mencionam o ano (ex: "JANEIRO 2026", "MAIO 2026")
+    // Evita processar abas históricas de outros anos (FEV 23, MAR 23 etc.)
     const abasMeses = wb.SheetNames.filter(n=>{
-      const nl=n.toLowerCase();
-      return (nl.includes('2026')||nl.includes('2025')||nl.includes('2027')||
-              mesesPT.some(m=>nl.startsWith(m)||nl.includes(' '+m)));
-    }).filter(n=>{
-      // Exclui abas de bancos ou auxiliares
-      const nl=n.toLowerCase();
-      return !nl.includes('itau')&&!nl.includes('santander')&&!nl.includes('brasil p')&&!nl.includes('macoex');
+      const nl=n.toLowerCase().trim();
+      // Deve conter um ano de 4 dígitos (2024, 2025, 2026, etc.)
+      const temAno = /20\d{2}/.test(nl);
+      if(!temAno) return false;
+      // Deve conter nome de mês
+      const mesesPT=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+      const temMes = mesesPT.some(m=>nl.startsWith(m)||nl.includes(' '+m));
+      // Exclui abas de bancos
+      const excluir=['itau','santander','brasil p','macoex','brasil pf'];
+      const ehBanco = excluir.some(x=>nl.includes(x));
+      return temMes && !ehBanco;
     });
 
     if(!abasMeses.length){
@@ -11741,6 +11745,11 @@ async function importarPlanilhaFC(input){
 
     const novos=[], duplicados=[];
     let primeiroSaldoInicial = null;
+    // Set de chaves já adicionadas nesta importação (evita duplicar dentro do mesmo arquivo)
+    const chavesAdicionadas = new Set(fcDados.map(x=>{
+      const tp=(x.pendente||false)?'p':'r';
+      return x.data+'|'+x.fornecedor.toLowerCase()+'|'+Math.abs(x.valor).toFixed(2)+'|'+tp;
+    }));
 
     for(const aba of abasMeses){
       const ws = wb.Sheets[aba];
@@ -11821,17 +11830,17 @@ async function importarPlanilhaFC(input){
             _fonte:'hist_'+aba.trim().replace(/\s+/g,'_')
           };
 
-          // Deduplicação
+          // Deduplicação contra existentes E contra itens já adicionados nesta importação
           const tp=col.pendente?'p':'r';
-          const chave=dt+'|'+desc.toLowerCase()+'|nd|'+Math.abs(valor).toFixed(2)+'|'+tp;
-          const existe=fcDados.some(x=>{
-            const xtp=(x.pendente||false)?'p':'r';
-            return x.data===dt&&x.fornecedor.toLowerCase()===desc.toLowerCase()&&
-                   Math.abs(Math.abs(x.valor)-Math.abs(valor))<0.02&&xtp===tp;
-          });
+          const chave=dt+'|'+desc.toLowerCase()+'|'+Math.abs(valor).toFixed(2)+'|'+tp;
 
-          if(existe) duplicados.push(item);
-          else{ novos.push(item); countAba++; }
+          if(chavesAdicionadas.has(chave)){
+            duplicados.push(item);
+          } else {
+            novos.push(item);
+            chavesAdicionadas.add(chave); // bloqueia duplicata na mesma importação
+            countAba++;
+          }
         }
       }
       console.log('[PlanilhaFC]',aba.trim(),':',countAba,'registros, saldo inicial: R$'+saldoInicial.toFixed(2));
