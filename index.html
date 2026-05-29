@@ -1451,6 +1451,10 @@ tr:hover td{background:#f9fbf9}
           <input type="file" id="fcImportInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFluxoOmie(this)">
         </label>
       </div>
+      <label style="padding:8px 14px;background:#0d47a1;color:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Importa planilha com abas por mês e colunas: A Pagar | Pagamento | A Receber | Recebimento">
+        📊 Importar Planilha Histórica
+        <input type="file" id="fcImportPlanilha" accept=".xlsx,.xls" style="display:none" onchange="importarPlanilhaFC(this)">
+      </label>
       <button onclick="abrirModalLancamentoFC()" style="padding:8px 16px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✏️ Lançamento Manual</button>
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
       <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar Dados</button>
@@ -11697,6 +11701,133 @@ function _parseExcelDate(v){
   const parsed = new Date(s);
   if(!isNaN(parsed)) return parsed.toISOString().split('T')[0];
   return null;
+}
+
+async function importarPlanilhaFC(input){
+  const file = input.files[0];
+  if(!file) return;
+  showToast('⏳ Lendo planilha histórica...','ok',8000);
+  try{
+    if(!window.XLSX){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=res; s.onerror=rej; document.head.appendChild(s);
+      });
+    }
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf,{type:'array',cellDates:true});
+
+    // Detecta abas de meses (procura abas com "2026" ou nomes de meses)
+    const mesesNomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    const abasMeses = wb.SheetNames.filter(n=>{
+      const nl = n.toLowerCase();
+      return nl.includes('2026') || nl.includes('2025') || mesesNomes.some(m=>nl.includes(m));
+    });
+
+    if(!abasMeses.length){
+      showToast('Nenhuma aba de mês encontrada. Abas disponíveis: '+wb.SheetNames.slice(0,5).join(', '),'err');
+      return;
+    }
+
+    const novos=[], duplicados=[], erros=[];
+    let totalAbas=0;
+
+    for(const aba of abasMeses){
+      const ws = wb.Sheets[aba];
+      const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      if(!rows||rows.length<3) continue;
+
+      // Detecta linha de cabeçalho (tem "DESCRIÇÃO" ou "PAGAMENTO")
+      let hdrRow = rows.findIndex(r=>r&&r.some(v=>v&&String(v).toUpperCase().includes('DESCRIÇÃO')||String(v||'').toUpperCase().includes('PAGAMENTO')));
+      if(hdrRow<0) hdrRow=1; // assume linha 1
+
+      const hdr = (rows[hdrRow]||[]).map(v=>String(v||'').toLowerCase().trim());
+
+      // Detecta colunas
+      const iData = 0; // Coluna A = Data
+      const iDesc = 1; // Coluna B = Descrição
+      const iAPagar    = hdr.findIndex(h=>h.includes('a pagar'));
+      const iPagamento = hdr.findIndex(h=>h.includes('pagamento'));
+      const iAReceber  = hdr.findIndex(h=>h.includes('a receber'));
+      const iRecebimento = hdr.findIndex(h=>h.includes('recebimento'));
+      const iSaldoReal = hdr.findIndex(h=>h.includes('saldo real'));
+
+      // Saldo anterior: linha 0, coluna Saldo Real
+      let saldoAba = 0;
+      if(rows[0]&&rows[0][iSaldoReal]&&typeof rows[0][iSaldoReal]==='number'){
+        saldoAba = rows[0][iSaldoReal];
+      } else if(rows[0]){
+        // Tenta qualquer número grande na linha 0
+        const nums = rows[0].filter(v=>typeof v==='number'&&Math.abs(v)>100);
+        if(nums.length) saldoAba = nums[0];
+      }
+
+      let countAba=0;
+      for(let i=hdrRow+1;i<rows.length;i++){
+        const r=rows[i]; if(!r) continue;
+
+        // Data
+        let dt = r[iData];
+        if(!dt) continue;
+        if(dt instanceof Date){
+          if(dt.getFullYear()<2000||dt.getFullYear()>2030) continue;
+          dt = dt.toISOString().split('T')[0];
+        } else if(typeof dt==='number'){
+          const d=new Date((dt-25569)*86400000);
+          if(d.getFullYear()<2000||d.getFullYear()>2030) continue;
+          dt=d.toISOString().split('T')[0];
+        } else { continue; }
+
+        const desc = String(r[iDesc]||'').trim();
+        if(!desc||desc.length<2) continue;
+
+        // Processa cada coluna com valor
+        const colunas = [
+          {idx:iAPagar,    tipo:'apagar',     sinal:-1, pendente:true},
+          {idx:iPagamento, tipo:'pagamento',  sinal:-1, pendente:false},
+          {idx:iAReceber,  tipo:'areceber',   sinal:1,  pendente:true},
+          {idx:iRecebimento,tipo:'recebimento',sinal:1, pendente:false},
+        ];
+
+        for(const col of colunas){
+          if(col.idx<0) continue;
+          const rawVal = r[col.idx];
+          if(!rawVal||typeof rawVal!=='number'||rawVal===0) continue;
+          const valor = col.sinal * Math.abs(rawVal);
+
+          const item={
+            fornecedor:desc,
+            categoria: r[hdr.indexOf('categoria')]||'—',
+            nf:'',
+            data:dt,
+            valor:valor,
+            pendente:col.pendente,
+            _fonte: 'planilha_'+aba.trim()
+          };
+
+          // Deduplicação
+          const chave=dt+'|'+desc.toLowerCase()+'|nd|'+Math.abs(valor).toFixed(2)+'|'+(col.pendente?'p':'r');
+          const jaExiste=fcDados.some(x=>(x.data+'|'+x.fornecedor.toLowerCase()+'|'+(x.nf||'nd')+'|'+Math.abs(x.valor).toFixed(2)+'|'+((x.pendente||false)?'p':'r'))===chave);
+
+          if(jaExiste) duplicados.push(item);
+          else { novos.push(item); countAba++; }
+        }
+      }
+      totalAbas++;
+      console.log('[PlanilhaFC]',aba.trim(),': '+countAba+' registros, saldo anterior: '+saldoAba);
+    }
+
+    if(!novos.length&&!duplicados.length){
+      showToast('Nenhum dado encontrado nas abas: '+abasMeses.join(', '),'err');
+      return;
+    }
+
+    showToast('✅ Análise concluída — abrindo prévia...','ok',3000);
+    abrirPreviaImportacaoFC(novos, duplicados, 0);
+
+  }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
+  input.value='';
 }
 
 async function importarFluxoOmie(input){
