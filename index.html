@@ -6820,10 +6820,9 @@ function abrirHomeScreen(){
   atualizarRelogio();
   if(homeInterval) clearInterval(homeInterval);
   homeInterval=setInterval(atualizarRelogio,1000);
-  renderHomeTiles(); // re-renderiza com permissões atuais
-  homeInterval=setInterval(atualizarRelogio,1000);
-  iniciarSlideshow();
   renderHomeTiles();
+  // Só inicia slideshow se ainda não estiver rodando (evita troca de papel de parede ao reabrir)
+  if(!wallpaperInterval) iniciarSlideshow();
 }
 
 function fecharHomeScreen(){
@@ -9134,22 +9133,16 @@ function abrirEditarUsuario(id){
 
 async function salvarEdicaoUsuario(){
   const id = document.getElementById('eu_id').value;
-  
-  // Verifica se checkboxes existem (grid foi renderizado)
-  const checksExistem = MODULOS_SISTEMA.some(m=>document.getElementById('perm_'+m.id));
-  
-  let perfilComPerms;
-  if(checksExistem){
-    const permsSelecionadas = MODULOS_SISTEMA.filter(m=>document.getElementById('perm_'+m.id)?.checked).map(m=>m.id);
-    const todasMarcadas = permsSelecionadas.length === MODULOS_SISTEMA.length;
-    const cargoAtual = document.getElementById('eu_cargo').value.trim()||'';
-    const perfilLabel = cargoAtual || 'Usuário';
-    perfilComPerms = todasMarcadas ? perfilLabel : `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
-  } else {
-    // Segurança: se checkboxes não foram renderizados, mantém permissões atuais
-    const u = todosUsuarios.find(x=>x.id===id);
-    perfilComPerms = u?.perfil || (document.getElementById('eu_cargo').value.trim()||'Usuário');
-  }
+  const cargoAtual = document.getElementById('eu_cargo').value.trim()||'';
+
+  // Coleta permissões (checkboxes pré-renderizados em abrirEditarUsuario)
+  const permsSelecionadas = MODULOS_SISTEMA.filter(m=>document.getElementById('perm_'+m.id)?.checked).map(m=>m.id);
+  const todasMarcadas = permsSelecionadas.length === MODULOS_SISTEMA.length;
+  const perfilLabel = cargoAtual || 'Usuário';
+  const perfilComPerms = (todasMarcadas || permsSelecionadas.length===0)
+    ? perfilLabel
+    : `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
+
   const obj = {
     nome: document.getElementById('eu_nome').value.trim(),
     email: document.getElementById('eu_email').value.trim().toLowerCase(),
@@ -9167,18 +9160,21 @@ async function salvarEdicaoUsuario(){
     todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
     renderListaUsuarios();
   }catch(e){
-    if(e.message?.includes('400') || String(e).includes('400')){
-      // Pode ser que a coluna perfil tem limite de caracteres
-      // Tenta salvar sem o campo perfil para verificar
+    const errMsg = String(e.message||e||'');
+    // Tenta sem perfil se coluna não existir no Supabase
+    if(errMsg.includes('400')||errMsg.includes('perfil')||errMsg.includes('column')){
       const objSemPerfil={...obj}; delete objSemPerfil.perfil;
       try{
         await api('PATCH','usuarios',objSemPerfil,`?id=eq.${id}`);
-        showToast('⚠️ Dados salvos mas permissões falharam. Execute no Supabase SQL Editor: ALTER TABLE usuarios ALTER COLUMN perfil TYPE TEXT;','err');
+        showToast('⚠️ Dados salvos! Para ativar permissões, execute no Supabase:\nALTER TABLE usuarios ALTER COLUMN perfil TYPE TEXT;','err',6000);
         fecharModal('modalEditarUsuario');
         todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
         renderListaUsuarios();
       }catch(e2){ showToast('Erro ao salvar: '+e2.message,'err'); }
-    } else { showToast('Erro: '+e.message,'err'); }
+    } else {
+      showToast('Erro ao salvar: '+errMsg,'err');
+      console.error('[USUARIO]',e);
+    }
   }
 }
 
