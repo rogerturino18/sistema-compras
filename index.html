@@ -691,6 +691,7 @@ tr:hover td{background:#f9fbf9}
     <input type="text" id="buscaOrdem" placeholder="Buscar por número, PDV, descrição..." oninput="renderOrdens()" style="flex:1;min-width:150px">
     <select id="filtroOrdemPDV" onchange="renderOrdens()"><option value="">Todos os PDVs</option></select>
     <button class="btn" onclick="exportarExcel('ordens')" style="white-space:nowrap">📊 Excel</button>
+    <button class="btn" onclick="abrirGestaoImpressao()" style="white-space:nowrap;background:#e3f2fd;border-color:#90caf9;color:#1565c0">🖨️ Gestão de Impressão</button>
     <button class="btn primary" onclick="abrirModalOrdem(null)">+ Nova Ordem</button>
   </div>
   <div id="listaOrdens"></div>
@@ -1431,10 +1432,21 @@ tr:hover td{background:#f9fbf9}
           title="Saldo do 1º mês. Os demais meses calculam em cascata automaticamente.">
         <span style="font-size:10px;color:#f57f17" title="Digite o saldo do banco no início do 1º mês importado. Fevereiro, Março etc. calculam automaticamente a partir do saldo final do mês anterior.">🔁</span>
       </div>
-      <!-- Filtros -->
-      <select id="filtroFC_mes" onchange="renderFluxoCaixa()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
-        <option value="">Todos os meses</option>
-      </select>
+      <!-- Filtro de mês multi-seleção -->
+      <div style="position:relative" id="fcMesFiltroWrap">
+        <button id="fcMesFiltroBtn" onclick="toggleMesFiltroFC(event)"
+          style="padding:7px 28px 7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;min-width:160px;text-align:left;position:relative;white-space:nowrap">
+          Todos os meses
+          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>
+        </button>
+        <div id="fcMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:320px;overflow-y:auto;padding:6px 0">
+          <div style="padding:6px 12px;border-bottom:1px solid #f0f0f0;display:flex;gap:6px">
+            <button onclick="fcMesMarcarTodos(true)" style="flex:1;padding:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;color:#2e7d32;cursor:pointer;font-weight:700">Todos</button>
+            <button onclick="fcMesMarcarTodos(false)" style="flex:1;padding:4px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:11px;color:#c62828;cursor:pointer;font-weight:700">Nenhum</button>
+          </div>
+          <div id="fcMesFiltroOpcoes"></div>
+        </div>
+      </div>
       <select id="filtroFC_categoria" onchange="renderFluxoCaixa()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
         <option value="">Todas as categorias</option>
       </select>
@@ -2583,6 +2595,42 @@ tr:hover td{background:#f9fbf9}
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalOrdem')">Cancelar</button>
     <button class="btn primary" onclick="salvarOrdem()">🔧 Criar Ordem</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL GESTÃO DE IMPRESSÃO -->
+<div class="modal-bg" id="modalGestaoImpressao">
+<div class="modal" style="max-width:680px">
+  <div class="modal-header">
+    <h3>🖨️ Gestão de Impressão — Ordens</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalGestaoImpressao')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" style="padding:0">
+    <div style="background:#e3f2fd;border-left:4px solid #1565c0;padding:10px 16px;font-size:12px;color:#1565c0;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">💡</span>
+      <span>Selecione as ordens desejadas. O sistema imprime <strong>2 ordens por folha A4</strong>, aproveitando o papel inteiro com linha de corte no meio.</span>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid #e0e0e0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="gi_busca" placeholder="Buscar ordem..." oninput="renderGestaoImpressao()" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px">
+      <select id="gi_filtroStatus" onchange="renderGestaoImpressao()" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px">
+        <option value="">Todos os status</option>
+        <option value="aguardando">Aguardando</option>
+        <option value="em_andamento">Em andamento</option>
+        <option value="concluido">Concluídas</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="gi_selecionarTodas" onchange="toggleSelecionarTodasOrdens(this)"> Selecionar todas
+      </label>
+    </div>
+    <div id="gi_contador" style="padding:8px 16px;background:#f5f7f5;font-size:12px;color:#546e7a;border-bottom:1px solid #e0e0e0">Nenhuma ordem selecionada</div>
+    <div id="gi_lista" style="max-height:380px;overflow-y:auto;padding:8px 16px"></div>
+  </div>
+  <div class="modal-actions" style="padding:12px 16px;display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn" onclick="fecharModal('modalGestaoImpressao')">Cancelar</button>
+    <button class="btn primary" onclick="imprimirOrdensSelecionadas()" id="gi_btnImprimir" disabled style="opacity:0.5">🖨️ Imprimir Selecionadas</button>
   </div>
 </div>
 </div>
@@ -5956,6 +6004,194 @@ async function salvarOrdem(){
       }
     }
   }catch(e){showToast('Erro ao criar ordem','err');console.error(e);}
+}
+
+// ===== GESTÃO DE IMPRESSÃO =====
+function abrirGestaoImpressao(){
+  renderGestaoImpressao();
+  abrirModal('modalGestaoImpressao');
+}
+
+function renderGestaoImpressao(){
+  const busca=(document.getElementById('gi_busca')?.value||'').toLowerCase();
+  const status=document.getElementById('gi_filtroStatus')?.value||'';
+  const lista=ordens.filter(o=>{
+    if(busca&&!(o.numero+''+o.descricao+o.desenho+o.material+'').toLowerCase().includes(busca)) return false;
+    if(status&&o.status!==status) return false;
+    return true;
+  });
+
+  const div=document.getElementById('gi_lista');
+  if(!lista.length){
+    div.innerHTML='<div style="padding:24px;text-align:center;color:#9e9e9e">Nenhuma ordem encontrada</div>';
+    atualizarContadorImpressao();
+    return;
+  }
+
+  const grupos={};
+  lista.forEach(o=>{
+    const pdv=pdvs.find(p=>p.id===o.pdv_id);
+    const key=pdv?.numero||'Sem PDV';
+    if(!grupos[key]) grupos[key]={pdv,ordens:[]};
+    grupos[key].ordens.push(o);
+  });
+
+  div.innerHTML=Object.entries(grupos).map(([key,g])=>`
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:0.5px;padding:6px 0 4px;border-bottom:1px solid #e0e0e0;margin-bottom:4px">
+        PDV ${g.pdv?.numero||'—'} ${g.pdv?.cliente?' — '+g.pdv.cliente:''}
+      </div>
+      ${g.ordens.map(o=>{
+        const statusLabel=o.status==='concluido'?'<span style="color:#2e7d32;font-size:10px">✅ Concluída</span>':o.status==='em_andamento'?'<span style="color:#e65100;font-size:10px">⚙️ Em andamento</span>':'<span style="color:#9e9e9e;font-size:10px">⏳ Aguardando</span>';
+        return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;transition:background 0.15s" onmouseover="this.style.background='#f5f7f5'" onmouseout="this.style.background='#fff'">
+          <input type="checkbox" class="gi_check" value="${o.id}" onchange="atualizarContadorImpressao()" style="accent-color:#1565c0;width:15px;height:15px;flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-weight:700;font-size:13px">Nº ${o.numero}</span>
+              ${statusLabel}
+              ${o.peso?'<span style="font-size:10px;color:#546e7a">⚖️ '+Number(o.peso).toLocaleString('pt-BR',{maximumFractionDigits:3})+' kg</span>':''}
+            </div>
+            <div style="font-size:12px;color:#263238;margin-top:2px">${o.descricao||'—'}</div>
+            <div style="font-size:10px;color:#9e9e9e;margin-top:1px">${[o.desenho,o.material,o.quantidade?o.quantidade+' un':''].filter(Boolean).join(' · ')}</div>
+          </div>
+          ${o.foto_produto?'<span title="Tem foto" style="font-size:14px">📷</span>':''}
+        </label>`;
+      }).join('')}
+    </div>`).join('');
+  atualizarContadorImpressao();
+}
+
+function atualizarContadorImpressao(){
+  const checks=document.querySelectorAll('.gi_check:checked');
+  const total=document.querySelectorAll('.gi_check').length;
+  const selecionadas=checks.length;
+  const folhas=Math.ceil(selecionadas/2);
+  const contador=document.getElementById('gi_contador');
+  const btn=document.getElementById('gi_btnImprimir');
+  const selTodas=document.getElementById('gi_selecionarTodas');
+  if(selecionadas===0){
+    contador.innerHTML='<span style="color:#9e9e9e">Nenhuma ordem selecionada</span>';
+  } else {
+    contador.innerHTML=`<strong style="color:#1565c0">${selecionadas} ordem(ns) selecionada(s)</strong> · <span>🖨️ ${folhas} folha(s) A4</span>${selecionadas%2!==0?' · <span style="color:#e65100">⚠️ Última folha com 1 ordem (meia folha)</span>':''}`;
+  }
+  btn.disabled=selecionadas===0;
+  btn.style.opacity=selecionadas===0?'0.5':'1';
+  if(selTodas) selTodas.indeterminate=(selecionadas>0&&selecionadas<total);
+  if(selTodas&&selecionadas===total&&total>0) selTodas.checked=true;
+  if(selTodas&&selecionadas===0) selTodas.checked=false;
+}
+
+function toggleSelecionarTodasOrdens(cb){
+  document.querySelectorAll('.gi_check').forEach(c=>{c.checked=cb.checked;});
+  atualizarContadorImpressao();
+}
+
+function imprimirOrdensSelecionadas(){
+  const ids=[...document.querySelectorAll('.gi_check:checked')].map(c=>c.value);
+  if(!ids.length){showToast('Selecione ao menos uma ordem','err');return;}
+  const ordensParaImprimir=ids.map(id=>ordens.find(o=>o.id===id)).filter(Boolean);
+  fecharModal('modalGestaoImpressao');
+
+  const fmtDtHr=s=>{
+    if(!s) return '';
+    const clean=s.replace('Z','').replace(/[+-]\d{2}:\d{2}$/,'');
+    const [dp,tp]=clean.split('T');
+    const [y,mo,d]=dp.split('-');
+    const [h,mi]=(tp||'00:00').split(':');
+    return `${d}/${mo}/${String(y).slice(2)} ${h}:${mi}`;
+  };
+
+  const gerarBlocoOrdem=(o)=>{
+    const pdv=pdvs.find(p=>p.id===o.pdv_id);
+    const tempos=(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao);
+    const dataAbertura=o.dt_abertura?o.dt_abertura.split('T')[0].split('-').reverse().join('/'):'';
+    const getTempo=(op)=>{
+      const ts=tempos.filter(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&x.dt_hr_final);
+      const t=ts.sort((a,b)=>new Date(b.dt_hr_final)-new Date(a.dt_hr_final))[0];
+      const tAtivo=!t?tempos.find(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&!x.dt_hr_final):null;
+      const reg=t||tAtivo;
+      return{operador:reg?.operador||'',ini:fmtDtHr(reg?.dt_hr_inicial),fim:fmtDtHr(reg?.dt_hr_final)};
+    };
+    const opRow=(op1,op2)=>{
+      const t1=getTempo(op1),t2=getTempo(op2);
+      return`<tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:9px"><td colspan="3" style="border:1px solid #000;padding:3px">${op1}</td><td colspan="3" style="border:1px solid #000;padding:3px">${op2}</td></tr><tr style="font-size:9px;font-weight:700;text-align:center;background:#f0f0f0"><td style="border:1px solid #000;padding:2px 3px">OPERADOR</td><td style="border:1px solid #000;padding:2px 3px">DT/HR INICIAL</td><td style="border:1px solid #000;padding:2px 3px">DT/HR FINAL</td><td style="border:1px solid #000;padding:2px 3px">OPERADOR</td><td style="border:1px solid #000;padding:2px 3px">DT/HR INICIAL</td><td style="border:1px solid #000;padding:2px 3px">DT/HR FINAL</td></tr><tr style="height:22px;font-size:10px;text-align:center"><td style="border:1px solid #000;padding:2px 3px">${t1.operador}</td><td style="border:1px solid #000;padding:2px 3px">${t1.ini}</td><td style="border:1px solid #000;padding:2px 3px">${t1.fim}</td><td style="border:1px solid #000;padding:2px 3px">${t2.operador}</td><td style="border:1px solid #000;padding:2px 3px">${t2.ini}</td><td style="border:1px solid #000;padding:2px 3px">${t2.fim}</td></tr>`;
+    };
+    return`<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:10px">
+  <tr>
+    <td rowspan="3" style="width:55px;text-align:center;padding:4px;border:1px solid #000;background:#f5f5f5">
+      <div style="font-weight:900;font-size:13px;color:#1b5e20;letter-spacing:-1px">SL</div>
+      <div style="font-weight:700;font-size:7px;color:#2e7d32">ÓLEOS</div>
+    </td>
+    <td colspan="3" style="text-align:center;font-size:15px;font-weight:700;padding:5px;letter-spacing:1px;border:1px solid #000">ORDEM DE PRODUÇÃO</td>
+    <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000;width:90px">Nº DA ORDEM</td>
+    <td style="text-align:center;font-size:20px;font-weight:700;width:55px;border:1px solid #000">${o.numero}</td>
+  </tr>
+  <tr>
+    <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">DT ABERTURA</td>
+    <td style="text-align:center;border:1px solid #000">${dataAbertura}</td>
+    <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">PROJETO</td>
+    <td colspan="2" style="text-align:center;font-weight:600;border:1px solid #000">${pdv?pdv.equipamento||('PDV '+pdv.numero):''}</td>
+  </tr>
+  <tr>
+    <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">CLIENTE</td>
+    <td colspan="4" style="text-align:center;font-size:11px;font-weight:600;border:1px solid #000">${pdv?.cliente||''}</td>
+  </tr>
+  <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:9px">
+    <td style="border:1px solid #000;padding:3px">DESENHO</td>
+    <td colspan="2" style="border:1px solid #000;padding:3px">DESCRIÇÃO</td>
+    <td style="border:1px solid #000;padding:3px">MATERIAL</td>
+    <td style="border:1px solid #000;padding:3px">QTD</td>
+    <td style="border:1px solid #000;padding:3px">PESO (kg)</td>
+  </tr>
+  <tr style="text-align:center;font-size:11px;height:26px">
+    <td style="border:1px solid #000;padding:3px;font-weight:700">${o.desenho||''}</td>
+    <td colspan="2" style="border:1px solid #000;padding:3px;font-weight:700">${o.descricao||''}</td>
+    <td style="border:1px solid #000;padding:3px">${o.material||''}</td>
+    <td style="border:1px solid #000;padding:3px;font-size:16px;font-weight:700">${o.quantidade||''}</td>
+    <td style="border:1px solid #000;padding:3px;font-weight:700">${o.peso?Number(o.peso).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+' kg':''}</td>
+  </tr>
+  ${opRow('SERRA','TORNO')}
+  ${opRow('PLAINA','CENTRO DE USINAGEM')}
+  ${opRow('FURADEIRA','SOLDA')}
+  ${opRow('FREZA','MONTAGEM')}
+</table>
+${o.foto_produto?`<div style="margin-top:6px;text-align:center"><img src="${o.foto_produto}" style="max-height:80px;max-width:100%;object-fit:contain;border:1px solid #ccc;border-radius:3px"></div>`:''}`;
+  };
+
+  let paginasHtml='';
+  for(let i=0;i<ordensParaImprimir.length;i+=2){
+    const o1=ordensParaImprimir[i];
+    const o2=ordensParaImprimir[i+1]||null;
+    const isUltima=(i+2>=ordensParaImprimir.length);
+    paginasHtml+=`
+    <div class="folha">
+      <div class="metade top">${gerarBlocoOrdem(o1)}</div>
+      <div class="linha-corte"><span>✂ &nbsp;&nbsp; CORTAR AQUI &nbsp;&nbsp; ✂</span></div>
+      <div class="metade bottom">${o2?gerarBlocoOrdem(o2):'<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ccc;font-size:14px;font-weight:600;border:2px dashed #eee;border-radius:8px">[ Folha em branco ]</div>'}</div>
+    </div>
+    ${isUltima?'':'<div style="page-break-after:always"></div>'}`;
+  }
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  @page{size:A4 portrait;margin:6mm 8mm;}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+  html,body{width:194mm;font-family:Arial,sans-serif;}
+  .folha{width:100%;height:277mm;display:flex;flex-direction:column;}
+  .metade{flex:1;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;padding:4mm 0;}
+  .metade.top{padding-bottom:0;} .metade.bottom{padding-top:0;}
+  .linha-corte{height:14px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#bbb;letter-spacing:2px;font-weight:600;border-top:1px dashed #aaa;border-bottom:1px dashed #aaa;background:repeating-linear-gradient(90deg,#f9f9f9,#f9f9f9 10px,#fff 10px,#fff 20px);flex-shrink:0;}
+  .linha-corte span{background:#fff;padding:0 10px;}
+  table{width:100%;border-collapse:collapse;} td{border:1px solid #000;padding:2px 4px;}
+</style></head><body>
+${paginasHtml}
+<script>window.onload=()=>{document.title='Ordens de Produção';window.print();window.close();}<\/script>
+</body></html>`;
+
+  const win=window.open('','_blank','width=750,height=1050');
+  win.document.write(html);
+  win.document.close();
 }
 
 function imprimirOrdem(id){
@@ -12261,21 +12497,119 @@ function _renderFluxoCaixaSemReload(){
   window._fcSkipReload = _skip;
 }
 
+// ===== FILTRO MULTI-MÊS DO FLUXO DE CAIXA =====
+let _fcMesesSelecionados = []; // [] = todos
+
+function toggleMesFiltroFC(e){
+  e.stopPropagation();
+  const dd=document.getElementById('fcMesFiltroDropdown');
+  const aberto=dd.style.display!=='none';
+  // Fecha qualquer outro dropdown aberto
+  document.querySelectorAll('[id$="Dropdown"]').forEach(d=>{if(d!==dd)d.style.display='none';});
+  dd.style.display=aberto?'none':'block';
+  if(!aberto){
+    // Fechar ao clicar fora
+    setTimeout(()=>{
+      document.addEventListener('click', function _close(ev){
+        if(!document.getElementById('fcMesFiltroWrap')?.contains(ev.target)){
+          dd.style.display='none';
+          document.removeEventListener('click',_close);
+        }
+      });
+    },10);
+  }
+}
+
+function fcMesToggle(mes){
+  const idx=_fcMesesSelecionados.indexOf(mes);
+  if(idx>=0) _fcMesesSelecionados.splice(idx,1);
+  else _fcMesesSelecionados.push(mes);
+  _atualizarBotaoMesFiltro();
+  renderFluxoCaixa();
+}
+
+function fcMesMarcarTodos(marcar){
+  if(marcar){
+    _fcMesesSelecionados=[];
+  } else {
+    // Seleciona nenhum = mantém array vazio mas sem "todos" → mostra "Nenhum mês"
+    const opcoes=[...document.querySelectorAll('.fc-mes-chk')].map(c=>c.value);
+    _fcMesesSelecionados=[...opcoes]; // todos checados = inverte lógica: "todos" = []
+    _fcMesesSelecionados=[]; // zera → vai mostrar todos por padrão; apenas desmarcar checkboxes
+    // Na verdade: nenhum selecionado = mostrar todos (comportamento mais útil)
+    // Para "nenhum" real, usamos um flag especial
+    _fcMesesSelecionados=['__nenhum__'];
+  }
+  // Atualiza checkboxes visualmente
+  document.querySelectorAll('.fc-mes-chk').forEach(c=>{
+    c.checked=marcar;
+  });
+  _atualizarBotaoMesFiltro();
+  renderFluxoCaixa();
+}
+
+function _atualizarBotaoMesFiltro(){
+  const btn=document.getElementById('fcMesFiltroBtn');
+  if(!btn) return;
+  if(_fcMesesSelecionados.length===0){
+    btn.innerHTML='Todos os meses <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>';
+    btn.style.borderColor='#e0e0e0';
+    btn.style.color='';
+  } else if(_fcMesesSelecionados[0]==='__nenhum__'){
+    btn.innerHTML='Nenhum mês <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>';
+    btn.style.borderColor='#e0e0e0';
+    btn.style.color='#9e9e9e';
+  } else if(_fcMesesSelecionados.length===1){
+    const d=new Date(_fcMesesSelecionados[0]+'-15');
+    const label=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    btn.innerHTML=label+' <span style="background:#1565c0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700">1</span> <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>';
+    btn.style.borderColor='#1565c0';
+    btn.style.color='#1565c0';
+  } else {
+    // Mostra período: "Jan → Mai 2026 (3)"
+    const sorted=[..._fcMesesSelecionados].sort();
+    const dIni=new Date(sorted[0]+'-15').toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    const dFim=new Date(sorted[sorted.length-1]+'-15').toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    btn.innerHTML=dIni+' → '+dFim+' <span style="background:#1565c0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700">'+_fcMesesSelecionados.length+'</span> <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>';
+    btn.style.borderColor='#1565c0';
+    btn.style.color='#1565c0';
+  }
+}
+
+// Helper: retorna true se a data (YYYY-MM-DD) está dentro do filtro selecionado
+function _fcMesAtivo(data){
+  if(!data) return false;
+  if(_fcMesesSelecionados.length===0) return true; // todos
+  if(_fcMesesSelecionados[0]==='__nenhum__') return false;
+  const mesData=data.substring(0,7);
+  return _fcMesesSelecionados.includes(mesData);
+}
+
+// Helper: retorna o menor mês selecionado (para calcular saldo anterior)
+function _fcMenorMesSelecionado(){
+  if(_fcMesesSelecionados.length===0||_fcMesesSelecionados[0]==='__nenhum__') return null;
+  return [..._fcMesesSelecionados].sort()[0];
+}
+
 function populaFiltrosFC(){
   const meses=[...new Set(fcDados.filter(t=>t&&t.data).map(t=>t.data.substring(0,7)))].sort().reverse();
   const cats=[...new Set(fcDados.map(t=>t.categoria).filter(Boolean))].sort();
-  const mesEl=document.getElementById('filtroFC_mes');
-  if(mesEl){
-    const cur=mesEl.value;
-    mesEl.innerHTML='<option value="">Todos os meses</option>'
-      +meses.map(m=>{
-        const d=new Date(m+'-15');
-        const label=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-        return '<option value="'+m+'"'+(m===cur?' selected':'')+'>'+label+'</option>';
-      }).join('');
-    // Não auto-seleciona — mostra todos os meses por padrão
-    if(cur&&meses.includes(cur)) mesEl.value=cur;
+
+  // Preenche dropdown multi-mês
+  const opcDiv=document.getElementById('fcMesFiltroOpcoes');
+  if(opcDiv){
+    opcDiv.innerHTML=meses.map(m=>{
+      const d=new Date(m+'-15');
+      const label=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+      const checked=_fcMesesSelecionados.length===0||_fcMesesSelecionados.includes(m);
+      return `<label style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;transition:background 0.1s" onmouseover="this.style.background='#f5f7f5'" onmouseout="this.style.background=''">
+        <input type="checkbox" class="fc-mes-chk" value="${m}" ${checked?'checked':''} onchange="fcMesToggle('${m}')" style="accent-color:#1565c0;width:14px;height:14px;cursor:pointer">
+        <span>${label}</span>
+      </label>`;
+    }).join('');
+    _atualizarBotaoMesFiltro();
   }
+
   const catEl=document.getElementById('filtroFC_categoria');
   if(catEl){
     const cur=catEl.value;
@@ -12527,7 +12861,8 @@ function renderFluxoCaixa(){
 
 function _renderFluxoCaixaCore(){
 
-  const mesFiltro=document.getElementById('filtroFC_mes')?.value||'';
+  const mesFiltro=_fcMesesSelecionados.length===1&&_fcMesesSelecionados[0]!=='__nenhum__'?_fcMesesSelecionados[0]:''; // compatibilidade com saldo cascata
+  const mesFiltroAtivo=_fcMesesSelecionados.length>0; // true = algum filtro ativo
   const catFiltro=document.getElementById('filtroFC_categoria')?.value||'';
   const busca=(document.getElementById('filtroFC_busca')?.value||'').toLowerCase().trim();
 
@@ -12536,21 +12871,21 @@ function _renderFluxoCaixaCore(){
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
   // Calcula saldo anterior em cascata:
-  // Se filtro de mês está ativo, soma todos os lançamentos dos meses ANTERIORES
+  // Se filtro de mês está ativo, soma todos os lançamentos dos meses ANTERIORES ao menor mês selecionado
   let saldoAnt = saldoAntBase;
-  if(mesFiltro){
-    const transAntes = fcDados.filter(t=>t.data && t.data < mesFiltro+'-01' && !t.pendente);
+  const menorMes=_fcMenorMesSelecionado();
+  if(menorMes){
+    const transAntes = fcDados.filter(t=>t.data && t.data < menorMes+'-01' && !t.pendente);
     const somaAntes = transAntes.reduce((s,t)=>s+t.valor, 0);
     saldoAnt = saldoAntBase + somaAntes;
-    // Atualiza display do campo (somente visual, não altera o valor base)
     const elSA = document.getElementById('fcSaldoAnterior');
     if(elSA) elSA.title = 'Saldo base: '+fmtMoeda(saldoAntBase)+' + acumulado anterior: '+fmtMoeda(somaAntes);
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
   let listaReal=fcDados.filter(t=>{
-    if(t.pendente) return false; // pendentes ficam na seção de CP/CR
-    if(mesFiltro&&!t.data.startsWith(mesFiltro)) return false;
+    if(t.pendente) return false;
+    if(!_fcMesAtivo(t.data)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
     if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
     return true;
@@ -12559,7 +12894,7 @@ function _renderFluxoCaixaCore(){
   // ── Pendentes importados do Omie (A Pagar / A Receber) ───────────────────
   const pendentesOmie = fcDados.filter(t=>{
     if(!t.pendente) return false;
-    if(mesFiltro&&!t.data.startsWith(mesFiltro)) return false;
+    if(!_fcMesAtivo(t.data)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
     if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
     return true;
@@ -12579,11 +12914,11 @@ function _renderFluxoCaixaCore(){
   // ── Pendentes do sistema + pendentes importados do Omie ──────────────────
   const cpSistema=(typeof contasPagar!=='undefined'?contasPagar:[])
     .filter(c=>c.status!=='Paga'&&c.status!=='Cancelada')
-    .filter(c=>!mesFiltro||((c.vencimento||c.dt_vencimento||'').startsWith(mesFiltro)))
+    .filter(c=>_fcMesAtivo((c.vencimento||c.dt_vencimento||'').split('T')[0]))
     .filter(c=>!busca||(c.descricao||c.fornecedor||'').toLowerCase().includes(busca));
   const crSistema=(typeof contasReceber!=='undefined'?contasReceber:[])
     .filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada')
-    .filter(c=>!mesFiltro||((c.vencimento||c.dt_vencimento||'').startsWith(mesFiltro)))
+    .filter(c=>_fcMesAtivo((c.vencimento||c.dt_vencimento||'').split('T')[0]))
     .filter(c=>!busca||(c.descricao||c.cliente||'').toLowerCase().includes(busca));
 
   // Pendentes importados do Omie — agrupa por NF+data+fornecedor
@@ -12627,7 +12962,14 @@ function _renderFluxoCaixaCore(){
   // Saldo Previsto = saldo_ant + A_Receber + Recebimento - A_Pagar - Pagamento
   const saldoPrev=saldoAnt+totAReceber+totRec-totAPagar-totPag;
 
-  // Última data com lançamento no período filtrado (para exibir no card Saldo Previsto)
+  // Label do período selecionado para o card Saldo Anterior
+  let saldoAntLabel='';
+  if(_fcMesesSelecionados.length===1&&_fcMesesSelecionados[0]!=='__nenhum__'){
+    saldoAntLabel=' ('+_fcMesesSelecionados[0].replace(/(\d{4})-(\d{2})/,'$2/$1')+')';
+  } else if(_fcMesesSelecionados.length>1){
+    const sorted=[..._fcMesesSelecionados].sort();
+    saldoAntLabel=' ('+sorted[0].replace(/(\d{4})-(\d{2})/,'$2/$1')+' → '+sorted[sorted.length-1].replace(/(\d{4})-(\d{2})/,'$2/$1')+')';
+  }
   const todasDatasKpi=[
     ...listaReal.map(t=>t.data),
     ...cp.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
@@ -12638,7 +12980,7 @@ function _renderFluxoCaixaCore(){
 
   const stats=document.getElementById('statsFC');
   if(stats) stats.innerHTML=
-    '<div class="stat" style="border-left-color:#f57f17;cursor:default"><div class="stat-label">Saldo Anterior'+(mesFiltro?' ('+mesFiltro.replace(/(\d{4})-(\d{2})/,'$2/$1')+')':'')+'</div><div class="stat-val" style="color:#f57f17">'+fmtMoeda(saldoAnt)+'</div>'+(mesFiltro&&saldoAnt!==saldoAntBase?'<div class="stat-sub" style="font-size:9px;color:#bbb">base '+fmtMoeda(saldoAntBase)+'</div>':'')+'</div>'+
+    '<div class="stat" style="border-left-color:#f57f17;cursor:default"><div class="stat-label">Saldo Anterior'+saldoAntLabel+'</div><div class="stat-val" style="color:#f57f17">'+fmtMoeda(saldoAnt)+'</div>'+(menorMes&&saldoAnt!==saldoAntBase?'<div class="stat-sub" style="font-size:9px;color:#bbb">base '+fmtMoeda(saldoAntBase)+'</div>':'')+'</div>'+
     '<div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">A Pagar</div><div class="stat-val" style="color:#c62828">-'+fmtMoeda(totAPagar)+'</div></div>'+
     '<div class="stat" style="border-left-color:#e65100;cursor:default"><div class="stat-label">Pagamentos</div><div class="stat-val" style="color:#e65100">-'+fmtMoeda(totPag)+'</div></div>'+
     '<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">A Receber</div><div class="stat-val" style="color:#00695c">+'+fmtMoeda(totAReceber)+'</div></div>'+
@@ -12692,8 +13034,8 @@ function _renderFluxoCaixaCore(){
     const isWeekend=dtObj.getDay()===0||dtObj.getDay()===6;
     const diaLabel=diaNum+' '+diaNome;
 
-    // ── Separador de mês (só quando "Todos os meses") ──────────────────────
-    if(!mesFiltro){
+    // ── Separador de mês (só quando mais de um mês visível) ──────────────────
+    if(_fcMesesSelecionados.length!==1){
       const mesKey=dia.substring(0,7);
       if(mesKey!==_mesAtualFC){
         _mesAtualFC=mesKey;
@@ -12831,8 +13173,7 @@ function _renderFluxoCaixaCore(){
 
 function exportarExcelFC(){
   if(!fcDados.length){ showToast('Importe os dados primeiro','err'); return; }
-  const mesFiltro=document.getElementById('filtroFC_mes')?.value||'';
-  const lista=fcDados.filter(t=>!mesFiltro||t.data.startsWith(mesFiltro))
+  const lista=fcDados.filter(t=>_fcMesAtivo(t.data))
     .sort((a,b)=>a.data.localeCompare(b.data));
   const saldoAnt=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0').replace(',','.'))||0;
   let sr=saldoAnt,sp=saldoAnt;
@@ -12846,7 +13187,8 @@ function exportarExcelFC(){
   });
   const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='fluxo_caixa_'+(mesFiltro||new Date().toISOString().substring(0,7))+'.xls';a.click();
+  const nomeArq=_fcMesesSelecionados.length===1?_fcMesesSelecionados[0]:_fcMesesSelecionados.length>1?'fluxo_multi':new Date().toISOString().substring(0,7);
+  a.download='fluxo_caixa_'+nomeArq+'.xls';a.click();
 }
 
 
