@@ -12521,29 +12521,28 @@ function toggleMesFiltroFC(e){
 }
 
 function fcMesToggle(mes){
+  // Se estava no modo "todos" (array vazio), inicializa com todos os meses antes de remover
+  if(_fcMesesSelecionados.length===0){
+    const todosMeses=[...document.querySelectorAll('.fc-mes-chk')].map(c=>c.value);
+    _fcMesesSelecionados=[...todosMeses];
+  }
   const idx=_fcMesesSelecionados.indexOf(mes);
   if(idx>=0) _fcMesesSelecionados.splice(idx,1);
   else _fcMesesSelecionados.push(mes);
+  // Se todos foram marcados de novo, volta para modo "todos"
+  const todosMeses=[...document.querySelectorAll('.fc-mes-chk')].map(c=>c.value);
+  if(_fcMesesSelecionados.length===todosMeses.length) _fcMesesSelecionados=[];
   _atualizarBotaoMesFiltro();
   renderFluxoCaixa();
 }
 
 function fcMesMarcarTodos(marcar){
   if(marcar){
-    _fcMesesSelecionados=[];
+    _fcMesesSelecionados=[]; // vazio = todos
   } else {
-    // Seleciona nenhum = mantém array vazio mas sem "todos" → mostra "Nenhum mês"
-    const opcoes=[...document.querySelectorAll('.fc-mes-chk')].map(c=>c.value);
-    _fcMesesSelecionados=[...opcoes]; // todos checados = inverte lógica: "todos" = []
-    _fcMesesSelecionados=[]; // zera → vai mostrar todos por padrão; apenas desmarcar checkboxes
-    // Na verdade: nenhum selecionado = mostrar todos (comportamento mais útil)
-    // Para "nenhum" real, usamos um flag especial
     _fcMesesSelecionados=['__nenhum__'];
   }
-  // Atualiza checkboxes visualmente
-  document.querySelectorAll('.fc-mes-chk').forEach(c=>{
-    c.checked=marcar;
-  });
+  document.querySelectorAll('.fc-mes-chk').forEach(c=>{ c.checked=marcar; });
   _atualizarBotaoMesFiltro();
   renderFluxoCaixa();
 }
@@ -12592,16 +12591,19 @@ function _fcMenorMesSelecionado(){
 }
 
 function populaFiltrosFC(){
-  const meses=[...new Set(fcDados.filter(t=>t&&t.data).map(t=>t.data.substring(0,7)))].sort().reverse();
+  const meses=[...new Set(fcDados.filter(t=>t&&t.data).map(t=>t.data.substring(0,7)))].sort(); // antigo → recente
   const cats=[...new Set(fcDados.map(t=>t.categoria).filter(Boolean))].sort();
 
   // Preenche dropdown multi-mês
   const opcDiv=document.getElementById('fcMesFiltroOpcoes');
   if(opcDiv){
-    opcDiv.innerHTML=meses.map(m=>{
+    opcDiv.innerHTML=[...meses].reverse().map(m=>{ // exibe do mais recente para o mais antigo
       const d=new Date(m+'-15');
       const label=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-      const checked=_fcMesesSelecionados.length===0||_fcMesesSelecionados.includes(m);
+      // checked = true quando: nenhum filtro ativo (todos) OU este mês está selecionado
+      // checked = false quando: __nenhum__ OU filtro ativo e este mês não está na lista
+      const checked=_fcMesesSelecionados.length===0
+        ||(_fcMesesSelecionados[0]!=='__nenhum__'&&_fcMesesSelecionados.includes(m));
       return `<label style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;transition:background 0.1s" onmouseover="this.style.background='#f5f7f5'" onmouseout="this.style.background=''">
         <input type="checkbox" class="fc-mes-chk" value="${m}" ${checked?'checked':''} onchange="fcMesToggle('${m}')" style="accent-color:#1565c0;width:14px;height:14px;cursor:pointer">
         <span>${label}</span>
