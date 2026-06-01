@@ -2575,6 +2575,19 @@ tr:hover td{background:#f9fbf9}
         <div class="form-group"><label>Material</label><input id="ord_material" placeholder="Ex: ASTM A36"></div>
         <div class="form-group"><label>Quantidade</label><input id="ord_qtd" type="number" min="1" value="1"></div>
         <div class="form-group"><label>Data de Abertura</label><input id="ord_data" type="date"></div>
+        <div class="form-group"><label>⚖️ Peso (kg)</label><input id="ord_peso" type="number" min="0" step="0.001" placeholder="Ex: 12,500"></div>
+        <div class="form-group full">
+          <label>📷 Foto do Produto Pronto</label>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px">
+            <label style="padding:7px 14px;background:#1565c0;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+              📷 Selecionar Foto
+              <input type="file" id="ord_foto_input" accept="image/*" style="display:none" onchange="previewFotoOrdem(this)">
+            </label>
+            <button type="button" onclick="removerFotoOrdem()" id="ord_foto_remover" style="display:none;padding:7px 10px;background:#fff3f3;border:1px solid #ffcdd2;border-radius:8px;font-size:12px;color:#c62828;cursor:pointer">🗑 Remover</button>
+          </div>
+          <div id="ord_foto_preview" style="margin-top:8px"></div>
+          <input type="hidden" id="ord_foto_base64">
+        </div>
       </div>
     </div>
   </div>
@@ -5826,6 +5839,14 @@ function abrirModalOrdem(id){
   document.getElementById('ord_material').value=o?.material||'';
   document.getElementById('ord_qtd').value=o?.quantidade||1;
   document.getElementById('ord_data').value=o?.dt_abertura||new Date().toISOString().split('T')[0];
+  document.getElementById('ord_peso').value=o?.peso||'';
+  // Foto
+  document.getElementById('ord_foto_base64').value=o?.foto_produto||'';
+  document.getElementById('ord_foto_input').value='';
+  document.getElementById('ord_foto_remover').style.display=(o?.foto_produto)?'inline-flex':'none';
+  document.getElementById('ord_foto_preview').innerHTML=o?.foto_produto
+    ?'<img src="'+o.foto_produto+'" style="max-width:220px;max-height:160px;border-radius:8px;border:1px solid #e0e0e0;object-fit:contain;margin-top:4px">'
+    :'';
   if(o?.pdv_id) selPDV.value=o.pdv_id;
   abrirModal('modalOrdem');
 }
@@ -5911,6 +5932,29 @@ function preencherDadosOrdem(){
     <span style="color:var(--gray)">📁 Setor: ${opt.dataset.setor||'—'} · Peça: <b>${opt.dataset.descricao||'—'}</b>${opt.dataset.desenho?' · Nº '+opt.dataset.desenho:''}</span>`;
 }
 
+function previewFotoOrdem(input){
+  const file=input.files[0];
+  if(!file) return;
+  const maxMB=5;
+  if(file.size>maxMB*1024*1024){showToast('Foto muito grande (máx '+maxMB+'MB)','err');input.value='';return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const base64=e.target.result;
+    document.getElementById('ord_foto_base64').value=base64;
+    document.getElementById('ord_foto_preview').innerHTML=
+      '<img src="'+base64+'" style="max-width:220px;max-height:160px;border-radius:8px;border:1px solid #e0e0e0;object-fit:contain;margin-top:4px">';
+    document.getElementById('ord_foto_remover').style.display='inline-flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerFotoOrdem(){
+  document.getElementById('ord_foto_base64').value='';
+  document.getElementById('ord_foto_preview').innerHTML='';
+  document.getElementById('ord_foto_input').value='';
+  document.getElementById('ord_foto_remover').style.display='none';
+}
+
 async function deletarOrdem(id){
   if(!confirm('Excluir esta ordem de produção?')) return;
   try{
@@ -5934,6 +5978,8 @@ async function salvarOrdem(){
     desenho:document.getElementById('ord_desenho').value.trim()||null,
     material:document.getElementById('ord_material').value.trim()||null,
     quantidade:Number(document.getElementById('ord_qtd').value)||1,
+    peso:parseFloat(document.getElementById('ord_peso').value)||null,
+    foto_produto:document.getElementById('ord_foto_base64').value||null,
     dt_abertura:document.getElementById('ord_data').value||new Date().toISOString().split('T')[0],
     criado_por:usuarioLogado?.nome||null
   };
@@ -6063,11 +6109,24 @@ function imprimirOrdem(id){
     <td style="border:1px solid #000;padding:4px">${o.material||''}</td>
     <td colspan="2" style="border:1px solid #000;padding:4px;font-size:20px;font-weight:700">${o.quantidade||''}</td>
   </tr>
+  <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:10px">
+    <td colspan="3" style="border:1px solid #000;padding:4px">PESO (kg)</td>
+    <td colspan="3" style="border:1px solid #000;padding:4px">OBSERVAÇÃO</td>
+  </tr>
+  <tr style="text-align:center;font-size:13px;height:28px">
+    <td colspan="3" style="border:1px solid #000;padding:4px;font-weight:700">${o.peso?Number(o.peso).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+' kg':''}</td>
+    <td colspan="3" style="border:1px solid #000;padding:4px"></td>
+  </tr>
   ${opRow('SERRA','TORNO')}
   ${opRow('PLAINA','CENTRO DE USINAGEM')}
   ${opRow('FURADEIRA','SOLDA')}
   ${opRow('FREZA','MONTAGEM')}
 </table>
+${o.foto_produto?`
+<div style="margin-top:14px;border:1px solid #000;padding:8px;text-align:center;page-break-inside:avoid">
+  <div style="font-weight:700;font-size:11px;background:#d9d9d9;padding:4px;margin-bottom:8px;text-align:center;letter-spacing:1px">FOTO DO PRODUTO PRONTO</div>
+  <img src="${o.foto_produto}" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:4px">
+</div>`:''}
 
 </body></html>`;
 
