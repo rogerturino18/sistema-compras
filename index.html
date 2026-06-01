@@ -12627,6 +12627,15 @@ function _renderFluxoCaixaCore(){
   // Saldo Previsto = saldo_ant + A_Receber + Recebimento - A_Pagar - Pagamento
   const saldoPrev=saldoAnt+totAReceber+totRec-totAPagar-totPag;
 
+  // Última data com lançamento no período filtrado (para exibir no card Saldo Previsto)
+  const todasDatasKpi=[
+    ...listaReal.map(t=>t.data),
+    ...cp.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
+    ...cr.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
+  ].filter(Boolean).sort();
+  const ultimaDataKpi=todasDatasKpi.length?todasDatasKpi[todasDatasKpi.length-1]:null;
+  const ultimaDataLabel=ultimaDataKpi?new Date(ultimaDataKpi+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}):'';
+
   const stats=document.getElementById('statsFC');
   if(stats) stats.innerHTML=
     '<div class="stat" style="border-left-color:#f57f17;cursor:default"><div class="stat-label">Saldo Anterior'+(mesFiltro?' ('+mesFiltro.replace(/(\d{4})-(\d{2})/,'$2/$1')+')':'')+'</div><div class="stat-val" style="color:#f57f17">'+fmtMoeda(saldoAnt)+'</div>'+(mesFiltro&&saldoAnt!==saldoAntBase?'<div class="stat-sub" style="font-size:9px;color:#bbb">base '+fmtMoeda(saldoAntBase)+'</div>':'')+'</div>'+
@@ -12635,7 +12644,7 @@ function _renderFluxoCaixaCore(){
     '<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">A Receber</div><div class="stat-val" style="color:#00695c">+'+fmtMoeda(totAReceber)+'</div></div>'+
     '<div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Recebimentos</div><div class="stat-val" style="color:#2e7d32">+'+fmtMoeda(totRec)+'</div></div>'+
     '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Saldo Real</div><div class="stat-val" style="color:'+(saldoReal>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(saldoReal)+'</div></div>'+
-    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Saldo Previsto</div><div class="stat-val" style="color:'+(saldoPrev>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(saldoPrev)+'</div></div>';
+    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Saldo Previsto</div><div class="stat-val" style="color:'+(saldoPrev>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(saldoPrev)+'</div>'+(ultimaDataLabel?'<div class="stat-sub" style="font-size:10px;color:#888;margin-top:3px">até '+ultimaDataLabel+'</div>':'')+'</div>';
 
   if(!listaReal.length&&!cp.length&&!cr.length){
     document.getElementById('fcTabela').innerHTML='<div class="empty">📂 Importe os dados do Omie para visualizar o fluxo de caixa</div>';
@@ -12674,12 +12683,27 @@ function _renderFluxoCaixaCore(){
     '<td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">'+fmtMoeda(saldoAnt)+'</td>'+
     '<td></td></tr></thead><tbody>';
 
+  let _mesAtualFC=''; // controla separador de mês no modo "Todos os meses"
+
   dias.forEach(function(dia){
     const dtObj=new Date(dia+'T12:00:00');
     const diaNum=String(dtObj.getDate()).padStart(2,'0');
     const diaNome=dtObj.toLocaleDateString('pt-BR',{weekday:'short'}).toUpperCase().replace('.','');
     const isWeekend=dtObj.getDay()===0||dtObj.getDay()===6;
     const diaLabel=diaNum+' '+diaNome;
+
+    // ── Separador de mês (só quando "Todos os meses") ──────────────────────
+    if(!mesFiltro){
+      const mesKey=dia.substring(0,7);
+      if(mesKey!==_mesAtualFC){
+        _mesAtualFC=mesKey;
+        const mesNome=dtObj.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
+        html+='<tr style="background:#1a237e;border-top:3px solid #0d47a1">'+
+          '<td colspan="11" style="padding:8px 14px;font-weight:800;font-size:12px;color:#fff;letter-spacing:1px;text-transform:uppercase">'+
+          '📅 '+mesNome+'</td></tr>';
+      }
+    }
+    // ───────────────────────────────────────────────────────────────────────
 
     const realDia=listaReal.filter(t=>t.data===dia);
     const cpDia=cp.filter(c=>(c.vencimento||c.dt_vencimento||'').startsWith(dia));
