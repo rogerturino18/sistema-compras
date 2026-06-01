@@ -1459,6 +1459,7 @@ tr:hover td{background:#f9fbf9}
       </label>
       <button onclick="abrirModalLancamentoFC()" style="padding:8px 16px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✏️ Lançamento Manual</button>
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
+      <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Reverte a última importação feita">↩️ Desfazer Importação</button>
       <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar Dados</button>
     </div>
   </div>
@@ -2575,19 +2576,6 @@ tr:hover td{background:#f9fbf9}
         <div class="form-group"><label>Material</label><input id="ord_material" placeholder="Ex: ASTM A36"></div>
         <div class="form-group"><label>Quantidade</label><input id="ord_qtd" type="number" min="1" value="1"></div>
         <div class="form-group"><label>Data de Abertura</label><input id="ord_data" type="date"></div>
-        <div class="form-group"><label>⚖️ Peso (kg)</label><input id="ord_peso" type="number" min="0" step="0.001" placeholder="Ex: 12,500"></div>
-        <div class="form-group full">
-          <label>📷 Foto do Produto Pronto</label>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px">
-            <label style="padding:7px 14px;background:#1565c0;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
-              📷 Selecionar Foto
-              <input type="file" id="ord_foto_input" accept="image/*" style="display:none" onchange="previewFotoOrdem(this)">
-            </label>
-            <button type="button" onclick="removerFotoOrdem()" id="ord_foto_remover" style="display:none;padding:7px 10px;background:#fff3f3;border:1px solid #ffcdd2;border-radius:8px;font-size:12px;color:#c62828;cursor:pointer">🗑 Remover</button>
-          </div>
-          <div id="ord_foto_preview" style="margin-top:8px"></div>
-          <input type="hidden" id="ord_foto_base64">
-        </div>
       </div>
     </div>
   </div>
@@ -5839,14 +5827,6 @@ function abrirModalOrdem(id){
   document.getElementById('ord_material').value=o?.material||'';
   document.getElementById('ord_qtd').value=o?.quantidade||1;
   document.getElementById('ord_data').value=o?.dt_abertura||new Date().toISOString().split('T')[0];
-  document.getElementById('ord_peso').value=o?.peso||'';
-  // Foto
-  document.getElementById('ord_foto_base64').value=o?.foto_produto||'';
-  document.getElementById('ord_foto_input').value='';
-  document.getElementById('ord_foto_remover').style.display=(o?.foto_produto)?'inline-flex':'none';
-  document.getElementById('ord_foto_preview').innerHTML=o?.foto_produto
-    ?'<img src="'+o.foto_produto+'" style="max-width:220px;max-height:160px;border-radius:8px;border:1px solid #e0e0e0;object-fit:contain;margin-top:4px">'
-    :'';
   if(o?.pdv_id) selPDV.value=o.pdv_id;
   abrirModal('modalOrdem');
 }
@@ -5932,29 +5912,6 @@ function preencherDadosOrdem(){
     <span style="color:var(--gray)">📁 Setor: ${opt.dataset.setor||'—'} · Peça: <b>${opt.dataset.descricao||'—'}</b>${opt.dataset.desenho?' · Nº '+opt.dataset.desenho:''}</span>`;
 }
 
-function previewFotoOrdem(input){
-  const file=input.files[0];
-  if(!file) return;
-  const maxMB=5;
-  if(file.size>maxMB*1024*1024){showToast('Foto muito grande (máx '+maxMB+'MB)','err');input.value='';return;}
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const base64=e.target.result;
-    document.getElementById('ord_foto_base64').value=base64;
-    document.getElementById('ord_foto_preview').innerHTML=
-      '<img src="'+base64+'" style="max-width:220px;max-height:160px;border-radius:8px;border:1px solid #e0e0e0;object-fit:contain;margin-top:4px">';
-    document.getElementById('ord_foto_remover').style.display='inline-flex';
-  };
-  reader.readAsDataURL(file);
-}
-
-function removerFotoOrdem(){
-  document.getElementById('ord_foto_base64').value='';
-  document.getElementById('ord_foto_preview').innerHTML='';
-  document.getElementById('ord_foto_input').value='';
-  document.getElementById('ord_foto_remover').style.display='none';
-}
-
 async function deletarOrdem(id){
   if(!confirm('Excluir esta ordem de produção?')) return;
   try{
@@ -5978,8 +5935,6 @@ async function salvarOrdem(){
     desenho:document.getElementById('ord_desenho').value.trim()||null,
     material:document.getElementById('ord_material').value.trim()||null,
     quantidade:Number(document.getElementById('ord_qtd').value)||1,
-    peso:parseFloat(document.getElementById('ord_peso').value)||null,
-    foto_produto:document.getElementById('ord_foto_base64').value||null,
     dt_abertura:document.getElementById('ord_data').value||new Date().toISOString().split('T')[0],
     criado_por:usuarioLogado?.nome||null
   };
@@ -6109,24 +6064,11 @@ function imprimirOrdem(id){
     <td style="border:1px solid #000;padding:4px">${o.material||''}</td>
     <td colspan="2" style="border:1px solid #000;padding:4px;font-size:20px;font-weight:700">${o.quantidade||''}</td>
   </tr>
-  <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:10px">
-    <td colspan="3" style="border:1px solid #000;padding:4px">PESO (kg)</td>
-    <td colspan="3" style="border:1px solid #000;padding:4px">OBSERVAÇÃO</td>
-  </tr>
-  <tr style="text-align:center;font-size:13px;height:28px">
-    <td colspan="3" style="border:1px solid #000;padding:4px;font-weight:700">${o.peso?Number(o.peso).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+' kg':''}</td>
-    <td colspan="3" style="border:1px solid #000;padding:4px"></td>
-  </tr>
   ${opRow('SERRA','TORNO')}
   ${opRow('PLAINA','CENTRO DE USINAGEM')}
   ${opRow('FURADEIRA','SOLDA')}
   ${opRow('FREZA','MONTAGEM')}
 </table>
-${o.foto_produto?`
-<div style="margin-top:14px;border:1px solid #000;padding:8px;text-align:center;page-break-inside:avoid">
-  <div style="font-weight:700;font-size:11px;background:#d9d9d9;padding:4px;margin-bottom:8px;text-align:center;letter-spacing:1px">FOTO DO PRODUTO PRONTO</div>
-  <img src="${o.foto_produto}" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:4px">
-</div>`:''}
 
 </body></html>`;
 
@@ -12139,6 +12081,20 @@ function abrirPreviaImportacaoFC(novos, duplicados, dataErros){
       </div>
     </div>` : '';
 
+  // ── Detecta mistura de sinais para alerta visual ─────────────────────
+  const temMisturaPrevia = novos.some(t=>t.valor>0) && novos.some(t=>t.valor<0);
+  const alertaMisturaHtml = temMisturaPrevia ? `
+    <div style="background:#fff3e0;border:2px solid #ff6f00;border-radius:10px;padding:10px 16px;margin:0 24px 0;display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:20px;flex-shrink:0">⚠️</span>
+      <div>
+        <div style="font-weight:800;color:#e65100;font-size:13px">Mistura de Entradas e Saídas detectada!</div>
+        <div style="font-size:12px;color:#bf360c;margin-top:3px">
+          Esta importação contém lançamentos <b>positivos</b> (entradas) e <b>negativos</b> (saídas) na mesma planilha.<br>
+          Verifique se as colunas A Pagar / A Receber / Pagamento / Recebimento estão separadas corretamente.
+        </div>
+      </div>
+    </div>` : '';
+
   modal.innerHTML = `
     <div style="background:#fff;border-radius:16px;width:900px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
       <!-- Header -->
@@ -12169,7 +12125,7 @@ function abrirPreviaImportacaoFC(novos, duplicados, dataErros){
           <div style="font-size:16px;font-weight:900;color:#2e7d32">${fmtMoeda(novos.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0))}</div>
         </div>
       </div>
-
+      ${alertaMisturaHtml}
       <!-- Lista de novos com checkboxes -->
       <div style="flex:1;overflow-y:auto;padding:16px 24px">
         ${novos.length===0 ? '<div style="text-align:center;padding:30px;color:#9e9e9e;font-size:14px">✅ Todos os lançamentos já estão importados (sem novidades)</div>' : `
@@ -12247,19 +12203,45 @@ function confirmarImportacaoFC(){
     const jaExistem=contagem[k]||0;
     if(contagemNovos[k] > jaExistem){
       reaisNovos.push(item);
-      contagem[k]=jaExistem+1; // atualiza contagem para próximas iterações
+      contagem[k]=jaExistem+1;
     }
   });
 
   const ignorados = selecionados.length - reaisNovos.length;
   if(ignorados>0) console.warn('[FC] '+ignorados+' itens ignorados por dedup final');
 
+  // ── Proteção: detecta mistura de sinais ─────────────────────────────────
+  const temPositivo = reaisNovos.some(t=>t.valor>0);
+  const temNegativo = reaisNovos.some(t=>t.valor<0);
+  if(temPositivo && temNegativo){
+    const qtdPos=reaisNovos.filter(t=>t.valor>0).length;
+    const qtdNeg=reaisNovos.filter(t=>t.valor<0).length;
+    const totalPos=reaisNovos.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0);
+    const totalNeg=reaisNovos.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
+    const prosseguir = confirm(
+      '⚠️ ATENÇÃO — Mistura de Entradas e Saídas detectada!\n\n'+
+      '📗 Entradas (positivos): '+qtdPos+' lançamentos = +'+totalPos.toLocaleString('pt-BR',{minimumFractionDigits:2})+'\n'+
+      '📕 Saídas (negativos): '+qtdNeg+' lançamentos = -'+totalNeg.toLocaleString('pt-BR',{minimumFractionDigits:2})+'\n\n'+
+      'Verifique se a planilha está correta antes de continuar.\n\n'+
+      'Clique OK para importar assim mesmo, ou Cancelar para revisar.'
+    );
+    if(!prosseguir) return;
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
+  // ── Snapshot para poder desfazer ────────────────────────────────────────
+  const tipoLabel = document.getElementById('fcTipoImport')?.selectedOptions?.[0]?.text || 'Importação';
+  const dataMin = reaisNovos.map(t=>t.data).sort()[0]||'';
+  const dataMax = reaisNovos.map(t=>t.data).sort().slice(-1)[0]||'';
+  const descSnap = tipoLabel + (dataMin?' ('+new Date(dataMin+'T12:00').toLocaleDateString('pt-BR')+' → '+new Date(dataMax+'T12:00').toLocaleDateString('pt-BR')+')':'');
+  _salvarSnapshotImportacao(reaisNovos.length, descSnap);
+  // ────────────────────────────────────────────────────────────────────────
+
   fcDados = [...base, ...reaisNovos];
   _salvarFcDados();
   document.getElementById('modalPreviaFC')?.remove();
   showToast('✅ '+reaisNovos.length+' lançamentos importados! Total: '+fcDados.length+(ignorados?' ('+ignorados+' duplicatas ignoradas)':''));
   populaFiltrosFC();
-  // Não recarrega do localStorage — usa o fcDados já correto
   _renderFluxoCaixaSemReload();
   window._fcPreviaNovos = null;
 }
@@ -12462,7 +12444,64 @@ function _salvarFcDados(){
   sincronizarFC(json); // async — não bloqueia UI
 }
 
+// Salva snapshot dos dados ANTES de uma importação (para poder desfazer)
+function _salvarSnapshotImportacao(quantidadeImportada, descricao){
+  try{
+    const snap={
+      dados: JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'),
+      saldoAnt: localStorage.getItem('sl_fc_saldo_ant')||'0',
+      ts: new Date().toISOString(),
+      qtd: quantidadeImportada,
+      desc: descricao
+    };
+    localStorage.setItem('sl_fc_snapshot', JSON.stringify(snap));
+    // Exibe botão desfazer
+    const btn=document.getElementById('btnDesfazerImportFC');
+    if(btn){
+      btn.style.display='inline-flex';
+      btn.title='Desfazer: '+descricao+' ('+new Date(snap.ts).toLocaleString('pt-BR')+')';
+    }
+  }catch(e){ console.warn('[FC] Snapshot falhou:', e); }
+}
+
+function desfazerUltimaImportacaoFC(){
+  const raw=localStorage.getItem('sl_fc_snapshot');
+  if(!raw){ showToast('Nenhuma importação para desfazer','err'); return; }
+  try{
+    const snap=JSON.parse(raw);
+    const tsStr=new Date(snap.ts).toLocaleString('pt-BR');
+    const msg=`Desfazer a importação de ${snap.qtd} lançamentos\n"${snap.desc}"\nfeita em ${tsStr}?\n\nOs dados voltarão ao estado anterior.`;
+    if(!confirm(msg)) return;
+    // Restaura estado anterior
+    fcDados = snap.dados;
+    localStorage.setItem('sl_fc_dados', JSON.stringify(snap.dados));
+    localStorage.setItem('sl_fc_saldo_ant', snap.saldoAnt);
+    const elSA=document.getElementById('fcSaldoAnterior');
+    if(elSA) elSA.value=parseFloat(snap.saldoAnt||0).toFixed(2).replace('.',',');
+    // Sincroniza com Supabase
+    sincronizarFC(JSON.stringify(snap.dados));
+    // Remove snapshot e esconde botão
+    localStorage.removeItem('sl_fc_snapshot');
+    const btn=document.getElementById('btnDesfazerImportFC');
+    if(btn) btn.style.display='none';
+    populaFiltrosFC();
+    _renderFluxoCaixaSemReload();
+    showToast('↩️ Importação desfeita! '+snap.qtd+' lançamentos removidos.');
+  }catch(e){ showToast('Erro ao desfazer: '+e.message,'err'); console.error(e); }
+}
+
 function renderFluxoCaixa(){
+  // Restaura botão desfazer se houver snapshot salvo
+  if(localStorage.getItem('sl_fc_snapshot')){
+    try{
+      const snap=JSON.parse(localStorage.getItem('sl_fc_snapshot'));
+      const btn=document.getElementById('btnDesfazerImportFC');
+      if(btn){
+        btn.style.display='inline-flex';
+        btn.title='Desfazer: '+snap.desc+' ('+new Date(snap.ts).toLocaleString('pt-BR')+')';
+      }
+    }catch(e){}
+  }
   // Carrega do Supabase (compartilhado) se não tiver dados em memória
   if(!window._fcSkipReload && !fcDados.length){
     // Mostra loading enquanto carrega do Supabase
@@ -12581,15 +12620,6 @@ function _renderFluxoCaixaCore(){
   // Saldo Previsto = saldo_ant + A_Receber + Recebimento - A_Pagar - Pagamento
   const saldoPrev=saldoAnt+totAReceber+totRec-totAPagar-totPag;
 
-  // Última data com lançamento (pendente ou realizado) no período filtrado
-  const todasDatasKpi=[
-    ...listaReal.map(t=>t.data),
-    ...cp.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
-    ...cr.map(c=>(c.vencimento||c.dt_vencimento||'').split('T')[0]).filter(Boolean),
-  ].filter(Boolean).sort();
-  const ultimaDataKpi=todasDatasKpi.length?todasDatasKpi[todasDatasKpi.length-1]:null;
-  const ultimaDataLabel=ultimaDataKpi?new Date(ultimaDataKpi+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}):'';
-
   const stats=document.getElementById('statsFC');
   if(stats) stats.innerHTML=
     '<div class="stat" style="border-left-color:#f57f17;cursor:default"><div class="stat-label">Saldo Anterior'+(mesFiltro?' ('+mesFiltro.replace(/(\d{4})-(\d{2})/,'$2/$1')+')':'')+'</div><div class="stat-val" style="color:#f57f17">'+fmtMoeda(saldoAnt)+'</div>'+(mesFiltro&&saldoAnt!==saldoAntBase?'<div class="stat-sub" style="font-size:9px;color:#bbb">base '+fmtMoeda(saldoAntBase)+'</div>':'')+'</div>'+
@@ -12598,7 +12628,7 @@ function _renderFluxoCaixaCore(){
     '<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">A Receber</div><div class="stat-val" style="color:#00695c">+'+fmtMoeda(totAReceber)+'</div></div>'+
     '<div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Recebimentos</div><div class="stat-val" style="color:#2e7d32">+'+fmtMoeda(totRec)+'</div></div>'+
     '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Saldo Real</div><div class="stat-val" style="color:'+(saldoReal>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(saldoReal)+'</div></div>'+
-    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Saldo Previsto</div><div class="stat-val" style="color:'+(saldoPrev>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(saldoPrev)+'</div>'+(ultimaDataLabel?'<div class="stat-sub" style="font-size:10px;color:#888;margin-top:3px">até '+ultimaDataLabel+'</div>':'')+'</div>';
+    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Saldo Previsto</div><div class="stat-val" style="color:'+(saldoPrev>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(saldoPrev)+'</div></div>';
 
   if(!listaReal.length&&!cp.length&&!cr.length){
     document.getElementById('fcTabela').innerHTML='<div class="empty">📂 Importe os dados do Omie para visualizar o fluxo de caixa</div>';
@@ -12637,26 +12667,12 @@ function _renderFluxoCaixaCore(){
     '<td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">'+fmtMoeda(saldoAnt)+'</td>'+
     '<td></td></tr></thead><tbody>';
 
-  let _mesAtualFC=''; // controla separador de mês no modo "Todos os meses"
-
   dias.forEach(function(dia){
     const dtObj=new Date(dia+'T12:00:00');
     const diaNum=String(dtObj.getDate()).padStart(2,'0');
     const diaNome=dtObj.toLocaleDateString('pt-BR',{weekday:'short'}).toUpperCase().replace('.','');
     const isWeekend=dtObj.getDay()===0||dtObj.getDay()===6;
     const diaLabel=diaNum+' '+diaNome;
-
-    // ── Separador de mês (só quando "Todos os meses") ──────────────────────
-    if(!mesFiltro){
-      const mesKey=dia.substring(0,7);
-      if(mesKey!==_mesAtualFC){
-        _mesAtualFC=mesKey;
-        const mesNome=dtObj.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
-        html+='<tr style="background:#1a237e;border-top:3px solid #0d47a1">'+
-          '<td colspan="11" style="padding:8px 14px;font-weight:800;font-size:12px;color:#fff;letter-spacing:1px;text-transform:uppercase">'+
-          '📅 '+mesNome+'</td></tr>';
-      }
-    }
 
     const realDia=listaReal.filter(t=>t.data===dia);
     const cpDia=cp.filter(c=>(c.vencimento||c.dt_vencimento||'').startsWith(dia));
