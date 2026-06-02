@@ -1492,9 +1492,15 @@ tr:hover td{background:#f9fbf9}
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <div>
       <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">💸 Pagamentos Realizados</h2>
-      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Histórico de pagamentos do Fluxo de Caixa e Contas a Pagar</p>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Histórico de pagamentos — Contas a Pagar e Fluxo de Caixa</p>
     </div>
-    <button class="btn" onclick="exportarExcelPag()" style="font-size:12px">📊 Excel</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="padding:8px 14px;background:#0d47a1;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap" title="Importar planilha histórica">
+        📊 Importar Planilha
+        <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPlanilhaFC(this)">
+      </label>
+      <button class="btn" onclick="exportarExcelPag()" style="font-size:12px">📥 Exportar</button>
+    </div>
   </div>
   <div class="stat-row" id="statsPAG"></div>
   <div class="toolbar">
@@ -1521,7 +1527,7 @@ tr:hover td{background:#f9fbf9}
     <table>
       <thead><tr>
         <th>Data</th><th>Fornecedor / Descrição</th>
-        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th><th style="width:60px"></th>
+        <th>NF</th><th style="text-align:right">Valor</th><th style="width:80px">Origem</th>
       </tr></thead>
       <tbody id="listaPAG"></tbody>
     </table>
@@ -1533,9 +1539,15 @@ tr:hover td{background:#f9fbf9}
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <div>
       <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">💰 Recebimentos Realizados</h2>
-      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Histórico de recebimentos do Fluxo de Caixa e Contas a Receber</p>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Histórico de recebimentos — Contas a Receber e Fluxo de Caixa</p>
     </div>
-    <button class="btn" onclick="exportarExcelRec()" style="font-size:12px">📊 Excel</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="padding:8px 14px;background:#0d47a1;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap" title="Importar planilha histórica">
+        📊 Importar Planilha
+        <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPlanilhaFC(this)">
+      </label>
+      <button class="btn" onclick="exportarExcelRec()" style="font-size:12px">📥 Exportar</button>
+    </div>
   </div>
   <div class="stat-row" id="statsREC"></div>
   <div class="toolbar">
@@ -1562,7 +1574,7 @@ tr:hover td{background:#f9fbf9}
     <table>
       <thead><tr>
         <th>Data</th><th>Cliente / Descrição</th>
-        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th><th style="width:60px"></th>
+        <th>NF</th><th style="text-align:right">Valor</th><th style="width:80px">Origem</th>
       </tr></thead>
       <tbody id="listaREC"></tbody>
     </table>
@@ -11675,90 +11687,39 @@ function renderPagamentos(){
   const tbody=document.getElementById('listaPAG');
   const statsEl=document.getElementById('statsPAG');
   if(!tbody) return;
-
-  // Se fcDados não carregou ainda, tenta carregar via localStorage/Supabase
-  if(!Array.isArray(fcDados)||fcDados.length===0){
-    // Tenta localStorage primeiro (imediato)
-    try{
-      const raw=localStorage.getItem('sl_fc_dados');
-      if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed)&&parsed.length>0) fcDados=parsed;}
-    }catch(e){}
-    // Se ainda vazio, agenda retry
-    if(!Array.isArray(fcDados)||fcDados.length===0){
-      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando dados do Fluxo de Caixa...</td></tr>';
-      // Tenta forçar carga do FC via Supabase
-      if(typeof carregarFcDoSupabase==='function'){
-        carregarFcDoSupabase().then(()=>renderPagamentos()).catch(()=>setTimeout(renderPagamentos,1000));
-      } else {
-        setTimeout(renderPagamentos,800);
-      }
-      return;
-    }
-  }
-
-  const busca=(document.getElementById('buscaPAG')?.value||'').toLowerCase();
-  const catFiltro=document.getElementById('filtroPAG_categoria')?.value||'';
   const listaBase=_coletarPagamentos();
-
-  // Popula filtros
+  const busca=(document.getElementById('buscaPAG')?.value||'').toLowerCase();
   const meses=[...new Set(listaBase.map(t=>t.data?.substring(0,7)).filter(Boolean))].sort();
   _populaMesFiltro('PAG',meses);
-  const cats=[...new Set(listaBase.map(t=>t.categoria).filter(c=>c&&c!=='—'))].sort();
-  const catEl=document.getElementById('filtroPAG_categoria');
-  if(catEl){const cur=catEl.value;catEl.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>'<option value="'+c+'"'+(c===cur?' selected':'')+'>'+c+'</option>').join('');}
-
-  // Aplica filtros
   const lista=listaBase.filter(t=>{
     if(!t.data) return false;
     if(!_mesAtivoFiltro('PAG',t.data)) return false;
-    if(catFiltro&&t.categoria!==catFiltro) return false;
-    if(busca&&!(t.descricao+t.categoria+(t.nf||'')).toLowerCase().includes(busca)) return false;
+    if(busca&&!(t.descricao+(t.nf||'')).toLowerCase().includes(busca)) return false;
     return true;
   });
-
-  // KPIs
   const mesAtual=new Date().toISOString().substring(0,7);
   const total=lista.reduce((s,t)=>s+t.valor,0);
   const totalMes=lista.filter(t=>(t.data||'').startsWith(mesAtual)).reduce((s,t)=>s+t.valor,0);
-  const qtdFC=lista.filter(t=>t.origem==='Fluxo de Caixa').length;
   const qtdCP=lista.filter(t=>t.origem==='Contas a Pagar').length;
+  const qtdFC=lista.filter(t=>t.origem==='Fluxo de Caixa').length;
   if(statsEl) statsEl.innerHTML=
     '<div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">Total Pago</div><div class="stat-val" style="color:#c62828">'+fmtMoeda(total)+'</div><div class="stat-sub">'+lista.length+' lançamentos</div></div>'+
     '<div class="stat" style="border-left-color:#e65100;cursor:default"><div class="stat-label">Pago no Mês</div><div class="stat-val" style="color:#e65100">'+fmtMoeda(totalMes)+'</div></div>'+
-    '<div class="stat" style="border-left-color:#546e7a;cursor:default"><div class="stat-label">Do FC</div><div class="stat-val" style="color:#546e7a;font-size:18px">'+qtdFC+'</div></div>'+
-    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">De CP</div><div class="stat-val" style="color:#1565c0;font-size:18px">'+qtdCP+'</div></div>';
-
+    '<div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">De CP</div><div class="stat-val" style="color:#c62828;font-size:18px">'+qtdCP+'</div></div>'+
+    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Do FC</div><div class="stat-val" style="color:#1565c0;font-size:18px">'+qtdFC+'</div></div>';
   if(!lista.length){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:#bbb"><div style="font-size:32px;margin-bottom:8px">💸</div><div style="font-weight:600">Nenhum pagamento encontrado</div><div style="font-size:12px;margin-top:4px;color:#9e9e9e">Os pagamentos aparecem aqui quando marcados como Pagos no CP ou realizados no FC</div></td></tr>';
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px;color:#bbb"><div style="font-size:40px;margin-bottom:10px">💸</div><div style="font-weight:700;font-size:15px;margin-bottom:4px">Nenhum pagamento registrado</div><div style="font-size:12px;color:#9e9e9e">Marque uma conta como Paga em Contas a Pagar</div></td></tr>';
     return;
   }
-
-  let mesAtualSep='';
+  let sep_mes='';
   tbody.innerHTML=lista.map(t=>{
     const mes=(t.data||'').substring(0,7);
     let sep='';
-    if(mes&&mes!==mesAtualSep){
-      mesAtualSep=mes;
-      const lbl=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
-      sep=`<tr style="background:#b71c1c"><td colspan="7" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💸 ${lbl}</td></tr>`;
-    }
+    if(mes&&mes!==sep_mes){sep_mes=mes;const lbl=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();sep=`<tr style="background:#b71c1c"><td colspan="5" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💸 ${lbl}</td></tr>`;}
     const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
-    const origemBadge=t.origem==='Fluxo de Caixa'
-      ?'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>'
-      :'<span style="background:#fce4ec;color:#c62828;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CP</span>';
-    const btnEditar=t._cpId
-      ?`<button class="btn btn-sm" onclick="abrirModalCP('${t._cpId}')" title="Editar">✏️</button>`
-      :t._fcIdx!=null
-        ?`<button class="btn btn-sm" onclick="editarLancFC(${t._fcIdx})" title="Editar">✏️</button>`
-        :'';
-    return sep+`<tr>
-      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
-      <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
-      <td style="padding:8px 10px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
-      <td style="padding:8px 10px">${origemBadge}</td>
-      <td style="padding:8px 6px">${btnEditar}</td>
-    </tr>`;
+    const origemBadge=t.origem==='Contas a Pagar'?'<span style="background:#fce4ec;color:#c62828;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CP</span>':'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>';
+    const btnEditar=t._cpId?`<button class="btn btn-sm" onclick="abrirModalCP('${t._cpId}')" title="Editar">✏️</button>`:'';
+    return sep+`<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:#546e7a">${dtFmt}</td><td style="padding:8px 12px;font-weight:600;font-size:13px">${t.descricao||'—'}</td><td style="padding:8px 12px;font-size:11px;color:#9e9e9e">${t.nf||'—'}</td><td style="padding:8px 12px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td><td style="padding:8px 12px">${origemBadge} ${btnEditar}</td></tr>`;
   }).join('');
 }
 
@@ -11766,83 +11727,39 @@ function renderRecebimentos(){
   const tbody=document.getElementById('listaREC');
   const statsEl=document.getElementById('statsREC');
   if(!tbody) return;
-
-  if(!Array.isArray(fcDados)||fcDados.length===0){
-    try{
-      const raw=localStorage.getItem('sl_fc_dados');
-      if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed)&&parsed.length>0) fcDados=parsed;}
-    }catch(e){}
-    if(!Array.isArray(fcDados)||fcDados.length===0){
-      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando dados do Fluxo de Caixa...</td></tr>';
-      if(typeof carregarFcDoSupabase==='function'){
-        carregarFcDoSupabase().then(()=>renderRecebimentos()).catch(()=>setTimeout(renderRecebimentos,1000));
-      } else {
-        setTimeout(renderRecebimentos,800);
-      }
-      return;
-    }
-  }
-
-  const busca=(document.getElementById('buscaREC')?.value||'').toLowerCase();
-  const catFiltro=document.getElementById('filtroREC_categoria')?.value||'';
   const listaBase=_coletarRecebimentos();
-
+  const busca=(document.getElementById('buscaREC')?.value||'').toLowerCase();
   const meses=[...new Set(listaBase.map(t=>t.data?.substring(0,7)).filter(Boolean))].sort();
   _populaMesFiltro('REC',meses);
-  const cats=[...new Set(listaBase.map(t=>t.categoria).filter(c=>c&&c!=='—'))].sort();
-  const catEl=document.getElementById('filtroREC_categoria');
-  if(catEl){const cur=catEl.value;catEl.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>'<option value="'+c+'"'+(c===cur?' selected':'')+'>'+c+'</option>').join('');}
-
   const lista=listaBase.filter(t=>{
     if(!t.data) return false;
     if(!_mesAtivoFiltro('REC',t.data)) return false;
-    if(catFiltro&&t.categoria!==catFiltro) return false;
-    if(busca&&!(t.descricao+t.categoria+(t.nf||'')).toLowerCase().includes(busca)) return false;
+    if(busca&&!(t.descricao+(t.nf||'')).toLowerCase().includes(busca)) return false;
     return true;
   });
-
   const mesAtual=new Date().toISOString().substring(0,7);
   const total=lista.reduce((s,t)=>s+t.valor,0);
   const totalMes=lista.filter(t=>(t.data||'').startsWith(mesAtual)).reduce((s,t)=>s+t.valor,0);
-  const qtdFC=lista.filter(t=>t.origem==='Fluxo de Caixa').length;
   const qtdCR=lista.filter(t=>t.origem==='Contas a Receber').length;
+  const qtdFC=lista.filter(t=>t.origem==='Fluxo de Caixa').length;
   if(statsEl) statsEl.innerHTML=
     '<div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Total Recebido</div><div class="stat-val" style="color:#2e7d32">'+fmtMoeda(total)+'</div><div class="stat-sub">'+lista.length+' lançamentos</div></div>'+
     '<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">Recebido no Mês</div><div class="stat-val" style="color:#00695c">'+fmtMoeda(totalMes)+'</div></div>'+
-    '<div class="stat" style="border-left-color:#546e7a;cursor:default"><div class="stat-label">Do FC</div><div class="stat-val" style="color:#546e7a;font-size:18px">'+qtdFC+'</div></div>'+
-    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">De CR</div><div class="stat-val" style="color:#1565c0;font-size:18px">'+qtdCR+'</div></div>';
-
+    '<div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">De CR</div><div class="stat-val" style="color:#2e7d32;font-size:18px">'+qtdCR+'</div></div>'+
+    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Do FC</div><div class="stat-val" style="color:#1565c0;font-size:18px">'+qtdFC+'</div></div>';
   if(!lista.length){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:#bbb"><div style="font-size:32px;margin-bottom:8px">💰</div><div style="font-weight:600">Nenhum recebimento encontrado</div><div style="font-size:12px;margin-top:4px;color:#9e9e9e">Os recebimentos aparecem aqui quando marcados como Recebidos no CR ou realizados no FC</div></td></tr>';
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px;color:#bbb"><div style="font-size:40px;margin-bottom:10px">💰</div><div style="font-weight:700;font-size:15px;margin-bottom:4px">Nenhum recebimento registrado</div><div style="font-size:12px;color:#9e9e9e">Marque uma conta como Recebida em Contas a Receber</div></td></tr>';
     return;
   }
-
-  let mesAtualSep='';
+  let sep_mes='';
   tbody.innerHTML=lista.map(t=>{
     const mes=(t.data||'').substring(0,7);
     let sep='';
-    if(mes&&mes!==mesAtualSep){
-      mesAtualSep=mes;
-      const lbl=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
-      sep=`<tr style="background:#1b5e20"><td colspan="7" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💰 ${lbl}</td></tr>`;
-    }
+    if(mes&&mes!==sep_mes){sep_mes=mes;const lbl=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();sep=`<tr style="background:#1b5e20"><td colspan="5" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💰 ${lbl}</td></tr>`;}
     const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
-    const origemBadge=t.origem==='Fluxo de Caixa'
-      ?'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>'
-      :'<span style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CR</span>';
-    const btnEditar=t._crId
-      ?`<button class="btn btn-sm" onclick="abrirModalCR('${t._crId}')" title="Editar">✏️</button>`
-      :t._fcIdx!=null
-        ?`<button class="btn btn-sm" onclick="editarLancFC(${t._fcIdx})" title="Editar">✏️</button>`
-        :'';
-    return sep+`<tr>
-      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
-      <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
-      <td style="padding:8px 10px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
-      <td style="padding:8px 10px">${origemBadge}</td>
-      <td style="padding:8px 6px">${btnEditar}</td>
-    </tr>`;
+    const origemBadge=t.origem==='Contas a Receber'?'<span style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CR</span>':'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>';
+    const btnEditar=t._crId?`<button class="btn btn-sm" onclick="abrirModalCR('${t._crId}')" title="Editar">✏️</button>`:'';
+    return sep+`<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:#546e7a">${dtFmt}</td><td style="padding:8px 12px;font-weight:600;font-size:13px">${t.descricao||'—'}</td><td style="padding:8px 12px;font-size:11px;color:#9e9e9e">${t.nf||'—'}</td><td style="padding:8px 12px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td><td style="padding:8px 12px">${origemBadge} ${btnEditar}</td></tr>`;
   }).join('');
 }
 
@@ -13061,34 +12978,47 @@ function diagnosticoFC(){
 }
 
 async function limparDadosFC(){
-  if(!confirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para todos os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
+  if(!confirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para TODOS os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
 
-  // Limpa IMEDIATAMENTE (não aguarda Supabase)
-  fcDados = [];
-  fcSaldoInicialOmie = 0;
-  localStorage.removeItem('sl_fc_dados');
-  localStorage.removeItem('sl_fc_saldo_ant');
-  localStorage.removeItem('sl_fc_snapshot');
-  _fcMesesSelecionados = [];
+  // === Limpa IMEDIATAMENTE (não aguarda nada) ===
+  fcDados=[];
+  fcSaldoInicialOmie=0;
+  _fcMesesSelecionados=[];
 
-  const el = document.getElementById('fcSaldoAnterior');
-  if(el) el.value = '0,00';
-  const btnDesfazer = document.getElementById('btnDesfazerImportFC');
-  if(btnDesfazer) btnDesfazer.style.display = 'none';
+  // Limpa localStorage
+  ['sl_fc_dados','sl_fc_saldo_ant','sl_fc_snapshot'].forEach(k=>localStorage.removeItem(k));
 
-  // Atualiza UI imediatamente
+  // Atualiza UI
+  const el=document.getElementById('fcSaldoAnterior');
+  if(el) el.value='0,00';
+  const btnDesfazer=document.getElementById('btnDesfazerImportFC');
+  if(btnDesfazer) btnDesfazer.style.display='none';
   if(typeof populaFiltrosFC==='function') populaFiltrosFC();
   if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
 
-  showToast('✅ Fluxo de Caixa limpo! Pode importar a nova planilha.');
+  showToast('✅ FC limpo! Aguarde sincronização...');
 
-  // Sincroniza com Supabase em background (não bloqueia)
-  try{
-    await api('PATCH','app_config',{valor:'[]',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
-    await api('PATCH','app_config',{valor:'0',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_saldo_ant');
-  }catch(e){
-    console.warn('[FC] Sync limpeza falhou (dados já limpos localmente):',e.message);
-  }
+  // Sincroniza com Supabase em background (não bloqueia UI)
+  setTimeout(async()=>{
+    try{
+      // Tenta PATCH, se falhar tenta POST
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/app_config?chave=eq.sl_fc_dados`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
+        body:JSON.stringify({valor:'[]',atualizado:new Date().toISOString()})
+      });
+      if(!r.ok) throw new Error('PATCH falhou: '+r.status);
+      await fetch(`${SUPABASE_URL}/rest/v1/app_config?chave=eq.sl_fc_saldo_ant`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
+        body:JSON.stringify({valor:'0',atualizado:new Date().toISOString()})
+      });
+      showToast('✅ Sincronizado! Dados apagados para todos os usuários.');
+    }catch(e){
+      console.warn('[FC] Sync limpeza falhou:',e.message);
+      showToast('⚠️ Limpo localmente. Outros usuários precisam recarregar a página.','err',4000);
+    }
+  },100);
 }
 
 function _parseExcelDate(v){
