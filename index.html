@@ -1451,9 +1451,6 @@ tr:hover td{background:#f9fbf9}
           <div id="fcMesFiltroOpcoes"></div>
         </div>
       </div>
-      <select id="filtroFC_categoria" onchange="renderFluxoCaixa()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
-        <option value="">Todas as categorias</option>
-      </select>
       <input type="text" id="filtroFC_busca" placeholder="Buscar fornecedor..." oninput="renderFluxoCaixa()"
         style="padding:7px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;min-width:180px">
       <!-- Botão importar -->
@@ -1523,7 +1520,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Data</th><th>Fornecedor / Descrição</th><th>Categoria</th>
+        <th>Data</th><th>Fornecedor / Descrição</th>
         <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th><th style="width:60px"></th>
       </tr></thead>
       <tbody id="listaPAG"></tbody>
@@ -1564,7 +1561,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Data</th><th>Cliente / Descrição</th><th>Categoria</th>
+        <th>Data</th><th>Cliente / Descrição</th>
         <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th><th style="width:60px"></th>
       </tr></thead>
       <tbody id="listaREC"></tbody>
@@ -11757,7 +11754,6 @@ function renderPagamentos(){
     return sep+`<tr>
       <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${t.categoria||'—'}</td>
       <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
       <td style="padding:8px 10px">${origemBadge}</td>
@@ -11842,7 +11838,6 @@ function renderRecebimentos(){
     return sep+`<tr>
       <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${t.categoria||'—'}</td>
       <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
       <td style="padding:8px 10px">${origemBadge}</td>
@@ -12035,6 +12030,7 @@ function renderContasPagar(){
       </td>
       <td style="padding:8px 6px;white-space:nowrap">
         ${!isPaga&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="pagarConta('${c.id}','pagar')">✅ Pagar</button>`:''}
+        ${isPaga?`<button class="btn btn-sm" style="background:#fff8e1;border-color:#ffe082;color:#f57f17;font-size:11px" onclick="desfazerPagamentoCP('${c.id}')" title="Desfazer pagamento">↩️ Desfazer</button>`:''}
         <button class="btn btn-sm" onclick="abrirModalCP('${c.id}')">✏️</button>
         <button class="btn btn-sm danger" onclick="deletarCP('${c.id}')">🗑</button>
       </td>
@@ -12257,6 +12253,7 @@ function renderContasReceber(){
       <td style="padding:8px 10px;font-size:12px">${c.forma_pagamento||'—'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         ${!isRec&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="receberConta('${c.id}')">✅ Receber</button>`:''}
+        ${isRec?`<button class="btn btn-sm" style="background:#fff8e1;border-color:#ffe082;color:#f57f17;font-size:11px" onclick="desfazerRecebimentoCR('${c.id}')" title="Desfazer recebimento">↩️ Desfazer</button>`:''}
         <button class="btn btn-sm" onclick="abrirModalCR('${c.id}')">✏️</button>
         <button class="btn btn-sm danger" onclick="deletarCR('${c.id}')">🗑</button>
       </td>
@@ -12811,6 +12808,60 @@ async function _excluirDuplicata(tipo, idOuIdx, modalId){
 }
 // ===== FIM AUDITORIA =====
 
+async function desfazerPagamentoCP(id){
+  const c = contasPagar.find(x=>x.id===id);
+  if(!c) return;
+  if(!confirm(`Desfazer pagamento de "${c.descricao}"?\n\nA conta voltará para status Aberta.\nO lançamento correspondente será removido do Fluxo de Caixa.`)) return;
+  try{
+    await api('PATCH','contas_pagar',{
+      status:'Aberta', dt_pagamento:null, valor_pago:null,
+      juros_multa:null, dias_atraso:null, forma_pagamento:null
+    },`?id=eq.${id}`);
+    // Remove do FC o lançamento gerado pelo pagamento
+    const dtPagto = c.dt_pagamento||hoje();
+    const descLC = (c.descricao||'').toLowerCase().substring(0,15);
+    const antes = fcDados.length;
+    fcDados = fcDados.filter(t=>{
+      if(t.pendente||t.valor>=0) return true;
+      if(t.data!==dtPagto) return true;
+      const forn=(t.fornecedor||'').toLowerCase().substring(0,15);
+      return !forn.includes(descLC.substring(0,8))&&!descLC.includes(forn.substring(0,8));
+    });
+    if(fcDados.length<antes) _salvarFcDados();
+    await loadAll();
+    renderContasPagar();
+    if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+    if(typeof renderPagamentos==='function') renderPagamentos();
+    showToast('↩️ Pagamento desfeito! Conta voltou para Aberta.');
+  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
+}
+
+async function desfazerRecebimentoCR(id){
+  const c = contasReceber.find(x=>x.id===id);
+  if(!c) return;
+  if(!confirm(`Desfazer recebimento de "${c.descricao}"?\n\nA conta voltará para status Aberta.\nO lançamento correspondente será removido do Fluxo de Caixa.`)) return;
+  try{
+    await api('PATCH','contas_receber',{
+      status:'Aberta', dt_recebimento:null, valor_recebido:null, forma_pagamento:null
+    },`?id=eq.${id}`);
+    const dtRec = c.dt_recebimento||hoje();
+    const descLC = (c.descricao||'').toLowerCase().substring(0,15);
+    const antes = fcDados.length;
+    fcDados = fcDados.filter(t=>{
+      if(t.pendente||t.valor<=0) return true;
+      if(t.data!==dtRec) return true;
+      const forn=(t.fornecedor||'').toLowerCase().substring(0,15);
+      return !forn.includes(descLC.substring(0,8))&&!descLC.includes(forn.substring(0,8));
+    });
+    if(fcDados.length<antes) _salvarFcDados();
+    await loadAll();
+    renderContasReceber();
+    if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+    if(typeof renderRecebimentos==='function') renderRecebimentos();
+    showToast('↩️ Recebimento desfeito! Conta voltou para Aberta.');
+  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
+}
+
 async function deletarCP(id){
   if(!confirm('Excluir esta conta a pagar?')) return;
   try{
@@ -13010,44 +13061,33 @@ function diagnosticoFC(){
 }
 
 async function limparDadosFC(){
-  if(!confirm('⚠️ ATENÇÃO\n\nApagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos importados para todos os usuários.\n\nEsta ação NÃO pode ser desfeita.')) return;
+  if(!confirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para todos os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
 
-  // Feedback visual
-  const btn = document.querySelector('[onclick="limparDadosFC()"]');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ Limpando...'; }
+  // Limpa IMEDIATAMENTE (não aguarda Supabase)
+  fcDados = [];
+  fcSaldoInicialOmie = 0;
+  localStorage.removeItem('sl_fc_dados');
+  localStorage.removeItem('sl_fc_saldo_ant');
+  localStorage.removeItem('sl_fc_snapshot');
+  _fcMesesSelecionados = [];
 
+  const el = document.getElementById('fcSaldoAnterior');
+  if(el) el.value = '0,00';
+  const btnDesfazer = document.getElementById('btnDesfazerImportFC');
+  if(btnDesfazer) btnDesfazer.style.display = 'none';
+
+  // Atualiza UI imediatamente
+  if(typeof populaFiltrosFC==='function') populaFiltrosFC();
+  if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+
+  showToast('✅ Fluxo de Caixa limpo! Pode importar a nova planilha.');
+
+  // Sincroniza com Supabase em background (não bloqueia)
   try{
-    // 1. Zera memória
-    fcDados = [];
-    fcSaldoInicialOmie = 0;
-
-    // 2. Zera localStorage
-    localStorage.removeItem('sl_fc_dados');
-    localStorage.removeItem('sl_fc_saldo_ant');
-    localStorage.removeItem('sl_fc_snapshot');
-
-    // 3. Sincroniza com Supabase (await para garantir)
-    await sincronizarFC('[]');
-    await sincronizarFcSaldoAnt('0');
-
-    // 4. Atualiza UI
-    const el = document.getElementById('fcSaldoAnterior');
-    if(el) el.value = '0,00';
-    const btnDesfazer = document.getElementById('btnDesfazerImportFC');
-    if(btnDesfazer) btnDesfazer.style.display = 'none';
-    // Reseta filtro de meses
-    _fcMesesSelecionados = [];
-    if(typeof populaFiltrosFC==='function') populaFiltrosFC();
-    if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
-    if(typeof renderPagamentos==='function') renderPagamentos();
-    if(typeof renderRecebimentos==='function') renderRecebimentos();
-
-    showToast('✅ Fluxo de Caixa limpo com sucesso! Pode importar a nova planilha.');
+    await api('PATCH','app_config',{valor:'[]',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
+    await api('PATCH','app_config',{valor:'0',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_saldo_ant');
   }catch(e){
-    showToast('❌ Erro ao limpar: '+e.message,'err');
-    console.error('[FC] limpar erro:',e);
-  }finally{
-    if(btn){ btn.disabled=false; btn.innerHTML='🗑 Limpar Dados'; }
+    console.warn('[FC] Sync limpeza falhou (dados já limpos localmente):',e.message);
   }
 }
 
@@ -13587,20 +13627,14 @@ function confirmarImportacaoFC(){
   _renderFluxoCaixaSemReload();
   window._fcPreviaNovos = null;
 
-  // Pergunta se quer enviar pendentes para CP/CR
+  // Sincroniza automaticamente para CP/CR sem perguntar
   if(pendentesNovos.length>0){
-    setTimeout(()=>{
-      const msg =
-        `📋 Enviar para Contas a Pagar / Receber?\n\n`+
-        (qtdCP>0?`📤 A Pagar: ${qtdCP} lançamento(s)\n`:'')+
-        (qtdCR>0?`📥 A Receber: ${qtdCR} lançamento(s)\n`:'')+
-        `\nClique OK para criar automaticamente nas abas Contas a Pagar e Contas a Receber.`;
-      if(confirm(msg)){
-        _enviarPendentesParaCpCr(pendentesNovos).then(res=>{
-          showToast(`✅ CP/CR atualizados! ${res.cp} a pagar, ${res.cr} a receber criados.`);
-        });
+    setTimeout(async()=>{
+      const res = await _enviarPendentesParaCpCr(pendentesNovos);
+      if(res.cp>0||res.cr>0){
+        showToast(`📤 ${res.cp} → Contas a Pagar | 📥 ${res.cr} → Contas a Receber`);
       }
-    }, 400);
+    }, 600);
   }
 }
 
@@ -14392,11 +14426,10 @@ function _renderFluxoCaixaCore(){
   let srAcc=saldoAnt; // Saldo Real acumulado
   let spAcc=saldoAnt; // Saldo Previsto acumulado
 
-  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1060px">'+
+  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:820px">'+
     '<thead><tr style="background:#1a237e;color:#fff;position:sticky;top:0;z-index:5">'+
     '<th style="padding:9px 10px;text-align:center;white-space:nowrap;width:60px">DIA</th>'+
-    '<th style="padding:9px 10px;text-align:left;min-width:150px">DESCRIÇÃO</th>'+
-    '<th style="padding:9px 10px;text-align:left;min-width:100px">CATEGORIA</th>'+
+    '<th style="padding:9px 10px;text-align:left;min-width:200px">DESCRIÇÃO</th>'+
     '<th style="padding:9px 10px;text-align:center;min-width:80px">NF</th>'+
     '<th style="padding:9px 10px;text-align:right;color:#ef9a9a;min-width:95px">A PAGAR</th>'+
     '<th style="padding:9px 10px;text-align:right;color:#ffcc80;min-width:95px">PAGAMENTO</th>'+
@@ -14404,14 +14437,12 @@ function _renderFluxoCaixaCore(){
     '<th style="padding:9px 10px;text-align:right;color:#a5d6a7;min-width:95px">RECEBIMENTO</th>'+
     '<th style="padding:9px 10px;text-align:right;color:#90caf9;min-width:95px">SALDO REAL</th>'+
     '<th style="padding:9px 10px;text-align:right;color:#ce93d8;min-width:95px">SALDO PREVISTO</th>'+
-    '<th style="padding:9px 10px;width:80px"></th>'+
     '</tr>'+
-    // Linha saldo anterior (amarela)
-    '<tr style="background:#f57f17"><td colspan="4" style="padding:9px 12px;font-weight:700;color:#fff;font-size:12px">💰 SALDO ANTERIOR</td>'+
+    '<tr style="background:#f57f17"><td colspan="3" style="padding:9px 12px;font-weight:700;color:#fff;font-size:12px">💰 SALDO ANTERIOR</td>'+
     '<td></td><td></td><td></td><td></td>'+
     '<td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">'+fmtMoeda(saldoAnt)+'</td>'+
     '<td style="padding:9px 12px;text-align:right;font-weight:900;color:#fff;font-size:13px">'+fmtMoeda(saldoAnt)+'</td>'+
-    '<td></td></tr></thead><tbody>';
+    '</tr></thead><tbody>';
 
   let _mesAtualFC=''; // controla separador de mês no modo "Todos os meses"
 
@@ -14464,41 +14495,31 @@ function _renderFluxoCaixaCore(){
 
     // ── A Pagar (pendentes) ──────────────────────────────────────────────
     cpDia.forEach(function(c){
-      const v=c.valor||0; diaAPag+=v;
-      spAcc-=v;
-      linhas+='<tr style="background:#fff;border-bottom:1px solid #e8eaf6">'+
+      const v=c.valor||0; diaAPag+=v; spAcc-=v;
+      linhas+='<tr style="background:#fff8f8;border-bottom:1px solid #e8eaf6">'+
         diaCell()+
         '<td style="padding:6px 10px;font-weight:600;color:#263238">'+((c.descricao||c.fornecedor||'—'))+'</td>'+
-        '<td style="padding:6px 10px"><span style="background:#ffebee;color:#c62828;padding:1px 6px;border-radius:8px;font-size:10px">'+((c.categoria||'—'))+'</span></td>'+
         '<td style="padding:6px 10px;text-align:center;font-size:10px;color:#9e9e9e">'+(c.nf||'—')+'</td>'+
         '<td style="padding:6px 10px;text-align:right;color:#c62828;font-weight:700">'+fmtMoeda(v)+'</td>'+
         '<td></td><td></td><td></td>'+
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td style="padding:4px;text-align:center;white-space:nowrap">'+
-        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'pagar\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;margin-right:2px">✅ Pagar</button>'+
-        (c._omie?'<button onclick="excluirFC_grp(\''+c.id+'\')" title="Excluir" style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>':'')+
-        '</td></tr>';
+        '</tr>';
     });
 
     // ── A Receber (pendentes) ────────────────────────────────────────────
     crDia.forEach(function(c){
-      const v=c.valor||0; diaARec+=v;
-      spAcc+=v;
+      const v=c.valor||0; diaARec+=v; spAcc+=v;
       linhas+='<tr style="background:#f0fff4;border-bottom:1px solid #c8e6c9">'+
         diaCell()+
         '<td style="padding:6px 10px;font-weight:600;color:#263238">'+((c.descricao||c.cliente||'—'))+'</td>'+
-        '<td style="padding:6px 10px"><span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:10px">'+((c.categoria||'—'))+'</span></td>'+
         '<td style="padding:6px 10px;text-align:center;font-size:10px;color:#9e9e9e">—</td>'+
         '<td></td><td></td>'+
         '<td style="padding:6px 10px;text-align:right;color:#00695c;font-weight:700">'+fmtMoeda(v)+'</td>'+
         '<td></td>'+
         '<td style="padding:6px 10px;text-align:right;font-size:11px;color:#546e7a">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+(spAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td style="padding:4px;text-align:center;white-space:nowrap">'+
-        '<button onclick="migrarParaRealizado(\''+c.id+'\',\'receber\')" style="padding:3px 8px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;margin-right:2px">✅ Receber</button>'+
-        (c._omie?'<button onclick="excluirFC_grp(\''+c.id+'\')" title="Excluir" style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px">🗑</button>':'')+
-        '</td></tr>';
+        '</tr>';
     });
 
     // ── Realizados do dia ────────────────────────────────────────────────
@@ -14509,16 +14530,10 @@ function _renderFluxoCaixaCore(){
       else { diaRec+=vAbs; srAcc+=vAbs; spAcc+=vAbs; }
       const srColor=srAcc>=0?'#1565c0':'#c62828';
       const spColor=spAcc>=0?'#1565c0':'#c62828';
-      const nfLabel=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'—';
-      // Índice no fcDados para ações
-      const fcIdx=fcDados.findIndex(x=>!x.pendente&&x.data===t.data&&x.fornecedor===t.fornecedor&&Math.abs(Math.abs(x.valor)-vAbs)<0.01);
-      const tipoDesfazer = isPag ? 'A Pagar' : 'A Receber';
-      // Busca por data+fornecedor (não por valor, pois itens agrupados têm soma diferente dos individuais)
-      const fcIdxDel = fcDados.findIndex(x=>!x.pendente&&x.data===t.data&&x.fornecedor===t.fornecedor);
+      const nfLabel=t.nf&&t.nf!=='N/D'?t.nf:'—';
       linhas+='<tr style="background:#fff;border-bottom:1px solid #f0f0f0">'+
         diaCell()+
         '<td style="padding:6px 10px;font-weight:600;color:#263238">'+t.fornecedor+'</td>'+
-        '<td style="padding:6px 10px"><span style="background:'+(isPag?'#fff3e0':'#e8f5e9')+';color:'+(isPag?'#e65100':'#2e7d32')+';padding:1px 6px;border-radius:8px;font-size:10px">'+t.categoria+'</span></td>'+
         '<td style="padding:6px 10px;text-align:center;font-size:10px;color:#546e7a;font-family:monospace">'+nfLabel+'</td>'+
         '<td></td>'+
         '<td style="padding:6px 10px;text-align:right;color:#c62828;font-weight:700">'+(isPag?fmtMoeda(vAbs):'')+'</td>'+
@@ -14526,31 +14541,23 @@ function _renderFluxoCaixaCore(){
         '<td style="padding:6px 10px;text-align:right;color:#2e7d32;font-weight:700">'+(!isPag?fmtMoeda(vAbs):'')+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+srColor+'">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+spColor+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td style="padding:4px 6px;text-align:center;white-space:nowrap">'+
-          (fcIdx>=0?'<button onclick="editarLancFC('+fcIdx+')" title="Editar lançamento" style="width:22px;height:22px;background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:2px">✏️</button>':'')+
-          '<button onclick="desfazerRealizadoFC(\''+t.data+'\',\''+t.fornecedor.replace(/'/g,'').substring(0,25)+'\',\''+tipoDesfazer+'\')" '+
-          'title="↩️ Voltar para '+tipoDesfazer+'" '+
-          'style="padding:2px 7px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;cursor:pointer;font-size:11px;color:#f57f17;font-weight:700">↩️</button>'+
-          '<button onclick="excluirRealizadoFC(\''+t.data+'\',\''+t.fornecedor.replace(/'/g,'').substring(0,25)+'\')" '+
-          'title="Excluir lançamento" '+
-          'style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px;margin-left:2px">🗑</button>'+
-        '</td></tr>';
+        '</tr>';
     });
 
-    // ── Subtotal do dia (no FINAL) ────────────────────────────────────────
+    // ── Subtotal do dia ──────────────────────────────────────────────────
     if(totalLinhas>1){
       const bg=isWeekend?'#ede7f6':'#e8eaf6';
       linhas+='<tr style="background:'+bg+';border-top:2px solid #9fa8da;border-bottom:3px solid #7986cb">'+
         '<td style="padding:7px 10px;text-align:center;font-weight:700;color:#283593;font-size:12px">'+diaLabel+'</td>'+
         '<td style="padding:7px 10px;color:#546e7a;font-style:italic;font-size:11px">'+totalLinhas+' registros</td>'+
-        '<td colspan="2"></td>'+
+        '<td></td>'+
         '<td style="padding:7px 10px;text-align:right;color:#c62828;font-weight:700">'+(diaAPag?fmtMoeda(diaAPag):'')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;color:#e65100;font-weight:700">'+(diaPag?fmtMoeda(diaPag):'')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;color:#00695c;font-weight:700">'+(diaARec?fmtMoeda(diaARec):'')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;color:#2e7d32;font-weight:700">'+(diaRec?fmtMoeda(diaRec):'')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;font-weight:900;color:'+(srAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:7px 10px;text-align:right;font-weight:900;color:'+(spAcc>=0?'#1565c0':'#c62828')+'">'+fmtMoeda(spAcc)+'</td>'+
-        '<td></td></tr>';
+        '</tr>';
     }
 
     html+=linhas;
