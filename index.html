@@ -12821,6 +12821,8 @@ async function _excluirDuplicata(tipo, idOuIdx, modalId){
   }catch(e){ showToast('Erro ao excluir: '+e.message,'err'); console.error(e); }
 }
 // ===== FIM AUDITORIA =====
+
+async function deletarCP(id){
   if(!confirm('Excluir esta conta a pagar?')) return;
   try{
     await api('DELETE','contas_pagar','',`?id=eq.${id}`);
