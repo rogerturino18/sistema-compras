@@ -515,6 +515,8 @@ tr:hover td{background:#f9fbf9}
     <div class="sbi" onclick="sbGo(19,'Contas a Pagar')">📤 Contas a Pagar</div>
     <div class="sbi" onclick="sbGo(20,'Contas a Receber')">📥 Contas a Receber</div>
     <div class="sbi" onclick="sbGo(21,'Fluxo de Caixa')">📊 Fluxo de Caixa</div>
+    <div class="sbi" onclick="sbGo(25,'Pagamentos')">💸 Pagamentos</div>
+    <div class="sbi" onclick="sbGo(26,'Recebimentos')">💰 Recebimentos</div>
     <div class="sbi" onclick="sbGo(22,'Contas Correntes')">🏦 Contas Correntes</div>
     <div class="sbi" onclick="sbGo(23,'DRE')">📈 DRE</div>
   </div>
@@ -1471,6 +1473,7 @@ tr:hover td{background:#f9fbf9}
       </label>
       <button onclick="abrirModalLancamentoFC()" style="padding:8px 16px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✏️ Lançamento Manual</button>
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
+      <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Migrar pendentes do Fluxo de Caixa para Contas a Pagar / Receber">🔄 Sincronizar → CP/CR</button>
       <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Reverte a última importação feita">↩️ Desfazer Importação</button>
       <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar Dados</button>
     </div>
@@ -1482,6 +1485,88 @@ tr:hover td{background:#f9fbf9}
   <!-- Tabela do fluxo de caixa estilo Excel -->
   <div id="fcTabela" style="overflow-x:auto">
     <div class="empty">📂 Importe os dados do Omie para visualizar o fluxo de caixa</div>
+  </div>
+</div>
+
+<!-- TAB 25: PAGAMENTOS -->
+<div class="panel" id="tab25">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">💸 Pagamentos Realizados</h2>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Histórico de pagamentos do Fluxo de Caixa e Contas a Pagar</p>
+    </div>
+    <button class="btn" onclick="exportarExcelPag()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="stat-row" id="statsPAG"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaPAG" placeholder="Buscar fornecedor, descrição, categoria..." oninput="renderPagamentos()" style="flex:1">
+    <div style="position:relative" id="pagMesFiltroWrap">
+      <button id="pagMesFiltroBtn" onclick="toggleMesFiltro('PAG',event)"
+        style="padding:7px 28px 7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;min-width:160px;text-align:left;position:relative;white-space:nowrap">
+        Todos os meses
+        <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>
+      </button>
+      <div id="pagMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:280px;overflow-y:auto;padding:6px 0">
+        <div style="padding:6px 12px;border-bottom:1px solid #f0f0f0;display:flex;gap:6px">
+          <button onclick="filtroMesTodos('PAG')" style="flex:1;padding:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;color:#2e7d32;cursor:pointer;font-weight:700">Todos</button>
+          <button onclick="filtroMesNenhum('PAG')" style="flex:1;padding:4px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:11px;color:#c62828;cursor:pointer;font-weight:700">Nenhum</button>
+        </div>
+        <div id="pagMesFiltroOpcoes"></div>
+      </div>
+    </div>
+    <select id="filtroPAG_categoria" onchange="renderPagamentos()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;max-width:200px">
+      <option value="">Todas as categorias</option>
+    </select>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data</th><th>Fornecedor / Descrição</th><th>Categoria</th>
+        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th>
+      </tr></thead>
+      <tbody id="listaPAG"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 26: RECEBIMENTOS -->
+<div class="panel" id="tab26">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">💰 Recebimentos Realizados</h2>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Histórico de recebimentos do Fluxo de Caixa e Contas a Receber</p>
+    </div>
+    <button class="btn" onclick="exportarExcelRec()" style="font-size:12px">📊 Excel</button>
+  </div>
+  <div class="stat-row" id="statsREC"></div>
+  <div class="toolbar">
+    <input type="text" id="buscaREC" placeholder="Buscar cliente, descrição, categoria..." oninput="renderRecebimentos()" style="flex:1">
+    <div style="position:relative" id="recMesFiltroWrap">
+      <button id="recMesFiltroBtn" onclick="toggleMesFiltro('REC',event)"
+        style="padding:7px 28px 7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;min-width:160px;text-align:left;position:relative;white-space:nowrap">
+        Todos os meses
+        <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>
+      </button>
+      <div id="recMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:280px;overflow-y:auto;padding:6px 0">
+        <div style="padding:6px 12px;border-bottom:1px solid #f0f0f0;display:flex;gap:6px">
+          <button onclick="filtroMesTodos('REC')" style="flex:1;padding:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;color:#2e7d32;cursor:pointer;font-weight:700">Todos</button>
+          <button onclick="filtroMesNenhum('REC')" style="flex:1;padding:4px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:11px;color:#c62828;cursor:pointer;font-weight:700">Nenhum</button>
+        </div>
+        <div id="recMesFiltroOpcoes"></div>
+      </div>
+    </div>
+    <select id="filtroREC_categoria" onchange="renderRecebimentos()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;max-width:200px">
+      <option value="">Todas as categorias</option>
+    </select>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Data</th><th>Cliente / Descrição</th><th>Categoria</th>
+        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th>
+      </tr></thead>
+      <tbody id="listaREC"></tbody>
+    </table>
   </div>
 </div>
 
@@ -9088,6 +9173,8 @@ function showTab(n){
   if(n===22) {if(typeof renderContasCorrente==='function') renderContasCorrente();}
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
+  if(n===25) {if(typeof renderPagamentos==='function') renderPagamentos();}
+  if(n===26) {if(typeof renderRecebimentos==='function') renderRecebimentos();}
 }
 
 async function dispararEmailBemVindo(){
@@ -11482,6 +11569,262 @@ function statusBadgeCR(s,venc){
 }
 
 // ── CONTAS A PAGAR ────────────────────────────────────────────────────────
+// ===== PAGAMENTOS REALIZADOS (TAB 25) =====
+let _mesesPAG=[], _mesesREC=[];
+
+function _getMesesFiltroId(id){ return id==='PAG'?_mesesPAG:_mesesREC; }
+function _setMesesFiltroId(id,v){ if(id==='PAG') _mesesPAG=v; else _mesesREC=v; }
+
+function toggleMesFiltro(id,e){
+  e.stopPropagation();
+  const dd=document.getElementById((id==='PAG'?'pag':'rec')+'MesFiltroDropdown');
+  if(!dd) return;
+  const aberto=dd.style.display!=='none';
+  dd.style.display=aberto?'none':'block';
+  if(!aberto){
+    setTimeout(()=>{
+      document.addEventListener('click',function _c(ev){
+        const wrap=document.getElementById((id==='PAG'?'pag':'rec')+'MesFiltroWrap');
+        if(!wrap?.contains(ev.target)){dd.style.display='none';document.removeEventListener('click',_c);}
+      });
+    },10);
+  }
+}
+
+function filtroMesTodos(id){ _setMesesFiltroId(id,[]); _atualizarBtnMes(id); id==='PAG'?renderPagamentos():renderRecebimentos(); }
+function filtroMesNenhum(id){ _setMesesFiltroId(id,['__nenhum__']); _atualizarBtnMes(id); id==='PAG'?renderPagamentos():renderRecebimentos(); }
+
+function _toggleMesItem(id,mes){
+  let arr=_getMesesFiltroId(id);
+  if(arr.length===0){
+    const todos=[...document.querySelectorAll('.mes-chk-'+id)].map(c=>c.value);
+    arr=[...todos];
+    _setMesesFiltroId(id,arr);
+  }
+  const idx=arr.indexOf(mes);
+  if(idx>=0) arr.splice(idx,1); else arr.push(mes);
+  const todos=[...document.querySelectorAll('.mes-chk-'+id)].map(c=>c.value);
+  if(arr.length===todos.length) _setMesesFiltroId(id,[]);
+  _atualizarBtnMes(id);
+  id==='PAG'?renderPagamentos():renderRecebimentos();
+}
+
+function _atualizarBtnMes(id){
+  const arr=_getMesesFiltroId(id);
+  const btn=document.getElementById((id==='PAG'?'pag':'rec')+'MesFiltroBtn');
+  if(!btn) return;
+  const suf='<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>';
+  if(arr.length===0){ btn.innerHTML='Todos os meses'+suf; btn.style.borderColor='#e0e0e0'; btn.style.color=''; return; }
+  if(arr[0]==='__nenhum__'){ btn.innerHTML='Nenhum mês'+suf; btn.style.borderColor='#e0e0e0'; btn.style.color='#9e9e9e'; return; }
+  const sorted=[...arr].sort();
+  if(arr.length===1){
+    const label=new Date(sorted[0]+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    btn.innerHTML=label+' <span style="background:#1565c0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700">1</span>'+suf;
+  } else {
+    const ini=new Date(sorted[0]+'-15').toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    const fim=new Date(sorted[sorted.length-1]+'-15').toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    btn.innerHTML=ini+' → '+fim+' <span style="background:#1565c0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700">'+arr.length+'</span>'+suf;
+  }
+  btn.style.borderColor='#1565c0'; btn.style.color='#1565c0';
+}
+
+function _populaMesFiltro(id, meses){
+  const opcDiv=document.getElementById((id==='PAG'?'pag':'rec')+'MesFiltroOpcoes');
+  if(!opcDiv) return;
+  const arr=_getMesesFiltroId(id);
+  opcDiv.innerHTML=[...meses].reverse().map(m=>{
+    const label=new Date(m+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    const checked=arr.length===0||(arr[0]!=='__nenhum__'&&arr.includes(m));
+    return `<label style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f5f7f5'" onmouseout="this.style.background=''">
+      <input type="checkbox" class="mes-chk-${id}" value="${m}" ${checked?'checked':''} onchange="_toggleMesItem('${id}','${m}')" style="accent-color:#1565c0;width:14px;height:14px;cursor:pointer">
+      <span>${label}</span></label>`;
+  }).join('');
+  _atualizarBtnMes(id);
+}
+
+function _mesAtivoFiltro(id, data){
+  const arr=_getMesesFiltroId(id);
+  if(!data) return false;
+  if(arr.length===0) return true;
+  if(arr[0]==='__nenhum__') return false;
+  return arr.includes(data.substring(0,7));
+}
+
+// Coleta todos os realizados: FC (pendente=false) + CP/CR pagos
+function _coletarPagamentos(){
+  const lista=[];
+  // Do FC (realizados negativos = pagamentos)
+  fcDados.filter(t=>!t.pendente&&t.valor<0).forEach(t=>{
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_pagoEm:t._pagoEm||t.data});
+  });
+  // Do Contas a Pagar (status Paga)
+  (contasPagar||[]).filter(c=>c.status==='Paga').forEach(c=>{
+    const data=c.dt_pagamento||c.vencimento||'';
+    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor||0),origem:'Contas a Pagar'});
+  });
+  return lista.sort((a,b)=>b.data.localeCompare(a.data));
+}
+
+function _coletarRecebimentos(){
+  const lista=[];
+  // Do FC (realizados positivos = recebimentos)
+  fcDados.filter(t=>!t.pendente&&t.valor>0).forEach(t=>{
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa',_recebidoEm:t._pagoEm||t.data});
+  });
+  // Do Contas a Receber (status Recebida)
+  (contasReceber||[]).filter(c=>c.status==='Recebida').forEach(c=>{
+    const data=c.dt_recebimento||c.vencimento||'';
+    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_recebido||c.valor||0),origem:'Contas a Receber'});
+  });
+  return lista.sort((a,b)=>b.data.localeCompare(a.data));
+}
+
+function renderPagamentos(){
+  const busca=(document.getElementById('buscaPAG')?.value||'').toLowerCase();
+  const catFiltro=document.getElementById('filtroPAG_categoria')?.value||'';
+  let lista=_coletarPagamentos();
+
+  // Popula meses e categorias
+  const meses=[...new Set(lista.map(t=>t.data.substring(0,7)).filter(Boolean))].sort();
+  _populaMesFiltro('PAG',meses);
+  const cats=[...new Set(lista.map(t=>t.categoria).filter(Boolean))].sort();
+  const catEl=document.getElementById('filtroPAG_categoria');
+  if(catEl){ const cur=catEl.value; catEl.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>'<option value="'+c+'"'+(c===cur?' selected':'')+'>'+c+'</option>').join(''); }
+
+  // Aplica filtros
+  lista=lista.filter(t=>{
+    if(!_mesAtivoFiltro('PAG',t.data)) return false;
+    if(catFiltro&&t.categoria!==catFiltro) return false;
+    if(busca&&!(t.descricao+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
+  // KPIs
+  const total=lista.reduce((s,t)=>s+t.valor,0);
+  const mesAtual=new Date().toISOString().substring(0,7);
+  const totalMes=lista.filter(t=>t.data.startsWith(mesAtual)).reduce((s,t)=>s+t.valor,0);
+  const qtdFC=lista.filter(t=>t.origem==='Fluxo de Caixa').length;
+  const qtdCP=lista.filter(t=>t.origem==='Contas a Pagar').length;
+  const statsEl=document.getElementById('statsPAG');
+  if(statsEl) statsEl.innerHTML=
+    '<div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">Total Pago</div><div class="stat-val" style="color:#c62828">'+fmtMoeda(total)+'</div><div class="stat-sub">'+lista.length+' lançamentos</div></div>'+
+    '<div class="stat" style="border-left-color:#e65100;cursor:default"><div class="stat-label">Pago no Mês</div><div class="stat-val" style="color:#e65100">'+fmtMoeda(totalMes)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#546e7a;cursor:default"><div class="stat-label">Do FC</div><div class="stat-val" style="color:#546e7a;font-size:18px">'+qtdFC+'</div></div>'+
+    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">De CP</div><div class="stat-val" style="color:#1565c0;font-size:18px">'+qtdCP+'</div></div>';
+
+  // Tabela
+  const tbody=document.getElementById('listaPAG');
+  if(!tbody) return;
+  if(!lista.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:#bbb"><div style="font-size:32px;margin-bottom:8px">💸</div><div style="font-weight:600">Nenhum pagamento encontrado</div></td></tr>';
+    return;
+  }
+
+  // Separador de mês
+  let mesAtualSep='';
+  tbody.innerHTML=lista.map(t=>{
+    const mes=t.data.substring(0,7);
+    let sepHtml='';
+    if(mes!==mesAtualSep){
+      mesAtualSep=mes;
+      const label=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
+      sepHtml=`<tr style="background:#b71c1c"><td colspan="6" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💸 ${label}</td></tr>`;
+    }
+    const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
+    const origemBadge=t.origem==='Fluxo de Caixa'
+      ?'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>'
+      :'<span style="background:#fce4ec;color:#c62828;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CP</span>';
+    return sepHtml+`<tr>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
+      <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${t.categoria}</td>
+      <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
+      <td style="padding:8px 10px">${origemBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRecebimentos(){
+  const busca=(document.getElementById('buscaREC')?.value||'').toLowerCase();
+  const catFiltro=document.getElementById('filtroREC_categoria')?.value||'';
+  let lista=_coletarRecebimentos();
+
+  const meses=[...new Set(lista.map(t=>t.data.substring(0,7)).filter(Boolean))].sort();
+  _populaMesFiltro('REC',meses);
+  const cats=[...new Set(lista.map(t=>t.categoria).filter(Boolean))].sort();
+  const catEl=document.getElementById('filtroREC_categoria');
+  if(catEl){ const cur=catEl.value; catEl.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>'<option value="'+c+'"'+(c===cur?' selected':'')+'>'+c+'</option>').join(''); }
+
+  lista=lista.filter(t=>{
+    if(!_mesAtivoFiltro('REC',t.data)) return false;
+    if(catFiltro&&t.categoria!==catFiltro) return false;
+    if(busca&&!(t.descricao+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
+  const total=lista.reduce((s,t)=>s+t.valor,0);
+  const mesAtual=new Date().toISOString().substring(0,7);
+  const totalMes=lista.filter(t=>t.data.startsWith(mesAtual)).reduce((s,t)=>s+t.valor,0);
+  const qtdFC=lista.filter(t=>t.origem==='Fluxo de Caixa').length;
+  const qtdCR=lista.filter(t=>t.origem==='Contas a Receber').length;
+  const statsEl=document.getElementById('statsREC');
+  if(statsEl) statsEl.innerHTML=
+    '<div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Total Recebido</div><div class="stat-val" style="color:#2e7d32">'+fmtMoeda(total)+'</div><div class="stat-sub">'+lista.length+' lançamentos</div></div>'+
+    '<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">Recebido no Mês</div><div class="stat-val" style="color:#00695c">'+fmtMoeda(totalMes)+'</div></div>'+
+    '<div class="stat" style="border-left-color:#546e7a;cursor:default"><div class="stat-label">Do FC</div><div class="stat-val" style="color:#546e7a;font-size:18px">'+qtdFC+'</div></div>'+
+    '<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">De CR</div><div class="stat-val" style="color:#1565c0;font-size:18px">'+qtdCR+'</div></div>';
+
+  const tbody=document.getElementById('listaREC');
+  if(!tbody) return;
+  if(!lista.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:#bbb"><div style="font-size:32px;margin-bottom:8px">💰</div><div style="font-weight:600">Nenhum recebimento encontrado</div></td></tr>';
+    return;
+  }
+
+  let mesAtualSep='';
+  tbody.innerHTML=lista.map(t=>{
+    const mes=t.data.substring(0,7);
+    let sepHtml='';
+    if(mes!==mesAtualSep){
+      mesAtualSep=mes;
+      const label=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
+      sepHtml=`<tr style="background:#1b5e20"><td colspan="6" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💰 ${label}</td></tr>`;
+    }
+    const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
+    const origemBadge=t.origem==='Fluxo de Caixa'
+      ?'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>'
+      :'<span style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CR</span>';
+    return sepHtml+`<tr>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
+      <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${t.categoria}</td>
+      <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
+      <td style="padding:8px 10px">${origemBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportarExcelPag(){
+  const lista=_coletarPagamentos();
+  if(!lista.length){showToast('Nenhum pagamento','err');return;}
+  const rows=[['DATA','FORNECEDOR / DESCRIÇÃO','CATEGORIA','NF','VALOR','ORIGEM']];
+  lista.forEach(t=>rows.push([t.data,t.descricao,t.categoria,t.nf||'',t.valor.toFixed(2),t.origem]));
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pagamentos_'+new Date().toISOString().substring(0,10)+'.xls';a.click();
+}
+
+function exportarExcelRec(){
+  const lista=_coletarRecebimentos();
+  if(!lista.length){showToast('Nenhum recebimento','err');return;}
+  const rows=[['DATA','CLIENTE / DESCRIÇÃO','CATEGORIA','NF','VALOR','ORIGEM']];
+  lista.forEach(t=>rows.push([t.data,t.descricao,t.categoria,t.nf||'',t.valor.toFixed(2),t.origem]));
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='recebimentos_'+new Date().toISOString().substring(0,10)+'.xls';a.click();
+}
+
+// ===== FIM PAGAMENTOS / RECEBIMENTOS =====
 function renderContasPagar(){
   console.log('renderContasPagar called, contasPagar:', contasPagar?.length);
   const b=(document.getElementById('buscaCP')?.value||'').toLowerCase();
@@ -11753,6 +12096,7 @@ async function receberConta(id){
     await api('PATCH','contas_receber',{status:'Recebida',dt_recebimento:dtRecebto},`?id=eq.${id}`);
     showToast('✅ Conta marcada como Recebida!');
     await loadAll();
+    if(typeof renderRecebimentos==='function') renderRecebimentos();
   }catch(e){showToast('Erro','err');}
 }
 
@@ -12483,10 +12827,31 @@ function confirmarImportacaoFC(){
   fcDados = [...base, ...reaisNovos];
   _salvarFcDados();
   document.getElementById('modalPreviaFC')?.remove();
+
+  const qtdPendentes = reaisNovos.filter(t=>t.pendente);
+  const qtdCP = qtdPendentes.filter(t=>t.valor<0).length;
+  const qtdCR = qtdPendentes.filter(t=>t.valor>0).length;
+
   showToast('✅ '+reaisNovos.length+' lançamentos importados! Total: '+fcDados.length+(ignorados?' ('+ignorados+' duplicatas ignoradas)':''));
   populaFiltrosFC();
   _renderFluxoCaixaSemReload();
   window._fcPreviaNovos = null;
+
+  // Pergunta se quer enviar pendentes para CP/CR
+  if(qtdPendentes.length>0){
+    setTimeout(()=>{
+      const msg =
+        `📋 Enviar para Contas a Pagar / Receber?\n\n`+
+        (qtdCP>0?`📤 A Pagar: ${qtdCP} lançamento(s)\n`:'')+
+        (qtdCR>0?`📥 A Receber: ${qtdCR} lançamento(s)\n`:'')+
+        `\nClique OK para criar automaticamente nas abas Contas a Pagar e Contas a Receber.`;
+      if(confirm(msg)){
+        _enviarPendentesParaCpCr(qtdPendentes).then(res=>{
+          showToast(`✅ CP/CR atualizados! ${res.cp} a pagar, ${res.cr} a receber criados.`);
+        });
+      }
+    }, 400);
+  }
 }
 
 // Versão do render que NÃO recarrega do localStorage (usa fcDados já carregado)
@@ -12644,6 +13009,9 @@ async function migrarParaRealizado(id, tipo){
     _salvarFcDados();
     showToast('✅ '+count+' lançamento(s) movido(s) para '+( tipo==='pagar'?'Pagamento':'Recebimento')+'!');
     renderFluxoCaixa();
+    // Atualiza abas de histórico se estiverem abertas
+    if(typeof renderPagamentos==='function'&&tipo==='pagar') renderPagamentos();
+    if(typeof renderRecebimentos==='function'&&tipo==='receber') renderRecebimentos();
     return;
   }
   // Rows do Supabase (sistema)
@@ -12654,6 +13022,8 @@ async function migrarParaRealizado(id, tipo){
     await api('PATCH',tabela,{status:tipo==='pagar'?'Paga':'Recebida',[dtCampo]:hoje},'?id=eq.'+id);
     showToast('✅ Movido para realizados!');
     await loadAll(); renderFluxoCaixa();
+    if(typeof renderPagamentos==='function'&&tipo==='pagar') renderPagamentos();
+    if(typeof renderRecebimentos==='function'&&tipo==='receber') renderRecebimentos();
   }catch(e){ showToast('Erro: '+e.message,'err'); }
 }
 
@@ -12779,6 +13149,111 @@ async function carregarFcDadosSupabase(){
     if(stored){ const arr=JSON.parse(stored); if(arr&&arr.length){ fcDados=arr; return true; } }
   }catch(e){}
   return false;
+}
+
+// ===== INTEGRAÇÃO FLUXO DE CAIXA → CONTAS A PAGAR / RECEBER =====
+
+// Converte um item pendente do FC para objeto CP ou CR
+function _fcItemParaCP(t){
+  return {
+    descricao: t.fornecedor||t.descricao||'Importado do FC',
+    valor: Math.abs(t.valor),
+    vencimento: t.data,
+    categoria: t.categoria||null,
+    num_doc: t.nf||null,
+    status: 'Aberta',
+    observacao: 'Importado do Fluxo de Caixa',
+    criado_por: usuarioLogado?.nome||null,
+    _fc_ref: t.data+'|'+(t.fornecedor||'').toLowerCase()+'|'+Math.abs(t.valor).toFixed(2)
+  };
+}
+function _fcItemParaCR(t){
+  return {
+    descricao: t.fornecedor||t.descricao||'Importado do FC',
+    valor: Math.abs(t.valor),
+    vencimento: t.data,
+    forma_pagamento: null,
+    status: 'Aberta',
+    observacao: 'Importado do Fluxo de Caixa',
+    criado_por: usuarioLogado?.nome||null,
+    _fc_ref: t.data+'|'+(t.fornecedor||'').toLowerCase()+'|'+Math.abs(t.valor).toFixed(2)
+  };
+}
+
+// Verifica se já existe em CP/CR (evita duplicata)
+function _jáExisteCP(t){
+  const ref=t.data+'|'+(t.fornecedor||'').toLowerCase()+'|'+Math.abs(t.valor).toFixed(2);
+  return (contasPagar||[]).some(c=>{
+    const k=(c.vencimento||'')+'|'+(c.descricao||'').toLowerCase()+'|'+Math.abs(c.valor||0).toFixed(2);
+    return k===ref || (c.observacao||'').includes(ref.substring(0,20));
+  });
+}
+function _jáExisteCR(t){
+  const ref=t.data+'|'+(t.fornecedor||'').toLowerCase()+'|'+Math.abs(t.valor).toFixed(2);
+  return (contasReceber||[]).some(c=>{
+    const k=(c.vencimento||'')+'|'+(c.descricao||'').toLowerCase()+'|'+Math.abs(c.valor||0).toFixed(2);
+    return k===ref || (c.observacao||'').includes(ref.substring(0,20));
+  });
+}
+
+// Envia lista de pendentes para CP/CR — retorna {cp, cr, ignorados}
+async function _enviarPendentesParaCpCr(pendentes){
+  const paraCP = pendentes.filter(t=>t.valor<0&&!_jáExisteCP(t));
+  const paraCR = pendentes.filter(t=>t.valor>0&&!_jáExisteCR(t));
+  const ignorados = pendentes.length - paraCP.length - paraCR.length;
+  let erros=0;
+
+  for(const t of paraCP){
+    try{
+      const obj=_fcItemParaCP(t);
+      delete obj._fc_ref;
+      await api('POST','contas_pagar',obj);
+    }catch(e){erros++;console.error('[FC→CP]',e);}
+  }
+  for(const t of paraCR){
+    try{
+      const obj=_fcItemParaCR(t);
+      delete obj._fc_ref;
+      await api('POST','contas_receber',obj);
+    }catch(e){erros++;console.error('[FC→CR]',e);}
+  }
+  if(paraCP.length+paraCR.length>0) await loadAll();
+  return {cp:paraCP.length, cr:paraCR.length, ignorados, erros};
+}
+
+// Botão manual: sincroniza TODOS os pendentes do FC
+async function sincronizarFcParaCpCr(){
+  const pendentes = fcDados.filter(t=>t.pendente);
+  if(!pendentes.length){
+    showToast('Nenhum lançamento pendente no Fluxo de Caixa','err');
+    return;
+  }
+
+  // Mostra prévia antes de confirmar
+  const paraCP = pendentes.filter(t=>t.valor<0&&!_jáExisteCP(t));
+  const paraCR = pendentes.filter(t=>t.valor>0&&!_jáExisteCR(t));
+  const jaExistem = pendentes.length - paraCP.length - paraCR.length;
+
+  const msg =
+    `📊 Sincronizar Fluxo de Caixa → CP/CR\n\n`+
+    `📤 Contas a Pagar: ${paraCP.length} novos lançamentos\n`+
+    `📥 Contas a Receber: ${paraCR.length} novos lançamentos\n`+
+    (jaExistem>0?`⏭️ Já existem (ignorados): ${jaExistem}\n`:'')+
+    `\nTotal no FC: ${pendentes.length} pendentes\n\n`+
+    `Confirma a sincronização?`;
+
+  if(!confirm(msg)) return;
+
+  showToast('⏳ Sincronizando...');
+  const res = await _enviarPendentesParaCpCr(pendentes);
+
+  const resumo =
+    `✅ Sincronização concluída!\n`+
+    `📤 CP: ${res.cp} criados | 📥 CR: ${res.cr} criados`+
+    (res.ignorados>0?` | ⏭️ ${res.ignorados} ignorados`:'')+
+    (res.erros>0?` | ❌ ${res.erros} erros`:'');
+
+  showToast(resumo);
 }
 
 function _salvarFcDados(){
