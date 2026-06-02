@@ -11971,7 +11971,7 @@ function renderContasPagar(){
   </td></tr>`;return;}
 
   // Separa abertas/vencidas das pagas/canceladas
-  const abertas = lista.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada');
+  const abertasFiltradas = lista.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada');
   const pagas_list = lista.filter(c=>c.status==='Paga'||c.status==='Cancelada');
 
   const renderLinha = c => {
@@ -12008,7 +12008,7 @@ function renderContasPagar(){
     </tr>`;
   };
 
-  let html = abertas.map(renderLinha).join('');
+  let html = abertasFiltradas.map(renderLinha).join('');
 
   // Seção de pagas colapsável
   if(pagas_list.length){
