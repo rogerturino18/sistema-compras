@@ -1461,19 +1461,6 @@ tr:hover td{background:#f9fbf9}
       </div>
       <input type="text" id="filtroFC_busca" placeholder="Buscar fornecedor..." oninput="renderFluxoCaixa()"
         style="padding:7px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;min-width:180px">
-      <!-- Botão importar -->
-      <div style="display:flex;align-items:center;gap:4px;background:#1565c0;border-radius:8px;overflow:hidden">
-        <select id="fcTipoImport" style="padding:8px 10px;background:transparent;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;outline:none">
-          <option value="apagar" style="background:#1565c0">💸 A Pagar</option>
-          <option value="areceber" style="background:#1565c0">💰 A Receber</option>
-          <option value="pagamento" style="background:#1565c0">✅ Pagamentos</option>
-          <option value="recebimento" style="background:#1565c0">✅ Recebimentos</option>
-        </select>
-        <label style="padding:8px 14px;background:rgba(0,0,0,0.2);color:#fff;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap">
-          📂 Importar
-          <input type="file" id="fcImportInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarFluxoOmie(this)">
-        </label>
-      </div>
       <label style="padding:8px 14px;background:#0d47a1;color:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Importa planilha com abas por mês e colunas: A Pagar | Pagamento | A Receber | Recebimento">
         📊 Importar Planilha Histórica
         <input type="file" id="fcImportPlanilha" accept=".xlsx,.xls" style="display:none" onchange="importarPlanilhaFC(this)">
@@ -13916,12 +13903,20 @@ function desfazerPagamentoFC(idx){
 // ── Sincronização Fluxo de Caixa com Supabase ─────────────────────────────
 async function sincronizarFC(json){
   try{
-    const r=await api('PATCH','app_config',{valor:json,atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
-    if(!r||!r.length) await api('POST','app_config',{chave:'sl_fc_dados',valor:json});
+    const res=await fetch(`${SB_URL}/rest/v1/app_config`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':`Bearer ${SB_KEY}`,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:JSON.stringify({chave:'sl_fc_dados',valor:json,atualizado:new Date().toISOString()})
+    });
+    if(!res.ok){const t=await res.text();throw new Error(t);}
     console.log('[FC] Sincronizado com Supabase ✅');
   }catch(e){
     console.error('[FC] Sync falhou:',e.message||e);
-    showToast('⚠️ Dados não sincronizados com servidor. Clique em 🔄 Sincronizar na toolbar.','err',5000);
   }
 }
 
@@ -13942,8 +13937,17 @@ async function forceSyncFC(){
 
 async function sincronizarFcSaldoAnt(val){
   try{
-    const r=await api('PATCH','app_config',{valor:String(val),atualizado:new Date().toISOString()},'?chave=eq.sl_fc_saldo_ant');
-    if(!r||!r.length) await api('POST','app_config',{chave:'sl_fc_saldo_ant',valor:String(val)});
+    const res=await fetch(`${SB_URL}/rest/v1/app_config`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':`Bearer ${SB_KEY}`,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:JSON.stringify({chave:'sl_fc_saldo_ant',valor:String(val),atualizado:new Date().toISOString()})
+    });
+    if(!res.ok){const t=await res.text();throw new Error(t);}
   }catch(e){ console.warn('[FC] Sync saldo ant falhou:',e.message||e); }
 }
 
