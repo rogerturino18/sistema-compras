@@ -10904,18 +10904,7 @@ function verificarAprovacoesPendentes(){
 // ===== DEPARTAMENTOS =====
 let editDeptoId=null, _deptoCorSel='#1565c0';
 
-function selecionarCorDepto(cor){
-  _deptoCorSel=cor;
-  document.getElementById('depto_cor').value=cor;
-  document.querySelectorAll('#deptoCorPicker div').forEach(el=>{
-    el.style.border=el.dataset.cor===cor?'3px solid #fff':'3px solid transparent';
-  });
-}
-
-function renderDepartamentos(){
-  const busca=(document.getElementById('buscaDepto')?.value||'').toLowerCase();
-  const filtNome=document.getElementById('filtroDeptoNome')?.value||'';
-  const filtSt=document.getElementById('filtroDeptoStatus')?.value||'';
+function renderGruposPorDepto(){
 
   // Build departamento list: defaults + custom from DB
   const deptoNames=['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO',
@@ -15019,7 +15008,7 @@ function abrirModalNFe(id){
 
   // Show itens
   nfeItensLocal=n?.itens||[];
-  renderItensNFe();
+  renderItensNFeEntrada();
 
   // Add departamentos from DB
   const deptSel=document.getElementById('nfe_departamento');
@@ -15038,7 +15027,7 @@ function abrirModalNFe(id){
   abrirModal('modalNFe');
 }
 
-function renderItensNFe(){
+function renderItensNFeEntrada(){
   const el=document.getElementById('nfe_itens_lista');
   if(!el) return;
   if(!nfeItensLocal.length){
