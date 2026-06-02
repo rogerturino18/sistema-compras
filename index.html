@@ -9185,17 +9185,16 @@ function showTab(n){
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
   if(n===25){
-    if(!Array.isArray(fcDados)||fcDados.length===0){
-      // Tenta localStorage
-      try{const raw=localStorage.getItem('sl_fc_dados');if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)fcDados=p;}}catch(e){}
-    }
-    if(typeof renderPagamentos==='function') renderPagamentos();
+    (async()=>{
+      if(!contasPagar.length||!contasReceber.length) await loadAll();
+      renderPagamentos();
+    })();
   }
   if(n===26){
-    if(!Array.isArray(fcDados)||fcDados.length===0){
-      try{const raw=localStorage.getItem('sl_fc_dados');if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)fcDados=p;}}catch(e){}
-    }
-    if(typeof renderRecebimentos==='function') renderRecebimentos();
+    (async()=>{
+      if(!contasPagar.length||!contasReceber.length) await loadAll();
+      renderRecebimentos();
+    })();
   }
 }
 
@@ -12980,45 +12979,36 @@ function diagnosticoFC(){
 async function limparDadosFC(){
   if(!confirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para TODOS os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
 
-  // === Limpa IMEDIATAMENTE (não aguarda nada) ===
+  // Limpa IMEDIATAMENTE
   fcDados=[];
   fcSaldoInicialOmie=0;
   _fcMesesSelecionados=[];
-
-  // Limpa localStorage
   ['sl_fc_dados','sl_fc_saldo_ant','sl_fc_snapshot'].forEach(k=>localStorage.removeItem(k));
 
-  // Atualiza UI
   const el=document.getElementById('fcSaldoAnterior');
   if(el) el.value='0,00';
   const btnDesfazer=document.getElementById('btnDesfazerImportFC');
   if(btnDesfazer) btnDesfazer.style.display='none';
   if(typeof populaFiltrosFC==='function') populaFiltrosFC();
   if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+  showToast('✅ Limpo! Sincronizando...');
 
-  showToast('✅ FC limpo! Aguarde sincronização...');
-
-  // Sincroniza com Supabase em background (não bloqueia UI)
-  setTimeout(async()=>{
+  // Sincroniza via api() com variáveis corretas
+  try{
+    await api('PATCH','app_config',{valor:'[]',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
+    await api('PATCH','app_config',{valor:'0',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_saldo_ant');
+    showToast('✅ Fluxo de Caixa apagado para todos os usuários!');
+  }catch(e){
+    // Tenta POST se PATCH falhou
     try{
-      // Tenta PATCH, se falhar tenta POST
-      const r=await fetch(`${SUPABASE_URL}/rest/v1/app_config?chave=eq.sl_fc_dados`,{
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
-        body:JSON.stringify({valor:'[]',atualizado:new Date().toISOString()})
-      });
-      if(!r.ok) throw new Error('PATCH falhou: '+r.status);
-      await fetch(`${SUPABASE_URL}/rest/v1/app_config?chave=eq.sl_fc_saldo_ant`,{
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
-        body:JSON.stringify({valor:'0',atualizado:new Date().toISOString()})
-      });
-      showToast('✅ Sincronizado! Dados apagados para todos os usuários.');
-    }catch(e){
-      console.warn('[FC] Sync limpeza falhou:',e.message);
-      showToast('⚠️ Limpo localmente. Outros usuários precisam recarregar a página.','err',4000);
+      await api('POST','app_config',{chave:'sl_fc_dados',valor:'[]'});
+      await api('POST','app_config',{chave:'sl_fc_saldo_ant',valor:'0'});
+      showToast('✅ Sincronizado!');
+    }catch(e2){
+      console.warn('[FC] Sync limpeza falhou:',e2.message);
+      showToast('⚠️ Limpo localmente. Outros usuários precisam recarregar.','err',5000);
     }
-  },100);
+  }
 }
 
 function _parseExcelDate(v){
