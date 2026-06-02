@@ -9129,7 +9129,7 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=24;i++){
+  for(let i=0;i<=26;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
@@ -12990,7 +12990,9 @@ async function limparDadosFC(){
   const btnDesfazer=document.getElementById('btnDesfazerImportFC');
   if(btnDesfazer) btnDesfazer.style.display='none';
   if(typeof populaFiltrosFC==='function') populaFiltrosFC();
-  if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+  // Força render com dados vazios sem buscar do Supabase
+  if(typeof _renderFluxoCaixaSemReload==='function') _renderFluxoCaixaSemReload();
+  else if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
   showToast('✅ Limpo! Sincronizando...');
 
   // Sincroniza via api() com variáveis corretas
