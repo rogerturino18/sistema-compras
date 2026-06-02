@@ -13009,23 +13009,46 @@ function diagnosticoFC(){
   console.log('[FC DIAG] duplicatas:', dupes);
 }
 
-function limparDadosFC(){
-  if(!confirm('Apagar todos os dados importados do Fluxo de Caixa?\n\nEsta ação não pode ser desfeita.')) return;
-  fcDados = [];
-  fcSaldoInicialOmie = 0;
-  localStorage.removeItem('sl_fc_dados');
-  localStorage.removeItem('sl_fc_saldo_ant');
-  localStorage.removeItem('sl_fc_snapshot');
-  const el = document.getElementById('fcSaldoAnterior');
-  if(el) el.value = '0';
-  // Esconde botão desfazer
-  const btn = document.getElementById('btnDesfazerImportFC');
-  if(btn) btn.style.display = 'none';
-  // Sincroniza limpeza com Supabase (para todos os usuários)
-  sincronizarFC('[]');
-  sincronizarFcSaldoAnt('0');
-  renderFluxoCaixa();
-  showToast('🗑 Dados do fluxo de caixa apagados!');
+async function limparDadosFC(){
+  if(!confirm('⚠️ ATENÇÃO\n\nApagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos importados para todos os usuários.\n\nEsta ação NÃO pode ser desfeita.')) return;
+
+  // Feedback visual
+  const btn = document.querySelector('[onclick="limparDadosFC()"]');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Limpando...'; }
+
+  try{
+    // 1. Zera memória
+    fcDados = [];
+    fcSaldoInicialOmie = 0;
+
+    // 2. Zera localStorage
+    localStorage.removeItem('sl_fc_dados');
+    localStorage.removeItem('sl_fc_saldo_ant');
+    localStorage.removeItem('sl_fc_snapshot');
+
+    // 3. Sincroniza com Supabase (await para garantir)
+    await sincronizarFC('[]');
+    await sincronizarFcSaldoAnt('0');
+
+    // 4. Atualiza UI
+    const el = document.getElementById('fcSaldoAnterior');
+    if(el) el.value = '0,00';
+    const btnDesfazer = document.getElementById('btnDesfazerImportFC');
+    if(btnDesfazer) btnDesfazer.style.display = 'none';
+    // Reseta filtro de meses
+    _fcMesesSelecionados = [];
+    if(typeof populaFiltrosFC==='function') populaFiltrosFC();
+    if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+    if(typeof renderPagamentos==='function') renderPagamentos();
+    if(typeof renderRecebimentos==='function') renderRecebimentos();
+
+    showToast('✅ Fluxo de Caixa limpo com sucesso! Pode importar a nova planilha.');
+  }catch(e){
+    showToast('❌ Erro ao limpar: '+e.message,'err');
+    console.error('[FC] limpar erro:',e);
+  }finally{
+    if(btn){ btn.disabled=false; btn.innerHTML='🗑 Limpar Dados'; }
+  }
 }
 
 function _parseExcelDate(v){
