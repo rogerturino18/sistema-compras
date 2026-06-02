@@ -1375,6 +1375,7 @@ tr:hover td{background:#f9fbf9}
     <input type="date" id="filtroCP_ate" onchange="renderContasPagar()" title="Vencimento até">
     <button class="btn primary" onclick="abrirModalCP(null)">+ Nova Conta</button>
     <button class="btn" onclick="exportarExcelCP()" style="font-size:12px">📊 Excel</button>
+    <button class="btn" onclick="auditarDuplicatas()" style="font-size:12px;background:#fff3e0;border-color:#ffb300;color:#e65100" title="Verificar duplicatas em CP, CR e FC">🔍 Duplicatas</button>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -9174,8 +9175,19 @@ function showTab(n){
   if(n===22) {if(typeof renderContasCorrente==='function') renderContasCorrente();}
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
-  if(n===25) {if(typeof renderPagamentos==='function') renderPagamentos();}
-  if(n===26) {if(typeof renderRecebimentos==='function') renderRecebimentos();}
+  if(n===25){
+    if(!Array.isArray(fcDados)||fcDados.length===0){
+      // Tenta localStorage
+      try{const raw=localStorage.getItem('sl_fc_dados');if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)fcDados=p;}}catch(e){}
+    }
+    if(typeof renderPagamentos==='function') renderPagamentos();
+  }
+  if(n===26){
+    if(!Array.isArray(fcDados)||fcDados.length===0){
+      try{const raw=localStorage.getItem('sl_fc_dados');if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)fcDados=p;}}catch(e){}
+    }
+    if(typeof renderRecebimentos==='function') renderRecebimentos();
+  }
 }
 
 async function dispararEmailBemVindo(){
@@ -11678,10 +11690,24 @@ function renderPagamentos(){
   const statsEl=document.getElementById('statsPAG');
   if(!tbody) return;
 
-  // Aguarda dados carregarem
-  if(typeof fcDados==='undefined'||!Array.isArray(fcDados)){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando...</td></tr>';
-    setTimeout(renderPagamentos,600); return;
+  // Se fcDados não carregou ainda, tenta carregar via localStorage/Supabase
+  if(!Array.isArray(fcDados)||fcDados.length===0){
+    // Tenta localStorage primeiro (imediato)
+    try{
+      const raw=localStorage.getItem('sl_fc_dados');
+      if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed)&&parsed.length>0) fcDados=parsed;}
+    }catch(e){}
+    // Se ainda vazio, agenda retry
+    if(!Array.isArray(fcDados)||fcDados.length===0){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando dados do Fluxo de Caixa...</td></tr>';
+      // Tenta forçar carga do FC via Supabase
+      if(typeof carregarFcDoSupabase==='function'){
+        carregarFcDoSupabase().then(()=>renderPagamentos()).catch(()=>setTimeout(renderPagamentos,1000));
+      } else {
+        setTimeout(renderPagamentos,800);
+      }
+      return;
+    }
   }
 
   const busca=(document.getElementById('buscaPAG')?.value||'').toLowerCase();
@@ -11756,9 +11782,20 @@ function renderRecebimentos(){
   const statsEl=document.getElementById('statsREC');
   if(!tbody) return;
 
-  if(typeof fcDados==='undefined'||!Array.isArray(fcDados)){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando...</td></tr>';
-    setTimeout(renderRecebimentos,600); return;
+  if(!Array.isArray(fcDados)||fcDados.length===0){
+    try{
+      const raw=localStorage.getItem('sl_fc_dados');
+      if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed)&&parsed.length>0) fcDados=parsed;}
+    }catch(e){}
+    if(!Array.isArray(fcDados)||fcDados.length===0){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando dados do Fluxo de Caixa...</td></tr>';
+      if(typeof carregarFcDoSupabase==='function'){
+        carregarFcDoSupabase().then(()=>renderRecebimentos()).catch(()=>setTimeout(renderRecebimentos,1000));
+      } else {
+        setTimeout(renderRecebimentos,800);
+      }
+      return;
+    }
   }
 
   const busca=(document.getElementById('buscaREC')?.value||'').toLowerCase();
@@ -12655,7 +12692,135 @@ async function _confirmarRecebimentoCR(id, modalId){
   }catch(e){ showToast('Erro ao confirmar: '+e.message,'err'); console.error(e); }
 }
 
-async function deletarCP(id){
+// ===== AUDITORIA DE DUPLICATAS =====
+function auditarDuplicatas(){
+  const dupsCP=[], dupsCR=[], dupsFC=[];
+
+  // ── Contas a Pagar ──────────────────────────────────────────────────────
+  const mapaCP={};
+  (contasPagar||[]).forEach(c=>{
+    if(c.status==='Cancelada') return;
+    const k=(c.vencimento||'')+'|'+(c.descricao||'').toLowerCase().trim()+'|'+Math.round((c.valor||0)*100);
+    if(!mapaCP[k]) mapaCP[k]=[];
+    mapaCP[k].push(c);
+  });
+  Object.values(mapaCP).filter(g=>g.length>1).forEach(g=>{
+    dupsCP.push({grupo:g, key:g[0].vencimento+'  '+g[0].descricao+'  '+fmtMoeda(g[0].valor), qtd:g.length});
+  });
+
+  // ── Contas a Receber ────────────────────────────────────────────────────
+  const mapaCR={};
+  (contasReceber||[]).forEach(c=>{
+    if(c.status==='Cancelada') return;
+    const k=(c.vencimento||'')+'|'+(c.descricao||'').toLowerCase().trim()+'|'+Math.round((c.valor||0)*100);
+    if(!mapaCR[k]) mapaCR[k]=[];
+    mapaCR[k].push(c);
+  });
+  Object.values(mapaCR).filter(g=>g.length>1).forEach(g=>{
+    dupsCR.push({grupo:g, key:g[0].vencimento+'  '+g[0].descricao+'  '+fmtMoeda(g[0].valor), qtd:g.length});
+  });
+
+  // ── Fluxo de Caixa ──────────────────────────────────────────────────────
+  const mapaFC={};
+  (fcDados||[]).forEach((t,i)=>{
+    if(!t||!t.data) return;
+    const k=t.data+'|'+(t.fornecedor||'').toLowerCase().trim()+'|'+Math.round(Math.abs(t.valor||0)*100)+'|'+(t.pendente?'p':'r');
+    if(!mapaFC[k]) mapaFC[k]=[];
+    mapaFC[k].push({...t, _idx:i});
+  });
+  Object.values(mapaFC).filter(g=>g.length>1).forEach(g=>{
+    dupsFC.push({grupo:g, key:g[0].data+'  '+(g[0].fornecedor||'')+'  '+fmtMoeda(Math.abs(g[0].valor)), qtd:g.length});
+  });
+
+  const total=dupsCP.length+dupsCR.length+dupsFC.length;
+
+  // Monta modal
+  const modalId='modalAuditoria';
+  document.getElementById(modalId)?.remove();
+  const div=document.createElement('div');
+  div.id=modalId;
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+
+  const renderGrupo=(g, tipo)=>g.map(dup=>`
+    <div style="background:#fff;border:1px solid #ffe082;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div>
+          <span style="background:#ff6f00;color:#fff;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;margin-right:8px">⚠️ ${dup.qtd}x duplicado</span>
+          <span style="font-weight:700;font-size:13px">${dup.key}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${dup.grupo.map((c,i)=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#fafafa;border-radius:6px;font-size:12px">
+            <span style="color:#546e7a">#${i+1} — ${tipo==='FC'?(c.data+' | '+(c.pendente?'Pendente':'Realizado')):(c.vencimento||'—')} — ${c.descricao||c.fornecedor||'—'}</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span style="font-weight:700;color:#c62828">${fmtMoeda(Math.abs(c.valor||0))}</span>
+              ${i>0?`<button onclick="_excluirDuplicata('${tipo}','${c.id||c._idx}','${modalId}')" style="padding:3px 10px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:11px;color:#c62828;cursor:pointer;font-weight:700">🗑 Excluir esta</button>`:'<span style="padding:3px 10px;font-size:11px;color:#2e7d32;font-weight:600">✅ Manter</span>'}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:16px;width:680px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="padding:20px 24px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:10">
+        <div>
+          <h3 style="margin:0 0 2px;font-size:17px">🔍 Auditoria de Duplicatas</h3>
+          <p style="margin:0;font-size:12px;color:#546e7a">Verificando CP, CR e Fluxo de Caixa</p>
+        </div>
+        <button onclick="document.getElementById('${modalId}').remove()" style="width:32px;height:32px;border:none;background:#f5f5f5;border-radius:8px;cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <div style="padding:16px 24px">
+        ${total===0?`
+          <div style="text-align:center;padding:40px 20px">
+            <div style="font-size:48px;margin-bottom:12px">✅</div>
+            <div style="font-size:18px;font-weight:700;color:#2e7d32;margin-bottom:4px">Nenhuma duplicata encontrada!</div>
+            <div style="font-size:13px;color:#546e7a">CP, CR e Fluxo de Caixa estão limpos.</div>
+          </div>`:`
+          <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+            ${dupsCP.length?`<span style="background:#ffebee;color:#c62828;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700">📤 CP: ${dupsCP.length} grupo(s)</span>`:''}
+            ${dupsCR.length?`<span style="background:#fff3e0;color:#e65100;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700">📥 CR: ${dupsCR.length} grupo(s)</span>`:''}
+            ${dupsFC.length?`<span style="background:#e3f2fd;color:#1565c0;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700">📊 FC: ${dupsFC.length} grupo(s)</span>`:''}
+            <span style="background:#263238;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700">Total: ${total} grupos duplicados</span>
+          </div>
+          <div style="background:#fff8e1;border-left:4px solid #ffb300;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;color:#e65100;margin-bottom:16px">
+            ⚠️ Para cada grupo, o <strong>primeiro item é mantido</strong> automaticamente. Clique em 🗑 Excluir apenas nos duplicados (itens #2 em diante).
+          </div>
+          ${dupsCP.length?`<div style="font-weight:700;font-size:13px;color:#c62828;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #ffcdd2">📤 Contas a Pagar</div>${renderGrupo(dupsCP,'CP')}`:''}
+          ${dupsCR.length?`<div style="font-weight:700;font-size:13px;color:#e65100;margin-bottom:8px;margin-top:12px;padding-bottom:6px;border-bottom:2px solid #ffe0b2">📥 Contas a Receber</div>${renderGrupo(dupsCR,'CR')}`:''}
+          ${dupsFC.length?`<div style="font-weight:700;font-size:13px;color:#1565c0;margin-bottom:8px;margin-top:12px;padding-bottom:6px;border-bottom:2px solid #bbdefb">📊 Fluxo de Caixa</div>${renderGrupo(dupsFC,'FC')}`:''}
+        `}
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function _excluirDuplicata(tipo, idOuIdx, modalId){
+  if(!confirm('Excluir este lançamento duplicado?')) return;
+  try{
+    if(tipo==='CP'){
+      await api('DELETE','contas_pagar','',`?id=eq.${idOuIdx}`);
+      await loadAll();
+      renderContasPagar();
+    } else if(tipo==='CR'){
+      await api('DELETE','contas_receber','',`?id=eq.${idOuIdx}`);
+      await loadAll();
+      renderContasReceber();
+    } else if(tipo==='FC'){
+      const idx=parseInt(idOuIdx);
+      if(!isNaN(idx)&&fcDados[idx]){
+        fcDados.splice(idx,1);
+        _salvarFcDados();
+        renderFluxoCaixa();
+      }
+    }
+    showToast('🗑 Duplicata removida!');
+    // Reatualiza o modal
+    document.getElementById(modalId)?.remove();
+    setTimeout(auditarDuplicatas, 400);
+  }catch(e){ showToast('Erro ao excluir: '+e.message,'err'); console.error(e); }
+}
+// ===== FIM AUDITORIA =====
   if(!confirm('Excluir esta conta a pagar?')) return;
   try{
     await api('DELETE','contas_pagar','',`?id=eq.${id}`);
@@ -14033,6 +14198,11 @@ function desfazerUltimaImportacaoFC(){
     _renderFluxoCaixaSemReload();
     showToast('↩️ Importação desfeita! '+snap.qtd+' lançamentos removidos.');
   }catch(e){ showToast('Erro ao desfazer: '+e.message,'err'); console.error(e); }
+}
+
+// Alias público para carregar FC nas tabs 25/26
+async function carregarFcDoSupabase(){
+  return carregarFcDadosSupabase();
 }
 
 function renderFluxoCaixa(){
