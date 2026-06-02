@@ -11961,33 +11961,43 @@ function renderContasPagar(){
   if(fDe) lista=lista.filter(c=>(c.vencimento||'')>=fDe);
   if(fAte) lista=lista.filter(c=>(c.vencimento||'')<=fAte);
 
-  if(!lista.length){tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:#bdbdbd">
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">
     <div style="font-size:32px;margin-bottom:8px">💸</div>
     <div style="font-weight:600;margin-bottom:4px">Nenhuma conta a pagar</div>
     <div style="font-size:12px">Clique em "+ Nova Conta" para lançar ou use o botão 💰 no Pedido de Compra</div>
   </td></tr>`;return;}
 
-  // Separa abertas/vencidas das pagas/canceladas
+  // ── Classificação automática por data ────────────────────────────────────
+  const dtHoje   = hoje();
+  const dt7dias  = new Date(new Date().getTime()+7*24*60*60*1000).toISOString().split('T')[0];
+
   const abertasFiltradas = lista.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada');
-  const pagas_list = lista.filter(c=>c.status==='Paga'||c.status==='Cancelada');
+  const pagas_list       = lista.filter(c=>c.status==='Paga'||c.status==='Cancelada');
+
+  // As 3 seções — migração automática por data de hoje
+  const secVencidas  = abertasFiltradas.filter(c=>(c.vencimento||'9999') <  dtHoje);
+  const secUrgentes  = abertasFiltradas.filter(c=>(c.vencimento||'9999') >= dtHoje && (c.vencimento||'9999') <= dt7dias);
+  const secFuturas   = abertasFiltradas.filter(c=>(c.vencimento||'9999') >  dt7dias);
 
   const renderLinha = c => {
-    const atrasado=isVencida(c.vencimento)&&c.status!=='Paga'&&c.status!=='Cancelada';
-    const isPaga = c.status==='Paga';
+    const atrasado = (c.vencimento||'9999') < dtHoje && c.status!=='Paga' && c.status!=='Cancelada';
+    const isPaga   = c.status==='Paga';
     const dtPagtoFmt = c.dt_pagamento?new Date(c.dt_pagamento+'T12:00').toLocaleDateString('pt-BR'):'—';
-    const juros = parseFloat(c.juros_multa)||0;
-    const dias = parseInt(c.dias_atraso)||0;
-    const atrasoBadge = isPaga && dias>0
-      ? `<span style="background:#fff3e0;color:#e65100;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">+${dias}d</span>`
-      : '';
+    const juros    = parseFloat(c.juros_multa)||0;
+    const dias     = parseInt(c.dias_atraso)||0;
+    const diasAte  = c.vencimento?Math.ceil((new Date(c.vencimento+'T12:00')-new Date(dtHoje+'T12:00'))/(1000*60*60*24)):null;
+    const atrasoBadge = isPaga&&dias>0
+      ?`<span style="background:#fff3e0;color:#e65100;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">+${dias}d</span>`:'';
+    const urgBadge = !isPaga&&diasAte!==null&&diasAte>=0&&diasAte<=7
+      ?`<span style="background:#fff8e1;color:#f57f17;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">${diasAte===0?'Hoje':diasAte===1?'Amanhã':'em '+diasAte+'d'}</span>`:'';
     return `<tr style="${atrasado?'background:#fff8f6;':isPaga?'background:#f9fbe7;opacity:0.85':''}">
-      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#c62828;font-weight:600':''}">
-        ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#c62828;font-weight:700':''}">
+        ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}${urgBadge}
       </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
       <td style="padding:8px 10px;font-size:12px;color:#546e7a">${c.categoria||'—'}</td>
       <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
-      <td style="padding:8px 10px;font-weight:700;color:${isPaga?'#2e7d32':'#c62828'};font-size:13px">
+      <td style="padding:8px 10px;font-weight:700;color:${atrasado?'#c62828':isPaga?'#2e7d32':'#263238'};font-size:13px">
         ${isPaga?fmtMoeda(c.valor_pago||c.valor):fmtMoeda(c.valor)}
       </td>
       <td style="padding:8px 10px">${statusBadgeCP(c.status,c.vencimento)}</td>
@@ -11998,40 +12008,80 @@ function renderContasPagar(){
         ${juros>0?`<span style="color:#e65100;font-weight:700">${fmtMoeda(juros)}</span>`:'—'}
       </td>
       <td style="padding:8px 6px;white-space:nowrap">
-        ${!isPaga&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="pagarConta('${c.id}','pagar')" title="Marcar como Paga">✅ Pagar</button>`:''}
-        <button class="btn btn-sm" onclick="abrirModalCP('${c.id}')" title="Editar">✏️</button>
-        <button class="btn btn-sm danger" onclick="deletarCP('${c.id}')" title="Excluir">🗑</button>
+        ${!isPaga&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="pagarConta('${c.id}','pagar')">✅ Pagar</button>`:''}
+        <button class="btn btn-sm" onclick="abrirModalCP('${c.id}')">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarCP('${c.id}')">🗑</button>
       </td>
     </tr>`;
   };
 
-  let html = abertasFiltradas.map(renderLinha).join('');
-
-  // Seção de pagas colapsável
-  if(pagas_list.length){
-    const totalPago = pagas_list.filter(c=>c.status==='Paga').reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
-    html += `<tr id="cpPagasHeader" onclick="toggleCPPagas()" style="cursor:pointer;background:#e8f5e9;user-select:none">
-      <td colspan="9" style="padding:9px 14px;font-size:12px;font-weight:700;color:#2e7d32">
-        ✅ ${pagas_list.length} conta(s) paga(s) — ${fmtMoeda(totalPago)}
-        <span id="cpPagasChevron" style="margin-left:8px;font-size:10px">▼ mostrar</span>
+  // Helper cabeçalho de seção
+  const secHeader=(icon,label,cor,bg,qtd,total,id,inicialAberto=true)=>`
+    <tr onclick="toggleSecCP('${id}')" style="cursor:pointer;background:${bg};user-select:none;border-top:2px solid ${cor}">
+      <td colspan="9" style="padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:15px">${icon}</span>
+          <span style="font-weight:800;font-size:13px;color:${cor};letter-spacing:0.3px;text-transform:uppercase">${label}</span>
+          <span style="background:${cor};color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700">${qtd}</span>
+          <span style="font-size:12px;font-weight:700;color:${cor}">${fmtMoeda(total)}</span>
+          <span id="chev_${id}" style="margin-left:auto;font-size:10px;color:${cor}">${inicialAberto?'▲ ocultar':'▼ mostrar'}</span>
+        </div>
       </td>
     </tr>
-    <tbody id="cpPagasLista" style="display:none">
-      ${pagas_list.map(renderLinha).join('')}
-    </tbody>`;
+    <tbody id="sec_${id}" style="display:${inicialAberto?'table-row-group':'none'}">`;
+
+  let html='';
+
+  // ── SEÇÃO 1: VENCIDAS ────────────────────────────────────────────────────
+  if(secVencidas.length){
+    const tot=secVencidas.reduce((s,c)=>s+(c.valor||0),0);
+    html+=secHeader('🔴','Vencidas','#c62828','#fff5f5',secVencidas.length,tot,'vencidas',true);
+    html+=secVencidas.map(renderLinha).join('');
+    html+='</tbody>';
   }
 
-  tbody.innerHTML = html;
+  // ── SEÇÃO 2: VENCEM EM ATÉ 7 DIAS ───────────────────────────────────────
+  if(secUrgentes.length){
+    const tot=secUrgentes.reduce((s,c)=>s+(c.valor||0),0);
+    html+=secHeader('🟡','Vencem nos próximos 7 dias','#e65100','#fffde7',secUrgentes.length,tot,'urgentes',true);
+    html+=secUrgentes.map(renderLinha).join('');
+    html+='</tbody>';
+  }
+
+  // ── SEÇÃO 3: FUTURAS ────────────────────────────────────────────────────
+  if(secFuturas.length){
+    const tot=secFuturas.reduce((s,c)=>s+(c.valor||0),0);
+    html+=secHeader('🔵','A Vencer (futuras)','#1565c0','#e3f2fd',secFuturas.length,tot,'futuras',false);
+    html+=secFuturas.map(renderLinha).join('');
+    html+='</tbody>';
+  }
+
+  // ── SEÇÃO PAGAS (colapsável) ─────────────────────────────────────────────
+  if(pagas_list.length){
+    const tot=pagas_list.filter(c=>c.status==='Paga').reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
+    html+=secHeader('✅','Pagas / Canceladas','#2e7d32','#f1f8e9',pagas_list.length,tot,'pagas',false);
+    html+=pagas_list.map(renderLinha).join('');
+    html+='</tbody>';
+  }
+
+  // Mensagem se só tem pagas
+  if(!secVencidas.length&&!secUrgentes.length&&!secFuturas.length&&!pagas_list.length){
+    html='<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd"><div style="font-size:32px">✅</div><div style="font-weight:600;margin-top:8px">Nenhuma conta pendente</div></td></tr>';
+  }
+
+  tbody.innerHTML=html;
 }
 
-function toggleCPPagas(){
-  const lista = document.getElementById('cpPagasLista');
-  const chev = document.getElementById('cpPagasChevron');
-  if(!lista) return;
-  const aberto = lista.style.display!=='none';
-  lista.style.display = aberto?'none':'table-row-group';
-  if(chev) chev.textContent = aberto?'▼ mostrar':'▲ ocultar';
+function toggleSecCP(id){
+  const sec=document.getElementById('sec_'+id);
+  const chev=document.getElementById('chev_'+id);
+  if(!sec) return;
+  const aberto=sec.style.display!=='none';
+  sec.style.display=aberto?'none':'table-row-group';
+  if(chev) chev.textContent=aberto?'▼ mostrar':'▲ ocultar';
 }
+
+function toggleCPPagas(){ toggleSecCP('pagas'); }
 
 function abrirModalCP(id){
   editCPId=id;
@@ -12151,23 +12201,87 @@ function renderContasReceber(){
     </td></tr>`;
     return;
   }
-  tbody.innerHTML=lista.map(c=>{
-    const atrasado=isVencida(c.vencimento)&&c.status!=='Recebida'&&c.status!=='Cancelada';
-    return `<tr style="${atrasado?'background:#fffde7':''}">
-      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#e65100;font-weight:600':''}">${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+
+  // ── Classificação automática por data ────────────────────────────────────
+  const dtHojeCR  = hoje();
+  const dt7CR     = new Date(new Date().getTime()+7*24*60*60*1000).toISOString().split('T')[0];
+
+  const abertasCR    = lista.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada');
+  const recebidasCR  = lista.filter(c=>c.status==='Recebida'||c.status==='Cancelada');
+
+  const secVencidasCR  = abertasCR.filter(c=>(c.vencimento||'9999') <  dtHojeCR);
+  const secUrgentesCR  = abertasCR.filter(c=>(c.vencimento||'9999') >= dtHojeCR && (c.vencimento||'9999') <= dt7CR);
+  const secFuturasCR   = abertasCR.filter(c=>(c.vencimento||'9999') >  dt7CR);
+
+  const renderLinhaCR = c => {
+    const atrasado = (c.vencimento||'9999') < dtHojeCR && c.status!=='Recebida' && c.status!=='Cancelada';
+    const isRec    = c.status==='Recebida';
+    const diasAte  = c.vencimento?Math.ceil((new Date(c.vencimento+'T12:00')-new Date(dtHojeCR+'T12:00'))/(1000*60*60*24)):null;
+    const urgBadge = !isRec&&diasAte!==null&&diasAte>=0&&diasAte<=7
+      ?`<span style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">${diasAte===0?'Hoje':diasAte===1?'Amanhã':'em '+diasAte+'d'}</span>`:'';
+    return `<tr style="${atrasado?'background:#fffde7;':isRec?'background:#f1f8e9;opacity:0.85':''}">
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#e65100;font-weight:700':''}">
+        ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}${urgBadge}
+      </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
       <td style="padding:8px 10px;font-size:12px;color:#1565c0">${c.pdv_id?pvMap[c.pdv_id]||'—':'—'}</td>
       <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
-      <td style="padding:8px 10px;font-weight:700;color:#1565c0;font-size:13px">${fmtMoeda(c.valor)}</td>
+      <td style="padding:8px 10px;font-weight:700;color:${atrasado?'#e65100':isRec?'#2e7d32':'#1565c0'};font-size:13px">${fmtMoeda(c.valor)}</td>
       <td style="padding:8px 10px">${statusBadgeCR(c.status,c.vencimento)}</td>
       <td style="padding:8px 10px;font-size:12px">${c.forma_pagamento||'—'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
-        ${c.status!=='Recebida'&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="receberConta('${c.id}')" title="Marcar como Recebida">✅ Receber</button>`:''}
-        <button class="btn btn-sm" onclick="abrirModalCR('${c.id}')" title="Editar">✏️</button>
-        <button class="btn btn-sm danger" onclick="deletarCR('${c.id}')" title="Excluir">🗑</button>
+        ${!isRec&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="receberConta('${c.id}')">✅ Receber</button>`:''}
+        <button class="btn btn-sm" onclick="abrirModalCR('${c.id}')">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarCR('${c.id}')">🗑</button>
       </td>
     </tr>`;
-  }).join('');
+  };
+
+  const secHeaderCR=(icon,label,cor,bg,qtd,total,id,aberto=true)=>`
+    <tr onclick="toggleSecCR('${id}')" style="cursor:pointer;background:${bg};user-select:none;border-top:2px solid ${cor}">
+      <td colspan="8" style="padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:15px">${icon}</span>
+          <span style="font-weight:800;font-size:13px;color:${cor};letter-spacing:0.3px;text-transform:uppercase">${label}</span>
+          <span style="background:${cor};color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700">${qtd}</span>
+          <span style="font-size:12px;font-weight:700;color:${cor}">${fmtMoeda(total)}</span>
+          <span id="chevCR_${id}" style="margin-left:auto;font-size:10px;color:${cor}">${aberto?'▲ ocultar':'▼ mostrar'}</span>
+        </div>
+      </td>
+    </tr>
+    <tbody id="secCR_${id}" style="display:${aberto?'table-row-group':'none'}">`;
+
+  let html='';
+
+  if(secVencidasCR.length){
+    html+=secHeaderCR('🔴','Vencidas — Cobrar agora','#c62828','#fff5f5',secVencidasCR.length,secVencidasCR.reduce((s,c)=>s+(c.valor||0),0),'vencidas',true);
+    html+=secVencidasCR.map(renderLinhaCR).join('')+'</tbody>';
+  }
+  if(secUrgentesCR.length){
+    html+=secHeaderCR('🟡','Vencem nos próximos 7 dias','#e65100','#fffde7',secUrgentesCR.length,secUrgentesCR.reduce((s,c)=>s+(c.valor||0),0),'urgentes',true);
+    html+=secUrgentesCR.map(renderLinhaCR).join('')+'</tbody>';
+  }
+  if(secFuturasCR.length){
+    html+=secHeaderCR('🔵','A Vencer (futuras)','#1565c0','#e3f2fd',secFuturasCR.length,secFuturasCR.reduce((s,c)=>s+(c.valor||0),0),'futuras',false);
+    html+=secFuturasCR.map(renderLinhaCR).join('')+'</tbody>';
+  }
+  if(recebidasCR.length){
+    const tot=recebidasCR.filter(c=>c.status==='Recebida').reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0);
+    html+=secHeaderCR('✅','Recebidas / Canceladas','#2e7d32','#f1f8e9',recebidasCR.length,tot,'recebidas',false);
+    html+=recebidasCR.map(renderLinhaCR).join('')+'</tbody>';
+  }
+
+  if(!html) html=`<tr><td colspan="8" style="text-align:center;padding:24px;color:#bdbdbd"><div style="font-size:32px">✅</div><div style="font-weight:600;margin-top:8px">Nenhuma conta pendente</div></td></tr>`;
+  tbody.innerHTML=html;
+}
+
+function toggleSecCR(id){
+  const sec=document.getElementById('secCR_'+id);
+  const chev=document.getElementById('chevCR_'+id);
+  if(!sec) return;
+  const aberto=sec.style.display!=='none';
+  sec.style.display=aberto?'none':'table-row-group';
+  if(chev) chev.textContent=aberto?'▼ mostrar':'▲ ocultar';
 }
 
 function abrirModalCR(id){
@@ -13678,43 +13792,71 @@ function _jáExisteCR(t){
 
 // ── Camada 3: lock de execução ────────────────────────────────────────────────
 let _sincronizandoFC=false;
+let _sincronizandoTimer=null;
+
+// Força desbloqueio manual (botão de emergência)
+function _forcarDesbloqueioSinc(){
+  _sincronizandoFC=false;
+  if(_sincronizandoTimer) clearTimeout(_sincronizandoTimer);
+  showToast('🔓 Sincronização desbloqueada. Tente novamente.');
+}
 
 // Envia lista de pendentes para CP/CR — retorna {cp, cr, ignorados, erros}
 async function _enviarPendentesParaCpCr(pendentes){
-  if(_sincronizandoFC){ showToast('⏳ Sincronização já em andamento...','err'); return {cp:0,cr:0,ignorados:0,erros:0}; }
+  if(_sincronizandoFC){ 
+    showToast('⏳ Sincronização já em andamento...','err'); 
+    return {cp:0,cr:0,ignorados:0,erros:0}; 
+  }
   _sincronizandoFC=true;
+  // Timeout de segurança: desbloqueia automaticamente após 60s
+  _sincronizandoTimer=setTimeout(()=>{
+    _sincronizandoFC=false;
+    console.warn('[FC] Sincronização desbloqueada por timeout');
+  }, 60000);
 
-  // Recarrega CP/CR do Supabase antes de verificar (garantia máxima)
-  try{ await loadAll(); }catch(e){}
+  try{
+    // Recarrega CP/CR do Supabase antes de verificar (garantia máxima)
+    try{ await loadAll(); }catch(e){}
 
-  const paraCP = pendentes.filter(t=>t.valor<0&&!_jáExisteCP(t));
-  const paraCR = pendentes.filter(t=>t.valor>0&&!_jáExisteCR(t));
-  const ignorados = pendentes.length - paraCP.length - paraCR.length;
-  let erros=0;
+    const paraCP = pendentes.filter(t=>t.valor<0&&!_jáExisteCP(t));
+    const paraCR = pendentes.filter(t=>t.valor>0&&!_jáExisteCR(t));
+    const ignorados = pendentes.length - paraCP.length - paraCR.length;
+    let erros=0;
 
-  for(const t of paraCP){
-    try{
-      const obj=_fcItemParaCP(t);
-      obj.observacao=(obj.observacao||'')+' [fc:'+_fcHash(t)+']'; // embed hash
-      delete obj._fc_ref;
-      await api('POST','contas_pagar',obj);
-    }catch(e){erros++;console.error('[FC→CP]',e);}
+    for(const t of paraCP){
+      try{
+        const obj=_fcItemParaCP(t);
+        obj.observacao=(obj.observacao||'')+' [fc:'+_fcHash(t)+']';
+        delete obj._fc_ref;
+        await api('POST','contas_pagar',obj);
+      }catch(e){erros++;console.error('[FC→CP]',e);}
+    }
+    for(const t of paraCR){
+      try{
+        const obj=_fcItemParaCR(t);
+        obj.observacao=(obj.observacao||'')+' [fc:'+_fcHash(t)+']';
+        delete obj._fc_ref;
+        await api('POST','contas_receber',obj);
+      }catch(e){erros++;console.error('[FC→CR]',e);}
+    }
+    if(paraCP.length+paraCR.length>0) await loadAll();
+    return {cp:paraCP.length, cr:paraCR.length, ignorados, erros};
+  } finally {
+    // SEMPRE desbloqueia, mesmo se der erro
+    _sincronizandoFC=false;
+    if(_sincronizandoTimer){ clearTimeout(_sincronizandoTimer); _sincronizandoTimer=null; }
   }
-  for(const t of paraCR){
-    try{
-      const obj=_fcItemParaCR(t);
-      obj.observacao=(obj.observacao||'')+' [fc:'+_fcHash(t)+']'; // embed hash
-      delete obj._fc_ref;
-      await api('POST','contas_receber',obj);
-    }catch(e){erros++;console.error('[FC→CR]',e);}
-  }
-  if(paraCP.length+paraCR.length>0) await loadAll();
-  _sincronizandoFC=false;
-  return {cp:paraCP.length, cr:paraCR.length, ignorados, erros};
 }
 
-// Botão manual: sincroniza TODOS os pendentes do FC — com modal de diagnóstico
 async function sincronizarFcParaCpCr(){
+  // Se estiver travado, oferece desbloqueio
+  if(_sincronizandoFC){
+    if(confirm('⚠️ A sincronização anterior pode ter travado.\n\nClicar OK vai forçar o desbloqueio e abrir o modal novamente.')){
+      _forcarDesbloqueioSinc();
+    }
+    return;
+  }
+
   const pendentes = fcDados.filter(t=>t.pendente);
   if(!pendentes.length){
     showToast('Nenhum lançamento pendente no Fluxo de Caixa','err');
@@ -13792,14 +13934,53 @@ async function sincronizarFcParaCpCr(){
 }
 
 async function _executarSincronizacao(modalId){
-  const btn=document.querySelector(`#${modalId} button[onclick*="_executarSincronizacao"]`);
-  if(btn){btn.disabled=true;btn.textContent='⏳ Sincronizando...';}
-  const pendentes=fcDados.filter(t=>t.pendente);
-  const res=await _enviarPendentesParaCpCr(pendentes);
-  document.getElementById(modalId)?.remove();
-  showToast(`✅ Pronto! 📤 ${res.cp} a pagar, 📥 ${res.cr} a receber criados${res.ignorados?` | ⏭️ ${res.ignorados} ignorados`:''}${res.erros?` | ❌ ${res.erros} erros`:''}`,res.erros?'err':undefined);
-  if(typeof renderContasPagar==='function') renderContasPagar();
-  if(typeof renderContasReceber==='function') renderContasReceber();
+  const btn=document.getElementById(modalId)?.querySelector('button[onclick*="_executarSincronizacao"]');
+  if(btn){btn.disabled=true;btn.innerHTML='⏳ Sincronizando...';}
+
+  // Botão de emergência caso trave
+  const cancelBtn=document.getElementById(modalId)?.querySelector('button[onclick*="remove"]');
+  if(cancelBtn){cancelBtn.disabled=true;}
+
+  // Mostra progresso
+  const progressDiv=document.createElement('div');
+  progressDiv.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#4a148c;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
+  progressDiv.id='sincProgress';
+  progressDiv.innerHTML='⏳ Sincronizando lançamentos... aguarde';
+  document.body.appendChild(progressDiv);
+
+  try{
+    const pendentes=fcDados.filter(t=>t.pendente);
+    const res=await _enviarPendentesParaCpCr(pendentes);
+    document.getElementById(modalId)?.remove();
+    document.getElementById('sincProgress')?.remove();
+    showToast(`✅ Pronto! 📤 ${res.cp} a pagar, 📥 ${res.cr} a receber criados${res.ignorados?` | ⏭️ ${res.ignorados} ignorados`:''}${res.erros?` | ❌ ${res.erros} erros`:''}`,res.erros?'err':undefined);
+    if(typeof renderContasPagar==='function') renderContasPagar();
+    if(typeof renderContasReceber==='function') renderContasReceber();
+  }catch(e){
+    document.getElementById('sincProgress')?.remove();
+    // Mostra botão de emergência no modal
+    if(btn){
+      btn.disabled=false;
+      btn.innerHTML='❌ Erro — Tentar novamente';
+      btn.style.background='#c62828';
+    }
+    if(cancelBtn) cancelBtn.disabled=false;
+    // Adiciona botão de desbloqueio forçado
+    const emergDiv=document.getElementById(modalId)?.querySelector('.modal-footer-extra');
+    if(!emergDiv&&document.getElementById(modalId)){
+      const footer=document.getElementById(modalId).querySelector('[style*="border-top"]');
+      if(footer){
+        const eb=document.createElement('button');
+        eb.textContent='🔓 Forçar desbloqueio';
+        eb.onclick=_forcarDesbloqueioSinc;
+        eb.style.cssText='padding:6px 12px;background:#fff3e0;border:1px solid #ffb300;border-radius:6px;font-size:11px;color:#e65100;cursor:pointer;margin-right:auto';
+        eb.className='modal-footer-extra';
+        footer.insertBefore(eb,footer.firstChild);
+      }
+    }
+    showToast('Erro na sincronização: '+e.message,'err');
+    console.error('[SINC]',e);
+  }
 }
 
 function _salvarFcDados(){
