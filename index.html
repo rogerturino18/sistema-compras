@@ -1376,6 +1376,10 @@ tr:hover td{background:#f9fbf9}
     <button class="btn primary" onclick="abrirModalCP(null)">+ Nova Conta</button>
     <button class="btn" onclick="exportarExcelCP()" style="font-size:12px">📊 Excel</button>
     <button class="btn" onclick="auditarDuplicatas()" style="font-size:12px;background:#fff3e0;border-color:#ffb300;color:#e65100" title="Verificar duplicatas em CP, CR e FC">🔍 Duplicatas</button>
+    <label class="btn" style="font-size:12px;background:#0d47a1;color:#fff;border-color:#0d47a1;cursor:pointer;margin:0" title="Importar planilha A Pagar / Pagamentos">
+      📂 Importar
+      <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarCPdePlanilha(this)">
+    </label>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -1406,6 +1410,10 @@ tr:hover td{background:#f9fbf9}
     <input type="date" id="filtroCR_ate" onchange="renderContasReceber()" title="Vencimento até">
     <button class="btn primary" onclick="abrirModalCR(null)">+ Nova Conta</button>
     <button class="btn" onclick="exportarExcelCR()" style="font-size:12px">📊 Excel</button>
+    <label class="btn" style="font-size:12px;background:#0d47a1;color:#fff;border-color:#0d47a1;cursor:pointer;margin:0" title="Importar planilha A Receber / Recebimentos">
+      📂 Importar
+      <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarCRdePlanilha(this)">
+    </label>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -12778,6 +12786,129 @@ async function desfazerRecebimentoCR(id){
   }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
 
+// ===== IMPORTAR PLANILHA PARA CP / CR =====
+async function importarCPdePlanilha(input){
+  const file=input.files?.[0]; input.value='';
+  if(!file) return;
+  showToast('⏳ Lendo planilha...');
+  try{
+    const data=await file.arrayBuffer();
+    const wb=XLSX.read(data,{type:'array',cellDates:true});
+    const rows=[];
+    wb.SheetNames.forEach(name=>{
+      const ws=wb.Sheets[name];
+      const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'YYYY-MM-DD'});
+      json.forEach((r,ri)=>{if(ri===0) return; rows.push({row:r,sheet:name});});
+    });
+    // Detecta colunas: data, descricao, valor, nf (tenta qualquer ordem)
+    const ws0=wb.Sheets[wb.SheetNames[0]];
+    const header=(XLSX.utils.sheet_to_json(ws0,{header:1,raw:false})[0]||[]).map(h=>(h||'').toString().toLowerCase().trim());
+    const ci={
+      data: header.findIndex(h=>h.includes('data')||h.includes('venc')),
+      desc: header.findIndex(h=>h.includes('desc')||h.includes('forn')||h.includes('nome')||h.includes('histor')),
+      valor: header.findIndex(h=>h.includes('valor')||h.includes('total')||h.includes('vlr')),
+      nf: header.findIndex(h=>h.includes('nf')||h.includes('nota')||h.includes('doc')||h.includes('num')),
+    };
+    // Fallback posições fixas
+    if(ci.data<0) ci.data=0;
+    if(ci.desc<0) ci.desc=1;
+    if(ci.valor<0) ci.valor=2;
+
+    const novos=[];
+    rows.forEach(({row})=>{
+      const rawData=row[ci.data];
+      const data=_parseExcelDate(rawData);
+      if(!data) return;
+      const desc=(row[ci.desc]||'').toString().trim();
+      if(!desc) return;
+      const rawVal=(row[ci.valor]||'0').toString().replace(/[R$\s.]/g,'').replace(',','.');
+      const valor=parseFloat(rawVal)||0;
+      if(!valor) return;
+      novos.push({
+        descricao:desc,
+        vencimento:data,
+        valor:Math.abs(valor),
+        num_doc:ci.nf>=0?(row[ci.nf]||'').toString().trim()||null:null,
+        status:'Aberta',
+        criado_por:usuarioLogado?.nome||null,
+        observacao:'Importado de planilha'
+      });
+    });
+
+    if(!novos.length){ showToast('Nenhum lançamento válido encontrado','err'); return; }
+
+    if(!confirm(`Importar ${novos.length} contas a pagar da planilha?\n\nColunas detectadas:\n- Data: coluna ${ci.data+1}\n- Descrição: coluna ${ci.desc+1}\n- Valor: coluna ${ci.valor+1}`)) return;
+
+    let ok=0, err=0;
+    for(const c of novos){
+      try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; }
+    }
+    await loadAll();
+    renderContasPagar();
+    showToast(`✅ ${ok} contas a pagar importadas!${err?` | ❌ ${err} erros`:''}`);
+  }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
+}
+
+async function importarCRdePlanilha(input){
+  const file=input.files?.[0]; input.value='';
+  if(!file) return;
+  showToast('⏳ Lendo planilha...');
+  try{
+    const data=await file.arrayBuffer();
+    const wb=XLSX.read(data,{type:'array',cellDates:true});
+    const rows=[];
+    wb.SheetNames.forEach(name=>{
+      const ws=wb.Sheets[name];
+      const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'YYYY-MM-DD'});
+      json.forEach((r,ri)=>{if(ri===0) return; rows.push({row:r,sheet:name});});
+    });
+    const ws0=wb.Sheets[wb.SheetNames[0]];
+    const header=(XLSX.utils.sheet_to_json(ws0,{header:1,raw:false})[0]||[]).map(h=>(h||'').toString().toLowerCase().trim());
+    const ci={
+      data: header.findIndex(h=>h.includes('data')||h.includes('venc')),
+      desc: header.findIndex(h=>h.includes('desc')||h.includes('cliente')||h.includes('nome')||h.includes('histor')),
+      valor: header.findIndex(h=>h.includes('valor')||h.includes('total')||h.includes('vlr')),
+      nf: header.findIndex(h=>h.includes('nf')||h.includes('nota')||h.includes('doc')||h.includes('num')),
+    };
+    if(ci.data<0) ci.data=0;
+    if(ci.desc<0) ci.desc=1;
+    if(ci.valor<0) ci.valor=2;
+
+    const novos=[];
+    rows.forEach(({row})=>{
+      const data=_parseExcelDate(row[ci.data]);
+      if(!data) return;
+      const desc=(row[ci.desc]||'').toString().trim();
+      if(!desc) return;
+      const rawVal=(row[ci.valor]||'0').toString().replace(/[R$\s.]/g,'').replace(',','.');
+      const valor=parseFloat(rawVal)||0;
+      if(!valor) return;
+      novos.push({
+        descricao:desc,
+        vencimento:data,
+        valor:Math.abs(valor),
+        num_doc:ci.nf>=0?(row[ci.nf]||'').toString().trim()||null:null,
+        status:'Aberta',
+        criado_por:usuarioLogado?.nome||null,
+        observacao:'Importado de planilha'
+      });
+    });
+
+    if(!novos.length){ showToast('Nenhum lançamento válido encontrado','err'); return; }
+
+    if(!confirm(`Importar ${novos.length} contas a receber da planilha?\n\nColunas detectadas:\n- Data: coluna ${ci.data+1}\n- Descrição: coluna ${ci.desc+1}\n- Valor: coluna ${ci.valor+1}`)) return;
+
+    let ok=0, err=0;
+    for(const c of novos){
+      try{ await api('POST','contas_receber',c); ok++; }catch(e){ err++; }
+    }
+    await loadAll();
+    renderContasReceber();
+    showToast(`✅ ${ok} contas a receber importadas!${err?` | ❌ ${err} erros`:''}`);
+  }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
+}
+// ===== FIM IMPORTAR CP/CR =====
+
 async function deletarCP(id){
   if(!confirm('Excluir esta conta a pagar?')) return;
   try{
@@ -12979,37 +13110,30 @@ function diagnosticoFC(){
 async function limparDadosFC(){
   if(!confirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para TODOS os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
 
-  // Limpa IMEDIATAMENTE
+  // 1. Limpa memória e localStorage imediatamente
   fcDados=[];
   fcSaldoInicialOmie=0;
   _fcMesesSelecionados=[];
   ['sl_fc_dados','sl_fc_saldo_ant','sl_fc_snapshot'].forEach(k=>localStorage.removeItem(k));
 
+  // 2. Atualiza UI com dados zerados
   const el=document.getElementById('fcSaldoAnterior');
   if(el) el.value='0,00';
   const btnDesfazer=document.getElementById('btnDesfazerImportFC');
   if(btnDesfazer) btnDesfazer.style.display='none';
   if(typeof populaFiltrosFC==='function') populaFiltrosFC();
-  // Força render com dados vazios sem buscar do Supabase
   if(typeof _renderFluxoCaixaSemReload==='function') _renderFluxoCaixaSemReload();
-  else if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
-  showToast('✅ Limpo! Sincronizando...');
 
-  // Sincroniza via api() com variáveis corretas
+  showToast('🗑 Limpando dados...');
+
+  // 3. Usa sincronizarFC que já funciona (mesmo método do save)
   try{
-    await api('PATCH','app_config',{valor:'[]',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_dados');
-    await api('PATCH','app_config',{valor:'0',atualizado:new Date().toISOString()},'?chave=eq.sl_fc_saldo_ant');
+    await sincronizarFC('[]');
+    await sincronizarFcSaldoAnt('0');
     showToast('✅ Fluxo de Caixa apagado para todos os usuários!');
   }catch(e){
-    // Tenta POST se PATCH falhou
-    try{
-      await api('POST','app_config',{chave:'sl_fc_dados',valor:'[]'});
-      await api('POST','app_config',{chave:'sl_fc_saldo_ant',valor:'0'});
-      showToast('✅ Sincronizado!');
-    }catch(e2){
-      console.warn('[FC] Sync limpeza falhou:',e2.message);
-      showToast('⚠️ Limpo localmente. Outros usuários precisam recarregar.','err',5000);
-    }
+    console.error('[FC] limpar sync erro:',e);
+    showToast('⚠️ Limpo localmente. Outros usuários: recarregar página.','err',5000);
   }
 }
 
