@@ -1380,7 +1380,8 @@ tr:hover td{background:#f9fbf9}
     <table>
       <thead><tr>
         <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Categoria</th>
-        <th>Nº Doc</th><th>Valor</th><th>Status</th><th class="mob-hide">Conta</th>
+        <th>Nº Doc</th><th>Valor</th><th>Status</th>
+        <th class="mob-hide">Dt. Pagamento</th><th class="mob-hide">Juros/Multa</th>
         <th style="width:100px">Ações</th>
       </tr></thead>
       <tbody id="listaCP"></tbody>
@@ -1522,7 +1523,7 @@ tr:hover td{background:#f9fbf9}
     <table>
       <thead><tr>
         <th>Data</th><th>Fornecedor / Descrição</th><th>Categoria</th>
-        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th>
+        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th><th style="width:60px"></th>
       </tr></thead>
       <tbody id="listaPAG"></tbody>
     </table>
@@ -1563,7 +1564,7 @@ tr:hover td{background:#f9fbf9}
     <table>
       <thead><tr>
         <th>Data</th><th>Cliente / Descrição</th><th>Categoria</th>
-        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th>
+        <th>NF</th><th style="text-align:right">Valor</th><th>Origem</th><th style="width:60px"></th>
       </tr></thead>
       <tbody id="listaREC"></tbody>
     </table>
@@ -11653,28 +11654,26 @@ function _mesAtivoFiltro(id, data){
 // Coleta todos os realizados: FC (pendente=false) + CP/CR pagos
 function _coletarPagamentos(){
   const lista=[];
-  // Do FC (realizados negativos = pagamentos)
-  (fcDados||[]).filter(t=>t&&!t.pendente&&t.valor<0&&t.data).forEach(t=>{
-    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa'});
+  (fcDados||[]).forEach((t,i)=>{
+    if(!t||t.pendente||t.valor>=0||!t.data) return;
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_fcIdx:i});
   });
-  // Do Contas a Pagar (status Paga)
   (contasPagar||[]).filter(c=>c&&c.status==='Paga').forEach(c=>{
     const data=c.dt_pagamento||c.vencimento||'';
-    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor||0),origem:'Contas a Pagar'});
+    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_pago||c.valor||0),origem:'Contas a Pagar',_cpId:c.id});
   });
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
 }
 
 function _coletarRecebimentos(){
   const lista=[];
-  // Do FC (realizados positivos = recebimentos)
-  (fcDados||[]).filter(t=>t&&!t.pendente&&t.valor>0&&t.data).forEach(t=>{
-    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa'});
+  (fcDados||[]).forEach((t,i)=>{
+    if(!t||t.pendente||t.valor<=0||!t.data) return;
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa',_fcIdx:i});
   });
-  // Do Contas a Receber (status Recebida)
   (contasReceber||[]).filter(c=>c&&c.status==='Recebida').forEach(c=>{
     const data=c.dt_recebimento||c.vencimento||'';
-    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_recebido||c.valor||0),origem:'Contas a Receber'});
+    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_recebido||c.valor||0),origem:'Contas a Receber',_crId:c.id});
   });
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
 }
@@ -11733,12 +11732,18 @@ function renderPagamentos(){
     if(mes&&mes!==mesAtualSep){
       mesAtualSep=mes;
       const label=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
-      sepHtml=`<tr style="background:#b71c1c"><td colspan="6" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💸 ${label}</td></tr>`;
+      sepHtml=`<tr style="background:#b71c1c"><td colspan="7" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💸 ${label}</td></tr>`;
     }
     const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
     const origemBadge=t.origem==='Fluxo de Caixa'
       ?'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>'
       :'<span style="background:#fce4ec;color:#c62828;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CP</span>';
+    // Botão editar: CP abre modal do CP, FC abre modal de edição do FC
+    const btnEditar = t._cpId
+      ? `<button class="btn btn-sm" onclick="abrirModalCP('${t._cpId}')" title="Editar">✏️</button>`
+      : t._fcIdx!=null
+        ? `<button class="btn btn-sm" onclick="editarLancFC(${t._fcIdx})" title="Editar">✏️</button>`
+        : '';
     return sepHtml+`<tr>
       <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao}</td>
@@ -11746,6 +11751,7 @@ function renderPagamentos(){
       <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
       <td style="padding:8px 10px">${origemBadge}</td>
+      <td style="padding:8px 6px">${btnEditar}</td>
     </tr>`;
   }).join('');
 }
@@ -11799,12 +11805,17 @@ function renderRecebimentos(){
     if(mes&&mes!==mesAtualSep){
       mesAtualSep=mes;
       const label=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
-      sepHtml=`<tr style="background:#1b5e20"><td colspan="6" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💰 ${label}</td></tr>`;
+      sepHtml=`<tr style="background:#1b5e20"><td colspan="7" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💰 ${label}</td></tr>`;
     }
     const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
     const origemBadge=t.origem==='Fluxo de Caixa'
       ?'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>'
       :'<span style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CR</span>';
+    const btnEditar = t._crId
+      ? `<button class="btn btn-sm" onclick="abrirModalCR('${t._crId}')" title="Editar">✏️</button>`
+      : t._fcIdx!=null
+        ? `<button class="btn btn-sm" onclick="editarLancFC(${t._fcIdx})" title="Editar">✏️</button>`
+        : '';
     return sepHtml+`<tr>
       <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${t.descricao}</td>
@@ -11812,8 +11823,99 @@ function renderRecebimentos(){
       <td style="padding:8px 10px;font-size:12px">${t.nf||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td>
       <td style="padding:8px 10px">${origemBadge}</td>
+      <td style="padding:8px 6px">${btnEditar}</td>
     </tr>`;
   }).join('');
+}
+
+// ===== EDIÇÃO DE LANÇAMENTO DO FC =====
+function editarLancFC(idx){
+  const t = fcDados[idx];
+  if(!t){ showToast('Lançamento não encontrado','err'); return; }
+
+  const modalId = 'modalEditFC_'+idx;
+  document.getElementById(modalId)?.remove();
+
+  const isPag = t.valor < 0;
+  const valFmt = Math.abs(t.valor).toFixed(2).replace('.',',');
+  const cats = [...new Set((fcDados||[]).map(x=>x.categoria).filter(Boolean))].sort();
+  const catOpts = cats.map(c=>`<option value="${c}"${c===t.categoria?' selected':''}>${c}</option>`).join('');
+
+  const div = document.createElement('div');
+  div.id = modalId;
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <h3 style="margin:0 0 4px;font-size:17px;color:#263238">✏️ Editar Lançamento</h3>
+      <p style="margin:0 0 20px;font-size:12px;color:#546e7a">${isPag?'💸 Pagamento':'💰 Recebimento'} — origem: Fluxo de Caixa</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Descrição / Fornecedor</label>
+          <input type="text" id="efc_desc_${idx}" value="${(t.fornecedor||t.descricao||'').replace(/"/g,'&quot;')}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Data</label>
+            <input type="date" id="efc_data_${idx}" value="${t.data||''}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Valor</label>
+            <input type="text" id="efc_valor_${idx}" value="${valFmt}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-weight:700;color:${isPag?'#c62828':'#2e7d32'}">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Categoria</label>
+            <select id="efc_cat_${idx}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+              <option value="">—</option>${catOpts}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">NF / Documento</label>
+            <input type="text" id="efc_nf_${idx}" value="${(t.nf||'').replace(/"/g,'&quot;')}" placeholder="Opcional" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+        <button onclick="document.getElementById('${modalId}').remove()" style="padding:10px 18px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;cursor:pointer">Cancelar</button>
+        <button onclick="_salvarEdicaoFC(${idx},'${modalId}')" style="padding:10px 20px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">💾 Salvar Alterações</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+function _salvarEdicaoFC(idx, modalId){
+  const t = fcDados[idx];
+  if(!t){ showToast('Lançamento não encontrado','err'); return; }
+
+  const isPag = t.valor < 0;
+  const novaDesc = document.getElementById('efc_desc_'+idx)?.value.trim() || t.fornecedor;
+  const novaData = document.getElementById('efc_data_'+idx)?.value || t.data;
+  const novoValorStr = (document.getElementById('efc_valor_'+idx)?.value||'0').replace(',','.');
+  const novoValorAbs = parseFloat(novoValorStr)||Math.abs(t.valor);
+  const novaCat = document.getElementById('efc_cat_'+idx)?.value || t.categoria;
+  const novaNf = document.getElementById('efc_nf_'+idx)?.value.trim() || t.nf;
+
+  if(!novaDesc||!novaData||!novoValorAbs){ showToast('Preencha todos os campos obrigatórios','err'); return; }
+
+  fcDados[idx] = {
+    ...t,
+    fornecedor: novaDesc,
+    descricao: novaDesc,
+    data: novaData,
+    valor: isPag ? -novoValorAbs : novoValorAbs,
+    categoria: novaCat||t.categoria,
+    nf: novaNf
+  };
+
+  _salvarFcDados();
+  document.getElementById(modalId)?.remove();
+  showToast('✅ Lançamento atualizado!');
+
+  // Atualiza todas as telas afetadas
+  if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+  if(typeof renderPagamentos==='function'&&isPag) renderPagamentos();
+  if(typeof renderRecebimentos==='function'&&!isPag) renderRecebimentos();
 }
 
 function exportarExcelPag(){
@@ -11867,23 +11969,71 @@ function renderContasPagar(){
     <div style="font-weight:600;margin-bottom:4px">Nenhuma conta a pagar</div>
     <div style="font-size:12px">Clique em "+ Nova Conta" para lançar ou use o botão 💰 no Pedido de Compra</div>
   </td></tr>`;return;}
-  tbody.innerHTML=lista.map(c=>{
+
+  // Separa abertas/vencidas das pagas/canceladas
+  const abertas = lista.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada');
+  const pagas_list = lista.filter(c=>c.status==='Paga'||c.status==='Cancelada');
+
+  const renderLinha = c => {
     const atrasado=isVencida(c.vencimento)&&c.status!=='Paga'&&c.status!=='Cancelada';
-    return `<tr style="${atrasado?'background:#fff8f6':''}">
-      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#c62828;font-weight:600':''}">${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+    const isPaga = c.status==='Paga';
+    const dtPagtoFmt = c.dt_pagamento?new Date(c.dt_pagamento+'T12:00').toLocaleDateString('pt-BR'):'—';
+    const juros = parseFloat(c.juros_multa)||0;
+    const dias = parseInt(c.dias_atraso)||0;
+    const atrasoBadge = isPaga && dias>0
+      ? `<span style="background:#fff3e0;color:#e65100;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">+${dias}d</span>`
+      : '';
+    return `<tr style="${atrasado?'background:#fff8f6;':isPaga?'background:#f9fbe7;opacity:0.85':''}">
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;${atrasado?'color:#c62828;font-weight:600':''}">
+        ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}
+      </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
       <td style="padding:8px 10px;font-size:12px;color:#546e7a">${c.categoria||'—'}</td>
       <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
-      <td style="padding:8px 10px;font-weight:700;color:#c62828;font-size:13px">${fmtMoeda(c.valor)}</td>
+      <td style="padding:8px 10px;font-weight:700;color:${isPaga?'#2e7d32':'#c62828'};font-size:13px">
+        ${isPaga?fmtMoeda(c.valor_pago||c.valor):fmtMoeda(c.valor)}
+      </td>
       <td style="padding:8px 10px">${statusBadgeCP(c.status,c.vencimento)}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${c.conta_corrente||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap" class="mob-hide">
+        ${isPaga?`<span style="color:#2e7d32;font-weight:600">${dtPagtoFmt}</span>${atrasoBadge}`:'—'}
+      </td>
+      <td style="padding:8px 10px;font-size:12px" class="mob-hide">
+        ${juros>0?`<span style="color:#e65100;font-weight:700">${fmtMoeda(juros)}</span>`:'—'}
+      </td>
       <td style="padding:8px 6px;white-space:nowrap">
-        ${c.status!=='Paga'&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="pagarConta('${c.id}','pagar')" title="Marcar como Paga">✅ Pagar</button>`:''}
+        ${!isPaga&&c.status!=='Cancelada'?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="pagarConta('${c.id}','pagar')" title="Marcar como Paga">✅ Pagar</button>`:''}
         <button class="btn btn-sm" onclick="abrirModalCP('${c.id}')" title="Editar">✏️</button>
         <button class="btn btn-sm danger" onclick="deletarCP('${c.id}')" title="Excluir">🗑</button>
       </td>
     </tr>`;
-  }).join('');
+  };
+
+  let html = abertas.map(renderLinha).join('');
+
+  // Seção de pagas colapsável
+  if(pagas_list.length){
+    const totalPago = pagas_list.filter(c=>c.status==='Paga').reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
+    html += `<tr id="cpPagasHeader" onclick="toggleCPPagas()" style="cursor:pointer;background:#e8f5e9;user-select:none">
+      <td colspan="9" style="padding:9px 14px;font-size:12px;font-weight:700;color:#2e7d32">
+        ✅ ${pagas_list.length} conta(s) paga(s) — ${fmtMoeda(totalPago)}
+        <span id="cpPagasChevron" style="margin-left:8px;font-size:10px">▼ mostrar</span>
+      </td>
+    </tr>
+    <tbody id="cpPagasLista" style="display:none">
+      ${pagas_list.map(renderLinha).join('')}
+    </tbody>`;
+  }
+
+  tbody.innerHTML = html;
+}
+
+function toggleCPPagas(){
+  const lista = document.getElementById('cpPagasLista');
+  const chev = document.getElementById('cpPagasChevron');
+  if(!lista) return;
+  const aberto = lista.style.display!=='none';
+  lista.style.display = aberto?'none':'table-row-group';
+  if(chev) chev.textContent = aberto?'▼ mostrar':'▲ ocultar';
 }
 
 function abrirModalCP(id){
@@ -12099,15 +12249,299 @@ async function salvarCR(){
 }
 
 
-async function receberConta(id){
-  const dtRecebto=prompt('Data do recebimento (AAAA-MM-DD):',hoje());
-  if(!dtRecebto) return;
+async function pagarConta(id, tipo){
+  const c = contasPagar.find(x=>x.id===id);
+  if(!c){ showToast('Conta não encontrada','err'); return; }
+
+  const dtHoje = hoje();
+  const valorSug = (c.valor||0).toFixed(2).replace('.',',');
+  const modalId = 'modalPagarConta_'+id;
+  document.getElementById(modalId)?.remove();
+
+  // Calcula dias de atraso
+  const dtVenc = c.vencimento||dtHoje;
+  const diasAtraso = dtHoje > dtVenc
+    ? Math.floor((new Date(dtHoje+'T12:00')-new Date(dtVenc+'T12:00'))/(1000*60*60*24))
+    : 0;
+  const dtVencFmt = dtVenc ? new Date(dtVenc+'T12:00').toLocaleDateString('pt-BR') : '—';
+  const alertaAtraso = diasAtraso > 0
+    ? `<div style="background:#fff3e0;border:1px solid #ffb300;border-radius:8px;padding:8px 12px;font-size:12px;color:#e65100;font-weight:600;margin-bottom:4px">
+        ⚠️ Pagamento em atraso: <strong>${diasAtraso} dia(s)</strong> após o vencimento (${dtVencFmt})
+      </div>`
+    : `<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 12px;font-size:12px;color:#2e7d32;font-weight:600;margin-bottom:4px">
+        ✅ Pagamento dentro do prazo (venc. ${dtVencFmt})
+      </div>`;
+
+  const div = document.createElement('div');
+  div.id = modalId;
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <h3 style="margin:0 0 4px;font-size:17px;color:#263238">✅ Confirmar Pagamento</h3>
+      <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#263238">${c.descricao||'—'} — ${fmtMoeda(c.valor)}</p>
+      ${alertaAtraso}
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Vencimento</label>
+            <div style="margin-top:4px;padding:8px 10px;border:1px solid #f0f0f0;border-radius:8px;font-size:13px;background:#fafafa;color:#546e7a">${dtVencFmt}</div>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Data do Pagamento *</label>
+            <input type="date" id="pc_data_${id}" value="${dtHoje}"
+              oninput="_calcJurosAuto('${id}','${dtVenc}',${(c.valor||0).toFixed(2)})"
+              style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Valor Original</label>
+            <input type="text" id="pc_valor_${id}" value="${valorSug}"
+              oninput="_calcJurosAuto('${id}','${dtVenc}',null)"
+              style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-weight:700;color:#c62828">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#e65100;text-transform:uppercase">Juros / Multa (R$)</label>
+            <input type="text" id="pc_juros_${id}" value="0,00" placeholder="0,00"
+              oninput="_atualizarTotalPagamento('${id}')"
+              style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ffe082;border-radius:8px;font-size:13px;font-weight:700;color:#e65100;background:#fffde7">
+          </div>
+        </div>
+        <div style="background:#f5f5f5;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:#546e7a;font-weight:600">TOTAL A PAGAR:</span>
+          <span id="pc_total_${id}" style="font-size:16px;font-weight:800;color:#c62828">${fmtMoeda(c.valor)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Forma de Pagamento</label>
+            <select id="pc_forma_${id}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+              <option value="">—</option>
+              <option value="PIX">PIX</option>
+              <option value="Boleto">Boleto</option>
+              <option value="TED/DOC">TED/DOC</option>
+              <option value="Cartão">Cartão</option>
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Débito Automático">Débito Automático</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Observação</label>
+            <input type="text" id="pc_obs_${id}" placeholder="Ex: Pago com juros de mora" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+        <button onclick="document.getElementById('${modalId}').remove()" style="padding:10px 18px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;cursor:pointer">Cancelar</button>
+        <button onclick="_confirmarPagamentoCP('${id}','${modalId}')" style="padding:10px 20px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Confirmar Pagamento</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+// Calcula juros automático ao mudar data (2% multa + 0,033%/dia de mora)
+function _calcJurosAuto(id, dtVenc, valorBase){
+  const dtPagto = document.getElementById('pc_data_'+id)?.value;
+  if(!dtPagto||!dtVenc) return;
+  const dias = Math.max(0, Math.floor((new Date(dtPagto+'T12:00')-new Date(dtVenc+'T12:00'))/(1000*60*60*24)));
+  const valStr = (document.getElementById('pc_valor_'+id)?.value||'0').replace(',','.');
+  const val = parseFloat(valStr)||(valorBase||0);
+  if(dias > 0 && val > 0){
+    // Multa 2% + juros 0.033%/dia (0,1%/mês ~ cálculo simplificado)
+    const multa = val * 0.02;
+    const jurosDia = val * 0.00033 * dias;
+    const total = multa + jurosDia;
+    const jurosEl = document.getElementById('pc_juros_'+id);
+    if(jurosEl) jurosEl.value = total.toFixed(2).replace('.',',');
+  } else {
+    const jurosEl = document.getElementById('pc_juros_'+id);
+    if(jurosEl) jurosEl.value = '0,00';
+  }
+  _atualizarTotalPagamento(id);
+}
+
+function _atualizarTotalPagamento(id){
+  const valStr = (document.getElementById('pc_valor_'+id)?.value||'0').replace(',','.');
+  const jurosStr = (document.getElementById('pc_juros_'+id)?.value||'0').replace(',','.');
+  const val = parseFloat(valStr)||0;
+  const juros = parseFloat(jurosStr)||0;
+  const totalEl = document.getElementById('pc_total_'+id);
+  if(totalEl) totalEl.textContent = fmtMoeda(val+juros);
+}
+
+async function _confirmarPagamentoCP(id, modalId){
+  const c = contasPagar.find(x=>x.id===id);
+  if(!c) return;
+  const dtPagto = document.getElementById('pc_data_'+id)?.value || hoje();
+  const valorPagoStr = (document.getElementById('pc_valor_'+id)?.value||'0').replace(',','.');
+  const valorPago = parseFloat(valorPagoStr)||c.valor||0;
+  const jurosStr = (document.getElementById('pc_juros_'+id)?.value||'0').replace(',','.');
+  const juros = parseFloat(jurosStr)||0;
+  const totalPago = valorPago + juros;
+  const forma = document.getElementById('pc_forma_'+id)?.value||null;
+  const obs = document.getElementById('pc_obs_'+id)?.value.trim()||null;
+
+  // Calcula dias de atraso para salvar
+  const dtVenc = c.vencimento||dtPagto;
+  const diasAtraso = dtPagto > dtVenc
+    ? Math.floor((new Date(dtPagto+'T12:00')-new Date(dtVenc+'T12:00'))/(1000*60*60*24))
+    : 0;
+
   try{
-    await api('PATCH','contas_receber',{status:'Recebida',dt_recebimento:dtRecebto},`?id=eq.${id}`);
-    showToast('✅ Conta marcada como Recebida!');
+    // 1. Atualiza CP no Supabase com todos os dados
+    await api('PATCH','contas_pagar',{
+      status: 'Paga',
+      dt_pagamento: dtPagto,
+      valor_pago: totalPago,
+      juros_multa: juros||null,
+      forma_pagamento: forma||null,
+      dias_atraso: diasAtraso||null,
+      observacao: obs||(juros>0?`Pago com ${diasAtraso}d atraso. Juros/multa: ${fmtMoeda(juros)}`:null)||c.observacao||null
+    },`?id=eq.${id}`);
+
+    // 2. Adiciona lançamento realizado no FC com data real de pagamento
+    const jaNoFC = (fcDados||[]).some(t=>
+      !t.pendente && t.valor<0 && t.data===dtPagto &&
+      (t.fornecedor||'').toLowerCase().includes((c.descricao||'').toLowerCase().substring(0,15))
+    );
+    if(!jaNoFC){
+      // Lançamento do valor principal
+      fcDados.push({
+        data: dtPagto,
+        fornecedor: c.descricao||'—',
+        categoria: c.categoria||'',
+        nf: c.num_doc||'',
+        valor: -Math.abs(valorPago),
+        pendente: false,
+        _pagoEm: dtPagto,
+        _origem: 'CP',
+        _vencimento: dtVenc,
+        _diasAtraso: diasAtraso||0
+      });
+      // Se teve juros, lança separado para não distorcer o valor da conta
+      if(juros > 0){
+        fcDados.push({
+          data: dtPagto,
+          fornecedor: (c.descricao||'—')+' — Juros/Multa',
+          categoria: 'Juros e Multas',
+          nf: c.num_doc||'',
+          valor: -Math.abs(juros),
+          pendente: false,
+          _pagoEm: dtPagto,
+          _origem: 'CP-juros'
+        });
+      }
+      _salvarFcDados();
+    }
+
+    document.getElementById(modalId)?.remove();
+
+    // Toast com detalhes
+    const detalhes = [
+      fmtMoeda(totalPago),
+      new Date(dtPagto+'T12:00').toLocaleDateString('pt-BR'),
+      diasAtraso>0 ? `⚠️ ${diasAtraso}d atraso` : '✅ No prazo',
+      juros>0 ? `Juros: ${fmtMoeda(juros)}` : null,
+      forma||null
+    ].filter(Boolean).join(' | ');
+    showToast('✅ Pago! '+detalhes);
+
     await loadAll();
+    if(typeof renderContasPagar==='function') renderContasPagar();
+    if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+    if(typeof renderPagamentos==='function') renderPagamentos();
+  }catch(e){ showToast('Erro ao confirmar: '+e.message,'err'); console.error(e); }
+}
+
+async function receberConta(id){
+  const c = contasReceber.find(x=>x.id===id);
+  if(!c){ showToast('Conta não encontrada','err'); return; }
+
+  const dtHoje = hoje();
+  const valorSug = (c.valor||0).toFixed(2).replace('.',',');
+  const modalId = 'modalReceberConta_'+id;
+  let el = document.getElementById(modalId);
+  if(el) el.remove();
+
+  const div = document.createElement('div');
+  div.id = modalId;
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px;width:380px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <h3 style="margin:0 0 4px;font-size:17px;color:#263238">💰 Confirmar Recebimento</h3>
+      <p style="margin:0 0 20px;font-size:12px;color:#546e7a">${c.descricao||'—'}</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Data do Recebimento</label>
+          <input type="date" id="rc_data_${id}" value="${dtHoje}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Valor Recebido</label>
+          <input type="text" id="rc_valor_${id}" value="${valorSug}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-weight:700;color:#2e7d32">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Forma de Pagamento</label>
+          <select id="rc_forma_${id}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+            <option value="">—</option>
+            <option value="PIX">PIX</option>
+            <option value="Boleto">Boleto</option>
+            <option value="TED/DOC">TED/DOC</option>
+            <option value="Cartão">Cartão</option>
+            <option value="Dinheiro">Dinheiro</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+        <button onclick="document.getElementById('${modalId}').remove()" style="padding:10px 18px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;cursor:pointer">Cancelar</button>
+        <button onclick="_confirmarRecebimentoCR('${id}','${modalId}')" style="padding:10px 20px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">💰 Confirmar Recebimento</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function _confirmarRecebimentoCR(id, modalId){
+  const c = contasReceber.find(x=>x.id===id);
+  if(!c) return;
+  const dtRecebto = document.getElementById('rc_data_'+id)?.value || hoje();
+  const valorRecStr = (document.getElementById('rc_valor_'+id)?.value||'0').replace(',','.');
+  const valorRec = parseFloat(valorRecStr)||c.valor||0;
+  const forma = document.getElementById('rc_forma_'+id)?.value||null;
+
+  try{
+    // 1. Atualiza CR no Supabase
+    await api('PATCH','contas_receber',{
+      status:'Recebida',
+      dt_recebimento:dtRecebto,
+      valor_recebido:valorRec,
+      forma_pagamento:forma||c.forma_pagamento||null
+    },`?id=eq.${id}`);
+
+    // 2. Adiciona lançamento realizado no FC (se não existir)
+    const jaNoFC = (fcDados||[]).some(t=>
+      !t.pendente && t.valor>0 &&
+      t.data===dtRecebto &&
+      (t.fornecedor||'').toLowerCase().includes((c.descricao||'').toLowerCase().substring(0,15))
+    );
+    if(!jaNoFC){
+      fcDados.push({
+        data: dtRecebto,
+        fornecedor: c.descricao||'—',
+        categoria: c.categoria||'',
+        nf: c.num_doc||'',
+        valor: Math.abs(valorRec),
+        pendente: false,
+        _pagoEm: dtRecebto,
+        _origem: 'CR'
+      });
+      _salvarFcDados();
+    }
+
+    document.getElementById(modalId)?.remove();
+    showToast('💰 Recebimento confirmado! '+fmtMoeda(valorRec)+' em '+new Date(dtRecebto+'T12:00').toLocaleDateString('pt-BR'));
+    await loadAll();
+    if(typeof renderContasReceber==='function') renderContasReceber();
+    if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
     if(typeof renderRecebimentos==='function') renderRecebimentos();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){ showToast('Erro ao confirmar: '+e.message,'err'); console.error(e); }
 }
 
 async function deletarCR(id){
@@ -13626,6 +14060,7 @@ function _renderFluxoCaixaCore(){
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+srColor+'">'+fmtMoeda(srAcc)+'</td>'+
         '<td style="padding:6px 10px;text-align:right;font-weight:700;color:'+spColor+'">'+fmtMoeda(spAcc)+'</td>'+
         '<td style="padding:4px 6px;text-align:center;white-space:nowrap">'+
+          (fcIdx>=0?'<button onclick="editarLancFC('+fcIdx+')" title="Editar lançamento" style="width:22px;height:22px;background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:2px">✏️</button>':'')+
           '<button onclick="desfazerRealizadoFC(\''+t.data+'\',\''+t.fornecedor.replace(/'/g,'').substring(0,25)+'\',\''+tipoDesfazer+'\')" '+
           'title="↩️ Voltar para '+tipoDesfazer+'" '+
           'style="padding:2px 7px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;cursor:pointer;font-size:11px;color:#f57f17;font-weight:700">↩️</button>'+
