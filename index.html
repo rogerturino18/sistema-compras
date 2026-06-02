@@ -11654,40 +11654,46 @@ function _mesAtivoFiltro(id, data){
 function _coletarPagamentos(){
   const lista=[];
   // Do FC (realizados negativos = pagamentos)
-  fcDados.filter(t=>!t.pendente&&t.valor<0).forEach(t=>{
-    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_pagoEm:t._pagoEm||t.data});
+  (fcDados||[]).filter(t=>t&&!t.pendente&&t.valor<0&&t.data).forEach(t=>{
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa'});
   });
   // Do Contas a Pagar (status Paga)
-  (contasPagar||[]).filter(c=>c.status==='Paga').forEach(c=>{
+  (contasPagar||[]).filter(c=>c&&c.status==='Paga').forEach(c=>{
     const data=c.dt_pagamento||c.vencimento||'';
     lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor||0),origem:'Contas a Pagar'});
   });
-  return lista.sort((a,b)=>b.data.localeCompare(a.data));
+  return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
 }
 
 function _coletarRecebimentos(){
   const lista=[];
   // Do FC (realizados positivos = recebimentos)
-  fcDados.filter(t=>!t.pendente&&t.valor>0).forEach(t=>{
-    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa',_recebidoEm:t._pagoEm||t.data});
+  (fcDados||[]).filter(t=>t&&!t.pendente&&t.valor>0&&t.data).forEach(t=>{
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa'});
   });
   // Do Contas a Receber (status Recebida)
-  (contasReceber||[]).filter(c=>c.status==='Recebida').forEach(c=>{
+  (contasReceber||[]).filter(c=>c&&c.status==='Recebida').forEach(c=>{
     const data=c.dt_recebimento||c.vencimento||'';
     lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_recebido||c.valor||0),origem:'Contas a Receber'});
   });
-  return lista.sort((a,b)=>b.data.localeCompare(a.data));
+  return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
 }
 
 function renderPagamentos(){
+  // Aguarda fcDados estar disponível
+  if(typeof fcDados==='undefined'||!Array.isArray(fcDados)){
+    document.getElementById('listaPAG').innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando dados...</td></tr>';
+    setTimeout(renderPagamentos,600);
+    return;
+  }
   const busca=(document.getElementById('buscaPAG')?.value||'').toLowerCase();
   const catFiltro=document.getElementById('filtroPAG_categoria')?.value||'';
   let lista=_coletarPagamentos();
 
   // Popula meses e categorias
-  const meses=[...new Set(lista.map(t=>t.data.substring(0,7)).filter(Boolean))].sort();
+  const meses=[...new Set(lista.map(t=>t.data?.substring(0,7)).filter(Boolean))].sort();
   _populaMesFiltro('PAG',meses);
-  const cats=[...new Set(lista.map(t=>t.categoria).filter(Boolean))].sort();
+  const cats=[...new Set(lista.map(t=>t.categoria).filter(c=>c&&c!=='—'))].sort();
   const catEl=document.getElementById('filtroPAG_categoria');
   if(catEl){ const cur=catEl.value; catEl.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>'<option value="'+c+'"'+(c===cur?' selected':'')+'>'+c+'</option>').join(''); }
 
@@ -11720,12 +11726,11 @@ function renderPagamentos(){
     return;
   }
 
-  // Separador de mês
   let mesAtualSep='';
   tbody.innerHTML=lista.map(t=>{
-    const mes=t.data.substring(0,7);
+    const mes=(t.data||'').substring(0,7);
     let sepHtml='';
-    if(mes!==mesAtualSep){
+    if(mes&&mes!==mesAtualSep){
       mesAtualSep=mes;
       const label=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
       sepHtml=`<tr style="background:#b71c1c"><td colspan="6" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💸 ${label}</td></tr>`;
@@ -11746,13 +11751,18 @@ function renderPagamentos(){
 }
 
 function renderRecebimentos(){
+  if(typeof fcDados==='undefined'||!Array.isArray(fcDados)){
+    document.getElementById('listaREC').innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:#9e9e9e">⏳ Carregando dados...</td></tr>';
+    setTimeout(renderRecebimentos,600);
+    return;
+  }
   const busca=(document.getElementById('buscaREC')?.value||'').toLowerCase();
   const catFiltro=document.getElementById('filtroREC_categoria')?.value||'';
   let lista=_coletarRecebimentos();
 
-  const meses=[...new Set(lista.map(t=>t.data.substring(0,7)).filter(Boolean))].sort();
+  const meses=[...new Set(lista.map(t=>t.data?.substring(0,7)).filter(Boolean))].sort();
   _populaMesFiltro('REC',meses);
-  const cats=[...new Set(lista.map(t=>t.categoria).filter(Boolean))].sort();
+  const cats=[...new Set(lista.map(t=>t.categoria).filter(c=>c&&c!=='—'))].sort();
   const catEl=document.getElementById('filtroREC_categoria');
   if(catEl){ const cur=catEl.value; catEl.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>'<option value="'+c+'"'+(c===cur?' selected':'')+'>'+c+'</option>').join(''); }
 
@@ -11784,9 +11794,9 @@ function renderRecebimentos(){
 
   let mesAtualSep='';
   tbody.innerHTML=lista.map(t=>{
-    const mes=t.data.substring(0,7);
+    const mes=(t.data||'').substring(0,7);
     let sepHtml='';
-    if(mes!==mesAtualSep){
+    if(mes&&mes!==mesAtualSep){
       mesAtualSep=mes;
       const label=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
       sepHtml=`<tr style="background:#1b5e20"><td colspan="6" style="padding:7px 14px;font-weight:800;font-size:11px;color:#fff;letter-spacing:1px">💰 ${label}</td></tr>`;
@@ -12828,9 +12838,9 @@ function confirmarImportacaoFC(){
   _salvarFcDados();
   document.getElementById('modalPreviaFC')?.remove();
 
-  const qtdPendentes = reaisNovos.filter(t=>t.pendente);
-  const qtdCP = qtdPendentes.filter(t=>t.valor<0).length;
-  const qtdCR = qtdPendentes.filter(t=>t.valor>0).length;
+  const pendentesNovos = reaisNovos.filter(t=>t.pendente);
+  const qtdCP = pendentesNovos.filter(t=>t.valor<0).length;
+  const qtdCR = pendentesNovos.filter(t=>t.valor>0).length;
 
   showToast('✅ '+reaisNovos.length+' lançamentos importados! Total: '+fcDados.length+(ignorados?' ('+ignorados+' duplicatas ignoradas)':''));
   populaFiltrosFC();
@@ -12838,7 +12848,7 @@ function confirmarImportacaoFC(){
   window._fcPreviaNovos = null;
 
   // Pergunta se quer enviar pendentes para CP/CR
-  if(qtdPendentes.length>0){
+  if(pendentesNovos.length>0){
     setTimeout(()=>{
       const msg =
         `📋 Enviar para Contas a Pagar / Receber?\n\n`+
@@ -12846,7 +12856,7 @@ function confirmarImportacaoFC(){
         (qtdCR>0?`📥 A Receber: ${qtdCR} lançamento(s)\n`:'')+
         `\nClique OK para criar automaticamente nas abas Contas a Pagar e Contas a Receber.`;
       if(confirm(msg)){
-        _enviarPendentesParaCpCr(qtdPendentes).then(res=>{
+        _enviarPendentesParaCpCr(pendentesNovos).then(res=>{
           showToast(`✅ CP/CR atualizados! ${res.cp} a pagar, ${res.cr} a receber criados.`);
         });
       }
