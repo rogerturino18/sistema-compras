@@ -13097,13 +13097,17 @@ function diagnosticoFC(){
 async function limparDadosFC(){
   if(!confirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para TODOS os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
 
-  // 1. Limpa memória e localStorage imediatamente
+  // 1. Zera memória
   fcDados=[];
   fcSaldoInicialOmie=0;
   _fcMesesSelecionados=[];
-  ['sl_fc_dados','sl_fc_saldo_ant','sl_fc_snapshot'].forEach(k=>localStorage.removeItem(k));
 
-  // 2. Atualiza UI com dados zerados
+  // 2. Zera localStorage
+  localStorage.setItem('sl_fc_dados','[]');
+  localStorage.setItem('sl_fc_saldo_ant','0');
+  localStorage.removeItem('sl_fc_snapshot');
+
+  // 3. Atualiza UI imediatamente
   const el=document.getElementById('fcSaldoAnterior');
   if(el) el.value='0,00';
   const btnDesfazer=document.getElementById('btnDesfazerImportFC');
@@ -13111,17 +13115,13 @@ async function limparDadosFC(){
   if(typeof populaFiltrosFC==='function') populaFiltrosFC();
   if(typeof _renderFluxoCaixaSemReload==='function') _renderFluxoCaixaSemReload();
 
-  showToast('🗑 Limpando dados...');
+  showToast('🗑 Limpando e sincronizando...');
 
-  // 3. Usa sincronizarFC que já funciona (mesmo método do save)
-  try{
-    await sincronizarFC('[]');
-    await sincronizarFcSaldoAnt('0');
-    showToast('✅ Fluxo de Caixa apagado para todos os usuários!');
-  }catch(e){
-    console.error('[FC] limpar sync erro:',e);
-    showToast('⚠️ Limpo localmente. Outros usuários: recarregar página.','err',5000);
-  }
+  // 4. Salva via _salvarFcDados (mesmo método que salva normalmente - já funciona)
+  _salvarFcDados(); // salva fcDados=[] no Supabase via sincronizarFC
+  await sincronizarFcSaldoAnt('0');
+
+  showToast('✅ Fluxo de Caixa apagado! Recarregue a página para confirmar.');
 }
 
 function _parseExcelDate(v){
