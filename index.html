@@ -11599,13 +11599,18 @@ function filtroMesNenhum(id){ _setMesesFiltroId(id,['__nenhum__']); _atualizarBt
 
 function _toggleMesItem(id,mes){
   let arr=_getMesesFiltroId(id);
-  if(arr.length===0){
-    const todos=[...document.querySelectorAll('.mes-chk-'+id)].map(c=>c.value);
-    arr=[...todos];
-    _setMesesFiltroId(id,arr);
+  // Se estava em __nenhum__, começa do zero com só este mês
+  if(arr.length===0||arr[0]==='__nenhum__'){
+    _setMesesFiltroId(id,[mes]);
+    // Atualiza checkboxes
+    document.querySelectorAll('.mes-chk-'+id).forEach(c=>{c.checked=(c.value===mes);});
+    _atualizarBtnMes(id);
+    id==='PAG'?renderPagamentos():renderRecebimentos();
+    return;
   }
   const idx=arr.indexOf(mes);
   if(idx>=0) arr.splice(idx,1); else arr.push(mes);
+  // Se todos marcados, volta ao modo "todos"
   const todos=[...document.querySelectorAll('.mes-chk-'+id)].map(c=>c.value);
   if(arr.length===todos.length) _setMesesFiltroId(id,[]);
   _atualizarBtnMes(id);
@@ -12138,7 +12143,7 @@ function renderContasReceber(){
   const recebidas=contasReceber.filter(c=>c.status==='Recebida');
   const el=document.getElementById('statsCR');
   if(el) el.innerHTML=`
-    <div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Total a Receber</div><div class="stat-val" style="color:#1565c0">${fmtMoeda(abertas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
+    <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Total a Receber</div><div class="stat-val" style="color:#2e7d32">${fmtMoeda(abertas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
     <div class="stat yellow" style="cursor:default"><div class="stat-label">Vencidas</div><div class="stat-val" style="color:#e65100">${vencidas.length}</div><div style="font-size:11px;color:#e65100">${fmtMoeda(vencidas.reduce((s,c)=>s+(c.valor||0),0))}</div></div>
     <div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Recebido (mês)</div><div class="stat-val" style="color:#2e7d32">${fmtMoeda(recebidas.filter(c=>(c.dt_recebimento||'').startsWith(new Date().toISOString().substring(0,7))).reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0))}</div></div>`;
 
@@ -12182,7 +12187,7 @@ function renderContasReceber(){
         ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}${urgBadge}
       </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-weight:700;color:${atrasado?'#e65100':isRec?'#2e7d32':'#1565c0'};font-size:13px">${fmtMoeda(c.valor)}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#2e7d32;font-size:13px">${fmtMoeda(c.valor)}</td>
       <td style="padding:8px 10px">${statusBadgeCR(c.status,c.vencimento)}</td>
       <td style="padding:8px 10px;font-size:12px">${c.forma_pagamento||'—'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
@@ -13772,7 +13777,15 @@ function toggleMesFiltroFC(e){
 }
 
 function fcMesToggle(mes){
-  // Se estava no modo "todos" (array vazio), inicializa com todos os meses antes de remover
+  // Se estava em __nenhum__, começa do zero com só este mês
+  if(_fcMesesSelecionados.length===0||_fcMesesSelecionados[0]==='__nenhum__'){
+    _fcMesesSelecionados=[mes];
+    document.querySelectorAll('.fc-mes-chk').forEach(c=>{c.checked=(c.value===mes);});
+    _atualizarBotaoMesFiltro();
+    renderFluxoCaixa();
+    return;
+  }
+  // Se estava no modo "todos", inicializa com todos antes de remover
   if(_fcMesesSelecionados.length===0){
     const todosMeses=[...document.querySelectorAll('.fc-mes-chk')].map(c=>c.value);
     _fcMesesSelecionados=[...todosMeses];
@@ -13780,7 +13793,7 @@ function fcMesToggle(mes){
   const idx=_fcMesesSelecionados.indexOf(mes);
   if(idx>=0) _fcMesesSelecionados.splice(idx,1);
   else _fcMesesSelecionados.push(mes);
-  // Se todos foram marcados de novo, volta para modo "todos"
+  // Se todos marcados de novo, volta ao modo "todos"
   const todosMeses=[...document.querySelectorAll('.fc-mes-chk')].map(c=>c.value);
   if(_fcMesesSelecionados.length===todosMeses.length) _fcMesesSelecionados=[];
   _atualizarBotaoMesFiltro();
