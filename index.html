@@ -556,6 +556,7 @@ tr:hover td{background:#f9fbf9}
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🔧 Produção</div>
   <div style="padding:6px 0">
     <div class="sbi" onclick="sbGo(5,'Ordens')">🔧 Ordens de Produção</div>
+    <div class="sbi" onclick="sbGo(27,'Histórico de Tempos')">⏱️ Histórico de Tempos</div>
   </div>
 </div>
 <div id="sbpanel_vendas" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
@@ -1572,6 +1573,119 @@ tr:hover td{background:#f9fbf9}
       <tbody id="listaREC"></tbody>
     </table>
   </div>
+</div>
+
+<!-- TAB 27: HISTÓRICO DE TEMPOS -->
+<div class="panel" id="tab27">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">⏱️ Histórico de Tempos</h2>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Tempos registrados nas Ordens de Produção</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn primary" onclick="abrirModalAdicionarTempo()" style="white-space:nowrap">+ Adicionar Tempo</button>
+      <button class="btn" onclick="exportarExcelTempos()" style="font-size:12px">📊 Exportar Excel</button>
+    </div>
+  </div>
+  <div class="stat-row" id="statsTempos"></div>
+  <div class="toolbar" style="margin-bottom:12px">
+    <input type="text" id="buscaTempos" placeholder="Buscar por desenho, ordem, operador..." oninput="renderHistoricoTempos()" style="flex:1">
+    <select id="filtroTemposOp" onchange="renderHistoricoTempos()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      <option value="">Todas as operações</option>
+      <option>SERRA</option><option>TORNO</option><option>PLAINA</option>
+      <option>CENTRO DE USINAGEM</option><option>FURADEIRA</option><option>SOLDA</option>
+      <option>FREZA</option><option>MONTAGEM</option>
+    </select>
+    <select id="filtroTemposOper" onchange="renderHistoricoTempos()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      <option value="">Todos os operadores</option>
+    </select>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr style="background:#1a237e;color:#fff">
+        <th style="padding:10px 12px">Nº Ordem</th>
+        <th style="padding:10px 12px">Desenho</th>
+        <th style="padding:10px 12px">Descrição</th>
+        <th style="padding:10px 12px">Máquinas Utilizadas</th>
+        <th style="padding:10px 12px">Operadores</th>
+        <th style="padding:10px 12px;text-align:right">Tempo Total</th>
+        <th style="padding:10px 12px;text-align:center">Status</th>
+      </tr></thead>
+      <tbody id="listaTempos"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL ADICIONAR TEMPO MANUAL -->
+<div class="modal-bg" id="modalAdicionarTempo">
+<div class="modal" style="max-width:560px">
+  <div class="modal-header">
+    <h3>⏱️ Adicionar Tempo Manual</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalAdicionarTempo')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:20px">
+
+    <div style="background:#e3f2fd;border-left:4px solid #1565c0;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;color:#1565c0">
+      💡 Use para registrar tempos históricos de desenhos/peças anteriores e montar seu banco de dados de tempos.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Nº Desenho *</label>
+        <input type="text" id="at_desenho" placeholder="Ex: DES-001" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Descrição da Peça *</label>
+        <input type="text" id="at_descricao" placeholder="Ex: Eixo principal" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Operação / Máquina *</label>
+        <select id="at_operacao" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+          <option value="">Selecione...</option>
+          <option>SERRA</option><option>TORNO</option><option>PLAINA</option>
+          <option>CENTRO DE USINAGEM</option><option>FURADEIRA</option>
+          <option>SOLDA</option><option>FREZA</option><option>MONTAGEM</option>
+          <option>OUTRO</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Operador *</label>
+        <input type="text" id="at_operador" placeholder="Nome do operador" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Dt/Hr Inicial</label>
+        <input type="datetime-local" id="at_ini" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Dt/Hr Final</label>
+        <input type="datetime-local" id="at_fim" oninput="_calcTempManual()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">OU Tempo (min) *</label>
+        <input type="number" id="at_minutos" placeholder="Ex: 90" min="1" oninput="_calcTempManual()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+        <div id="at_tempoLabel" style="font-size:11px;color:#2e7d32;margin-top:3px;font-weight:600"></div>
+      </div>
+    </div>
+
+    <div>
+      <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Observação</label>
+      <input type="text" id="at_obs" placeholder="Opcional" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+    </div>
+
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="fecharModal('modalAdicionarTempo')">Cancelar</button>
+    <button class="btn primary" onclick="salvarTempoManual()">⏱️ Salvar Tempo</button>
+  </div>
+</div>
 </div>
 
 <!-- TAB 22: CONTAS CORRENTES -->
@@ -9132,7 +9246,7 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=26;i++){
+  for(let i=0;i<=27;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
@@ -9187,7 +9301,7 @@ function showTab(n){
   if(n===22) {if(typeof renderContasCorrente==='function') renderContasCorrente();}
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
-  if(n===25){
+  if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
     (async()=>{
       if(!contasPagar.length||!contasReceber.length) await loadAll();
       renderPagamentos();
@@ -12793,7 +12907,232 @@ async function desfazerRecebimentoCR(id){
   }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
 
-// ===== IMPORTAR PLANILHA PARA CP / CR =====
+function renderHistoricoTempos(){
+  const tbody=document.getElementById('listaTempos');
+  const statsEl=document.getElementById('statsTempos');
+  if(!tbody) return;
+
+  const busca=(document.getElementById('buscaTempos')?.value||'').toLowerCase();
+  const filtOp=document.getElementById('filtroTemposOp')?.value||'';
+  const filtOper=document.getElementById('filtroTemposOper')?.value||'';
+
+  // Popula filtro de operadores
+  const operEl=document.getElementById('filtroTemposOper');
+  if(operEl){
+    const opers=[...new Set((temposOP||[]).map(t=>t.operador).filter(Boolean))].sort();
+    const cur=operEl.value;
+    operEl.innerHTML='<option value="">Todos os operadores</option>'+
+      opers.map(o=>`<option value="${o}"${o===cur?' selected':''}>${o}</option>`).join('');
+  }
+
+  // Agrupa tempos por ordem
+  const mapaOrdens={};
+  (temposOP||[]).forEach(t=>{
+    if(!t.ordem_id||t.operacao==='REPROCESSAR') return;
+    if(!mapaOrdens[t.ordem_id]) mapaOrdens[t.ordem_id]=[];
+    mapaOrdens[t.ordem_id].push(t);
+  });
+
+  // Monta lista de ordens com tempos
+  let lista=Object.entries(mapaOrdens).map(([ordemId,tops])=>{
+    const o=ordens.find(x=>x.id===ordemId)||{};
+    const pdv=pdvs.find(p=>p.id===o.pdv_id)||{};
+
+    // Filtra operações conforme filtros
+    const topsFilt=tops.filter(t=>{
+      if(filtOp&&t.operacao!==filtOp) return false;
+      if(filtOper&&t.operador!==filtOper) return false;
+      return true;
+    });
+    if(!topsFilt.length) return null;
+
+    // Máquinas utilizadas (operações únicas com tempo)
+    const maquinas=[...new Set(tops.filter(t=>t.dt_hr_final).map(t=>t.operacao))];
+
+    // Operadores únicos
+    const operadores=[...new Set(tops.map(t=>t.operador).filter(Boolean))];
+
+    // Tempo total (soma duracao_minutos de tempos concluídos)
+    const totalMin=tops.filter(t=>t.duracao_minutos).reduce((s,t)=>s+(t.duracao_minutos||0),0);
+    const h=Math.floor(totalMin/60), m=totalMin%60;
+    const tempoTotal=totalMin>0?`${h}h ${String(m).padStart(2,'0')}min`:'—';
+
+    // Status da ordem
+    const temReal=tops.filter(t=>t.operacao!=='REPROCESSAR');
+    const concluida=temReal.length>0&&temReal.every(t=>t.dt_hr_final)&&!tops.some(t=>!t.operacao);
+    const emAndamento=tops.some(t=>t.dt_hr_inicial&&!t.dt_hr_final);
+
+    return {
+      ordemId, ordem:o, pdv, tops, topsFilt,
+      maquinas, operadores, totalMin, tempoTotal,
+      concluida, emAndamento,
+      numero:o.numero||'—', desenho:o.desenho||'—',
+      descricao:o.descricao||'—'
+    };
+  }).filter(Boolean);
+
+  // Filtro busca
+  if(busca){
+    lista=lista.filter(r=>
+      r.numero.toString().toLowerCase().includes(busca)||
+      r.desenho.toLowerCase().includes(busca)||
+      r.descricao.toLowerCase().includes(busca)||
+      r.operadores.some(op=>op.toLowerCase().includes(busca))||
+      r.maquinas.some(m=>m.toLowerCase().includes(busca))
+    );
+  }
+
+  // Ordena por número de ordem desc
+  lista.sort((a,b)=>(b.numero||0)-(a.numero||0)||b.ordemId.localeCompare(a.ordemId));
+
+  // KPIs
+  const totalOrdens=lista.length;
+  const totalHoras=Math.floor(lista.reduce((s,r)=>s+r.totalMin,0)/60);
+  const concluidas=lista.filter(r=>r.concluida).length;
+  const emAndamento=lista.filter(r=>r.emAndamento).length;
+  if(statsEl) statsEl.innerHTML=
+    `<div class="stat" style="border-left-color:#1565c0;cursor:default"><div class="stat-label">Total Ordens</div><div class="stat-val" style="color:#1565c0;font-size:22px">${totalOrdens}</div></div>`+
+    `<div class="stat" style="border-left-color:#2e7d32;cursor:default"><div class="stat-label">Horas Registradas</div><div class="stat-val" style="color:#2e7d32;font-size:22px">${totalHoras}h</div></div>`+
+    `<div class="stat" style="border-left-color:#00695c;cursor:default"><div class="stat-label">Concluídas</div><div class="stat-val" style="color:#00695c;font-size:22px">${concluidas}</div></div>`+
+    `<div class="stat" style="border-left-color:#e65100;cursor:default"><div class="stat-label">Em Andamento</div><div class="stat-val" style="color:#e65100;font-size:22px">${emAndamento}</div></div>`;
+
+  if(!lista.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:40px;color:#bbb">
+      <div style="font-size:40px;margin-bottom:10px">⏱️</div>
+      <div style="font-weight:700">Nenhum tempo registrado</div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML=lista.map(r=>{
+    const statusBadge=r.concluida
+      ?`<span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">✅ Concluída</span>`
+      :r.emAndamento
+        ?`<span style="background:#fff3e0;color:#e65100;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">⚙️ Em andamento</span>`
+        :`<span style="background:#f5f5f5;color:#9e9e9e;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">⏳ Aguardando</span>`;
+
+    const maquinasHtml=r.maquinas.length
+      ?r.maquinas.map(m=>`<span style="background:#e3f2fd;color:#1565c0;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:600;margin:1px">${m}</span>`).join(' ')
+      :'<span style="color:#bbb;font-size:12px">—</span>';
+
+    const operadoresHtml=r.operadores.length
+      ?r.operadores.map(op=>`<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:600;margin:1px">${op}</span>`).join(' ')
+      :'<span style="color:#bbb;font-size:12px">—</span>';
+
+    return `<tr style="border-bottom:1px solid #f0f0f0;cursor:pointer" onclick="abrirRelatorioOrdem('${r.ordemId}')" title="Ver relatório completo">
+      <td style="padding:10px 12px;font-weight:700;font-size:14px;color:#1565c0">#${r.numero}</td>
+      <td style="padding:10px 12px;font-weight:600;font-size:13px">${r.desenho}</td>
+      <td style="padding:10px 12px;font-size:13px;color:#546e7a">${r.descricao}</td>
+      <td style="padding:10px 12px">${maquinasHtml}</td>
+      <td style="padding:10px 12px">${operadoresHtml}</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:700;font-size:14px;color:#2e7d32">${r.tempoTotal}</td>
+      <td style="padding:10px 12px;text-align:center">${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportarExcelTempos(){
+  const rows=[['Nº Ordem','Desenho','Descrição','Máquinas','Operadores','Tempo Total (min)','Status']];
+  (temposOP||[]).length&&ordens.forEach(o=>{
+    const tops=(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao!=='REPROCESSAR');
+    if(!tops.length) return;
+    const maquinas=[...new Set(tops.filter(t=>t.dt_hr_final).map(t=>t.operacao))].join(', ');
+    const opers=[...new Set(tops.map(t=>t.operador).filter(Boolean))].join(', ');
+    const totalMin=tops.filter(t=>t.duracao_minutos).reduce((s,t)=>s+(t.duracao_minutos||0),0);
+    const concluida=tops.length>0&&tops.every(t=>t.dt_hr_final);
+    rows.push([o.numero||'',o.desenho||'',o.descricao||'',maquinas,opers,totalMin,concluida?'Concluída':'Em andamento']);
+  });
+  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='historico_tempos_'+new Date().toISOString().substring(0,10)+'.xls';a.click();
+}
+function abrirModalAdicionarTempo(){
+  // Limpa campos
+  ['at_desenho','at_descricao','at_operador','at_obs','at_ini','at_fim','at_minutos'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('at_operacao').value='';
+  document.getElementById('at_tempoLabel').textContent='';
+  // Preenche operador com usuário logado
+  const opEl=document.getElementById('at_operador');
+  if(opEl&&usuarioLogado?.nome) opEl.value=usuarioLogado.nome;
+  abrirModal('modalAdicionarTempo');
+}
+
+function _calcTempManual(){
+  const ini=document.getElementById('at_ini')?.value;
+  const fim=document.getElementById('at_fim')?.value;
+  const minEl=document.getElementById('at_minutos');
+  const lbl=document.getElementById('at_tempoLabel');
+  if(ini&&fim&&fim>ini){
+    const mins=Math.round((new Date(fim)-new Date(ini))/60000);
+    if(mins>0){
+      if(minEl&&!minEl.value) minEl.value=mins;
+      const h=Math.floor(mins/60),m=mins%60;
+      if(lbl) lbl.textContent=`= ${h}h ${String(m).padStart(2,'0')}min`;
+    }
+  } else if(minEl?.value){
+    const mins=parseInt(minEl.value)||0;
+    const h=Math.floor(mins/60),m=mins%60;
+    if(lbl) lbl.textContent=`= ${h}h ${String(m).padStart(2,'0')}min`;
+  }
+}
+
+async function salvarTempoManual(){
+  const desenho=(document.getElementById('at_desenho')?.value||'').trim();
+  const descricao=(document.getElementById('at_descricao')?.value||'').trim();
+  const operacao=document.getElementById('at_operacao')?.value||'';
+  const operador=(document.getElementById('at_operador')?.value||'').trim();
+  const ini=document.getElementById('at_ini')?.value||null;
+  const fim=document.getElementById('at_fim')?.value||null;
+  const minutos=parseInt(document.getElementById('at_minutos')?.value)||0;
+  const obs=(document.getElementById('at_obs')?.value||'').trim();
+
+  if(!desenho||!descricao||!operacao||!operador){
+    showToast('Preencha: Desenho, Descrição, Operação e Operador','err'); return;
+  }
+  if(!minutos&&!fim){ showToast('Informe o tempo em minutos ou data/hora final','err'); return; }
+
+  try{
+    // Verifica se já existe ordem com esse desenho, senão cria uma "histórica"
+    let ordem=ordens.find(o=>o.desenho&&o.desenho.trim().toLowerCase()===desenho.toLowerCase());
+    if(!ordem){
+      // Cria ordem histórica
+      const res=await api('POST','ordens_producao',{
+        desenho,
+        descricao,
+        quantidade:1,
+        status:'concluido',
+        dt_abertura:ini?ini.split('T')[0]:new Date().toISOString().split('T')[0],
+        observacao:'Ordem histórica — inserida manualmente'
+      });
+      if(res&&res[0]) ordem=res[0];
+      await loadAll();
+    }
+
+    if(!ordem?.id){ showToast('Erro ao localizar/criar ordem','err'); return; }
+
+    // Calcula minutos se não informado
+    let duracaoMin=minutos;
+    if(!duracaoMin&&ini&&fim) duracaoMin=Math.round((new Date(fim)-new Date(ini))/60000);
+
+    await api('POST','tempos_op',{
+      ordem_id: ordem.id,
+      operacao,
+      operador,
+      dt_hr_inicial: ini?new Date(ini).toISOString():null,
+      dt_hr_final: fim?new Date(fim).toISOString():ini?(new Date(new Date(ini).getTime()+duracaoMin*60000)).toISOString():new Date().toISOString(),
+      duracao_minutos: duracaoMin||null,
+      observacao: obs||'Inserido manualmente'
+    });
+
+    await loadAll();
+    fecharModal('modalAdicionarTempo');
+    showToast(`✅ Tempo salvo! ${desenho} — ${operacao} — ${Math.floor((duracaoMin||0)/60)}h${String((duracaoMin||0)%60).padStart(2,'0')}min`);
+    renderHistoricoTempos();
+  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
+}
+// ===== FIM HISTÓRICO DE TEMPOS =====
 async function importarCPdePlanilha(input){
   const file=input.files?.[0]; input.value='';
   if(!file) return;
