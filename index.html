@@ -3557,15 +3557,15 @@ function renderDashboard(){
   const aguard=emails.filter(e=>!e.respondido).length;
 
   document.getElementById('dashStats').innerHTML=`
-    <div class="stat" onclick="showTab(1)" style="cursor:pointer"><div class="stat-label">Itens pendentes</div><div class="stat-val">${total-comp}</div><div class="stat-sub">de ${total} total</div></div>
-    <div class="stat yellow" onclick="showTab(1)" style="cursor:pointer"><div class="stat-label">Sem cotação</div><div class="stat-val">${semCot}</div><div class="stat-sub">itens</div></div>
-    <div class="stat blue" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Cotações recebidas</div><div class="stat-val">${cotResp}</div><div class="stat-sub">via formulário</div></div>
-    <div class="stat" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div><div class="stat-sub">${total?Math.round(comp/total*100):0}% do total</div></div>
-    <div class="stat red" onclick="showTab(10)" style="cursor:pointer"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>
-    <div class="stat" onclick="sbGo(13,'PDV')" style="cursor:pointer;border-left-color:#1565c0;min-width:140px"><div class="stat-label">PDVs</div><div class="stat-val" style="color:#1565c0">${(typeof pedidosVenda!=='undefined'?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0)}</div><div class="stat-sub">em aberto</div></div>
-    <div class="stat" onclick="showTab(19)" style="cursor:pointer;border-left-color:#c62828;min-width:140px"><div class="stat-label">💸 A Pagar</div><div class="stat-val" style="color:#c62828;font-size:14px">${typeof contasPagar!=='undefined'?fmtMoeda(contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasPagar!=='undefined'?contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
-    <div class="stat" onclick="showTab(20)" style="cursor:pointer;border-left-color:#1565c0;min-width:140px"><div class="stat-label">💰 A Receber</div><div class="stat-val" style="color:#1565c0;font-size:14px">${typeof contasReceber!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasReceber!=='undefined'?contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
-    <div class="stat" onclick="showTab(21)" style="cursor:pointer;border-left-color:#2e7d32;min-width:140px"><div class="stat-label">📊 Saldo Previsto</div><div class="stat-val" style="color:#2e7d32;font-size:13px">${typeof contasReceber!=='undefined'&&typeof contasPagar!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)-contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">receber − pagar</div></div>`;
+    <div class="stat" data-modulo="compras" onclick="showTab(1)" style="cursor:pointer"><div class="stat-label">Itens pendentes</div><div class="stat-val">${total-comp}</div><div class="stat-sub">de ${total} total</div></div>
+    <div class="stat yellow" data-modulo="compras" onclick="showTab(1)" style="cursor:pointer"><div class="stat-label">Sem cotação</div><div class="stat-val">${semCot}</div><div class="stat-sub">itens</div></div>
+    <div class="stat blue" data-modulo="cotacoes" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Cotações recebidas</div><div class="stat-val">${cotResp}</div><div class="stat-sub">via formulário</div></div>
+    <div class="stat" data-modulo="cotacoes" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div><div class="stat-sub">${total?Math.round(comp/total*100):0}% do total</div></div>
+    <div class="stat red" data-modulo="envio" onclick="showTab(10)" style="cursor:pointer"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>
+    <div class="stat" data-modulo="pdv" onclick="sbGo(13,'PDV')" style="cursor:pointer;border-left-color:#1565c0;min-width:140px"><div class="stat-label">PDVs</div><div class="stat-val" style="color:#1565c0">${(typeof pedidosVenda!=='undefined'?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0)}</div><div class="stat-sub">em aberto</div></div>
+    <div class="stat" data-modulo="financeiro" onclick="showTab(19)" style="cursor:pointer;border-left-color:#c62828;min-width:140px"><div class="stat-label">💸 A Pagar</div><div class="stat-val" style="color:#c62828;font-size:14px">${typeof contasPagar!=='undefined'?fmtMoeda(contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasPagar!=='undefined'?contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
+    <div class="stat" data-modulo="receber" onclick="showTab(20)" style="cursor:pointer;border-left-color:#1565c0;min-width:140px"><div class="stat-label">💰 A Receber</div><div class="stat-val" style="color:#1565c0;font-size:14px">${typeof contasReceber!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasReceber!=='undefined'?contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
+    <div class="stat" data-modulo="fluxo" onclick="showTab(21)" style="cursor:pointer;border-left-color:#2e7d32;min-width:140px"><div class="stat-label">📊 Saldo Previsto</div><div class="stat-val" style="color:#2e7d32;font-size:13px">${typeof contasReceber!=='undefined'&&typeof contasPagar!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)-contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">receber − pagar</div></div>`;
 
   // Notificações
   const notifs=[];
@@ -9242,6 +9242,11 @@ async function cancelarNFe(ref,id){
 function fmtVal(v){return v!=null&&v!==0?'R$ '+Number(v).toFixed(2):'—';}
 function fmtDt(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('pt-BR');}catch{return d.substring(0,10);}}
 function showTab(n){
+  // Verifica permissão (exceto tab 0 = dashboard)
+  if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
+    showToast('Sem permissão para acessar este módulo','err');
+    return;
+  }
   document.querySelectorAll('.tab').forEach(t=>{
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
@@ -9302,6 +9307,7 @@ function showTab(n){
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
   if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
+  if(n===25){
     (async()=>{
       if(!contasPagar.length||!contasReceber.length) await loadAll();
       renderPagamentos();
@@ -9456,28 +9462,82 @@ function getPermissoesUsuario(u){
   return MODULOS_SISTEMA.map(m=>m.id); // Outros = acesso total
 }
 
-// Aplica permissões na UI — oculta ícones do sidebar sem acesso
+// Mapeamento grupo → tabs que ele controla
+const GRUPO_TABS = {
+  compras:    [1,2],
+  projetos:   [3],
+  material:   [4],
+  producao:   [5,27],
+  cotacoes:   [6,7],
+  compint:    [9],
+  envio:      [10],
+  estoque:    [11],
+  fiscal:     [12],
+  pdv:        [13],
+  clientes:   [14],
+  financeiro: [19,25],
+  receber:    [20,26],
+  fluxo:      [21,22,23],
+  entrada_nfe:[24],
+  requisicoes:[17],
+  admin:      [18],
+};
+
+// Mapeamento tab → grupo sidebar pai
+const TAB_GRUPO_SIDEBAR = {
+  1:'compras',2:'compras',3:'projetos',4:'projetos',5:'producao',6:'compras',
+  7:'compras',9:'compras',10:'compras',11:'estoque',12:'vendas',13:'vendas',
+  14:'vendas',17:'compras',18:'compras',19:'financeiro',20:'financeiro',
+  21:'financeiro',22:'financeiro',23:'financeiro',24:'financeiro',25:'financeiro',
+  26:'financeiro',27:'producao',
+};
+
+// Aplica permissões na UI — oculta ícones, sidebar items, cards e bloqueia tabs
 function aplicarPermissoes(){
   if(!usuarioLogado) return;
   if(isAprovador()) return; // admin vê tudo
-  const perms = getPermissoesUsuario(usuarioLogado);
-  const tabsPermitidas = perms.map(p=>{
-    const m=MODULOS_SISTEMA.find(x=>x.id===p);
-    return m?m.tab:null;
-  }).filter(t=>t!==null);
 
-  // Apenas oculta itens do sidebar sem permissão
+  const perms = getPermissoesUsuario(usuarioLogado);
+
+  // Tabs permitidas (expansão de grupos para tabs individuais)
+  const tabsPermitidas = new Set([0]); // dashboard sempre visível
+  perms.forEach(p=>{
+    (GRUPO_TABS[p]||[]).forEach(t=>tabsPermitidas.add(t));
+    // Também adiciona a tab direta se existir no módulo
+    const m=MODULOS_SISTEMA.find(x=>x.id===p);
+    if(m?.tab) tabsPermitidas.add(m.tab);
+  });
+
+  // Grupos do sidebar que têm pelo menos 1 tab permitida
+  const gruposPermitidos = new Set();
+  tabsPermitidas.forEach(t=>{
+    const g=TAB_GRUPO_SIDEBAR[t];
+    if(g) gruposPermitidos.add(g);
+  });
+
+  // 1. Oculta/mostra ícones do sidebar lateral (sbico_*)
+  ['compras','projetos','producao','vendas','financeiro','estoque'].forEach(g=>{
+    const ico=document.getElementById('sbico_'+g);
+    if(ico) ico.style.display = gruposPermitidos.has(g) ? '' : 'none';
+  });
+
+  // 2. Oculta/mostra itens dentro dos painéis do sidebar
   document.querySelectorAll('.sbi[onclick*="sbGo("]').forEach(el=>{
     const match = el.getAttribute('onclick').match(/sbGo\((\d+)/);
     if(match){
       const tabN=parseInt(match[1]);
-      if(tabN>0 && !tabsPermitidas.includes(tabN)){
-        el.style.display='none';
-      } else {
-        el.style.display='';
-      }
+      el.style.display = tabsPermitidas.has(tabN) ? '' : 'none';
     }
   });
+
+  // 3. Oculta cards do dashboard sem permissão
+  document.querySelectorAll('[data-modulo]').forEach(el=>{
+    const mod=el.getAttribute('data-modulo');
+    el.style.display = perms.includes(mod) ? '' : 'none';
+  });
+
+  // 4. Bloqueia navegação para tabs sem permissão (protege contra acesso direto)
+  window._tabsPermitidas = tabsPermitidas;
 }
 
 function showEuTab(n){
@@ -10965,7 +11025,10 @@ async function recusarRequisicao(){
 }
 
 function verificarAprovacoesPendentes(){
+  // Só mostra para quem tem permissão de requisições E é aprovador
   if(!isAprovador()) return;
+  const perms=getPermissoesUsuario(usuarioLogado);
+  if(!perms.includes('requisicoes')&&!perms.includes('admin')) return;
   const pendentes=requisicoes.filter(r=>r.status==='Aguardando Aprovação');
   const badge=document.getElementById('badgeAprovacoes');
   if(!pendentes.length){
