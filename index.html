@@ -13227,12 +13227,13 @@ function _excluirFCModal(idx, modalId){
   fcDados.splice(idx,1);
   _salvarFcDados();
   showToast('🗑 Removido!');
-  // Reabre o modal atualizado
   document.getElementById(modalId)?.remove();
   gerenciarLancamentosFC();
   renderFluxoCaixa();
   if(typeof renderPagamentos==='function') renderPagamentos();
 }
+
+async function limparDuplicatasFC(){
   if(!fcDados.length){ showToast('FC está vazio','err'); return; }
 
   const cpPagos=(contasPagar||[]).filter(c=>c.status==='Paga');
