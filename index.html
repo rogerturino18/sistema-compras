@@ -11661,22 +11661,26 @@ function _mesAtivoFiltro(id, data){
 function _coletarPagamentos(){
   const lista=[];
 
-  // 1. CP pagos — fonte principal
+  // 1. CP pagos — fonte principal e verdade
   const cpPagos=(contasPagar||[]).filter(c=>c&&c.status==='Paga');
   cpPagos.forEach(c=>{
     const data=c.dt_pagamento||c.vencimento||'';
     lista.push({data,descricao:c.descricao||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_pago||c.valor||0),origem:'Contas a Pagar',_cpId:c.id});
   });
 
-  // 2. FC realizados negativos — SÓ adiciona se NÃO existe CP pago com mesmo valor no mesmo dia
+  // 2. FC realizados negativos — ignora se tem CP pago com mesma descrição na mesma data (independente do valor)
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor>=0||!t.data) return;
-    if(t._origem==='CP'||t._origem==='CP-juros') return; // criado ao pagar CP — ignorar sempre
+    if(t._origem==='CP'||t._origem==='CP-juros') return;
+    const descFC=(t.fornecedor||t.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
     const valFC=Math.abs(t.valor);
     const jaTem=cpPagos.some(c=>{
       const dtCP=c.dt_pagamento||c.vencimento||'';
+      const descCP=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
       const valCP=Math.abs(c.valor_pago||c.valor||0);
-      return dtCP===t.data && Math.abs(valCP-valFC)<0.02;
+      // Mesmo dia com: mesmo valor OU mesma descrição (cobre edição de valor)
+      if(dtCP!==t.data) return false;
+      return Math.abs(valCP-valFC)<0.02 || (descFC.length>5&&descCP.includes(descFC.substring(0,10)));
     });
     if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:valFC,origem:'Fluxo de Caixa',_fcIdx:i});
   });
@@ -11696,11 +11700,14 @@ function _coletarRecebimentos(){
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor<=0||!t.data) return;
     if(t._origem==='CR') return;
+    const descFC=(t.fornecedor||t.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
     const valFC=t.valor;
     const jaTem=crRecebidos.some(c=>{
       const dtCR=c.dt_recebimento||c.vencimento||'';
+      const descCR=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
       const valCR=Math.abs(c.valor_recebido||c.valor||0);
-      return dtCR===t.data && Math.abs(valCR-valFC)<0.02;
+      if(dtCR!==t.data) return false;
+      return Math.abs(valCR-valFC)<0.02 || (descFC.length>5&&descCR.includes(descFC.substring(0,10)));
     });
     if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:valFC,origem:'Fluxo de Caixa',_fcIdx:i});
   });
@@ -12473,35 +12480,34 @@ async function _confirmarPagamentoCP(id, modalId){
     },`?id=eq.${id}`);
 
     // 2. Adiciona lançamento realizado no FC com data real de pagamento
+    // Verifica se já existe um lançamento com _origem CP para esta conta (pelo id)
     const jaNoFC = (fcDados||[]).some(t=>
-      !t.pendente && t.valor<0 && t.data===dtPagto &&
-      (t.fornecedor||'').toLowerCase().includes((c.descricao||'').toLowerCase().substring(0,15))
+      t._cpId===id || (t._origem==='CP' && !t.pendente && t.data===dtPagto &&
+      Math.abs(Math.abs(t.valor)-totalPago)<0.02)
     );
     if(!jaNoFC){
-      // Lançamento do valor principal
       fcDados.push({
         data: dtPagto,
         fornecedor: c.descricao||'—',
-        categoria: c.categoria||'',
         nf: c.num_doc||'',
         valor: -Math.abs(valorPago),
         pendente: false,
         _pagoEm: dtPagto,
         _origem: 'CP',
+        _cpId: id,
         _vencimento: dtVenc,
         _diasAtraso: diasAtraso||0
       });
-      // Se teve juros, lança separado para não distorcer o valor da conta
       if(juros > 0){
         fcDados.push({
           data: dtPagto,
           fornecedor: (c.descricao||'—')+' — Juros/Multa',
-          categoria: 'Juros e Multas',
           nf: c.num_doc||'',
           valor: -Math.abs(juros),
           pendente: false,
           _pagoEm: dtPagto,
-          _origem: 'CP-juros'
+          _origem: 'CP-juros',
+          _cpId: id
         });
       }
       _salvarFcDados();
@@ -12589,22 +12595,21 @@ async function _confirmarRecebimentoCR(id, modalId){
       forma_pagamento:forma||c.forma_pagamento||null
     },`?id=eq.${id}`);
 
-    // 2. Adiciona lançamento realizado no FC (se não existir)
+    // 2. Adiciona lançamento realizado no FC
     const jaNoFC = (fcDados||[]).some(t=>
-      !t.pendente && t.valor>0 &&
-      t.data===dtRecebto &&
-      (t.fornecedor||'').toLowerCase().includes((c.descricao||'').toLowerCase().substring(0,15))
+      t._crId===id || (t._origem==='CR' && !t.pendente && t.data===dtRecebto &&
+      Math.abs(t.valor-Math.abs(valorRec))<0.02)
     );
     if(!jaNoFC){
       fcDados.push({
         data: dtRecebto,
         fornecedor: c.descricao||'—',
-        categoria: c.categoria||'',
         nf: c.num_doc||'',
         valor: Math.abs(valorRec),
         pendente: false,
         _pagoEm: dtRecebto,
-        _origem: 'CR'
+        _origem: 'CR',
+        _crId: id
       });
       _salvarFcDados();
     }
