@@ -14443,6 +14443,9 @@ function _renderFluxoCaixaCore(){
       .filter(d=>d.length>4)
   );
 
+  // Guarda índice original de cada item para o botão excluir
+  fcDados.forEach((t,i)=>{ if(t) t._fcIdx=i; });
+
   let listaReal=fcDados.filter(t=>{
     if(t.pendente) return false;
     if(!_fcMesAtivo(t.data)) return false;
@@ -14676,8 +14679,8 @@ function _renderFluxoCaixaCore(){
       const srColor=srAcc>=0?'#1565c0':'#c62828';
       const spColor=spAcc>=0?'#1565c0':'#c62828';
       const nfLabel=t.nf&&t.nf!=='N/D'?t.nf:'—';
-      // Índice no fcDados para o botão excluir
-      const fcIdx=fcDados.findIndex(x=>x===t||(x.data===t.data&&x.fornecedor===t.fornecedor&&Math.abs(x.valor)===vAbs&&!x.pendente));
+      // Usa _fcIdx gravado no objeto durante o filtro
+      const fcIdx = t._fcIdx ?? -1;
       const btnDel=fcIdx>=0?'<button onclick="excluirLancFC('+fcIdx+')" title="Excluir lançamento" style="width:22px;height:22px;background:#ffebee;border:1px solid #ffcdd2;border-radius:5px;cursor:pointer;font-size:11px;color:#c62828">🗑</button>':'';
       linhas+='<tr style="background:#fff;border-bottom:1px solid #f0f0f0">'+
         diaCell()+
