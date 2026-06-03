@@ -11668,15 +11668,11 @@ function _coletarPagamentos(){
     lista.push({data,descricao:c.descricao||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_pago||c.valor||0),origem:'Contas a Pagar',_cpId:c.id});
   });
 
-  // 2. FC realizados negativos — ignora SOMENTE os que têm _origem CP ou _cpId (criados ao pagar)
-  // Duas compras iguais no mesmo dia são lançamentos legítimos diferentes
-  const cpIdsNoFC=new Set(fcDados.filter(t=>t._cpId).map(t=>t._cpId));
+  // 2. FC realizados negativos — mostra os importados (sem _origem CP) para que possam ser excluídos se necessário
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor>=0||!t.data) return;
-    // Ignora lançamentos criados automaticamente ao pagar CP
-    if(t._origem==='CP'||t._origem==='CP-juros') return;
-    // Ignora se tem _cpId (foi criado via pagamento de CP específico)
-    if(t._cpId) return;
+    // Ignora lançamentos criados automaticamente ao pagar CP (já aparecem via CP pago acima)
+    if(t._origem==='CP'||t._origem==='CP-juros'||t._cpId) return;
     lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_fcIdx:i});
   });
 
@@ -14446,9 +14442,13 @@ function _renderFluxoCaixaCore(){
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
-  // IDs de CP pagos que já geraram lançamento no FC
-  const cpIdsNoFC=new Set(
-    fcDados.filter(t=>t._cpId).map(t=>t._cpId)
+  // Descrições que já têm lançamento pago via CP no FC (com _origem CP)
+  // Isso cobre o caso: conta importada (R$1.713) + mesma conta editada e paga no CP (R$1.748)
+  const descsPagasCPnoFC=new Set(
+    fcDados
+      .filter(t=>!t.pendente&&t.valor<0&&(t._origem==='CP'||t._cpId))
+      .map(t=>(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14))
+      .filter(d=>d.length>4)
   );
 
   let listaReal=fcDados.filter(t=>{
@@ -14456,6 +14456,11 @@ function _renderFluxoCaixaCore(){
     if(!_fcMesAtivo(t.data)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
     if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
+    // Oculta lançamento importado (sem _origem, sem _cpId) se já foi pago via CP com mesma descrição
+    if(t.valor<0&&!t._origem&&!t._cpId){
+      const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+      if(descFC.length>4&&descsPagasCPnoFC.has(descFC)) return false;
+    }
     return true;
   });
 
