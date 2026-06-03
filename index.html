@@ -1384,10 +1384,9 @@ tr:hover td{background:#f9fbf9}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Categoria</th>
-        <th>Nº Doc</th><th>Valor</th><th>Status</th>
+        <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Valor</th><th>Status</th>
         <th class="mob-hide">Dt. Pagamento</th><th class="mob-hide">Juros/Multa</th>
-        <th style="width:100px">Ações</th>
+        <th style="width:130px">Ações</th>
       </tr></thead>
       <tbody id="listaCP"></tbody>
     </table>
@@ -1418,9 +1417,8 @@ tr:hover td{background:#f9fbf9}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Vencimento</th><th>Cliente / Descrição</th><th>PDV</th>
-        <th>Nº Doc</th><th>Valor</th><th>Status</th><th>Forma Pgto</th>
-        <th style="width:100px">Ações</th>
+        <th>Vencimento</th><th>Cliente / Descrição</th><th>Valor</th><th>Status</th><th>Forma Pgto</th>
+        <th style="width:130px">Ações</th>
       </tr></thead>
       <tbody id="listaCR"></tbody>
     </table>
@@ -1469,7 +1467,8 @@ tr:hover td{background:#f9fbf9}
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
       <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Migrar pendentes do Fluxo de Caixa para Contas a Pagar / Receber">🔄 Sincronizar → CP/CR</button>
       <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Reverte a última importação feita">↩️ Desfazer Importação</button>
-      <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar Dados</button>
+      <button onclick="limparTudoFinanceiro()" style="padding:8px 14px;background:#7b1fa2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Apaga FC + CP + CR">🧹 Limpar Tudo</button>
+      <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar FC</button>
     </div>
   </div>
 
@@ -3369,6 +3368,16 @@ async function api(method,table,data=null,filter=''){
   const text=await res.text();
   if(!res.ok) throw new Error(text);
   return text?JSON.parse(text):[];
+}
+
+// Atualiza só dados financeiros — muito mais rápido que loadAll()
+async function loadFinanceiro(){
+  try{
+    [contasPagar, contasReceber] = await Promise.all([
+      api('GET','contas_pagar','','?order=vencimento.asc').catch(()=>[]),
+      api('GET','contas_receber','','?order=vencimento.asc').catch(()=>[]),
+    ]);
+  }catch(e){ console.warn('[loadFinanceiro]',e); }
 }
 
 async function loadAll(){
@@ -11650,30 +11659,65 @@ function _mesAtivoFiltro(id, data){
   return arr.includes(data.substring(0,7));
 }
 
-// Coleta todos os realizados: FC (pendente=false) + CP/CR pagos
+// Coleta pagamentos: CP pagos têm prioridade — lançamentos FC que correspondem a um CP pago são ignorados
 function _coletarPagamentos(){
   const lista=[];
+
+  // 1. Coleta CP pagos (fonte principal)
+  const cpPagos=(contasPagar||[]).filter(c=>c&&c.status==='Paga');
+  cpPagos.forEach(c=>{
+    const data=c.dt_pagamento||c.vencimento||'';
+    lista.push({data,descricao:c.descricao||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_pago||c.valor||0),origem:'Contas a Pagar',_cpId:c.id});
+  });
+
+  // 2. Coleta FC realizados negativos, mas ignora os que têm origem CP (criados ao marcar pago)
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor>=0||!t.data) return;
-    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_fcIdx:i});
+    // Ignora se foi criado pelo pagamento de um CP (tem _origem:'CP')
+    if(t._origem==='CP'||t._origem==='CP-juros') return;
+    // Ignora se já existe um CP pago com mesma data e valor parecido (evita duplicata)
+    const jaTem=cpPagos.some(c=>{
+      const dtCP=c.dt_pagamento||c.vencimento||'';
+      const valCP=Math.abs(c.valor_pago||c.valor||0);
+      const valFC=Math.abs(t.valor);
+      const descFC=(t.fornecedor||'').toLowerCase().substring(0,12);
+      const descCP=(c.descricao||'').toLowerCase().substring(0,12);
+      return dtCP===t.data && Math.abs(valCP-valFC)<0.02 &&
+        (descFC===descCP||descCP.includes(descFC.substring(0,8))||descFC.includes(descCP.substring(0,8)));
+    });
+    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_fcIdx:i});
   });
-  (contasPagar||[]).filter(c=>c&&c.status==='Paga').forEach(c=>{
-    const data=c.dt_pagamento||c.vencimento||'';
-    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_pago||c.valor||0),origem:'Contas a Pagar',_cpId:c.id});
-  });
+
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
 }
 
+// Coleta recebimentos: CR recebidos têm prioridade — lançamentos FC correspondentes são ignorados
 function _coletarRecebimentos(){
   const lista=[];
+
+  // 1. Coleta CR recebidos (fonte principal)
+  const crRecebidos=(contasReceber||[]).filter(c=>c&&c.status==='Recebida');
+  crRecebidos.forEach(c=>{
+    const data=c.dt_recebimento||c.vencimento||'';
+    lista.push({data,descricao:c.descricao||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_recebido||c.valor||0),origem:'Contas a Receber',_crId:c.id});
+  });
+
+  // 2. Coleta FC realizados positivos, ignorando os que têm origem CR
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor<=0||!t.data) return;
-    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',categoria:t.categoria||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa',_fcIdx:i});
+    if(t._origem==='CR') return;
+    const jaTem=crRecebidos.some(c=>{
+      const dtCR=c.dt_recebimento||c.vencimento||'';
+      const valCR=Math.abs(c.valor_recebido||c.valor||0);
+      const valFC=t.valor;
+      const descFC=(t.fornecedor||'').toLowerCase().substring(0,12);
+      const descCR=(c.descricao||'').toLowerCase().substring(0,12);
+      return dtCR===t.data && Math.abs(valCR-valFC)<0.02 &&
+        (descFC===descCR||descCR.includes(descFC.substring(0,8))||descFC.includes(descCR.substring(0,8)));
+    });
+    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa',_fcIdx:i});
   });
-  (contasReceber||[]).filter(c=>c&&c.status==='Recebida').forEach(c=>{
-    const data=c.dt_recebimento||c.vencimento||'';
-    lista.push({data,descricao:c.descricao||'—',categoria:c.categoria||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_recebido||c.valor||0),origem:'Contas a Receber',_crId:c.id});
-  });
+
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
 }
 
@@ -11927,8 +11971,6 @@ function renderContasPagar(){
         ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}${urgBadge}
       </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${c.categoria||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:${atrasado?'#c62828':isPaga?'#2e7d32':'#263238'};font-size:13px">
         ${isPaga?fmtMoeda(c.valor_pago||c.valor):fmtMoeda(c.valor)}
       </td>
@@ -11951,7 +11993,7 @@ function renderContasPagar(){
   // Helper cabeçalho de seção
   const secHeader=(icon,label,cor,bg,qtd,total,id,inicialAberto=true)=>`
     <tr onclick="toggleSecCP('${id}')" style="cursor:pointer;background:${bg};user-select:none;border-top:2px solid ${cor}">
-      <td colspan="9" style="padding:10px 14px">
+      <td colspan="7" style="padding:10px 14px">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-size:15px">${icon}</span>
           <span style="font-weight:800;font-size:13px;color:${cor};letter-spacing:0.3px;text-transform:uppercase">${label}</span>
@@ -12095,7 +12137,8 @@ async function salvarCP(){
       showToast(`✅ ${parcelas.length} conta(s) criada(s)!`);
     }
     fecharModal('modalCP');
-    await loadAll();
+    await loadFinanceiro();
+    renderContasPagar();
   }catch(e){showToast('Erro ao salvar','err');console.error(e);}
 }
 
@@ -12157,8 +12200,6 @@ function renderContasReceber(){
         ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}${urgBadge}
       </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#1565c0">${c.pdv_id?pvMap[c.pdv_id]||'—':'—'}</td>
-      <td style="padding:8px 10px;font-size:12px">${c.num_doc||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:${atrasado?'#e65100':isRec?'#2e7d32':'#1565c0'};font-size:13px">${fmtMoeda(c.valor)}</td>
       <td style="padding:8px 10px">${statusBadgeCR(c.status,c.vencimento)}</td>
       <td style="padding:8px 10px;font-size:12px">${c.forma_pagamento||'—'}</td>
@@ -12173,7 +12214,7 @@ function renderContasReceber(){
 
   const secHeaderCR=(icon,label,cor,bg,qtd,total,id,aberto=true)=>`
     <tr onclick="toggleSecCR('${id}')" style="cursor:pointer;background:${bg};user-select:none;border-top:2px solid ${cor}">
-      <td colspan="8" style="padding:10px 14px">
+      <td colspan="6" style="padding:10px 14px">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-size:15px">${icon}</span>
           <span style="font-weight:800;font-size:13px;color:${cor};letter-spacing:0.3px;text-transform:uppercase">${label}</span>
@@ -12289,7 +12330,8 @@ async function salvarCR(){
       showToast(`✅ ${parcelas.length} parcela(s) criada(s)!`);
     }
     fecharModal('modalCR');
-    await loadAll();
+    await loadFinanceiro();
+    renderContasReceber();
   }catch(e){showToast('Erro ao salvar','err');console.error(e);}
 }
 
@@ -12334,7 +12376,7 @@ async function pagarConta(id, tipo){
           <div>
             <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Data do Pagamento *</label>
             <input type="date" id="pc_data_${id}" value="${dtHoje}"
-              oninput="_calcJurosAuto('${id}','${dtVenc}',${(c.valor||0).toFixed(2)})"
+              
               style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
           </div>
         </div>
@@ -12342,7 +12384,7 @@ async function pagarConta(id, tipo){
           <div>
             <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Valor Original</label>
             <input type="text" id="pc_valor_${id}" value="${valorSug}"
-              oninput="_calcJurosAuto('${id}','${dtVenc}',null)"
+              oninput="_atualizarTotalPagamento('${id}')"
               style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-weight:700;color:#c62828">
           </div>
           <div>
@@ -12490,7 +12532,7 @@ async function _confirmarPagamentoCP(id, modalId){
     ].filter(Boolean).join(' | ');
     showToast('✅ Pago! '+detalhes);
 
-    await loadAll();
+    await loadFinanceiro();
     if(typeof renderContasPagar==='function') renderContasPagar();
     if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
     if(typeof renderPagamentos==='function') renderPagamentos();
@@ -12582,7 +12624,7 @@ async function _confirmarRecebimentoCR(id, modalId){
 
     document.getElementById(modalId)?.remove();
     showToast('💰 Recebimento confirmado! '+fmtMoeda(valorRec)+' em '+new Date(dtRecebto+'T12:00').toLocaleDateString('pt-BR'));
-    await loadAll();
+    await loadFinanceiro();
     if(typeof renderContasReceber==='function') renderContasReceber();
     if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
     if(typeof renderRecebimentos==='function') renderRecebimentos();
@@ -12697,11 +12739,11 @@ async function _excluirDuplicata(tipo, idOuIdx, modalId){
   try{
     if(tipo==='CP'){
       await api('DELETE','contas_pagar','',`?id=eq.${idOuIdx}`);
-      await loadAll();
+      await loadFinanceiro();
       renderContasPagar();
     } else if(tipo==='CR'){
       await api('DELETE','contas_receber','',`?id=eq.${idOuIdx}`);
-      await loadAll();
+      await loadFinanceiro();
       renderContasReceber();
     } else if(tipo==='FC'){
       const idx=parseInt(idOuIdx);
@@ -12739,7 +12781,7 @@ async function desfazerPagamentoCP(id){
       return !forn.includes(descLC.substring(0,8))&&!descLC.includes(forn.substring(0,8));
     });
     if(fcDados.length<antes) _salvarFcDados();
-    await loadAll();
+    await loadFinanceiro();
     renderContasPagar();
     if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
     if(typeof renderPagamentos==='function') renderPagamentos();
@@ -12765,7 +12807,7 @@ async function desfazerRecebimentoCR(id){
       return !forn.includes(descLC.substring(0,8))&&!descLC.includes(forn.substring(0,8));
     });
     if(fcDados.length<antes) _salvarFcDados();
-    await loadAll();
+    await loadFinanceiro();
     renderContasReceber();
     if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
     if(typeof renderRecebimentos==='function') renderRecebimentos();
@@ -12830,7 +12872,7 @@ async function importarCPdePlanilha(input){
     for(const c of novos){
       try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; }
     }
-    await loadAll();
+    await loadFinanceiro();
     renderContasPagar();
     showToast(`✅ ${ok} contas a pagar importadas!${err?` | ❌ ${err} erros`:''}`);
   }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
@@ -12889,7 +12931,7 @@ async function importarCRdePlanilha(input){
     for(const c of novos){
       try{ await api('POST','contas_receber',c); ok++; }catch(e){ err++; }
     }
-    await loadAll();
+    await loadFinanceiro();
     renderContasReceber();
     showToast(`✅ ${ok} contas a receber importadas!${err?` | ❌ ${err} erros`:''}`);
   }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
@@ -12901,7 +12943,7 @@ async function deletarCP(id){
   try{
     await api('DELETE','contas_pagar','',`?id=eq.${id}`);
     showToast('🗑 Conta excluída!');
-    await loadAll();
+    await loadFinanceiro();
     if(typeof renderContasPagar==='function') renderContasPagar();
     if(typeof renderPagamentos==='function') renderPagamentos();
   }catch(e){showToast('Erro ao excluir: '+e.message,'err');console.error(e);}
@@ -12912,7 +12954,7 @@ async function deletarCR(id){
   try{
     await api('DELETE','contas_receber','',`?id=eq.${id}`);
     showToast('🗑 Conta excluída!');
-    await loadAll();
+    await loadFinanceiro();
     if(typeof renderContasReceber==='function') renderContasReceber();
     if(typeof renderRecebimentos==='function') renderRecebimentos();
   }catch(e){showToast('Erro ao excluir: '+e.message,'err');console.error(e);}
@@ -13092,6 +13134,51 @@ function diagnosticoFC(){
   alert(msg);
   console.log('[FC DIAG] dados completos:', dados);
   console.log('[FC DIAG] duplicatas:', dupes);
+}
+
+async function limparTudoFinanceiro(){
+  if(!confirm('⚠️ ATENÇÃO — LIMPAR TUDO\n\nEsta ação vai apagar:\n• Todos os dados do Fluxo de Caixa\n• Todas as Contas a Pagar\n• Todas as Contas a Receber\n\nIsso afeta TODOS os usuários e NÃO pode ser desfeito.\n\nTem certeza?')) return;
+  if(!confirm('Segunda confirmação: APAGAR TODOS OS DADOS FINANCEIROS?')) return;
+
+  showToast('⏳ Apagando tudo...');
+
+  try{
+    // Apaga CP, CR e FC em paralelo
+    await Promise.all([
+      fetch(`${SB_URL}/rest/v1/contas_pagar?id=neq.00000000-0000-0000-0000-000000000000`,{
+        method:'DELETE',
+        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'}
+      }),
+      fetch(`${SB_URL}/rest/v1/contas_receber?id=neq.00000000-0000-0000-0000-000000000000`,{
+        method:'DELETE',
+        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'}
+      }),
+    ]);
+
+    // Zera FC
+    fcDados=[];
+    fcSaldoInicialOmie=0;
+    _fcMesesSelecionados=[];
+    localStorage.setItem('sl_fc_dados','[]');
+    localStorage.setItem('sl_fc_saldo_ant','0');
+    localStorage.removeItem('sl_fc_snapshot');
+    _salvarFcDados();
+    await sincronizarFcSaldoAnt('0');
+
+    // Recarrega dados e atualiza telas
+    await loadAll();
+    if(typeof populaFiltrosFC==='function') populaFiltrosFC();
+    if(typeof _renderFluxoCaixaSemReload==='function') _renderFluxoCaixaSemReload();
+    if(typeof renderContasPagar==='function') renderContasPagar();
+    if(typeof renderContasReceber==='function') renderContasReceber();
+    if(typeof renderPagamentos==='function') renderPagamentos();
+    if(typeof renderRecebimentos==='function') renderRecebimentos();
+
+    showToast('✅ Tudo apagado! FC + CP + CR zerados.');
+  }catch(e){
+    showToast('❌ Erro: '+e.message,'err');
+    console.error('[LIMPAR TUDO]',e);
+  }
 }
 
 async function limparDadosFC(){
