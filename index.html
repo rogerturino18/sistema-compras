@@ -11736,7 +11736,9 @@ function renderPagamentos(){
     const btnEditar=t._cpId?`<button class="btn btn-sm" onclick="abrirModalCP('${t._cpId}')" title="Editar">✏️</button>`:'';
     const btnExcluir=t._cpId
       ?`<button class="btn btn-sm danger" onclick="deletarCP('${t._cpId}')" title="Excluir">🗑</button>`
-      :t._fcIdx!=null?`<button class="btn btn-sm danger" onclick="excluirLancFC(${t._fcIdx})" title="Excluir">🗑</button>`:'';
+      :t.origem==='Fluxo de Caixa'&&t._fcIdx>=0
+        ?`<button class="btn btn-sm danger" onclick="excluirLancFC(${t._fcIdx})" title="Excluir do FC">🗑</button>`
+        :'';
     return sep+`<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:#546e7a">${dtFmt}</td><td style="padding:8px 12px;font-weight:600;font-size:13px">${t.descricao||'—'}</td><td style="padding:8px 12px;font-size:11px;color:#9e9e9e">${t.nf||'—'}</td><td style="padding:8px 12px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td><td style="padding:8px 8px;display:flex;gap:4px;align-items:center">${origemBadge}${btnEditar}${btnExcluir}</td></tr>`;
   }).join('');
 }
@@ -12014,17 +12016,11 @@ function renderContasPagar(){
     html+='</tbody>';
   }
 
-  // ── SEÇÃO PAGAS (colapsável) ─────────────────────────────────────────────
-  if(pagas_list.length){
-    const tot=pagas_list.filter(c=>c.status==='Paga').reduce((s,c)=>s+(c.valor_pago||c.valor||0),0);
-    html+=secHeader('✅','Pagas / Canceladas','#2e7d32','#f1f8e9',pagas_list.length,tot,'pagas',false);
-    html+=pagas_list.map(renderLinha).join('');
-    html+='</tbody>';
-  }
+  // ── SEÇÃO PAGAS — removida do CP (ver aba Pagamentos) ──────────────────
 
-  // Mensagem se só tem pagas
-  if(!secVencidas.length&&!secUrgentes.length&&!secFuturas.length&&!pagas_list.length){
-    html='<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd"><div style="font-size:32px">✅</div><div style="font-weight:600;margin-top:8px">Nenhuma conta pendente</div></td></tr>';
+  // Mensagem se não tem nenhuma pendente
+  if(!secVencidas.length&&!secUrgentes.length&&!secFuturas.length){
+    html='<tr><td colspan="7" style="text-align:center;padding:32px;color:#bdbdbd"><div style="font-size:32px">✅</div><div style="font-weight:600;margin-top:8px">Nenhuma conta pendente</div><div style="font-size:12px;margin-top:4px">Contas pagas estão na aba 💸 Pagamentos</div></td></tr>';
   }
 
   tbody.innerHTML=html;
@@ -12223,13 +12219,9 @@ function renderContasReceber(){
     html+=secHeaderCR('🔵','A Vencer (futuras)','#1565c0','#e3f2fd',secFuturasCR.length,secFuturasCR.reduce((s,c)=>s+(c.valor||0),0),'futuras',false);
     html+=secFuturasCR.map(renderLinhaCR).join('')+'</tbody>';
   }
-  if(recebidasCR.length){
-    const tot=recebidasCR.filter(c=>c.status==='Recebida').reduce((s,c)=>s+(c.valor_recebido||c.valor||0),0);
-    html+=secHeaderCR('✅','Recebidas / Canceladas','#2e7d32','#f1f8e9',recebidasCR.length,tot,'recebidas',false);
-    html+=recebidasCR.map(renderLinhaCR).join('')+'</tbody>';
-  }
+  // Seção recebidas removida do CR (ver aba 💰 Recebimentos)
 
-  if(!html) html=`<tr><td colspan="8" style="text-align:center;padding:24px;color:#bdbdbd"><div style="font-size:32px">✅</div><div style="font-weight:600;margin-top:8px">Nenhuma conta pendente</div></td></tr>`;
+  if(!html) html=`<tr><td colspan="6" style="text-align:center;padding:32px;color:#bdbdbd"><div style="font-size:32px">✅</div><div style="font-weight:600;margin-top:8px">Nenhuma conta pendente</div><div style="font-size:12px;margin-top:4px">Contas recebidas estão na aba 💰 Recebimentos</div></td></tr>`;
   tbody.innerHTML=html;
 }
 
