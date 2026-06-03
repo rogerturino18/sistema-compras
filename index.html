@@ -14468,16 +14468,18 @@ function _renderFluxoCaixaCore(){
     return true;
   });
 
-  // Agrupa por NF+data (notas iguais no mesmo dia são somadas)
+  // Agrupa por NF+data — preserva _fcIdx do item original
   const grouped={};
-  listaReal.forEach(t=>{
-    const nfKey=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:'_';
-    const key=t.data+'|'+(nfKey!=='_'?nfKey:t.fornecedor+':'+t.categoria);
-    if(!grouped[key]) grouped[key]={...t, valor:0, _qtd:0};  // valor:0 impede dupla contagem
+  listaReal.forEach((t,localIdx)=>{
+    const nfKey=t.nf&&t.nf!=='N/D'&&t.nf?t.nf:null;
+    // Sem NF: cada linha é única (não agrupa)
+    const key=nfKey ? t.data+'|'+nfKey : t.data+'|__solo__'+localIdx;
+    if(!grouped[key]) grouped[key]={...t, valor:0, _qtd:0};
     grouped[key].valor+=t.valor;
     grouped[key]._qtd++;
+    // Mantém o _fcIdx do item (já foi atribuído acima)
   });
-  listaReal=Object.values(grouped).sort((a,b)=>a.data.localeCompare(b.data)||a.fornecedor.localeCompare(b.fornecedor));
+  listaReal=Object.values(grouped).sort((a,b)=>a.data.localeCompare(b.data)||( a.fornecedor||'').localeCompare(b.fornecedor||''));
 
   // ── Pendentes do sistema + pendentes importados do Omie ──────────────────
   const cpSistema=(typeof contasPagar!=='undefined'?contasPagar:[])
