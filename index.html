@@ -1465,13 +1465,16 @@ tr:hover td{background:#f9fbf9}
       </label>
       <button onclick="abrirModalLancamentoFC()" style="padding:8px 16px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✏️ Lançamento Manual</button>
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
-      <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Migrar pendentes do Fluxo de Caixa para Contas a Pagar / Receber">🔄 Sincronizar → CP/CR</button>
-      <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Reverte a última importação feita">↩️ Desfazer Importação</button>
-      <button onclick="gerenciarLancamentosFC()" style="padding:8px 14px;background:#37474f;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Gerenciar Lançamentos</button>
-      <button onclick="limparDuplicatasFC()" style="padding:8px 14px;background:#ff6f00;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔧 Corrigir Duplicatas</button>
-      <button onclick="limparTudoFinanceiro()" style="padding:8px 14px;background:#7b1fa2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Apaga FC + CP + CR">🧹 Limpar Tudo</button>
-      <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar FC</button>
     </div>
+  </div>
+  <!-- Linha 2: botões de gestão -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔄 Sincronizar → CP/CR</button>
+      <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">↩️ Desfazer Importação</button>
+      <button onclick="gerenciarLancamentosFC()" style="padding:8px 14px;background:#263238;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Gerenciar Lançamentos</button>
+      <button onclick="limparDuplicatasFC()" style="padding:8px 14px;background:#ff6f00;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔧 Corrigir Duplicatas</button>
+      <button onclick="limparTudoFinanceiro()" style="padding:8px 14px;background:#7b1fa2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🧹 Limpar Tudo</button>
+      <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑 Limpar FC</button>
   </div>
 
   <!-- KPIs -->
