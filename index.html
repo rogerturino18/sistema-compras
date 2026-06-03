@@ -13172,34 +13172,36 @@ async function limparDuplicatasFC(){
   const cpPagos=(contasPagar||[]).filter(c=>c.status==='Paga');
   const crRecebidos=(contasReceber||[]).filter(c=>c.status==='Recebida');
 
-  // Encontra candidatos a duplicata com o CP/CR correspondente para mostrar
   const candidatos=[];
   fcDados.forEach((t,i)=>{
     if(!t||t.pendente||t._origem||t._cpId||t._crId) return;
-    const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
-    if(descFC.length<4) return;
+    const dataFC=t.data||'';
+    const descFC=(t.fornecedor||'').trim().toLowerCase();
+    if(!dataFC||!descFC) return;
 
     if(t.valor<0){
+      // Mesma data + mesma descrição (começo da string)
       const cpMatch=cpPagos.find(c=>{
-        const descCP=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
-        return descCP.includes(descFC.substring(0,10))||descFC.includes(descCP.substring(0,10));
+        const dtCP=c.dt_pagamento||c.vencimento||'';
+        const descCP=(c.descricao||'').trim().toLowerCase();
+        return dtCP===dataFC && (descCP===descFC||descCP.startsWith(descFC.substring(0,20))||descFC.startsWith(descCP.substring(0,20)));
       });
       if(cpMatch) candidatos.push({i,t,match:cpMatch,tipo:'CP'});
     } else {
       const crMatch=crRecebidos.find(c=>{
-        const descCR=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
-        return descCR.includes(descFC.substring(0,10))||descFC.includes(descCR.substring(0,10));
+        const dtCR=c.dt_recebimento||c.vencimento||'';
+        const descCR=(c.descricao||'').trim().toLowerCase();
+        return dtCR===dataFC && (descCR===descFC||descCR.startsWith(descFC.substring(0,20))||descFC.startsWith(descCR.substring(0,20)));
       });
       if(crMatch) candidatos.push({i,t,match:crMatch,tipo:'CR'});
     }
   });
 
   if(!candidatos.length){
-    showToast('✅ Nenhuma duplicata encontrada no FC!');
+    showToast('✅ Nenhuma duplicata encontrada! (mesma data + mesma descrição)');
     return;
   }
 
-  // Modal de revisão
   const modalId='modalDuplicatasFC';
   document.getElementById(modalId)?.remove();
   const div=document.createElement('div');
@@ -13210,23 +13212,23 @@ async function limparDuplicatasFC(){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fff">
       <input type="checkbox" id="dup_${idx}" checked style="width:16px;height:16px;accent-color:#c62828;cursor:pointer;flex-shrink:0">
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;color:#9e9e9e;margin-bottom:2px">FC importado — ${c.t.data}</div>
+        <div style="font-size:11px;color:#9e9e9e;margin-bottom:2px">FC importado — ${c.t.data}</div>
         <div style="font-weight:700;font-size:13px;color:#263238">${c.t.fornecedor||'—'}</div>
-        <div style="font-size:12px;color:#c62828;font-weight:600">${fmtMoeda(Math.abs(c.t.valor))}</div>
+        <div style="font-size:12px;color:#c62828;font-weight:700">${fmtMoeda(Math.abs(c.t.valor))}</div>
       </div>
-      <div style="font-size:20px;color:#ccc">→</div>
+      <div style="font-size:18px;color:#ccc">→</div>
       <div style="flex:1;min-width:0;background:#f1f8e9;border-radius:8px;padding:8px 10px">
-        <div style="font-size:12px;color:#2e7d32;font-weight:700;margin-bottom:2px">${c.tipo} pago</div>
+        <div style="font-size:11px;color:#2e7d32;font-weight:700;margin-bottom:2px">${c.tipo} pago — ${c.match.dt_pagamento||c.match.dt_recebimento||c.match.vencimento||''}</div>
         <div style="font-weight:700;font-size:13px;color:#263238">${c.match.descricao||'—'}</div>
-        <div style="font-size:12px;color:#2e7d32;font-weight:600">${fmtMoeda(Math.abs(c.match.valor_pago||c.match.valor||0))}</div>
+        <div style="font-size:12px;color:#2e7d32;font-weight:700">${fmtMoeda(Math.abs(c.match.valor_pago||c.match.valor_recebido||c.match.valor||0))}</div>
       </div>
     </div>`).join('');
 
   div.innerHTML=`
-    <div style="background:#fff;border-radius:16px;width:620px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="background:#fff;border-radius:16px;width:640px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
       <div style="padding:20px 24px;border-bottom:1px solid #f0f0f0">
         <h3 style="margin:0 0 4px;font-size:17px">🔧 Revisar Duplicatas do FC</h3>
-        <p style="margin:0;font-size:12px;color:#546e7a">${candidatos.length} lançamento(s) importado(s) que podem ser duplicatas. <strong>Desmarque os que quiser manter.</strong></p>
+        <p style="margin:0;font-size:12px;color:#546e7a">${candidatos.length} lançamento(s) com <strong>mesma data e mesma descrição</strong> que um CP/CR pago. Desmarque os que quiser manter.</p>
       </div>
       <div style="overflow-y:auto;flex:1">${linhas}</div>
       <div style="padding:14px 20px;border-top:1px solid #f0f0f0;display:flex;gap:8px;justify-content:flex-end;background:#fafafa;border-radius:0 0 16px 16px">
@@ -13235,8 +13237,6 @@ async function limparDuplicatasFC(){
       </div>
     </div>`;
   document.body.appendChild(div);
-
-  // Guarda candidatos para uso na confirmação
   window._fcDupCandidatos=candidatos;
 }
 
