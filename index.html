@@ -1467,6 +1467,7 @@ tr:hover td{background:#f9fbf9}
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
       <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Migrar pendentes do Fluxo de Caixa para Contas a Pagar / Receber">🔄 Sincronizar → CP/CR</button>
       <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Reverte a última importação feita">↩️ Desfazer Importação</button>
+      <button onclick="limparDuplicatasFC()" style="padding:8px 14px;background:#ff6f00;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Remove lançamentos importados que já foram pagos via CP">🔧 Corrigir Duplicatas</button>
       <button onclick="limparTudoFinanceiro()" style="padding:8px 14px;background:#7b1fa2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Apaga FC + CP + CR">🧹 Limpar Tudo</button>
       <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar FC</button>
     </div>
@@ -13163,6 +13164,99 @@ async function limparTudoFinanceiro(){
     showToast('❌ Erro: '+e.message,'err');
     console.error('[LIMPAR TUDO]',e);
   }
+}
+
+async function limparDuplicatasFC(){
+  if(!fcDados.length){ showToast('FC está vazio','err'); return; }
+
+  const cpPagos=(contasPagar||[]).filter(c=>c.status==='Paga');
+  const crRecebidos=(contasReceber||[]).filter(c=>c.status==='Recebida');
+
+  // Encontra candidatos a duplicata com o CP/CR correspondente para mostrar
+  const candidatos=[];
+  fcDados.forEach((t,i)=>{
+    if(!t||t.pendente||t._origem||t._cpId||t._crId) return;
+    const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+    if(descFC.length<4) return;
+
+    if(t.valor<0){
+      const cpMatch=cpPagos.find(c=>{
+        const descCP=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+        return descCP.includes(descFC.substring(0,10))||descFC.includes(descCP.substring(0,10));
+      });
+      if(cpMatch) candidatos.push({i,t,match:cpMatch,tipo:'CP'});
+    } else {
+      const crMatch=crRecebidos.find(c=>{
+        const descCR=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+        return descCR.includes(descFC.substring(0,10))||descFC.includes(descCR.substring(0,10));
+      });
+      if(crMatch) candidatos.push({i,t,match:crMatch,tipo:'CR'});
+    }
+  });
+
+  if(!candidatos.length){
+    showToast('✅ Nenhuma duplicata encontrada no FC!');
+    return;
+  }
+
+  // Modal de revisão
+  const modalId='modalDuplicatasFC';
+  document.getElementById(modalId)?.remove();
+  const div=document.createElement('div');
+  div.id=modalId;
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+
+  const linhas=candidatos.map((c,idx)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fff">
+      <input type="checkbox" id="dup_${idx}" checked style="width:16px;height:16px;accent-color:#c62828;cursor:pointer;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:#9e9e9e;margin-bottom:2px">FC importado — ${c.t.data}</div>
+        <div style="font-weight:700;font-size:13px;color:#263238">${c.t.fornecedor||'—'}</div>
+        <div style="font-size:12px;color:#c62828;font-weight:600">${fmtMoeda(Math.abs(c.t.valor))}</div>
+      </div>
+      <div style="font-size:20px;color:#ccc">→</div>
+      <div style="flex:1;min-width:0;background:#f1f8e9;border-radius:8px;padding:8px 10px">
+        <div style="font-size:12px;color:#2e7d32;font-weight:700;margin-bottom:2px">${c.tipo} pago</div>
+        <div style="font-weight:700;font-size:13px;color:#263238">${c.match.descricao||'—'}</div>
+        <div style="font-size:12px;color:#2e7d32;font-weight:600">${fmtMoeda(Math.abs(c.match.valor_pago||c.match.valor||0))}</div>
+      </div>
+    </div>`).join('');
+
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:16px;width:620px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="padding:20px 24px;border-bottom:1px solid #f0f0f0">
+        <h3 style="margin:0 0 4px;font-size:17px">🔧 Revisar Duplicatas do FC</h3>
+        <p style="margin:0;font-size:12px;color:#546e7a">${candidatos.length} lançamento(s) importado(s) que podem ser duplicatas. <strong>Desmarque os que quiser manter.</strong></p>
+      </div>
+      <div style="overflow-y:auto;flex:1">${linhas}</div>
+      <div style="padding:14px 20px;border-top:1px solid #f0f0f0;display:flex;gap:8px;justify-content:flex-end;background:#fafafa;border-radius:0 0 16px 16px">
+        <button onclick="document.getElementById('${modalId}').remove()" style="padding:10px 18px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;cursor:pointer">Cancelar</button>
+        <button onclick="_executarRemocaoDuplicatasFC('${modalId}')" style="padding:10px 20px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑 Remover Selecionados</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+
+  // Guarda candidatos para uso na confirmação
+  window._fcDupCandidatos=candidatos;
+}
+
+function _executarRemocaoDuplicatasFC(modalId){
+  const candidatos=window._fcDupCandidatos||[];
+  const indicesRemover=candidatos
+    .filter((_,idx)=>document.getElementById('dup_'+idx)?.checked)
+    .map(c=>c.i)
+    .sort((a,b)=>b-a); // de trás para frente
+
+  if(!indicesRemover.length){ showToast('Nenhum item selecionado'); return; }
+
+  indicesRemover.forEach(i=>fcDados.splice(i,1));
+  _salvarFcDados();
+  document.getElementById(modalId)?.remove();
+  window._fcDupCandidatos=null;
+
+  showToast(`✅ ${indicesRemover.length} lançamento(s) removido(s) do FC!`);
+  renderFluxoCaixa();
+  if(typeof renderPagamentos==='function') renderPagamentos();
 }
 
 async function limparDadosFC(){
