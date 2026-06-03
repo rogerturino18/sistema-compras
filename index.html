@@ -11751,7 +11751,10 @@ function renderPagamentos(){
     const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
     const origemBadge=t.origem==='Contas a Pagar'?'<span style="background:#fce4ec;color:#c62828;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CP</span>':'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>';
     const btnEditar=t._cpId?`<button class="btn btn-sm" onclick="abrirModalCP('${t._cpId}')" title="Editar">✏️</button>`:'';
-    return sep+`<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:#546e7a">${dtFmt}</td><td style="padding:8px 12px;font-weight:600;font-size:13px">${t.descricao||'—'}</td><td style="padding:8px 12px;font-size:11px;color:#9e9e9e">${t.nf||'—'}</td><td style="padding:8px 12px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td><td style="padding:8px 12px">${origemBadge} ${btnEditar}</td></tr>`;
+    const btnExcluir=t._cpId
+      ?`<button class="btn btn-sm danger" onclick="deletarCP('${t._cpId}')" title="Excluir">🗑</button>`
+      :t._fcIdx!=null?`<button class="btn btn-sm danger" onclick="excluirLancFC(${t._fcIdx})" title="Excluir">🗑</button>`:'';
+    return sep+`<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:#546e7a">${dtFmt}</td><td style="padding:8px 12px;font-weight:600;font-size:13px">${t.descricao||'—'}</td><td style="padding:8px 12px;font-size:11px;color:#9e9e9e">${t.nf||'—'}</td><td style="padding:8px 12px;font-weight:700;color:#c62828;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td><td style="padding:8px 8px;display:flex;gap:4px;align-items:center">${origemBadge}${btnEditar}${btnExcluir}</td></tr>`;
   }).join('');
 }
 
@@ -11791,7 +11794,10 @@ function renderRecebimentos(){
     const dtFmt=t.data?new Date(t.data+'T12:00').toLocaleDateString('pt-BR'):'—';
     const origemBadge=t.origem==='Contas a Receber'?'<span style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">CR</span>':'<span style="background:#e3f2fd;color:#1565c0;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700">FC</span>';
     const btnEditar=t._crId?`<button class="btn btn-sm" onclick="abrirModalCR('${t._crId}')" title="Editar">✏️</button>`:'';
-    return sep+`<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:#546e7a">${dtFmt}</td><td style="padding:8px 12px;font-weight:600;font-size:13px">${t.descricao||'—'}</td><td style="padding:8px 12px;font-size:11px;color:#9e9e9e">${t.nf||'—'}</td><td style="padding:8px 12px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td><td style="padding:8px 12px">${origemBadge} ${btnEditar}</td></tr>`;
+    const btnExcluir=t._crId
+      ?`<button class="btn btn-sm danger" onclick="deletarCR('${t._crId}')" title="Excluir">🗑</button>`
+      :t._fcIdx!=null?`<button class="btn btn-sm danger" onclick="excluirLancFC(${t._fcIdx})" title="Excluir">🗑</button>`:'';
+    return sep+`<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:#546e7a">${dtFmt}</td><td style="padding:8px 12px;font-weight:600;font-size:13px">${t.descricao||'—'}</td><td style="padding:8px 12px;font-size:11px;color:#9e9e9e">${t.nf||'—'}</td><td style="padding:8px 12px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtMoeda(t.valor)}</td><td style="padding:8px 8px;display:flex;gap:4px;align-items:center">${origemBadge}${btnEditar}${btnExcluir}</td></tr>`;
   }).join('');
 }
 
@@ -12929,6 +12935,17 @@ async function importarCRdePlanilha(input){
   }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
 }
 // ===== FIM IMPORTAR CP/CR =====
+
+function excluirLancFC(idx){
+  if(!confirm('Excluir este lançamento do Fluxo de Caixa?')) return;
+  if(idx<0||idx>=fcDados.length) return;
+  fcDados.splice(idx,1);
+  _salvarFcDados();
+  showToast('🗑 Lançamento excluído!');
+  if(typeof renderFluxoCaixa==='function') renderFluxoCaixa();
+  if(typeof renderPagamentos==='function') renderPagamentos();
+  if(typeof renderRecebimentos==='function') renderRecebimentos();
+}
 
 async function deletarCP(id){
   if(!confirm('Excluir esta conta a pagar?')) return;
@@ -14442,11 +14459,26 @@ function _renderFluxoCaixaCore(){
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
+  // CP pagos para deduplicação no FC
+  const cpPagosFC=(contasPagar||[]).filter(c=>c&&c.status==='Paga');
+
   let listaReal=fcDados.filter(t=>{
     if(t.pendente) return false;
     if(!_fcMesAtivo(t.data)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
     if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
+    // Remove lançamentos FC negativos que têm CP pago com mesma descrição (qualquer data)
+    if(t.valor<0&&(t._origem==='CP'||t._origem==='CP-juros')) return false;
+    if(t.valor<0){
+      const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
+      const temCP=cpPagosFC.some(c=>{
+        const descCP=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
+        const valCP=Math.abs(c.valor_pago||c.valor||0);
+        const valFC=Math.abs(t.valor);
+        return descFC.length>5&&descCP.includes(descFC.substring(0,10))&&Math.abs(valCP-valFC)<0.02;
+      });
+      if(temCP) return false;
+    }
     return true;
   });
 
