@@ -11661,28 +11661,23 @@ function _mesAtivoFiltro(id, data){
 function _coletarPagamentos(){
   const lista=[];
 
-  // 1. CP pagos — fonte principal e verdade
+  // 1. CP pagos — fonte principal
   const cpPagos=(contasPagar||[]).filter(c=>c&&c.status==='Paga');
   cpPagos.forEach(c=>{
     const data=c.dt_pagamento||c.vencimento||'';
     lista.push({data,descricao:c.descricao||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_pago||c.valor||0),origem:'Contas a Pagar',_cpId:c.id});
   });
 
-  // 2. FC realizados negativos — ignora se tem CP pago com mesma descrição na mesma data (independente do valor)
+  // 2. FC realizados negativos — ignora SOMENTE os que têm _origem CP ou _cpId (criados ao pagar)
+  // Duas compras iguais no mesmo dia são lançamentos legítimos diferentes
+  const cpIdsNoFC=new Set(fcDados.filter(t=>t._cpId).map(t=>t._cpId));
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor>=0||!t.data) return;
+    // Ignora lançamentos criados automaticamente ao pagar CP
     if(t._origem==='CP'||t._origem==='CP-juros') return;
-    const descFC=(t.fornecedor||t.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
-    const valFC=Math.abs(t.valor);
-    const jaTem=cpPagos.some(c=>{
-      const dtCP=c.dt_pagamento||c.vencimento||'';
-      const descCP=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
-      const valCP=Math.abs(c.valor_pago||c.valor||0);
-      // Mesmo dia com: mesmo valor OU mesma descrição (cobre edição de valor)
-      if(dtCP!==t.data) return false;
-      return Math.abs(valCP-valFC)<0.02 || (descFC.length>5&&descCP.includes(descFC.substring(0,10)));
-    });
-    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:valFC,origem:'Fluxo de Caixa',_fcIdx:i});
+    // Ignora se tem _cpId (foi criado via pagamento de CP específico)
+    if(t._cpId) return;
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_fcIdx:i});
   });
 
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
@@ -11700,16 +11695,8 @@ function _coletarRecebimentos(){
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor<=0||!t.data) return;
     if(t._origem==='CR') return;
-    const descFC=(t.fornecedor||t.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
-    const valFC=t.valor;
-    const jaTem=crRecebidos.some(c=>{
-      const dtCR=c.dt_recebimento||c.vencimento||'';
-      const descCR=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
-      const valCR=Math.abs(c.valor_recebido||c.valor||0);
-      if(dtCR!==t.data) return false;
-      return Math.abs(valCR-valFC)<0.02 || (descFC.length>5&&descCR.includes(descFC.substring(0,10)));
-    });
-    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:valFC,origem:'Fluxo de Caixa',_fcIdx:i});
+    if(t._crId) return;
+    lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa',_fcIdx:i});
   });
 
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
@@ -14459,26 +14446,16 @@ function _renderFluxoCaixaCore(){
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
-  // CP pagos para deduplicação no FC
-  const cpPagosFC=(contasPagar||[]).filter(c=>c&&c.status==='Paga');
+  // IDs de CP pagos que já geraram lançamento no FC
+  const cpIdsNoFC=new Set(
+    fcDados.filter(t=>t._cpId).map(t=>t._cpId)
+  );
 
   let listaReal=fcDados.filter(t=>{
     if(t.pendente) return false;
     if(!_fcMesAtivo(t.data)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
     if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
-    // Remove lançamentos FC negativos que têm CP pago com mesma descrição (qualquer data)
-    if(t.valor<0&&(t._origem==='CP'||t._origem==='CP-juros')) return false;
-    if(t.valor<0){
-      const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
-      const temCP=cpPagosFC.some(c=>{
-        const descCP=(c.descricao||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,15);
-        const valCP=Math.abs(c.valor_pago||c.valor||0);
-        const valFC=Math.abs(t.valor);
-        return descFC.length>5&&descCP.includes(descFC.substring(0,10))&&Math.abs(valCP-valFC)<0.02;
-      });
-      if(temCP) return false;
-    }
     return true;
   });
 
