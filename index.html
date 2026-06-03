@@ -1467,7 +1467,8 @@ tr:hover td{background:#f9fbf9}
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
       <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Migrar pendentes do Fluxo de Caixa para Contas a Pagar / Receber">🔄 Sincronizar → CP/CR</button>
       <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Reverte a última importação feita">↩️ Desfazer Importação</button>
-      <button onclick="limparDuplicatasFC()" style="padding:8px 14px;background:#ff6f00;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Remove lançamentos importados que já foram pagos via CP">🔧 Corrigir Duplicatas</button>
+      <button onclick="gerenciarLancamentosFC()" style="padding:8px 14px;background:#37474f;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Gerenciar Lançamentos</button>
+      <button onclick="limparDuplicatasFC()" style="padding:8px 14px;background:#ff6f00;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔧 Corrigir Duplicatas</button>
       <button onclick="limparTudoFinanceiro()" style="padding:8px 14px;background:#7b1fa2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Apaga FC + CP + CR">🧹 Limpar Tudo</button>
       <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Apagar todos os dados importados">🗑 Limpar FC</button>
     </div>
@@ -13166,7 +13167,69 @@ async function limparTudoFinanceiro(){
   }
 }
 
-async function limparDuplicatasFC(){
+function gerenciarLancamentosFC(){
+  const modalId='modalGerenciarFC';
+  document.getElementById(modalId)?.remove();
+
+  const renderLista=(filtro='')=>{
+    const f=filtro.toLowerCase();
+    const itens=fcDados.map((t,i)=>({t,i})).filter(({t})=>{
+      if(!t||t.pendente) return false;
+      if(!f) return true;
+      return (t.fornecedor||'').toLowerCase().includes(f)||
+             (t.data||'').includes(f)||
+             fmtMoeda(Math.abs(t.valor)).includes(f);
+    }).sort((a,b)=>(b.t.data||'').localeCompare(a.t.data||''));
+
+    if(!itens.length) return '<div style="padding:32px;text-align:center;color:#9e9e9e">Nenhum lançamento encontrado</div>';
+
+    return itens.map(({t,i})=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid #f0f0f0;background:#fff" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background='#fff'">
+        <div style="font-size:12px;color:#9e9e9e;white-space:nowrap;width:80px">${t.data||'—'}</div>
+        <div style="flex:1;font-weight:600;font-size:13px;color:#263238;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.fornecedor||'—'}</div>
+        <div style="font-size:12px;font-weight:700;color:${t.valor<0?'#c62828':'#2e7d32'};white-space:nowrap;margin-left:8px">${fmtMoeda(Math.abs(t.valor))}</div>
+        <button onclick="_excluirFCModal(${i},'${modalId}')" style="padding:4px 10px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:12px;color:#c62828;cursor:pointer;font-weight:700;flex-shrink:0;white-space:nowrap">🗑 Excluir</button>
+      </div>`).join('');
+  };
+
+  const div=document.createElement('div');
+  div.id=modalId;
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:16px;width:700px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="padding:18px 24px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h3 style="margin:0 0 2px;font-size:17px">📋 Gerenciar Lançamentos do FC</h3>
+          <p style="margin:0;font-size:12px;color:#546e7a">${fcDados.filter(t=>t&&!t.pendente).length} lançamentos realizados</p>
+        </div>
+        <button onclick="document.getElementById('${modalId}').remove()" style="width:32px;height:32px;border:none;background:#f5f5f5;border-radius:8px;cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <div style="padding:12px 16px;border-bottom:1px solid #f0f0f0">
+        <input type="text" id="fcGerBusca" placeholder="Buscar por descrição, data ou valor..." oninput="document.getElementById('fcGerLista').innerHTML=gerenciarLancamentosFC_render(this.value)"
+          style="width:100%;padding:8px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;box-sizing:border-box">
+      </div>
+      <div id="fcGerLista" style="overflow-y:auto;flex:1">${renderLista()}</div>
+      <div style="padding:12px 16px;border-top:1px solid #f0f0f0;background:#fafafa;border-radius:0 0 16px 16px;text-align:right">
+        <button onclick="document.getElementById('${modalId}').remove()" style="padding:9px 20px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;cursor:pointer">Fechar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+
+  // Expõe a função de render para o oninput
+  window.gerenciarLancamentosFC_render=renderLista;
+}
+
+function _excluirFCModal(idx, modalId){
+  if(!confirm('Excluir este lançamento?')) return;
+  fcDados.splice(idx,1);
+  _salvarFcDados();
+  showToast('🗑 Removido!');
+  // Reabre o modal atualizado
+  document.getElementById(modalId)?.remove();
+  gerenciarLancamentosFC();
+  renderFluxoCaixa();
+  if(typeof renderPagamentos==='function') renderPagamentos();
+}
   if(!fcDados.length){ showToast('FC está vazio','err'); return; }
 
   const cpPagos=(contasPagar||[]).filter(c=>c.status==='Paga');
