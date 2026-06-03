@@ -1498,7 +1498,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="stat-row" id="statsPAG"></div>
   <div class="toolbar">
-    <input type="text" id="buscaPAG" placeholder="Buscar fornecedor, descrição, categoria..." oninput="renderPagamentos()" style="flex:1">
+    <input type="text" id="buscaPAG" placeholder="Buscar fornecedor ou descrição..." oninput="renderPagamentos()" style="flex:1">
     <div style="position:relative" id="pagMesFiltroWrap">
       <button id="pagMesFiltroBtn" onclick="toggleMesFiltro('PAG',event)"
         style="padding:7px 28px 7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;min-width:160px;text-align:left;position:relative;white-space:nowrap">
@@ -1513,9 +1513,6 @@ tr:hover td{background:#f9fbf9}
         <div id="pagMesFiltroOpcoes"></div>
       </div>
     </div>
-    <select id="filtroPAG_categoria" onchange="renderPagamentos()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;max-width:200px">
-      <option value="">Todas as categorias</option>
-    </select>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -1545,7 +1542,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="stat-row" id="statsREC"></div>
   <div class="toolbar">
-    <input type="text" id="buscaREC" placeholder="Buscar cliente, descrição, categoria..." oninput="renderRecebimentos()" style="flex:1">
+    <input type="text" id="buscaREC" placeholder="Buscar cliente ou descrição..." oninput="renderRecebimentos()" style="flex:1">
     <div style="position:relative" id="recMesFiltroWrap">
       <button id="recMesFiltroBtn" onclick="toggleMesFiltro('REC',event)"
         style="padding:7px 28px 7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;min-width:160px;text-align:left;position:relative;white-space:nowrap">
@@ -1560,9 +1557,6 @@ tr:hover td{background:#f9fbf9}
         <div id="recMesFiltroOpcoes"></div>
       </div>
     </div>
-    <select id="filtroREC_categoria" onchange="renderRecebimentos()" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;max-width:200px">
-      <option value="">Todas as categorias</option>
-    </select>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -11659,63 +11653,51 @@ function _mesAtivoFiltro(id, data){
   return arr.includes(data.substring(0,7));
 }
 
-// Coleta pagamentos: CP pagos têm prioridade — lançamentos FC que correspondem a um CP pago são ignorados
 function _coletarPagamentos(){
   const lista=[];
 
-  // 1. Coleta CP pagos (fonte principal)
+  // 1. CP pagos — fonte principal
   const cpPagos=(contasPagar||[]).filter(c=>c&&c.status==='Paga');
   cpPagos.forEach(c=>{
     const data=c.dt_pagamento||c.vencimento||'';
     lista.push({data,descricao:c.descricao||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_pago||c.valor||0),origem:'Contas a Pagar',_cpId:c.id});
   });
 
-  // 2. Coleta FC realizados negativos, mas ignora os que têm origem CP (criados ao marcar pago)
+  // 2. FC realizados negativos — SÓ adiciona se NÃO existe CP pago com mesmo valor no mesmo dia
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor>=0||!t.data) return;
-    // Ignora se foi criado pelo pagamento de um CP (tem _origem:'CP')
-    if(t._origem==='CP'||t._origem==='CP-juros') return;
-    // Ignora se já existe um CP pago com mesma data e valor parecido (evita duplicata)
+    if(t._origem==='CP'||t._origem==='CP-juros') return; // criado ao pagar CP — ignorar sempre
+    const valFC=Math.abs(t.valor);
     const jaTem=cpPagos.some(c=>{
       const dtCP=c.dt_pagamento||c.vencimento||'';
       const valCP=Math.abs(c.valor_pago||c.valor||0);
-      const valFC=Math.abs(t.valor);
-      const descFC=(t.fornecedor||'').toLowerCase().substring(0,12);
-      const descCP=(c.descricao||'').toLowerCase().substring(0,12);
-      return dtCP===t.data && Math.abs(valCP-valFC)<0.02 &&
-        (descFC===descCP||descCP.includes(descFC.substring(0,8))||descFC.includes(descCP.substring(0,8)));
+      return dtCP===t.data && Math.abs(valCP-valFC)<0.02;
     });
-    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:Math.abs(t.valor),origem:'Fluxo de Caixa',_fcIdx:i});
+    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:valFC,origem:'Fluxo de Caixa',_fcIdx:i});
   });
 
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
 }
 
-// Coleta recebimentos: CR recebidos têm prioridade — lançamentos FC correspondentes são ignorados
 function _coletarRecebimentos(){
   const lista=[];
 
-  // 1. Coleta CR recebidos (fonte principal)
   const crRecebidos=(contasReceber||[]).filter(c=>c&&c.status==='Recebida');
   crRecebidos.forEach(c=>{
     const data=c.dt_recebimento||c.vencimento||'';
     lista.push({data,descricao:c.descricao||'—',nf:c.num_doc||'',valor:Math.abs(c.valor_recebido||c.valor||0),origem:'Contas a Receber',_crId:c.id});
   });
 
-  // 2. Coleta FC realizados positivos, ignorando os que têm origem CR
   (fcDados||[]).forEach((t,i)=>{
     if(!t||t.pendente||t.valor<=0||!t.data) return;
     if(t._origem==='CR') return;
+    const valFC=t.valor;
     const jaTem=crRecebidos.some(c=>{
       const dtCR=c.dt_recebimento||c.vencimento||'';
       const valCR=Math.abs(c.valor_recebido||c.valor||0);
-      const valFC=t.valor;
-      const descFC=(t.fornecedor||'').toLowerCase().substring(0,12);
-      const descCR=(c.descricao||'').toLowerCase().substring(0,12);
-      return dtCR===t.data && Math.abs(valCR-valFC)<0.02 &&
-        (descFC===descCR||descCR.includes(descFC.substring(0,8))||descFC.includes(descCR.substring(0,8)));
+      return dtCR===t.data && Math.abs(valCR-valFC)<0.02;
     });
-    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:t.valor,origem:'Fluxo de Caixa',_fcIdx:i});
+    if(!jaTem) lista.push({data:t.data,descricao:t.fornecedor||t.descricao||'—',nf:t.nf||'',valor:valFC,origem:'Fluxo de Caixa',_fcIdx:i});
   });
 
   return lista.filter(t=>t.data).sort((a,b)=>b.data.localeCompare(a.data));
