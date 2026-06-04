@@ -9451,15 +9451,19 @@ function getPermissoesUsuario(u){
   if(isAprovador()) return MODULOS_SISTEMA.map(m=>m.id);
   // Mapeamento padrão por cargo
   const cargo = perfilStr.split('|')[0].toLowerCase();
-  if(cargo.includes('financ'))   return ['compras','financeiro','receber','fluxo','estoque'];
-  if(cargo.includes('compra'))   return ['compras','cotacoes','estoque','requisicoes','compint','envio'];
-  if(cargo.includes('pcp'))      return ['compras','producao','requisicoes','estoque','projetos','material'];
+  if(cargo.includes('financ'))    return ['compras','financeiro','receber','fluxo','estoque'];
+  if(cargo.includes('compra'))    return ['compras','cotacoes','estoque','requisicoes','compint','envio'];
+  if(cargo.includes('pcp'))       return ['compras','producao','requisicoes','estoque','projetos','material'];
   if(cargo.includes('producao')||cargo.includes('produção')) return ['producao','estoque','requisicoes'];
   if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao'];
-  if(cargo.includes('projeto'))  return ['projetos','producao','material'];
+  if(cargo.includes('projeto'))   return ['projetos','producao','material'];
   if(cargo.includes('engenharia'))return ['projetos','producao','material','estoque'];
-  if(cargo.includes('comercial'))return ['pdv','clientes','cotacoes'];
-  return MODULOS_SISTEMA.map(m=>m.id); // Outros = acesso total
+  if(cargo.includes('comercial')) return ['pdv','clientes','cotacoes'];
+  if(cargo.includes('manutenc'))  return ['estoque','requisicoes'];
+  // Cargo não reconhecido = sem permissões customizadas definidas
+  // Use o painel de permissões para definir acesso específico para este usuário
+  console.warn('[Permissões] Cargo não reconhecido para', u.nome||u.email, '— sem acesso. Configure as permissões manualmente.');
+  return []; // Acesso restrito até configurar
 }
 
 // Mapeamento grupo → tabs que ele controla
