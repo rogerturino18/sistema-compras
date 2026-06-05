@@ -1470,6 +1470,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <!-- Linha 2: botões de gestão -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <button onclick="sincronizarCPparaFC()" style="padding:8px 14px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Cria lançamentos FC para todas as contas pagas que ainda não aparecem">🔁 Sync CP→FC</button>
       <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔄 Sincronizar → CP/CR</button>
       <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">↩️ Desfazer Importação</button>
       <button onclick="gerenciarLancamentosFC()" style="padding:8px 14px;background:#263238;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Gerenciar Lançamentos</button>
@@ -12452,16 +12453,23 @@ async function salvarCP(){
         recorrencia:recorr||null,observacao:obs,criado_por:usuarioLogado?.nome||null};
       await api('PATCH','contas_pagar',obj,`?id=eq.${editCPId}`);
 
-      // Se foi marcada como Paga via edição, cria lançamento no FC
+      // Se foi marcada como Paga via edição, cria/atualiza lançamento no FC
       if(obj.status==='Paga' && obj.dt_pagamento){
-        const jaNoFC=(fcDados||[]).some(t=>t._cpId===editCPId||(t._origem==='CP'&&t.data===obj.dt_pagamento));
-        if(!jaNoFC){
-          const valorPago=obj.valor_pago||obj.valor||0;
+        const valorPago=Math.abs(obj.valor_pago||obj.valor||0);
+        const idxExistente=(fcDados||[]).findIndex(t=>t._cpId===editCPId);
+        if(idxExistente>=0){
+          // Já existe — atualiza data e valor para o correto
+          fcDados[idxExistente].data = obj.dt_pagamento;
+          fcDados[idxExistente].valor = -valorPago;
+          fcDados[idxExistente].fornecedor = descricao;
+          _salvarFcDados();
+        } else {
+          // Não existe — cria novo
           fcDados.push({
             data: obj.dt_pagamento,
             fornecedor: descricao,
             nf: num_doc||'',
-            valor: -Math.abs(valorPago),
+            valor: -valorPago,
             pendente: false,
             _origem: 'CP',
             _cpId: editCPId,
@@ -14059,6 +14067,50 @@ function _executarRemocaoDuplicatasFC(modalId){
   showToast(`✅ ${indicesRemover.length} lançamento(s) removido(s) do FC!`);
   renderFluxoCaixa();
   if(typeof renderPagamentos==='function') renderPagamentos();
+}
+
+// Varre TODAS as contas pagas e cria lançamentos FC que faltam
+function sincronizarCPparaFC(){
+  const pagas=(contasPagar||[]).filter(c=>c.status==='Paga'&&c.dt_pagamento);
+  if(!pagas.length){ showToast('Nenhuma conta paga encontrada','err'); return; }
+
+  let criados=0, atualizados=0;
+
+  pagas.forEach(c=>{
+    const valor=-Math.abs(c.valor_pago||c.valor||0);
+    const idx=(fcDados||[]).findIndex(t=>t._cpId===c.id);
+
+    if(idx>=0){
+      // Já existe — verifica se data/valor estão corretos
+      if(fcDados[idx].data!==c.dt_pagamento||fcDados[idx].valor!==valor){
+        fcDados[idx].data=c.dt_pagamento;
+        fcDados[idx].valor=valor;
+        fcDados[idx].fornecedor=c.descricao||'—';
+        atualizados++;
+      }
+    } else {
+      // Não existe — cria
+      fcDados.push({
+        data: c.dt_pagamento,
+        fornecedor: c.descricao||'—',
+        nf: c.num_doc||'',
+        valor,
+        pendente: false,
+        _origem: 'CP',
+        _cpId: c.id,
+        _pagoEm: c.dt_pagamento
+      });
+      criados++;
+    }
+  });
+
+  if(criados>0||atualizados>0){
+    _salvarFcDados();
+    renderFluxoCaixa();
+    showToast(`✅ FC atualizado! ${criados} criados, ${atualizados} corrigidos.`);
+  } else {
+    showToast('✅ FC já está sincronizado com CP!');
+  }
 }
 
 async function limparDadosFC(){
