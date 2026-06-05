@@ -13123,28 +13123,37 @@ async function confirmarTerceirizar(){
   const nome = document.getElementById('terc_nome').value.trim();
   const data = document.getElementById('terc_data').value;
   const obs  = document.getElementById('terc_obs').value.trim();
+  const prazo = parseInt(document.getElementById('terc_prazo')?.value)||null;
   if(!nome){ showToast('Informe o nome do terceirizado','err'); return; }
   if(!data){ showToast('Informe a data de envio','err'); return; }
+
+  const hdrs = {
+    'apikey':SB_KEY,
+    'Authorization':`Bearer ${SB_KEY}`,
+    'Content-Type':'application/json',
+    'Prefer':'return=minimal'
+  };
+
   try{
+    // Atualiza tudo numa única requisição
     const res = await fetch(`${SB_URL}/rest/v1/ordens_producao?id=eq.${_tercOrdemId}`,{
-      method:'PATCH',
-      headers:{
-        'apikey':SB_KEY,
-        'Authorization':`Bearer ${SB_KEY}`,
-        'Content-Type':'application/json',
-        'Prefer':'return=minimal'
-      },
+      method:'PATCH', headers:hdrs,
       body: JSON.stringify({
         status:'terceirizado',
         terceirizado_nome: nome,
         terceirizado_data: data,
         terceirizado_obs:  obs||null,
-        terceirizado_prazo: parseInt(document.getElementById('terc_prazo')?.value)||null
+        terceirizado_prazo: prazo
       })
     });
     if(!res.ok){
-      const err = await res.text();
-      throw new Error(err);
+      const errText = await res.text();
+      // Se for erro de schema cache, tenta só com status
+      if(errText.includes('schema cache')||errText.includes('PGRST204')){
+        showToast('⚠️ Cache do Supabase desatualizado.\n\nVá em Settings → API → Reload Schema no painel do Supabase e tente novamente.','err',8000);
+        return;
+      }
+      throw new Error(errText);
     }
     fecharModal('modalTerceirizar');
     await loadAll();
