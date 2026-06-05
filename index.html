@@ -1659,20 +1659,20 @@ tr:hover td{background:#f9fbf9}
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div>
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Dt/Hr Inicial</label>
-        <input type="datetime-local" id="at_ini" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Dt/Hr Inicial *</label>
+        <input type="datetime-local" id="at_ini" oninput="_calcTempManual()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
       </div>
       <div>
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Dt/Hr Final</label>
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">Dt/Hr Final *</label>
         <input type="datetime-local" id="at_fim" oninput="_calcTempManual()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
       </div>
-      <div>
-        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">OU Tempo (min) *</label>
-        <input type="number" id="at_minutos" placeholder="Ex: 90" min="1" oninput="_calcTempManual()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
-        <div id="at_tempoLabel" style="font-size:11px;color:#2e7d32;margin-top:3px;font-weight:600"></div>
-      </div>
+    </div>
+    <div id="at_tempoLabel" style="font-size:12px;margin-top:2px;min-height:20px;padding:4px 0"></div>
+    <div style="display:grid;grid-template-columns:1fr;gap:4px">
+      <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">OU informe diretamente em minutos</label>
+      <input type="number" id="at_minutos" placeholder="Ex: 120  (se não preencheu datas acima)" min="1" oninput="_calcTempManual()" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
     </div>
 
     <div>
@@ -3589,12 +3589,26 @@ function renderDashboard(){
   }
 
   const divN=document.getElementById('dashNotifs');
-  divN.innerHTML=notifs.length?notifs.map((n,i)=>`
+  // Filtra notificações sem permissão
+  const permsAtivas=getPermissoesUsuario(usuarioLogado);
+  const notifsFiltradas=notifs.filter(n=>{
+    if(n.tab===19||n.tab===25) return permsAtivas.includes('financeiro');
+    if(n.tab===20||n.tab===26) return permsAtivas.includes('receber');
+    if(n.tab===21||n.tab===22||n.tab===23) return permsAtivas.includes('fluxo');
+    if(n.tab===1||n.tab===2) return permsAtivas.includes('compras');
+    if(n.tab===6||n.tab===7) return permsAtivas.includes('cotacoes');
+    if(n.tab===10) return permsAtivas.includes('envio');
+    return true;
+  });
+  divN.innerHTML=notifsFiltradas.length?notifsFiltradas.map((n,i)=>`
     <div class="notif-item ${n.tipo}" onclick="showTab(${n.tab})" style="cursor:pointer">
       <span style="font-size:18px">${n.icon}</span>
       <span style="font-size:13px;font-weight:500">${n.msg}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--gray)">→</span>
     </div>`).join(''):'<div class="empty">Tudo em ordem! ✅</div>';
+
+  // Oculta cards sem permissão APÓS renderizar
+  setTimeout(aplicarPermissoes, 0);
 
   // Atividades recentes
   const ativs=cotacoes.slice(0,8).map(c=>{
@@ -13131,17 +13145,22 @@ function _calcTempManual(){
   const fim=document.getElementById('at_fim')?.value;
   const minEl=document.getElementById('at_minutos');
   const lbl=document.getElementById('at_tempoLabel');
-  if(ini&&fim&&fim>ini){
-    const mins=Math.round((new Date(fim)-new Date(ini))/60000);
-    if(mins>0){
-      if(minEl&&!minEl.value) minEl.value=mins;
-      const h=Math.floor(mins/60),m=mins%60;
-      if(lbl) lbl.textContent=`= ${h}h ${String(m).padStart(2,'0')}min`;
+  if(ini&&fim){
+    const dtIni=typeof parseLocalDate==='function'?parseLocalDate(ini):new Date(ini);
+    const dtFim=typeof parseLocalDate==='function'?parseLocalDate(fim):new Date(fim);
+    if(dtFim>dtIni){
+      const {minutos,texto,detalhe}=calcularHorasUteis(dtIni,dtFim);
+      if(minEl) minEl.value=minutos;
+      if(lbl) lbl.innerHTML=
+        `<b style="color:#1565c0">⏱️ ${texto}</b> `+
+        `<span style="color:#9e9e9e;font-size:11px">${detalhe} · sem FDS e almoço</span>`;
+    } else if(dtFim<=dtIni){
+      if(lbl) lbl.innerHTML='<span style="color:#c62828">❌ Data final deve ser maior que inicial</span>';
     }
   } else if(minEl?.value){
     const mins=parseInt(minEl.value)||0;
     const h=Math.floor(mins/60),m=mins%60;
-    if(lbl) lbl.textContent=`= ${h}h ${String(m).padStart(2,'0')}min`;
+    if(lbl) lbl.innerHTML=`<b style="color:#1565c0">⏱️ ${h}h ${String(m).padStart(2,'0')}min</b>`;
   }
 }
 
