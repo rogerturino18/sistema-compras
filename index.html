@@ -5798,24 +5798,21 @@ function renderOrdens(){
     return;
   }
 
-  // Agrupa ordens por PDV
-  // Build grupos from ALL ordens (including concluidas) for the button count
-  // lista is used only for kanban display
+  // Agrupa ordens por PDV — ignora ordens sem PDV (não aparecem no kanban)
   const gruposAll={};
   ordens.filter(o=>{
+    if(!o.pdv_id) return false; // ignora ordens sem PDV
     if(filtroPDV&&o.pdv_id!==filtroPDV) return false;
     if(b&&!(o.numero+''+o.descricao+o.desenho+o.material+'').toLowerCase().includes(b)) return false;
     return true;
   }).forEach(o=>{
-    const key=o.pdv_id||'sem_pdv';
-    if(!gruposAll[key]) gruposAll[key]=[];
-    gruposAll[key].push(o);
+    if(!gruposAll[o.pdv_id]) gruposAll[o.pdv_id]=[];
+    gruposAll[o.pdv_id].push(o);
   });
   const grupos={};
-  lista.forEach(o=>{
-    const key=o.pdv_id||'sem_pdv';
-    if(!grupos[key]) grupos[key]=[];
-    grupos[key].push(o);
+  lista.filter(o=>o.pdv_id).forEach(o=>{
+    if(!grupos[o.pdv_id]) grupos[o.pdv_id]=[];
+    grupos[o.pdv_id].push(o);
   });
 
   div.innerHTML=Object.entries(gruposAll).map(([pdvId,ordensGrupoAll])=>{
@@ -11704,6 +11701,44 @@ function gerarConteudoRelatorio(ordemId){
       </div>
       ${totalMin>0?`<div style="margin-top:10px;font-size:16px;font-weight:700;color:#2e7d32">⏱ Tempo total útil: ${totalH}h ${String(totalM).padStart(2,'0')}min</div>`:''}
     </div>
+
+    ${o?.terceirizado_nome?`
+    <div style="background:#fff3e0;border:2px solid #ff8f00;border-radius:10px;padding:14px 18px;margin-bottom:18px">
+      <div style="font-weight:700;font-size:14px;color:#e65100;margin-bottom:10px">🚚 Histórico de Terceirização</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:13px">
+        <div style="background:#fff8e1;border-radius:8px;padding:10px">
+          <div style="color:#9e9e9e;font-size:11px;margin-bottom:2px">TERCEIRIZADO</div>
+          <div style="font-weight:700;color:#e65100">${o.terceirizado_nome}</div>
+        </div>
+        <div style="background:#fff8e1;border-radius:8px;padding:10px">
+          <div style="color:#9e9e9e;font-size:11px;margin-bottom:2px">DATA DE ENVIO</div>
+          <div style="font-weight:700">${o.terceirizado_data?new Date(o.terceirizado_data+'T12:00').toLocaleDateString('pt-BR'):'—'}</div>
+        </div>
+        ${o.terceirizado_retorno?`
+        <div style="background:#e8f5e9;border-radius:8px;padding:10px">
+          <div style="color:#9e9e9e;font-size:11px;margin-bottom:2px">DATA DE RETORNO</div>
+          <div style="font-weight:700;color:#2e7d32">${new Date(o.terceirizado_retorno+'T12:00').toLocaleDateString('pt-BR')}</div>
+        </div>
+        ${(()=>{
+          if(o.terceirizado_data&&o.terceirizado_retorno){
+            const ini=new Date(o.terceirizado_data+'T12:00');
+            const fim=new Date(o.terceirizado_retorno+'T12:00');
+            const dias=Math.round((fim-ini)/(1000*60*60*24));
+            return `<div style="background:#e3f2fd;border-radius:8px;padding:10px">
+              <div style="color:#9e9e9e;font-size:11px;margin-bottom:2px">DIAS FORA</div>
+              <div style="font-weight:700;color:#1565c0">${dias} dia${dias!==1?'s':''}</div>
+            </div>`;
+          }return '';
+        })()}`:''}
+        ${o.terceirizado_prazo?`
+        <div style="background:#fff8e1;border-radius:8px;padding:10px">
+          <div style="color:#9e9e9e;font-size:11px;margin-bottom:2px">PRAZO ACORDADO</div>
+          <div style="font-weight:700">${o.terceirizado_prazo} dia${o.terceirizado_prazo!==1?'s':''}</div>
+        </div>`:''}
+      </div>
+      ${o.terceirizado_obs?`<div style="margin-top:10px;font-size:12px;color:#546e7a;background:#fff;border-radius:6px;padding:8px 10px">📝 ${o.terceirizado_obs}</div>`:''}
+    </div>`:''}
+
     ${tops.length?`<div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
       <thead><tr style="background:#f5f7f5">
