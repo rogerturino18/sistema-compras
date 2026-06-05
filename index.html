@@ -12451,6 +12451,25 @@ async function salvarCP(){
         valor_pago:parseFloat(document.getElementById('cp_valor_pago')?.value)||null,
         recorrencia:recorr||null,observacao:obs,criado_por:usuarioLogado?.nome||null};
       await api('PATCH','contas_pagar',obj,`?id=eq.${editCPId}`);
+
+      // Se foi marcada como Paga via edição, cria lançamento no FC
+      if(obj.status==='Paga' && obj.dt_pagamento){
+        const jaNoFC=(fcDados||[]).some(t=>t._cpId===editCPId||(t._origem==='CP'&&t.data===obj.dt_pagamento));
+        if(!jaNoFC){
+          const valorPago=obj.valor_pago||obj.valor||0;
+          fcDados.push({
+            data: obj.dt_pagamento,
+            fornecedor: descricao,
+            nf: num_doc||'',
+            valor: -Math.abs(valorPago),
+            pendente: false,
+            _origem: 'CP',
+            _cpId: editCPId,
+            _pagoEm: obj.dt_pagamento
+          });
+          _salvarFcDados();
+        }
+      }
       showToast('Conta atualizada!');
     } else {
       // Create multiple
