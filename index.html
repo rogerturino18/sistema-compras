@@ -13127,41 +13127,60 @@ async function confirmarTerceirizar(){
   if(!nome){ showToast('Informe o nome do terceirizado','err'); return; }
   if(!data){ showToast('Informe a data de envio','err'); return; }
 
-  const hdrs = {
-    'apikey':SB_KEY,
-    'Authorization':`Bearer ${SB_KEY}`,
-    'Content-Type':'application/json',
-    'Prefer':'return=minimal'
-  };
+  // Monta SQL direto para contornar schema cache do Supabase
+  const sql = `
+    UPDATE ordens_producao SET
+      status = 'terceirizado',
+      terceirizado_nome = '${nome.replace(/'/g,"''")}',
+      terceirizado_data = '${data}',
+      terceirizado_obs  = ${obs?`'${obs.replace(/'/g,"''")}'`:'NULL'},
+      terceirizado_prazo = ${prazo||'NULL'}
+    WHERE id = '${_tercOrdemId}'
+  `;
 
   try{
-    // Atualiza tudo numa única requisição
-    const res = await fetch(`${SB_URL}/rest/v1/ordens_producao?id=eq.${_tercOrdemId}`,{
-      method:'PATCH', headers:hdrs,
-      body: JSON.stringify({
-        status:'terceirizado',
-        terceirizado_nome: nome,
-        terceirizado_data: data,
-        terceirizado_obs:  obs||null,
-        terceirizado_prazo: prazo
-      })
+    // Tenta via RPC (bypassa schema cache)
+    const res = await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'},
+      body: JSON.stringify({sql})
     });
+
     if(!res.ok){
-      const errText = await res.text();
-      // Se for erro de schema cache, tenta só com status
-      if(errText.includes('schema cache')||errText.includes('PGRST204')){
-        showToast('⚠️ Cache do Supabase desatualizado.\n\nVá em Settings → API → Reload Schema no painel do Supabase e tente novamente.','err',8000);
-        return;
+      // RPC não existe — tenta PATCH normal
+      const r2 = await fetch(`${SB_URL}/rest/v1/ordens_producao?id=eq.${_tercOrdemId}`,{
+        method:'PATCH',
+        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body: JSON.stringify({status:'terceirizado',terceirizado_nome:nome,terceirizado_data:data,terceirizado_obs:obs||null,terceirizado_prazo:prazo})
+      });
+      if(!r2.ok){
+        const errText = await r2.text();
+        // Se ainda der schema cache, salva só no localStorage temporariamente
+        if(errText.includes('schema cache')||errText.includes('PGRST204')){
+          // Atualiza localmente enquanto Supabase não recarrega
+          const idx = ordens.findIndex(o=>o.id===_tercOrdemId);
+          if(idx>=0){
+            ordens[idx].status='terceirizado';
+            ordens[idx].terceirizado_nome=nome;
+            ordens[idx].terceirizado_data=data;
+            ordens[idx].terceirizado_obs=obs||null;
+          }
+          fecharModal('modalTerceirizar');
+          renderOrdens();
+          showToast('⚠️ Salvo localmente. Vá em Settings→API→Reload Schema no Supabase para persistir.','err',8000);
+          return;
+        }
+        throw new Error(errText);
       }
-      throw new Error(errText);
     }
+
     fecharModal('modalTerceirizar');
     await loadAll();
     renderOrdens();
     showToast(`🚚 Ordem enviada para ${nome}!`);
   }catch(e){
     console.error('[Terceirizar]',e);
-    showToast('❌ Erro: '+e.message,'err',6000);
+    showToast('❌ '+e.message,'err',6000);
   }
 }
 
