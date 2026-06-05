@@ -2759,6 +2759,75 @@ tr:hover td{background:#f9fbf9}
 </div>
 </div>
 
+<!-- MODAL TERCEIRIZAR ORDEM -->
+<div class="modal-bg" id="modalTerceirizar" style="display:none">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span>🚚 Enviar para Terceirizado</span>
+      <button class="modal-header-btn" onclick="fecharModal('modalTerceirizar')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div id="terc_info" style="background:#fff3e0;border-radius:10px;padding:12px;font-size:13px;color:#e65100;font-weight:600"></div>
+      <div>
+        <label class="form-label">Nome do Terceirizado *</label>
+        <input type="text" id="terc_nome" class="form-input" placeholder="Ex: Usinagem Silva, Tornaria João...">
+      </div>
+      <div>
+        <label class="form-label">Data de Envio *</label>
+        <input type="date" id="terc_data" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Observação</label>
+        <input type="text" id="terc_obs" class="form-input" placeholder="Ex: Tornear diâmetro externo, prazo 5 dias...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal('modalTerceirizar')">Cancelar</button>
+      <button class="btn primary" style="background:#e65100;border-color:#e65100" onclick="confirmarTerceirizar()">🚚 Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RETORNO TERCEIRIZADO -->
+<div class="modal-bg" id="modalRetornoTerc" style="display:none">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span>📦 Retorno do Terceirizado</span>
+      <button class="modal-header-btn" onclick="fecharModal('modalRetornoTerc')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div id="retorno_info" style="background:#e8f5e9;border-radius:10px;padding:12px;font-size:13px;color:#2e7d32;font-weight:600"></div>
+      <div>
+        <label class="form-label">Data de Retorno *</label>
+        <input type="date" id="retorno_data" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">O que fazer agora?</label>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #e0e0e0;border-radius:12px;cursor:pointer;transition:.15s" id="retorno_opt_fin" onclick="selecionarRetorno('finalizado')">
+            <input type="radio" name="retorno_acao" value="finalizado" style="width:18px;height:18px;accent-color:#2e7d32">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#2e7d32">✅ Finalizada</div>
+              <div style="font-size:12px;color:#546e7a">A peça está pronta. Ordem concluída.</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #e0e0e0;border-radius:12px;cursor:pointer;transition:.15s" id="retorno_opt_fab" onclick="selecionarRetorno('fabrica')">
+            <input type="radio" name="retorno_acao" value="fabrica" style="width:18px;height:18px;accent-color:#1565c0">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#1565c0">🔧 Continuar na Fábrica</div>
+              <div style="font-size:12px;color:#546e7a">Ainda tem trabalho aqui. Volta para Aguardando.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal('modalRetornoTerc')">Cancelar</button>
+      <button class="btn primary" onclick="confirmarRetornoTerc()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL ORDEM DE PRODUÇÃO -->
 <div class="modal-bg" id="modalOrdem">
 <div class="modal" style="max-width:540px">
@@ -5751,13 +5820,48 @@ function renderOrdens(){
       return tops.length>0 && tops.every(t=>t.dt_hr_final) && placeholder.length===0;
     });
     const ordenAtivas=ordensGrupo.filter(o=>!ordenConcluidas.includes(o));
-    // Aguardando = sem tempos reais em andamento (placeholder conta como aguardando)
+    // Terceirizadas = status 'terceirizado'
+    const ordenTerceirizadas=ordenAtivas.filter(o=>o.status==='terceirizado');
+    // Aguardando = sem tempos reais em andamento E não terceirizado
     const ordenAguardando=ordenAtivas.filter(o=>{
+      if(o.status==='terceirizado') return false;
       const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t)&&!t.dt_hr_final);
       return tops.length===0;
     });
 
     const kanbanCols=[
+      // ── Coluna TERCEIRIZADAS ────────────────────────────────────────────
+      ordenTerceirizadas.length>0?(()=>{
+        const cards=ordenTerceirizadas.map(o=>`
+          <div class="kanban-card" style="border:2px solid #ff8f00;border-radius:14px;background:linear-gradient(135deg,#e65100,#ff8f00);box-shadow:0 4px 14px rgba(230,81,0,0.3);overflow:hidden">
+            <div style="padding:12px 14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="background:rgba(255,255,255,0.2);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700">Nº ${o.numero}</span>
+                <span style="background:#fff3;color:#fff;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700">🚚 TERCEIRIZADO</span>
+              </div>
+              <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:4px">${o.descricao||'—'}</div>
+              ${o.desenho?`<div style="color:rgba(255,255,255,0.8);font-size:11px;margin-bottom:4px">📐 ${o.desenho}</div>`:''}
+              ${o.terceirizado_nome?`<div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:5px 8px;font-size:11px;color:#fff;margin-bottom:8px">
+                <b>Terceirizado:</b> ${o.terceirizado_nome}<br>
+                ${o.terceirizado_data?`<span style="color:rgba(255,255,255,0.8)">Enviado: ${new Date(o.terceirizado_data+'T12:00').toLocaleDateString('pt-BR')}</span>`:''}
+                ${o.terceirizado_obs?`<br><span style="color:rgba(255,255,255,0.7)">${o.terceirizado_obs}</span>`:''}
+              </div>`:''}
+              <div style="display:flex;gap:6px">
+                <button onclick="retornarTerceirizado('${o.id}')" style="flex:1;padding:7px;background:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#e65100;cursor:pointer">📦 Retornou</button>
+                <button onclick="abrirRelatorioOrdem('${o.id}')" style="padding:7px 10px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;font-size:12px;color:#fff;cursor:pointer">📊</button>
+              </div>
+            </div>
+          </div>`).join('');
+        return `<div class="kanban-col" style="grid-column:1/-1">
+          <div class="kanban-col-header" style="color:#e65100;background:#fff3e0;border-bottom:2px solid #ff8f00">
+            🚚 Terceirizadas
+            <span style="margin-left:6px;background:#ff8f00;color:#fff;padding:1px 8px;border-radius:10px;font-size:11px">${ordenTerceirizadas.length}</span>
+          </div>
+          <div class="kanban-col-body" style="display:flex;flex-wrap:wrap;gap:10px;padding:10px">
+            ${cards}
+          </div>
+        </div>`;
+      })() : '',
       (()=>{
         const cards=ordenAguardando.map(o=>`
           <div class="kanban-card" style="border:none;border-radius:14px;background:linear-gradient(135deg,#37474f,#546e7a);box-shadow:0 4px 14px rgba(0,0,0,0.2);cursor:grab;overflow:hidden"
@@ -5781,6 +5885,7 @@ function renderOrdens(){
                 <button class="btn btn-sm" onclick="abrirRelatorioOrdem('${o.id}')" style="flex:1;background:rgba(255,255,255,0.15);border-color:transparent;color:#fff;font-size:10px">📊</button>
                 <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" style="flex:1;background:rgba(255,255,255,0.15);border-color:transparent;color:#fff;font-size:10px">🖨️</button>
                 <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" style="flex:1;background:rgba(33,150,243,0.4);border-color:transparent;color:#fff;font-size:10px">✏️</button>
+                <button class="btn btn-sm" onclick="terceirizarOrdem('${o.id}')" style="flex:1;background:rgba(255,152,0,0.5);border-color:transparent;color:#fff;font-size:10px" title="Enviar para terceirizado">🚚</button>
                 <button class="btn btn-sm" onclick="deletarOrdem('${o.id}')" style="flex:1;background:rgba(244,67,54,0.3);border-color:transparent;color:#fff;font-size:10px">🗑</button>
               </div>
             </div>
@@ -9459,8 +9564,9 @@ function getPermissoesUsuario(u){
   if(!u) return MODULOS_SISTEMA.map(m=>m.id);
   const perfilStr = u.perfil||'';
   if(perfilStr.includes('|PERMS:')){
-    const perms = perfilStr.split('|PERMS:')[1];
-    return perms ? perms.split(',').filter(Boolean) : MODULOS_SISTEMA.map(m=>m.id);
+    const permsStr = perfilStr.split('|PERMS:')[1];
+    // PERMS: vazio = zero permissões (não cai no fallback por cargo)
+    return permsStr ? permsStr.split(',').filter(Boolean) : [];
   }
   if(isAprovador()) return MODULOS_SISTEMA.map(m=>m.id);
   // Mapeamento padrão por cargo
@@ -9675,13 +9781,11 @@ async function salvarEdicaoUsuario(){
   const id = document.getElementById('eu_id').value;
   const cargoAtual = document.getElementById('eu_cargo').value.trim()||'';
 
-  // Coleta permissões (checkboxes pré-renderizados em abrirEditarUsuario)
+  // Sempre salva PERMS explicitamente — nunca omite para não cair no fallback por cargo
   const permsSelecionadas = MODULOS_SISTEMA.filter(m=>document.getElementById('perm_'+m.id)?.checked).map(m=>m.id);
-  const todasMarcadas = permsSelecionadas.length === MODULOS_SISTEMA.length;
   const perfilLabel = cargoAtual || 'Usuário';
-  const perfilComPerms = (todasMarcadas || permsSelecionadas.length===0)
-    ? perfilLabel
-    : `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
+  // Formato: "Cargo|PERMS:mod1,mod2,..." — sempre inclui PERMS para sobrepor mapeamento por cargo
+  const perfilComPerms = `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
 
   const obj = {
     nome: document.getElementById('eu_nome').value.trim(),
@@ -12987,6 +13091,87 @@ async function desfazerRecebimentoCR(id){
     showToast('↩️ Recebimento desfeito! Conta voltou para Aberta.');
   }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
+
+// ===== TERCEIRIZAÇÃO DE ORDENS =====
+let _tercOrdemId = null;
+
+function terceirizarOrdem(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  _tercOrdemId = id;
+  const infoEl = document.getElementById('terc_info');
+  if(infoEl) infoEl.innerHTML = `<b>Ordem #${o.numero}</b> — ${o.descricao||''}${o.desenho?` · 📐 ${o.desenho}`:''}`;
+  document.getElementById('terc_nome').value = o.terceirizado_nome||'';
+  document.getElementById('terc_data').value = o.terceirizado_data||hoje();
+  document.getElementById('terc_obs').value = o.terceirizado_obs||'';
+  abrirModal('modalTerceirizar');
+}
+
+async function confirmarTerceirizar(){
+  const nome = document.getElementById('terc_nome').value.trim();
+  const data = document.getElementById('terc_data').value;
+  const obs  = document.getElementById('terc_obs').value.trim();
+  if(!nome){ showToast('Informe o nome do terceirizado','err'); return; }
+  if(!data){ showToast('Informe a data de envio','err'); return; }
+  try{
+    await api('PATCH','ordens_producao',{
+      status:'terceirizado',
+      terceirizado_nome: nome,
+      terceirizado_data: data,
+      terceirizado_obs:  obs||null
+    },`?id=eq.${_tercOrdemId}`);
+    fecharModal('modalTerceirizar');
+    await loadAll();
+    renderOrdens();
+    showToast(`🚚 Ordem enviada para ${nome}!`);
+  }catch(e){
+    showToast('⚠️ Execute este SQL no Supabase primeiro:\n\nALTER TABLE ordens_producao ADD COLUMN IF NOT EXISTS terceirizado_nome TEXT;\nALTER TABLE ordens_producao ADD COLUMN IF NOT EXISTS terceirizado_data DATE;\nALTER TABLE ordens_producao ADD COLUMN IF NOT EXISTS terceirizado_obs TEXT;\nALTER TABLE ordens_producao ADD COLUMN IF NOT EXISTS terceirizado_retorno DATE;','err',10000);
+    console.error(e);
+  }
+}
+
+function retornarTerceirizado(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  _tercOrdemId = id;
+  const infoEl = document.getElementById('retorno_info');
+  if(infoEl) infoEl.innerHTML =
+    `<b>Ordem #${o.numero}</b> — ${o.descricao||''}<br>`+
+    `<span style="font-size:12px;font-weight:400">Terceirizado: ${o.terceirizado_nome||'—'} · Enviado: ${o.terceirizado_data?new Date(o.terceirizado_data+'T12:00').toLocaleDateString('pt-BR'):'—'}</span>`;
+  document.getElementById('retorno_data').value = hoje();
+  document.querySelectorAll('[name="retorno_acao"]').forEach(r=>r.checked=false);
+  ['retorno_opt_fin','retorno_opt_fab'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.style.borderColor='#e0e0e0';el.style.background='#fff';}
+  });
+  abrirModal('modalRetornoTerc');
+}
+
+function selecionarRetorno(tipo){
+  const fin=document.getElementById('retorno_opt_fin');
+  const fab=document.getElementById('retorno_opt_fab');
+  if(fin){fin.style.borderColor=tipo==='finalizado'?'#2e7d32':'#e0e0e0';fin.style.background=tipo==='finalizado'?'#f1f8f1':'#fff';}
+  if(fab){fab.style.borderColor=tipo==='fabrica'?'#1565c0':'#e0e0e0';fab.style.background=tipo==='fabrica'?'#e3f2fd':'#fff';}
+}
+
+async function confirmarRetornoTerc(){
+  const acao = document.querySelector('[name="retorno_acao"]:checked')?.value;
+  const dataRetorno = document.getElementById('retorno_data').value;
+  if(!acao){ showToast('Selecione o que fazer com a ordem','err'); return; }
+  if(!dataRetorno){ showToast('Informe a data de retorno','err'); return; }
+  try{
+    const novoStatus = acao==='finalizado' ? 'concluido' : 'aguardando';
+    await api('PATCH','ordens_producao',{status:novoStatus, terceirizado_retorno:dataRetorno},`?id=eq.${_tercOrdemId}`);
+    fecharModal('modalRetornoTerc');
+    await loadAll();
+    renderOrdens();
+    const o = ordens.find(x=>x.id===_tercOrdemId);
+    showToast(acao==='finalizado'
+      ? `✅ Ordem #${o?.numero||''} finalizada!`
+      : `🔧 Ordem #${o?.numero||''} voltou para a fábrica!`);
+  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
+}
+// ===== FIM TERCEIRIZAÇÃO =====
 
 function renderHistoricoTempos(){
   const tbody=document.getElementById('listaTempos');
