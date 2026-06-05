@@ -2760,70 +2760,82 @@ tr:hover td{background:#f9fbf9}
 </div>
 
 <!-- MODAL TERCEIRIZAR ORDEM -->
-<div class="modal-bg" id="modalTerceirizar" style="display:none">
-  <div class="modal" style="max-width:440px">
+<div class="modal-bg" id="modalTerceirizar">
+  <div class="modal" style="max-width:480px;width:95vw">
     <div class="modal-header">
-      <span>🚚 Enviar para Terceirizado</span>
-      <button class="modal-header-btn" onclick="fecharModal('modalTerceirizar')">✕</button>
-    </div>
-    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
-      <div id="terc_info" style="background:#fff3e0;border-radius:10px;padding:12px;font-size:13px;color:#e65100;font-weight:600"></div>
-      <div>
-        <label class="form-label">Nome do Terceirizado *</label>
-        <input type="text" id="terc_nome" class="form-input" placeholder="Ex: Usinagem Silva, Tornaria João...">
-      </div>
-      <div>
-        <label class="form-label">Data de Envio *</label>
-        <input type="date" id="terc_data" class="form-input">
-      </div>
-      <div>
-        <label class="form-label">Observação</label>
-        <input type="text" id="terc_obs" class="form-input" placeholder="Ex: Tornear diâmetro externo, prazo 5 dias...">
+      <h3>🚚 Enviar para Terceirizado</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalTerceirizar')">✕</button>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-body">
+      <div id="terc_info" style="background:#fff3e0;border-radius:10px;padding:12px;font-size:13px;color:#e65100;font-weight:600;margin-bottom:4px"></div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Nome do Terceirizado *</label>
+          <input type="text" id="terc_nome" placeholder="Ex: Usinagem Silva, Tornaria João...">
+        </div>
+        <div class="form-group">
+          <label>Data de Envio *</label>
+          <input type="date" id="terc_data">
+        </div>
+        <div class="form-group">
+          <label>Prazo estimado (dias)</label>
+          <input type="number" id="terc_prazo" placeholder="Ex: 5" min="1">
+        </div>
+        <div class="form-group full">
+          <label>Observação / Serviço solicitado</label>
+          <input type="text" id="terc_obs" placeholder="Ex: Tornear diâmetro externo conforme desenho">
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions" style="padding:0 22px 22px">
       <button class="btn" onclick="fecharModal('modalTerceirizar')">Cancelar</button>
-      <button class="btn primary" style="background:#e65100;border-color:#e65100" onclick="confirmarTerceirizar()">🚚 Enviar</button>
+      <button class="btn primary" style="background:#e65100;border-color:#e65100" onclick="confirmarTerceirizar()">🚚 Enviar para Terceirizado</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL RETORNO TERCEIRIZADO -->
-<div class="modal-bg" id="modalRetornoTerc" style="display:none">
-  <div class="modal" style="max-width:440px">
+<div class="modal-bg" id="modalRetornoTerc">
+  <div class="modal" style="max-width:480px;width:95vw">
     <div class="modal-header">
-      <span>📦 Retorno do Terceirizado</span>
-      <button class="modal-header-btn" onclick="fecharModal('modalRetornoTerc')">✕</button>
-    </div>
-    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
-      <div id="retorno_info" style="background:#e8f5e9;border-radius:10px;padding:12px;font-size:13px;color:#2e7d32;font-weight:600"></div>
-      <div>
-        <label class="form-label">Data de Retorno *</label>
-        <input type="date" id="retorno_data" class="form-input">
+      <h3>📦 Retorno do Terceirizado</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalRetornoTerc')">✕</button>
       </div>
-      <div>
-        <label class="form-label">O que fazer agora?</label>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
-          <label style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #e0e0e0;border-radius:12px;cursor:pointer;transition:.15s" id="retorno_opt_fin" onclick="selecionarRetorno('finalizado')">
-            <input type="radio" name="retorno_acao" value="finalizado" style="width:18px;height:18px;accent-color:#2e7d32">
-            <div>
-              <div style="font-weight:700;font-size:14px;color:#2e7d32">✅ Finalizada</div>
-              <div style="font-size:12px;color:#546e7a">A peça está pronta. Ordem concluída.</div>
-            </div>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #e0e0e0;border-radius:12px;cursor:pointer;transition:.15s" id="retorno_opt_fab" onclick="selecionarRetorno('fabrica')">
-            <input type="radio" name="retorno_acao" value="fabrica" style="width:18px;height:18px;accent-color:#1565c0">
-            <div>
-              <div style="font-weight:700;font-size:14px;color:#1565c0">🔧 Continuar na Fábrica</div>
-              <div style="font-size:12px;color:#546e7a">Ainda tem trabalho aqui. Volta para Aguardando.</div>
-            </div>
-          </label>
+    </div>
+    <div class="modal-body">
+      <div id="retorno_info" style="background:#e8f5e9;border-radius:10px;padding:12px;font-size:13px;color:#2e7d32;font-weight:600;margin-bottom:4px"></div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Data de Retorno *</label>
+          <input type="date" id="retorno_data">
+        </div>
+        <div class="form-group full">
+          <label>O que fazer agora?</label>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #e0e0e0;border-radius:12px;cursor:pointer" id="retorno_opt_fin" onclick="selecionarRetorno('finalizado')">
+              <input type="radio" name="retorno_acao" value="finalizado" style="width:18px;height:18px;accent-color:#2e7d32">
+              <div>
+                <div style="font-weight:700;font-size:14px;color:#2e7d32">✅ Finalizada</div>
+                <div style="font-size:12px;color:#546e7a">A peça está pronta. Ordem concluída.</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #e0e0e0;border-radius:12px;cursor:pointer" id="retorno_opt_fab" onclick="selecionarRetorno('fabrica')">
+              <input type="radio" name="retorno_acao" value="fabrica" style="width:18px;height:18px;accent-color:#1565c0">
+              <div>
+                <div style="font-weight:700;font-size:14px;color:#1565c0">🔧 Continuar na Fábrica</div>
+                <div style="font-size:12px;color:#546e7a">Ainda tem trabalho aqui. Volta para Aguardando.</div>
+              </div>
+            </label>
+          </div>
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-actions" style="padding:0 22px 22px">
       <button class="btn" onclick="fecharModal('modalRetornoTerc')">Cancelar</button>
-      <button class="btn primary" onclick="confirmarRetornoTerc()">Confirmar</button>
+      <button class="btn primary" onclick="confirmarRetornoTerc()">Confirmar Retorno</button>
     </div>
   </div>
 </div>
@@ -13126,7 +13138,8 @@ async function confirmarTerceirizar(){
         status:'terceirizado',
         terceirizado_nome: nome,
         terceirizado_data: data,
-        terceirizado_obs:  obs||null
+        terceirizado_obs:  obs||null,
+        terceirizado_prazo: parseInt(document.getElementById('terc_prazo')?.value)||null
       })
     });
     if(!res.ok){
