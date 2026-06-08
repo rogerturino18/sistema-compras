@@ -1385,7 +1385,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Valor</th><th>Status</th>
+        <th>Vencimento</th><th>Fornecedor / Descrição</th><th class="mob-hide">Nº NF</th><th>Valor</th><th>Status</th>
         <th class="mob-hide">Dt. Pagamento</th><th class="mob-hide">Juros/Multa</th>
         <th style="width:130px">Ações</th>
       </tr></thead>
@@ -12322,6 +12322,7 @@ function renderContasPagar(){
         ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}${urgBadge}
       </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#546e7a;white-space:nowrap" class="mob-hide">${c.num_doc||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:${atrasado?'#c62828':isPaga?'#2e7d32':'#263238'};font-size:13px">
         ${isPaga?fmtMoeda(c.valor_pago||c.valor):fmtMoeda(c.valor)}
       </td>
@@ -13678,10 +13679,34 @@ async function importarCPdePlanilha(input){
 
     if(!novos.length){ showToast('Nenhum lançamento válido encontrado. Verifique o formato da planilha.','err'); return; }
 
-    if(!confirm(`Importar ${novos.length} contas a pagar?\n\nColunas detectadas:\n- Data/Venc: "${header[ci.data]}"\n- Descrição: "${header[ci.desc]}"\n- Valor: "${header[ci.valor]}"\n\nPrimeiro registro: ${novos[0].descricao} | ${novos[0].vencimento} | R$${novos[0].valor}`)) return;
+    // Agrupa por NF: mesma NF + mesmo fornecedor + mesma data → soma valores
+    // NUNCA agrupa N/D, N/A, em branco ou nulos
+    const agrupados=[];
+    const mapaGrupos={};
+    novos.forEach(c=>{
+      const nf=(c.num_doc||'').trim();
+      const nfValida=nf&&nf!=='N/D'&&nf!=='N/A'&&nf!=='ND'&&nf!=='-'&&nf.length>0;
+      if(nfValida){
+        const key=`${c.descricao}|${nf}|${c.vencimento}`;
+        if(mapaGrupos[key]){
+          mapaGrupos[key].valor+=c.valor;
+        } else {
+          mapaGrupos[key]={...c};
+          agrupados.push(mapaGrupos[key]);
+        }
+      } else {
+        // Sem NF válida: entra individualmente
+        agrupados.push({...c});
+      }
+    });
+
+    const reduzidos=novos.length-agrupados.length;
+    const msgAgrup=reduzidos>0?`\n\n🔗 ${reduzidos} linha(s) agrupadas por NF (${novos.length} → ${agrupados.length} registros)`:'';
+
+    if(!confirm(`Importar ${agrupados.length} contas a pagar?${msgAgrup}\n\nColunas:\n- Data/Venc: "${header[ci.data]}"\n- Descrição: "${header[ci.desc]}"\n- Valor: "${header[ci.valor]}"\n\nPrimeiro: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
 
     let ok=0, err=0;
-    for(const c of novos){
+    for(const c of agrupados){
       try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; console.error(e); }
     }
     await loadFinanceiro();
