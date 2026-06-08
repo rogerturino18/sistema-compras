@@ -13607,19 +13607,19 @@ async function importarCPdePlanilha(input){
 
     // Lê linhas a partir do header+1, ignora linhas sem descrição ou sem data válida
     const novos=[];
+    const vistos=new Set(); // evita duplicatas
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
-      // Parse da data — pode ser objeto Date, string ou número serial Excel
+      // Parse da data
       let dataStr='';
       const rawData=row[ci.data];
       if(!rawData) continue;
       if(rawData instanceof Date){
         dataStr=rawData.toISOString().substring(0,10);
       } else if(typeof rawData==='string'&&rawData.includes('/')){
-        // dd/mm/yyyy → yyyy-mm-dd
         const p=rawData.split('/');
         if(p.length===3) dataStr=`${p[2].substring(0,4)}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-      } else if(typeof rawData==='string'&&rawData.includes('-')){
+      } else if(typeof rawData==='string'&&rawData.match(/\d{4}-\d{2}-\d{2}/)){
         dataStr=rawData.substring(0,10);
       } else {
         dataStr=_parseExcelDate(rawData)||'';
@@ -13629,27 +13629,38 @@ async function importarCPdePlanilha(input){
       const desc=(row[ci.desc]||'').toString().trim();
       if(!desc||desc.length<2) continue;
 
-      // Parse do valor — pode ter . como milhar e , como decimal (pt-BR) ou já ser número
+      // Parse do valor — XLSX com raw:false retorna strings como "2.562,12" (pt-BR) ou números
       let valor=0;
       const rawVal=row[ci.valor];
       if(typeof rawVal==='number'){
-        valor=rawVal;
+        valor=Math.abs(rawVal);
       } else {
-        const s=(rawVal||'0').toString().replace(/[R$\s]/g,'');
-        // Detecta formato: se tem vírgula após ponto → pt-BR (1.234,56)
-        if(s.includes(',')&&s.lastIndexOf(',')>s.lastIndexOf('.')){
+        const s=(rawVal||'0').toString().replace(/[R$\s]/g,'').trim();
+        // Formato pt-BR: 1.234.567,89 → remove pontos, troca vírgula por ponto
+        if(s.includes(',') && s.lastIndexOf(',') > s.lastIndexOf('.')){
           valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
+        } else if(s.includes('.') && s.lastIndexOf('.') > s.lastIndexOf(',')){
+          // Formato en-US: 1,234.56 → remove vírgulas
+          valor=parseFloat(s.replace(/,/g,''))||0;
         } else {
-          valor=parseFloat(s.replace(',',''))||0;
+          valor=parseFloat(s)||0;
         }
+        valor=Math.abs(valor);
       }
       if(!valor) continue;
+
+      const nf=ci.nf>=0?(row[ci.nf]||'').toString().replace(/^0+/,'').trim()||null:null;
+
+      // Evita duplicatas: mesma desc+data+valor
+      const key=`${dataStr}|${desc}|${valor}`;
+      if(vistos.has(key)) continue;
+      vistos.add(key);
 
       novos.push({
         descricao:desc,
         vencimento:dataStr,
-        valor:Math.abs(valor),
-        num_doc:ci.nf>=0?(row[ci.nf]||'').toString().replace(/^0+/,'').trim()||null:null,
+        valor,
+        num_doc:nf,
         status:'Aberta',
         criado_por:usuarioLogado?.nome||null,
         observacao:'Importado de planilha'
