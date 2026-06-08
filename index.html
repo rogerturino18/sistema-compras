@@ -15441,35 +15441,42 @@ function _renderFluxoCaixaCore(){
   const saldoAntBase=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0')
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
-  // Calcula saldo anterior em cascata, mês a mês, sem duplicar CP vs importados
+  // Calcula saldo anterior: pega o saldo previsto do último dia do mês anterior
   let saldoAnt = saldoAntBase;
   const menorMes=_fcMenorMesSelecionado();
   if(menorMes){
-    const transAntes = fcDados.filter(t=>t&&t.data&&!t.pendente&&t.data.substring(0,7)<menorMes);
+    // Simula o FC completo (sem filtro de mês) para achar o saldo no último dia do mês anterior
+    const mesAnterior = menorMes; // ex: '2026-06'
+    // Pega todos os itens realizados (não pendentes) até o último dia do mês anterior
+    const anoMes = mesAnterior.split('-');
+    const ultimoDiaMesAnt = new Date(parseInt(anoMes[0]), parseInt(anoMes[1])-1, 0)
+      .toISOString().substring(0,10); // último dia do mês anterior ao filtrado
 
-    // Remove lançamentos importados (sem _origem, sem _cpId) que têm um lançamento CP correspondente
-    // Usa _cpId para deduplica com precisão — evita remover lançamentos com mesmo nome mas diferente
-    const cpIdsPresentes = new Set(transAntes.filter(t=>t._cpId).map(t=>t._cpId));
+    // Reconstrói o saldo acumulado dia a dia até ultimoDiaMesAnt
+    // Usa só os lançamentos realizados (não pendentes) do FC
+    const transPassados = fcDados
+      .filter(t=>t&&t.data&&!t.pendente&&t.data<=ultimoDiaMesAnt)
+      .sort((a,b)=>a.data.localeCompare(b.data));
 
-    // Lançamentos importados que têm correspondente CP: mesma data + mesmo valor (tolerância 1 centavo)
-    const importadosDuplicados = new Set();
-    transAntes.forEach((t,i)=>{
-      if(t._cpId||t._origem) return; // já tem origem, não é importado
-      // Verifica se existe CP com mesma data e valor
-      const temCP = transAntes.some(cp=>
-        cp._cpId &&
-        cp.data===t.data &&
-        Math.abs(Math.abs(cp.valor)-Math.abs(t.valor))<0.02
+    // Deduplica por data+valor: remove importados que têm CP correspondente
+    const usados = new Set();
+    const transFinal = [];
+    // Primeiro passa: marca todos os CP (têm prioridade)
+    transPassados.forEach((t,i)=>{ if(t._cpId) usados.add(i); });
+    // Segundo passa: para cada importado, verifica se tem CP com mesma data+valor
+    transPassados.forEach((t,i)=>{
+      if(t._cpId||t._origem) { transFinal.push(t); return; }
+      const temCP = transPassados.some(cp=>
+        cp._cpId && cp.data===t.data && Math.abs(Math.abs(cp.valor)-Math.abs(t.valor))<0.02
       );
-      if(temCP) importadosDuplicados.add(i);
+      if(!temCP) transFinal.push(t);
     });
 
-    const transDedupados = transAntes.filter((_,i)=>!importadosDuplicados.has(i));
-    const somaAntes = transDedupados.reduce((s,t)=>s+t.valor, 0);
-    saldoAnt = saldoAntBase + somaAntes;
+    const somaPassada = transFinal.reduce((s,t)=>s+t.valor,0);
+    saldoAnt = saldoAntBase + somaPassada;
 
     const elSA = document.getElementById('fcSaldoAnterior');
-    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + Anterior: ${fmtMoeda(somaAntes)} = ${fmtMoeda(saldoAnt)}`;
+    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + até ${ultimoDiaMesAnt}: ${fmtMoeda(somaPassada)} = ${fmtMoeda(saldoAnt)}`;
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
