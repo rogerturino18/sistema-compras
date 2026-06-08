@@ -13606,8 +13606,12 @@ async function importarCPdePlanilha(input){
     if(ci.valor<0) ci.valor=2;
 
     // Lê linhas a partir do header+1, ignora linhas sem descrição ou sem data válida
+    // DEBUG — ver o que XLSX retorna
+    console.log('[Import] headerRow:', headerRow, 'header:', header);
+    console.log('[Import] ci:', ci);
+    console.log('[Import] Linha após header:', allRows[headerRow+1]);
+    console.log('[Import] Linha headerRow+2:', allRows[headerRow+2]);
     const novos=[];
-    const vistos=new Set(); // evita duplicatas
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
       // Parse da data
