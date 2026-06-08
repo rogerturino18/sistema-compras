@@ -15450,6 +15450,8 @@ function _renderFluxoCaixaCore(){
     const somaCR = crRecebidosAntes.reduce((s,c)=>s+Math.abs(c.valor_recebido||c.valor||0), 0);
 
     saldoAnt = saldoAntBase + somaFC + somaCP + somaCR;
+    console.log('[FC Saldo]','Base:',saldoAntBase,'FC ant:',somaFC,'CP ant:',somaCP,'CR ant:',somaCR,'Total:',saldoAnt,'menorMes:',menorMes);
+    console.log('[FC Saldo] FC ant items:', transFC.length, transFC.map(t=>({dt:t.data,v:t.valor,orig:t._origem,cpId:t._cpId})));
     const elSA = document.getElementById('fcSaldoAnterior');
     if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + FC: ${fmtMoeda(somaFC)} + CP: ${fmtMoeda(somaCP)} + CR: ${fmtMoeda(somaCR)}`;
   }
