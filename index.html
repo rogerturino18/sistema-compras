@@ -13584,7 +13584,8 @@ async function importarCPdePlanilha(input){
     const wb=XLSX.read(data,{type:'array',cellDates:true});
     const ws0=wb.Sheets[wb.SheetNames[0]];
     const allRows=XLSX.utils.sheet_to_json(ws0,{header:1,raw:false,dateNF:'YYYY-MM-DD'});
-    // Detecta header real
+
+    // Detecta header real (pula linhas de título)
     let headerRow=0;
     for(let i=0;i<Math.min(10,allRows.length);i++){
       const rowStr=(allRows[i]||[]).join('|').toLowerCase();
@@ -13602,73 +13603,79 @@ async function importarCPdePlanilha(input){
     const novos=[];
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
-      // Parse data: M/D/YY americano, DD/MM/YYYY brasileiro, YYYY-MM-DD iso
+
+      // Desc
+      const desc=(row[ci.desc]||'').toString().trim();
+      if(!desc||desc.length<2) continue;
+
+      // Data — vem como "2026-06-06 00:00:00" ou Date object ou "6/6/26"
       let dataStr='';
       const rawData=row[ci.data];
       if(!rawData) continue;
-      if(rawData instanceof Date){ dataStr=rawData.toISOString().substring(0,10); }
-      else {
+      if(rawData instanceof Date){
+        dataStr=rawData.toISOString().substring(0,10);
+      } else {
         const s=rawData.toString().trim();
-        if(s.includes('/')){
+        // "2026-06-06 00:00:00" ou "2026-06-06"
+        if(s.match(/^\d{4}-\d{2}-\d{2}/)){
+          dataStr=s.substring(0,10);
+        } else if(s.includes('/')){
           const p=s.split('/');
           if(p.length===3){
             if(p[2].length<=2){ dataStr=`${2000+parseInt(p[2])}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}`; }
             else if(p[0].length===4){ dataStr=`${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`; }
             else { dataStr=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`; }
           }
-        } else if(s.match(/^\d{4}-\d{2}-\d{2}/)){ dataStr=s.substring(0,10); }
-        else { dataStr=_parseExcelDate(rawData)||''; }
+        } else { dataStr=_parseExcelDate(rawData)||''; }
       }
       if(!dataStr||!dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
 
-      const desc=(row[ci.desc]||'').toString().trim();
-      if(!desc||desc.length<2) continue;
-
-      // Parse valor: "-R$ 2,562.12" americano ou "2.562,12" brasileiro
+      // Valor — vem como número float negativo ex: -2562.12
       let valor=0;
       const rawVal=row[ci.valor];
       if(typeof rawVal==='number'){ valor=Math.abs(rawVal); }
       else {
         const s=(rawVal||'0').toString().replace(/[R$\s\-]/g,'').trim();
-        if(s.includes('.')&&s.includes(',')&&s.lastIndexOf('.')>s.lastIndexOf(',')){ valor=parseFloat(s.replace(/,/g,''))||0; }
-        else if(s.includes(',')){ valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0; }
-        else { valor=parseFloat(s)||0; }
+        if(s.includes(',')&&s.lastIndexOf(',')>s.lastIndexOf('.')){ valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0; }
+        else { valor=parseFloat(s.replace(/,/g,''))||0; }
         valor=Math.abs(valor);
       }
       if(!valor) continue;
 
-      const nfRaw=ci.nf>=0?(row[ci.nf]||'').toString().trim():'';
-      const nf=nfRaw.replace(/^0+/,'')||null;
+      // NF — mantém zeros à esquerda, ex: "000064562"
+      const nf=ci.nf>=0?(row[ci.nf]||'').toString().trim()||null:null;
+
       novos.push({descricao:desc,vencimento:dataStr,valor,num_doc:nf,
         status:'Aberta',criado_por:usuarioLogado?.nome||null,observacao:'Importado de planilha'});
     }
 
     if(!novos.length){ showToast('Nenhum lançamento válido encontrado','err'); return; }
 
-    // Agrupa por NF + fornecedor + vencimento (soma valores)
-    // N/D, N/A, nulo = nao agrupa
+    // Agrupa: mesma NF + mesmo fornecedor + mesmo vencimento = soma valores
+    // N/D, N/A, null = NÃO agrupa (entra individualmente)
     const agrupados=[];
     const mapaGrupos={};
     novos.forEach(c=>{
       const nf=(c.num_doc||'').trim().toUpperCase();
-      const nfOk=nf&&!['N/D','N/A','ND','-',''].includes(nf);
+      const nfOk=nf&&nf!=='N/D'&&nf!=='N/A'&&nf!=='ND'&&nf!=='-';
       if(nfOk){
-        const key=`${c.descricao}|${nf}|${c.vencimento}`;
+        const key=`${c.descricao}||${nf}||${c.vencimento}`;
         if(mapaGrupos[key]){ mapaGrupos[key].valor=parseFloat((mapaGrupos[key].valor+c.valor).toFixed(2)); }
         else { mapaGrupos[key]={...c}; agrupados.push(mapaGrupos[key]); }
       } else { agrupados.push({...c}); }
     });
 
     const red=novos.length-agrupados.length;
-    const msg=red>0?`\n\u{1F517} ${red} linhas agrupadas (${novos.length} linhas -> ${agrupados.length} contas)`:' (sem agrupamentos)';
-    if(!confirm(`Importar ${agrupados.length} contas a pagar?${msg}\n\nPrimeiro: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
+    const msgGrupo=red>0?`\n\uD83D\uDD17 ${red} linhas agrupadas por NF (${novos.length} \u2192 ${agrupados.length} contas)`:' (sem agrupamentos por NF)';
+    if(!confirm(`Importar ${agrupados.length} contas a pagar?${msgGrupo}\n\nEx: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
 
     let ok=0,err=0;
     for(const c of agrupados){ try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; } }
     await loadFinanceiro(); renderContasPagar();
-    showToast(`✅ ${ok} contas importadas!${err?` ❌ ${err} erros`:''}`);
+    showToast(`\u2705 ${ok} contas importadas!${err?` \u274C ${err} erros`:''}`);
   }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
+
 
 async function importarCRdePlanilha(input){
   const file=input.files?.[0]; input.value='';
