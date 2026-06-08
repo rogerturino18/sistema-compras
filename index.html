@@ -13570,6 +13570,7 @@ async function salvarTempoManual(){
 async function importarCPdePlanilha(input){
   const file=input.files?.[0]; input.value='';
   if(!file) return;
+  console.log('[CP Import v4] arquivo:', file.name, file.size);
   showToast('⏳ Lendo planilha...');
   try{
     if(typeof XLSX==='undefined'){
