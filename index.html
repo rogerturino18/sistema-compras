@@ -9590,7 +9590,7 @@ function getPermissoesUsuario(u){
   if(cargo.includes('compra'))    return ['compras','cotacoes','estoque','requisicoes','compint','envio'];
   if(cargo.includes('pcp'))       return ['compras','producao','requisicoes','estoque','projetos','material'];
   if(cargo.includes('producao')||cargo.includes('produção')) return ['producao','estoque','requisicoes'];
-  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao'];
+  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao','requisicoes'];
   if(cargo.includes('projeto'))   return ['projetos','producao','material'];
   if(cargo.includes('engenharia'))return ['projetos','producao','material','estoque'];
   if(cargo.includes('comercial')) return ['pdv','clientes','cotacoes'];
@@ -11007,7 +11007,7 @@ async function salvarRequisicao(){
   console.log('[Req] isAprovador():', isAprovador());
   const ehAprovador=isAprovador();
   const obj={
-    numero, status: ehAprovador ? 'Atendida' : 'Aguardando Aprovação',
+    numero, status: (ehAprovador||isExpedicao()) ? 'Atendida' : 'Aguardando Aprovação',
     departamento:depto,
     pdv_id:pdvId||null,
     pdv_nome:pvDest?('PDV '+pvDest.numero+(pvDest.cliente?' — '+pvDest.cliente:'')+(pvDest.equipamento?' | '+pvDest.equipamento:'')):(isPdvDest?pvDestId:null),
