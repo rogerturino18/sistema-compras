@@ -13584,6 +13584,7 @@ async function importarCPdePlanilha(input){
     const wb=XLSX.read(data,{type:'array',cellDates:true});
     const ws0=wb.Sheets[wb.SheetNames[0]];
     const allRows=XLSX.utils.sheet_to_json(ws0,{header:1,raw:false,dateNF:'YYYY-MM-DD'});
+    // Detecta header real
     let headerRow=0;
     for(let i=0;i<Math.min(10,allRows.length);i++){
       const rowStr=(allRows[i]||[]).join('|').toLowerCase();
@@ -13593,13 +13594,15 @@ async function importarCPdePlanilha(input){
     const ci={
       data:  header.findIndex(h=>h.includes('venc')||h.includes('data')),
       desc:  header.findIndex(h=>h.includes('raz')||h.includes('forn')||h.includes('nome')||h.includes('desc')||h.includes('histor')),
-      valor: header.findIndex(h=>h.includes('valor')||h.includes('\u00edq')||h.includes('liq')||h.includes('total')||h.includes('vlr')),
-      nf:    header.findIndex(h=>h.includes('nota')||h.includes('fiscal')||h===' nf '||h==='nf'),
+      valor: header.findIndex(h=>h.includes('valor')||h.includes('liq')||h.includes('total')||h.includes('vlr')),
+      nf:    header.findIndex(h=>h.includes('nota')||h.includes('fiscal')),
     };
     if(ci.data<0) ci.data=0; if(ci.desc<0) ci.desc=1; if(ci.valor<0) ci.valor=2;
+
     const novos=[];
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
+      // Parse data: M/D/YY americano, DD/MM/YYYY brasileiro, YYYY-MM-DD iso
       let dataStr='';
       const rawData=row[ci.data];
       if(!rawData) continue;
@@ -13617,38 +13620,49 @@ async function importarCPdePlanilha(input){
         else { dataStr=_parseExcelDate(rawData)||''; }
       }
       if(!dataStr||!dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
+
       const desc=(row[ci.desc]||'').toString().trim();
       if(!desc||desc.length<2) continue;
+
+      // Parse valor: "-R$ 2,562.12" americano ou "2.562,12" brasileiro
       let valor=0;
       const rawVal=row[ci.valor];
       if(typeof rawVal==='number'){ valor=Math.abs(rawVal); }
       else {
         const s=(rawVal||'0').toString().replace(/[R$\s\-]/g,'').trim();
         if(s.includes('.')&&s.includes(',')&&s.lastIndexOf('.')>s.lastIndexOf(',')){ valor=parseFloat(s.replace(/,/g,''))||0; }
-        else if(s.includes(',')&&(!s.includes('.')||s.lastIndexOf(',')>s.lastIndexOf('.'))){ valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0; }
-        else { valor=parseFloat(s.replace(/,/g,''))||0; }
+        else if(s.includes(',')){ valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0; }
+        else { valor=parseFloat(s)||0; }
         valor=Math.abs(valor);
       }
       if(!valor) continue;
-      const nf=ci.nf>=0?(row[ci.nf]||'').toString().replace(/^0+/,'').trim()||null:null;
-      novos.push({descricao:desc,vencimento:dataStr,valor,num_doc:nf,status:'Aberta',criado_por:usuarioLogado?.nome||null,observacao:'Importado de planilha'});
+
+      const nfRaw=ci.nf>=0?(row[ci.nf]||'').toString().trim():'';
+      const nf=nfRaw.replace(/^0+/,'')||null;
+      novos.push({descricao:desc,vencimento:dataStr,valor,num_doc:nf,
+        status:'Aberta',criado_por:usuarioLogado?.nome||null,observacao:'Importado de planilha'});
     }
+
     if(!novos.length){ showToast('Nenhum lançamento válido encontrado','err'); return; }
-    // Agrupa por NF+fornecedor+data — N/D e vazias NÃO agrupam
+
+    // Agrupa por NF + fornecedor + vencimento (soma valores)
+    // N/D, N/A, nulo = nao agrupa
     const agrupados=[];
     const mapaGrupos={};
     novos.forEach(c=>{
-      const nf=(c.num_doc||'').trim();
-      const nfOk=nf&&!['N/D','N/A','ND','-',''].includes(nf.toUpperCase());
+      const nf=(c.num_doc||'').trim().toUpperCase();
+      const nfOk=nf&&!['N/D','N/A','ND','-',''].includes(nf);
       if(nfOk){
-        const key=`${c.descricao}||${nf}||${c.vencimento}`;
+        const key=`${c.descricao}|${nf}|${c.vencimento}`;
         if(mapaGrupos[key]){ mapaGrupos[key].valor=parseFloat((mapaGrupos[key].valor+c.valor).toFixed(2)); }
         else { mapaGrupos[key]={...c}; agrupados.push(mapaGrupos[key]); }
       } else { agrupados.push({...c}); }
     });
+
     const red=novos.length-agrupados.length;
-    const msg=red>0?`\n\u{1F517} ${red} linhas agrupadas por NF (${novos.length} \u2192 ${agrupados.length})`:' (sem agrupamentos)';
-    if(!confirm(`Importar ${agrupados.length} contas?${msg}\n\nEx: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
+    const msg=red>0?`\n\u{1F517} ${red} linhas agrupadas (${novos.length} linhas -> ${agrupados.length} contas)`:' (sem agrupamentos)';
+    if(!confirm(`Importar ${agrupados.length} contas a pagar?${msg}\n\nPrimeiro: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
+
     let ok=0,err=0;
     for(const c of agrupados){ try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; } }
     await loadFinanceiro(); renderContasPagar();
