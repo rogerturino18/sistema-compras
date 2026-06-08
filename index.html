@@ -14069,25 +14069,38 @@ function _executarRemocaoDuplicatasFC(modalId){
   if(typeof renderPagamentos==='function') renderPagamentos();
 }
 
-// Varre TODAS as contas pagas e cria lançamentos FC que faltam
 function sincronizarCPparaFC(){
   const pagas=(contasPagar||[]).filter(c=>c.status==='Paga'&&c.dt_pagamento);
   if(!pagas.length){ showToast('Nenhuma conta paga encontrada','err'); return; }
 
-  // DEBUG — mostra no console o que tem
-  console.log('[Sync] Contas pagas no CP:', pagas.length);
-  const sicoob=pagas.filter(c=>(c.descricao||'').toLowerCase().includes('sicoob'));
-  console.log('[Sync] SICOOB pagas:', sicoob.map(c=>({id:c.id,desc:c.descricao,valor:c.valor,dt:c.dt_pagamento,valorPago:c.valor_pago})));
-  console.log('[Sync] FC atual:', (fcDados||[]).filter(t=>!(t.pendente)).map(t=>({cpId:t._cpId,desc:t.fornecedor,valor:t.valor,dt:t.data})));
+  // IDs das contas pagas
+  const cpIds=new Set(pagas.map(c=>c.id));
+  // Descrições das contas pagas (normalizado)
+  const cpDescs=new Set(pagas.map(c=>(c.descricao||'').toLowerCase().trim()));
 
+  // Remove lançamentos FC com _origem CP que não têm _cpId válido
+  // (foram criados antes de ter o _cpId — agora vamos recriar com _cpId)
+  const antes=fcDados.length;
+  fcDados=fcDados.filter(t=>{
+    if(!t||t.pendente) return true;
+    if(t.valor>=0) return true;
+    // Mantém se tem _cpId válido apontando para uma conta paga
+    if(t._cpId&&cpIds.has(t._cpId)) return true;
+    // Remove se tem _origem CP mas sem _cpId (duplicata antiga)
+    if(t._origem==='CP'&&!t._cpId) return false;
+    if(t._origem==='CP-juros'&&!t._cpId) return false;
+    return true;
+  });
+  const removidos=antes-fcDados.length;
+
+  // Cria/atualiza um lançamento por conta paga
   let criados=0, atualizados=0;
-
   pagas.forEach(c=>{
     const valor=-Math.abs(c.valor_pago||c.valor||0);
-    const idx=(fcDados||[]).findIndex(t=>t._cpId===c.id);
-
+    const idx=fcDados.findIndex(t=>t._cpId===c.id);
     if(idx>=0){
-      if(fcDados[idx].data!==c.dt_pagamento||fcDados[idx].valor!==valor){
+      // Atualiza se necessário
+      if(fcDados[idx].data!==c.dt_pagamento||Math.abs(fcDados[idx].valor-valor)>0.01){
         fcDados[idx].data=c.dt_pagamento;
         fcDados[idx].valor=valor;
         fcDados[idx].fornecedor=c.descricao||'—';
@@ -14095,30 +14108,23 @@ function sincronizarCPparaFC(){
       }
     } else {
       fcDados.push({
-        data: c.dt_pagamento,
-        fornecedor: c.descricao||'—',
-        nf: c.num_doc||'',
+        data:c.dt_pagamento,
+        fornecedor:c.descricao||'—',
+        nf:c.num_doc||'',
         valor,
-        pendente: false,
-        _origem: 'CP',
-        _cpId: c.id,
-        _pagoEm: c.dt_pagamento
+        pendente:false,
+        _origem:'CP',
+        _cpId:c.id,
+        _pagoEm:c.dt_pagamento
       });
       criados++;
-      console.log('[Sync] Criado:', c.descricao, c.valor, c.dt_pagamento);
     }
   });
 
-  console.log('[Sync] Criados:', criados, 'Atualizados:', atualizados);
-
-  if(criados>0||atualizados>0){
-    _salvarFcDados();
-    renderFluxoCaixa();
-    if(typeof renderPagamentos==='function') renderPagamentos();
-    showToast(`✅ FC atualizado! ${criados} criados, ${atualizados} corrigidos.`);
-  } else {
-    showToast('✅ FC já sincronizado — verifique o console (F12) para debug.');
-  }
+  _salvarFcDados();
+  renderFluxoCaixa();
+  if(typeof renderPagamentos==='function') renderPagamentos();
+  showToast(`✅ Sync concluído! ${criados} criados · ${atualizados} corrigidos · ${removidos} duplicatas removidas.`);
 }
 
 async function limparDadosFC(){
