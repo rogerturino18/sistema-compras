@@ -13607,10 +13607,15 @@ async function importarCPdePlanilha(input){
 
     // Lê linhas a partir do header+1, ignora linhas sem descrição ou sem data válida
     // DEBUG — ver o que XLSX retorna
-    console.log('[Import] headerRow:', headerRow, 'header:', header);
-    console.log('[Import] ci:', ci);
-    console.log('[Import] Linha após header:', allRows[headerRow+1]);
-    console.log('[Import] Linha headerRow+2:', allRows[headerRow+2]);
+    console.log('[Import] headerRow:', headerRow, 'header:', JSON.stringify(header));
+    console.log('[Import] ci:', JSON.stringify(ci));
+    const linhaTotal = allRows[headerRow+1]||[];
+    const linhaDados = allRows[headerRow+2]||[];
+    console.log('[Import] Linha total (ignorar):', JSON.stringify(linhaTotal));
+    console.log('[Import] Linha dados real:', JSON.stringify(linhaDados));
+    console.log('[Import] Data tipo:', typeof linhaDados[ci.data], '| valor:', linhaDados[ci.data]);
+    console.log('[Import] Valor tipo:', typeof linhaDados[ci.valor], '| valor:', linhaDados[ci.valor]);
+    console.log('[Import] Desc tipo:', typeof linhaDados[ci.desc], '| valor:', linhaDados[ci.desc]);
     const novos=[];
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
