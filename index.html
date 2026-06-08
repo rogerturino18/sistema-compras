@@ -1751,7 +1751,13 @@ tr:hover td{background:#f9fbf9}
         📂 Importar XML
         <input type="file" id="xmlNFeInput" accept=".xml" style="display:none" onchange="importarXMLNFe(this)">
       </label>
-      <button class="btn" onclick="abrirModalNFe(null)" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:14px;padding:9px 18px">+ Lançar Manual</button>
+      <div style="display:flex;gap:8px;align-items:center;flex:1;max-width:580px">
+        <input type="text" id="nfeChaveInput" placeholder="Cole a chave de acesso (44 dígitos)..." maxlength="44"
+          style="flex:1;padding:9px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-family:monospace"
+          oninput="this.value=this.value.replace(/\D/g,'')"
+          onkeydown="if(event.key==='Enter') buscarNFePorChave()">
+        <button class="btn" onclick="buscarNFePorChave()" style="background:#1565c0;color:#fff;border-color:#1565c0;white-space:nowrap">🔍 Buscar NF-e</button>
+      </div>
       <button onclick="forceSyncFC()" style="padding:8px 14px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Sincronizar dados com o servidor para todos os usuários">🔄 Sincronizar</button>
     </div>
   </div>
@@ -13566,6 +13572,15 @@ async function importarCPdePlanilha(input){
   if(!file) return;
   showToast('⏳ Lendo planilha...');
   try{
+    // Garante que XLSX está carregado
+    if(typeof XLSX==='undefined'){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=res; s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
     const data=await file.arrayBuffer();
     const wb=XLSX.read(data,{type:'array',cellDates:true});
     const rows=[];
@@ -15426,23 +15441,35 @@ function _renderFluxoCaixaCore(){
   const saldoAntBase=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0')
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
-  // Calcula saldo anterior: soma TUDO que aconteceu antes do mês filtrado
+  // Calcula saldo anterior em cascata, mês a mês, sem duplicar CP vs importados
   let saldoAnt = saldoAntBase;
   const menorMes=_fcMenorMesSelecionado();
   if(menorMes){
-    // Soma todos os lançamentos FC (realizados) anteriores ao mês selecionado
-    // Inclui _origem:'CP' porque esses JÁ estão no fcDados com data correta
-    const transAntes = fcDados.filter(t=>
-      t && t.data && !t.pendente && t.data.substring(0,7) < menorMes
-    );
-    const somaAntes = transAntes.reduce((s,t)=>s+t.valor, 0);
+    const transAntes = fcDados.filter(t=>t&&t.data&&!t.pendente&&t.data.substring(0,7)<menorMes);
+
+    // Remove lançamentos importados (sem _origem, sem _cpId) que têm um lançamento CP correspondente
+    // Usa _cpId para deduplica com precisão — evita remover lançamentos com mesmo nome mas diferente
+    const cpIdsPresentes = new Set(transAntes.filter(t=>t._cpId).map(t=>t._cpId));
+
+    // Lançamentos importados que têm correspondente CP: mesma data + mesmo valor (tolerância 1 centavo)
+    const importadosDuplicados = new Set();
+    transAntes.forEach((t,i)=>{
+      if(t._cpId||t._origem) return; // já tem origem, não é importado
+      // Verifica se existe CP com mesma data e valor
+      const temCP = transAntes.some(cp=>
+        cp._cpId &&
+        cp.data===t.data &&
+        Math.abs(Math.abs(cp.valor)-Math.abs(t.valor))<0.02
+      );
+      if(temCP) importadosDuplicados.add(i);
+    });
+
+    const transDedupados = transAntes.filter((_,i)=>!importadosDuplicados.has(i));
+    const somaAntes = transDedupados.reduce((s,t)=>s+t.valor, 0);
     saldoAnt = saldoAntBase + somaAntes;
 
-    console.log('[FC Saldo] menorMes:',menorMes,'base:',saldoAntBase,'somaAntes:',somaAntes,'total:',saldoAnt);
-    console.log('[FC Saldo] items antes:', transAntes.length, 'meses:', [...new Set(transAntes.map(t=>t.data.substring(0,7)))]);
-
     const elSA = document.getElementById('fcSaldoAnterior');
-    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + Acumulado anterior: ${fmtMoeda(somaAntes)} = ${fmtMoeda(saldoAnt)}`;
+    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + Anterior: ${fmtMoeda(somaAntes)} = ${fmtMoeda(saldoAnt)}`;
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
@@ -16148,6 +16175,24 @@ function renderEntradaNFe(){
 }
 
 // ── Open modal ────────────────────────────────────────────────────────────
+function buscarNFePorChave(){
+  const chave=(document.getElementById('nfeChaveInput')?.value||'').replace(/\D/g,'');
+  if(chave.length!==44){
+    showToast('Chave de acesso deve ter 44 dígitos','err');
+    return;
+  }
+  // Abre modal de nova NF-e com a chave preenchida
+  abrirModalNFe(null);
+  setTimeout(()=>{
+    const el=document.getElementById('nfe_chave');
+    if(el){
+      el.value=chave;
+      el.dispatchEvent(new Event('input'));
+    }
+  }, 300);
+  document.getElementById('nfeChaveInput').value='';
+}
+
 function abrirModalNFe(id){
   editNFeId=id||null;
   const n=id?entradasNFe.find(x=>x.id===id):null;
@@ -16600,7 +16645,7 @@ async function nfeVerificarBackend(){
   const badge=document.getElementById('nfeStatusBadge');
   if(!badge) return;
   if(!cfg.url||!cfg.apiKey){
-    nfeAtualizarStatus('❌ Backend não configurado — clique em ⚙️','err','');
+    nfeAtualizarStatus('⚙️ Consulta automática não configurada — use Importar XML ou Cole a Chave de Acesso','warn','');
     return;
   }
   nfeAtualizarStatus('⏳ Verificando...','warn','');
