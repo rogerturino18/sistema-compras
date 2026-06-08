@@ -13609,19 +13609,47 @@ async function importarCPdePlanilha(input){
     const novos=[];
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
+      // Parse da data — pode ser objeto Date, string ou número serial Excel
+      let dataStr='';
       const rawData=row[ci.data];
-      const data=_parseExcelDate(rawData);
-      if(!data) continue;
+      if(!rawData) continue;
+      if(rawData instanceof Date){
+        dataStr=rawData.toISOString().substring(0,10);
+      } else if(typeof rawData==='string'&&rawData.includes('/')){
+        // dd/mm/yyyy → yyyy-mm-dd
+        const p=rawData.split('/');
+        if(p.length===3) dataStr=`${p[2].substring(0,4)}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+      } else if(typeof rawData==='string'&&rawData.includes('-')){
+        dataStr=rawData.substring(0,10);
+      } else {
+        dataStr=_parseExcelDate(rawData)||'';
+      }
+      if(!dataStr||!dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
+
       const desc=(row[ci.desc]||'').toString().trim();
       if(!desc||desc.length<2) continue;
-      const rawVal=(row[ci.valor]||'0').toString().replace(/[R$\s]/g,'').replace('.','').replace(',','.');
-      const valor=parseFloat(rawVal)||0;
+
+      // Parse do valor — pode ter . como milhar e , como decimal (pt-BR) ou já ser número
+      let valor=0;
+      const rawVal=row[ci.valor];
+      if(typeof rawVal==='number'){
+        valor=rawVal;
+      } else {
+        const s=(rawVal||'0').toString().replace(/[R$\s]/g,'');
+        // Detecta formato: se tem vírgula após ponto → pt-BR (1.234,56)
+        if(s.includes(',')&&s.lastIndexOf(',')>s.lastIndexOf('.')){
+          valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
+        } else {
+          valor=parseFloat(s.replace(',',''))||0;
+        }
+      }
       if(!valor) continue;
+
       novos.push({
         descricao:desc,
-        vencimento:data,
+        vencimento:dataStr,
         valor:Math.abs(valor),
-        num_doc:ci.nf>=0?(row[ci.nf]||'').toString().trim()||null:null,
+        num_doc:ci.nf>=0?(row[ci.nf]||'').toString().replace(/^0+/,'').trim()||null:null,
         status:'Aberta',
         criado_por:usuarioLogado?.nome||null,
         observacao:'Importado de planilha'
