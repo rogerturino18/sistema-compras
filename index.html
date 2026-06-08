@@ -13572,7 +13572,6 @@ async function importarCPdePlanilha(input){
   if(!file) return;
   showToast('⏳ Lendo planilha...');
   try{
-    // Garante que XLSX está carregado
     if(typeof XLSX==='undefined'){
       await new Promise((res,rej)=>{
         const s=document.createElement('script');
@@ -13583,36 +13582,41 @@ async function importarCPdePlanilha(input){
     }
     const data=await file.arrayBuffer();
     const wb=XLSX.read(data,{type:'array',cellDates:true});
-    const rows=[];
-    wb.SheetNames.forEach(name=>{
-      const ws=wb.Sheets[name];
-      const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'YYYY-MM-DD'});
-      json.forEach((r,ri)=>{if(ri===0) return; rows.push({row:r,sheet:name});});
-    });
-    // Detecta colunas: data, descricao, valor, nf (tenta qualquer ordem)
     const ws0=wb.Sheets[wb.SheetNames[0]];
-    const header=(XLSX.utils.sheet_to_json(ws0,{header:1,raw:false})[0]||[]).map(h=>(h||'').toString().toLowerCase().trim());
+    const allRows=XLSX.utils.sheet_to_json(ws0,{header:1,raw:false,dateNF:'YYYY-MM-DD'});
+
+    // Encontra a linha de header real (contém palavras-chave como venc, valor, razão, desc)
+    let headerRow=0;
+    for(let i=0;i<Math.min(10,allRows.length);i++){
+      const rowStr=(allRows[i]||[]).join('|').toLowerCase();
+      if(rowStr.includes('venc')||rowStr.includes('valor')||rowStr.includes('raz')||rowStr.includes('forn')||rowStr.includes('desc')){
+        headerRow=i; break;
+      }
+    }
+
+    const header=(allRows[headerRow]||[]).map(h=>(h||'').toString().toLowerCase().trim());
     const ci={
-      data: header.findIndex(h=>h.includes('data')||h.includes('venc')),
-      desc: header.findIndex(h=>h.includes('desc')||h.includes('forn')||h.includes('nome')||h.includes('histor')),
-      valor: header.findIndex(h=>h.includes('valor')||h.includes('total')||h.includes('vlr')),
-      nf: header.findIndex(h=>h.includes('nf')||h.includes('nota')||h.includes('doc')||h.includes('num')),
+      data: header.findIndex(h=>h.includes('venc')||h.includes('data')),
+      desc: header.findIndex(h=>h.includes('raz')||h.includes('forn')||h.includes('nome')||h.includes('desc')||h.includes('histor')),
+      valor: header.findIndex(h=>h.includes('valor')||h.includes('líq')||h.includes('liq')||h.includes('total')||h.includes('vlr')),
+      nf: header.findIndex(h=>h.includes('nota')||h.includes(' nf')||h.includes('doc')||h.includes('fiscal')),
     };
-    // Fallback posições fixas
     if(ci.data<0) ci.data=0;
     if(ci.desc<0) ci.desc=1;
     if(ci.valor<0) ci.valor=2;
 
+    // Lê linhas a partir do header+1, ignora linhas sem descrição ou sem data válida
     const novos=[];
-    rows.forEach(({row})=>{
+    for(let i=headerRow+1;i<allRows.length;i++){
+      const row=allRows[i]||[];
       const rawData=row[ci.data];
       const data=_parseExcelDate(rawData);
-      if(!data) return;
+      if(!data) continue;
       const desc=(row[ci.desc]||'').toString().trim();
-      if(!desc) return;
-      const rawVal=(row[ci.valor]||'0').toString().replace(/[R$\s.]/g,'').replace(',','.');
+      if(!desc||desc.length<2) continue;
+      const rawVal=(row[ci.valor]||'0').toString().replace(/[R$\s]/g,'').replace('.','').replace(',','.');
       const valor=parseFloat(rawVal)||0;
-      if(!valor) return;
+      if(!valor) continue;
       novos.push({
         descricao:desc,
         vencimento:data,
@@ -13622,20 +13626,20 @@ async function importarCPdePlanilha(input){
         criado_por:usuarioLogado?.nome||null,
         observacao:'Importado de planilha'
       });
-    });
+    }
 
-    if(!novos.length){ showToast('Nenhum lançamento válido encontrado','err'); return; }
+    if(!novos.length){ showToast('Nenhum lançamento válido encontrado. Verifique o formato da planilha.','err'); return; }
 
-    if(!confirm(`Importar ${novos.length} contas a pagar da planilha?\n\nColunas detectadas:\n- Data: coluna ${ci.data+1}\n- Descrição: coluna ${ci.desc+1}\n- Valor: coluna ${ci.valor+1}`)) return;
+    if(!confirm(`Importar ${novos.length} contas a pagar?\n\nColunas detectadas:\n- Data/Venc: "${header[ci.data]}"\n- Descrição: "${header[ci.desc]}"\n- Valor: "${header[ci.valor]}"\n\nPrimeiro registro: ${novos[0].descricao} | ${novos[0].vencimento} | R$${novos[0].valor}`)) return;
 
     let ok=0, err=0;
     for(const c of novos){
-      try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; }
+      try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; console.error(e); }
     }
     await loadFinanceiro();
     renderContasPagar();
-    showToast(`✅ ${ok} contas a pagar importadas!${err?` | ❌ ${err} erros`:''}`);
-  }catch(e){ showToast('Erro ao ler planilha: '+e.message,'err'); console.error(e); }
+    showToast(`✅ ${ok} contas importadas!${err?` | ❌ ${err} erros`:''}`);
+  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
 
 async function importarCRdePlanilha(input){
@@ -15430,6 +15434,24 @@ function renderFluxoCaixa(){
   _renderFluxoCaixaCore();
 }
 
+// Retorna lista de realizados do FC sem filtro de mês, deduplicada igual ao FC principal
+function _fcListaRealizadosSemFiltro(){
+  const descsPagasCPnoFC=new Set(
+    fcDados
+      .filter(t=>!t.pendente&&t.valor<0&&(t._origem==='CP'||t._cpId))
+      .map(t=>(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14))
+      .filter(d=>d.length>4)
+  );
+  return fcDados.filter(t=>{
+    if(!t||t.pendente||!t.data) return false;
+    if(t.valor<0&&!t._origem&&!t._cpId){
+      const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+      if(descFC.length>4&&descsPagasCPnoFC.has(descFC)) return false;
+    }
+    return true;
+  });
+}
+
 function _renderFluxoCaixaCore(){
 
   const mesFiltro=_fcMesesSelecionados.length===1&&_fcMesesSelecionados[0]!=='__nenhum__'?_fcMesesSelecionados[0]:''; // compatibilidade com saldo cascata
@@ -15441,42 +15463,21 @@ function _renderFluxoCaixaCore(){
   const saldoAntBase=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0')
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
-  // Calcula saldo anterior: pega o saldo previsto do último dia do mês anterior
+  // Calcula saldo anterior correto para filtro de mês
+  // Estratégia: simula o FC SEM filtro e pega o saldo real do último dia do mês anterior
   let saldoAnt = saldoAntBase;
   const menorMes=_fcMenorMesSelecionado();
   if(menorMes){
-    // Simula o FC completo (sem filtro de mês) para achar o saldo no último dia do mês anterior
-    const mesAnterior = menorMes; // ex: '2026-06'
-    // Pega todos os itens realizados (não pendentes) até o último dia do mês anterior
-    const anoMes = mesAnterior.split('-');
-    const ultimoDiaMesAnt = new Date(parseInt(anoMes[0]), parseInt(anoMes[1])-1, 0)
-      .toISOString().substring(0,10); // último dia do mês anterior ao filtrado
-
-    // Reconstrói o saldo acumulado dia a dia até ultimoDiaMesAnt
-    // Usa só os lançamentos realizados (não pendentes) do FC
-    const transPassados = fcDados
-      .filter(t=>t&&t.data&&!t.pendente&&t.data<=ultimoDiaMesAnt)
-      .sort((a,b)=>a.data.localeCompare(b.data));
-
-    // Deduplica por data+valor: remove importados que têm CP correspondente
-    const usados = new Set();
-    const transFinal = [];
-    // Primeiro passa: marca todos os CP (têm prioridade)
-    transPassados.forEach((t,i)=>{ if(t._cpId) usados.add(i); });
-    // Segundo passa: para cada importado, verifica se tem CP com mesma data+valor
-    transPassados.forEach((t,i)=>{
-      if(t._cpId||t._origem) { transFinal.push(t); return; }
-      const temCP = transPassados.some(cp=>
-        cp._cpId && cp.data===t.data && Math.abs(Math.abs(cp.valor)-Math.abs(t.valor))<0.02
-      );
-      if(!temCP) transFinal.push(t);
-    });
-
-    const somaPassada = transFinal.reduce((s,t)=>s+t.valor,0);
-    saldoAnt = saldoAntBase + somaPassada;
+    // Pega lista de realizados que seriam exibidos sem filtro de mês
+    // usando a mesma lógica de deduplicação do FC principal
+    const listaFull = _fcListaRealizadosSemFiltro();
+    // Filtra só os anteriores ao mês selecionado
+    const transAntes = listaFull.filter(t=>t.data.substring(0,7)<menorMes);
+    const somaAntes = transAntes.reduce((s,t)=>s+(t.valor||0), 0);
+    saldoAnt = saldoAntBase + somaAntes;
 
     const elSA = document.getElementById('fcSaldoAnterior');
-    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + até ${ultimoDiaMesAnt}: ${fmtMoeda(somaPassada)} = ${fmtMoeda(saldoAnt)}`;
+    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + Anterior: ${fmtMoeda(somaAntes)} = ${fmtMoeda(saldoAnt)}`;
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
