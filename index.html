@@ -7790,7 +7790,7 @@ async function confirmarEstMov(){
       unidade_saida: und,
       data: new Date().toISOString().split('T')[0],
       departamento: deptoFinal||null,
-      pdv_id: pdvId||null,
+      pdv: pdvLabel||null,
       observacao: obsFinal||null,
       criado_por: usuarioLogado?.nome||null
     });
@@ -13606,71 +13606,71 @@ async function importarCPdePlanilha(input){
     if(ci.valor<0) ci.valor=2;
 
     // Lê linhas a partir do header+1, ignora linhas sem descrição ou sem data válida
-    // DEBUG — ver o que XLSX retorna
-    console.log('[Import] headerRow:', headerRow, 'header:', JSON.stringify(header));
-    console.log('[Import] ci:', JSON.stringify(ci));
-    const linhaTotal = allRows[headerRow+1]||[];
-    const linhaDados = allRows[headerRow+2]||[];
-    console.log('[Import] Linha total (ignorar):', JSON.stringify(linhaTotal));
-    console.log('[Import] Linha dados real:', JSON.stringify(linhaDados));
-    console.log('[Import] Data tipo:', typeof linhaDados[ci.data], '| valor:', linhaDados[ci.data]);
-    console.log('[Import] Valor tipo:', typeof linhaDados[ci.valor], '| valor:', linhaDados[ci.valor]);
-    console.log('[Import] Desc tipo:', typeof linhaDados[ci.desc], '| valor:', linhaDados[ci.desc]);
     const novos=[];
+    const vistos=new Set();
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
-      // Parse da data
+
+      // Parse da data — suporta M/D/YY (americano), DD/MM/YYYY (brasileiro), YYYY-MM-DD
       let dataStr='';
       const rawData=row[ci.data];
       if(!rawData) continue;
       if(rawData instanceof Date){
         dataStr=rawData.toISOString().substring(0,10);
-      } else if(typeof rawData==='string'&&rawData.includes('/')){
-        const p=rawData.split('/');
-        if(p.length===3) dataStr=`${p[2].substring(0,4)}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-      } else if(typeof rawData==='string'&&rawData.match(/\d{4}-\d{2}-\d{2}/)){
-        dataStr=rawData.substring(0,10);
       } else {
-        dataStr=_parseExcelDate(rawData)||'';
+        const s=rawData.toString().trim();
+        if(s.includes('/')){
+          const p=s.split('/');
+          if(p.length===3){
+            const d=parseInt(p[0]),m=parseInt(p[1]),y=parseInt(p[2]);
+            // M/D/YY americano: primeiro componente é mês (≤12), ano é 2 dígitos
+            if(p[2].length<=2){
+              dataStr=`${2000+y}-${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`;
+            } else if(p[0].length===4){
+              dataStr=`${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`;
+            } else {
+              dataStr=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+            }
+          }
+        } else if(s.match(/^\d{4}-\d{2}-\d{2}/)){
+          dataStr=s.substring(0,10);
+        } else {
+          dataStr=_parseExcelDate(rawData)||'';
+        }
       }
       if(!dataStr||!dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
 
       const desc=(row[ci.desc]||'').toString().trim();
       if(!desc||desc.length<2) continue;
 
-      // Parse do valor — XLSX com raw:false retorna strings como "2.562,12" (pt-BR) ou números
+      // Parse do valor — suporta "-R$ 2,562.12" (americano) e "2.562,12" (brasileiro)
       let valor=0;
       const rawVal=row[ci.valor];
       if(typeof rawVal==='number'){
         valor=Math.abs(rawVal);
       } else {
-        const s=(rawVal||'0').toString().replace(/[R$\s]/g,'').trim();
-        // Formato pt-BR: 1.234.567,89 → remove pontos, troca vírgula por ponto
-        if(s.includes(',') && s.lastIndexOf(',') > s.lastIndexOf('.')){
-          valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
-        } else if(s.includes('.') && s.lastIndexOf('.') > s.lastIndexOf(',')){
-          // Formato en-US: 1,234.56 → remove vírgulas
+        const s=(rawVal||'0').toString().replace(/[R$\s\-]/g,'').trim();
+        // Americano: vírgula como milhar, ponto como decimal → "2,562.12"
+        if(s.includes('.')&&s.includes(',')&&s.lastIndexOf('.')>s.lastIndexOf(',')){
           valor=parseFloat(s.replace(/,/g,''))||0;
+        // Brasileiro: ponto como milhar, vírgula como decimal → "2.562,12"
+        } else if(s.includes(',')&&(!s.includes('.')||s.lastIndexOf(',')>s.lastIndexOf('.'))){
+          valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
         } else {
-          valor=parseFloat(s)||0;
+          valor=parseFloat(s.replace(/,/g,''))||0;
         }
         valor=Math.abs(valor);
       }
       if(!valor) continue;
 
       const nf=ci.nf>=0?(row[ci.nf]||'').toString().replace(/^0+/,'').trim()||null:null;
-
-      // Evita duplicatas: mesma desc+data+valor
       const key=`${dataStr}|${desc}|${valor}`;
       if(vistos.has(key)) continue;
       vistos.add(key);
 
       novos.push({
-        descricao:desc,
-        vencimento:dataStr,
-        valor,
-        num_doc:nf,
-        status:'Aberta',
+        descricao:desc, vencimento:dataStr, valor,
+        num_doc:nf, status:'Aberta',
         criado_por:usuarioLogado?.nome||null,
         observacao:'Importado de planilha'
       });
