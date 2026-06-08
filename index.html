@@ -13174,7 +13174,24 @@ async function desfazerRecebimentoCR(id){
   }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
 
-// ===== TERCEIRIZAÇÃO DE ORDENS =====
+// ===== PROTEÇÃO GLOBAL CONTRA ERROS =====
+window.addEventListener('error', function(e){
+  console.error('[ERRO GLOBAL]', e.message, 'linha:', e.lineno, e.filename);
+  // Não trava o sistema — só loga
+  // Se a tela de login ainda não passou, não faz nada
+  if(!document.getElementById('appMain')) return;
+  // Se o sistema já carregou, mostra toast mas continua funcionando
+  if(typeof showToast==='function'){
+    showToast('⚠️ Erro interno: '+e.message,'err',5000);
+  }
+});
+
+window.addEventListener('unhandledrejection', function(e){
+  console.error('[PROMISE REJEITADA]', e.reason);
+  if(typeof showToast==='function'&&e.reason?.message){
+    showToast('⚠️ '+e.reason.message,'err',4000);
+  }
+});
 let _tercOrdemId = null;
 
 function terceirizarOrdem(id){
@@ -14094,6 +14111,8 @@ function toggleMenuAvancadoFC(){
     },100);
   }
 }
+
+function sincronizarCPparaFC(){
   const pagas=(contasPagar||[]).filter(c=>c.status==='Paga'&&c.dt_pagamento);
   if(!pagas.length){ showToast('Nenhuma conta paga encontrada','err'); return; }
 
