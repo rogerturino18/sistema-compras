@@ -14074,6 +14074,12 @@ function sincronizarCPparaFC(){
   const pagas=(contasPagar||[]).filter(c=>c.status==='Paga'&&c.dt_pagamento);
   if(!pagas.length){ showToast('Nenhuma conta paga encontrada','err'); return; }
 
+  // DEBUG — mostra no console o que tem
+  console.log('[Sync] Contas pagas no CP:', pagas.length);
+  const sicoob=pagas.filter(c=>(c.descricao||'').toLowerCase().includes('sicoob'));
+  console.log('[Sync] SICOOB pagas:', sicoob.map(c=>({id:c.id,desc:c.descricao,valor:c.valor,dt:c.dt_pagamento,valorPago:c.valor_pago})));
+  console.log('[Sync] FC atual:', (fcDados||[]).filter(t=>!(t.pendente)).map(t=>({cpId:t._cpId,desc:t.fornecedor,valor:t.valor,dt:t.data})));
+
   let criados=0, atualizados=0;
 
   pagas.forEach(c=>{
@@ -14081,7 +14087,6 @@ function sincronizarCPparaFC(){
     const idx=(fcDados||[]).findIndex(t=>t._cpId===c.id);
 
     if(idx>=0){
-      // Já existe — verifica se data/valor estão corretos
       if(fcDados[idx].data!==c.dt_pagamento||fcDados[idx].valor!==valor){
         fcDados[idx].data=c.dt_pagamento;
         fcDados[idx].valor=valor;
@@ -14089,7 +14094,6 @@ function sincronizarCPparaFC(){
         atualizados++;
       }
     } else {
-      // Não existe — cria
       fcDados.push({
         data: c.dt_pagamento,
         fornecedor: c.descricao||'—',
@@ -14101,15 +14105,19 @@ function sincronizarCPparaFC(){
         _pagoEm: c.dt_pagamento
       });
       criados++;
+      console.log('[Sync] Criado:', c.descricao, c.valor, c.dt_pagamento);
     }
   });
+
+  console.log('[Sync] Criados:', criados, 'Atualizados:', atualizados);
 
   if(criados>0||atualizados>0){
     _salvarFcDados();
     renderFluxoCaixa();
+    if(typeof renderPagamentos==='function') renderPagamentos();
     showToast(`✅ FC atualizado! ${criados} criados, ${atualizados} corrigidos.`);
   } else {
-    showToast('✅ FC já está sincronizado com CP!');
+    showToast('✅ FC já sincronizado — verifique o console (F12) para debug.');
   }
 }
 
