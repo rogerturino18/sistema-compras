@@ -1468,15 +1468,20 @@ tr:hover td{background:#f9fbf9}
       <button onclick="exportarExcelFC()" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📊 Exportar</button>
     </div>
   </div>
-  <!-- Linha 2: botões de gestão -->
+  <!-- Linha 2: botão avançado só para admin -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      <button onclick="sincronizarCPparaFC()" style="padding:8px 14px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap" title="Cria lançamentos FC para todas as contas pagas que ainda não aparecem">🔁 Sync CP→FC</button>
-      <button onclick="sincronizarFcParaCpCr()" style="padding:8px 14px;background:#4a148c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔄 Sincronizar → CP/CR</button>
-      <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">↩️ Desfazer Importação</button>
-      <button onclick="gerenciarLancamentosFC()" style="padding:8px 14px;background:#263238;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Gerenciar Lançamentos</button>
-      <button onclick="limparDuplicatasFC()" style="padding:8px 14px;background:#ff6f00;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔧 Corrigir Duplicatas</button>
-      <button onclick="limparTudoFinanceiro()" style="padding:8px 14px;background:#7b1fa2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🧹 Limpar Tudo</button>
-      <button onclick="limparDadosFC()" style="padding:8px 14px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑 Limpar FC</button>
+    <button id="btnDesfazerImportFC" onclick="desfazerUltimaImportacaoFC()" style="display:none;padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">↩️ Desfazer Importação</button>
+    <div id="fcMenuAvancado" style="display:none;position:relative">
+      <button onclick="toggleMenuAvancadoFC()" style="padding:8px 14px;background:#546e7a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">⚙️ Avançado ▾</button>
+      <div id="fcMenuAvancadoDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:220px;padding:6px;gap:4px;flex-direction:column">
+        <button onclick="sincronizarCPparaFC();toggleMenuAvancadoFC()" style="width:100%;padding:9px 14px;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;color:#1565c0">🔁 Sync CP→FC</button>
+        <button onclick="gerenciarLancamentosFC();toggleMenuAvancadoFC()" style="width:100%;padding:9px 14px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;color:#263238;margin-top:4px">📋 Gerenciar Lançamentos</button>
+        <button onclick="limparDuplicatasFC();toggleMenuAvancadoFC()" style="width:100%;padding:9px 14px;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;color:#e65100;margin-top:4px">🔧 Corrigir Duplicatas</button>
+        <div style="border-top:1px solid #f0f0f0;margin:6px 0"></div>
+        <button onclick="limparTudoFinanceiro();toggleMenuAvancadoFC()" style="width:100%;padding:9px 14px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;color:#7b1fa2;margin-top:4px">🧹 Limpar Tudo (CP+CR+FC)</button>
+        <button onclick="limparDadosFC();toggleMenuAvancadoFC()" style="width:100%;padding:9px 14px;background:#ffebee;border:1px solid #ffcdd2;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;color:#c62828;margin-top:4px">🗑 Limpar FC</button>
+      </div>
+    </div>
   </div>
 
   <!-- KPIs -->
@@ -9840,6 +9845,9 @@ function mostrarApp(){
   if(btnU) btnU.style.display=isAprovador()?'flex':'none';
   // Aplica permissões de acesso a módulos
   setTimeout(aplicarPermissoes, 300);
+  // Mostra menu avançado do FC só para admin
+  const menuAdv=document.getElementById('fcMenuAvancado');
+  if(menuAdv) menuAdv.style.display=isAprovador()?'block':'none';
   if(isExpedicao()){
     document.querySelectorAll('.tab').forEach((t,i)=>{
       t.style.display=[1,3,4,8,9].includes(i)?'flex':'none';
@@ -14069,7 +14077,23 @@ function _executarRemocaoDuplicatasFC(modalId){
   if(typeof renderPagamentos==='function') renderPagamentos();
 }
 
-function sincronizarCPparaFC(){
+function toggleMenuAvancadoFC(){
+  const d=document.getElementById('fcMenuAvancadoDropdown');
+  if(!d) return;
+  const aberto=d.style.display==='flex';
+  d.style.display=aberto?'none':'flex';
+  // Fecha ao clicar fora
+  if(!aberto){
+    setTimeout(()=>{
+      document.addEventListener('click',function fechar(e){
+        if(!e.target.closest('#fcMenuAvancado')){
+          d.style.display='none';
+          document.removeEventListener('click',fechar);
+        }
+      });
+    },100);
+  }
+}
   const pagas=(contasPagar||[]).filter(c=>c.status==='Paga'&&c.dt_pagamento);
   if(!pagas.length){ showToast('Nenhuma conta paga encontrada','err'); return; }
 
@@ -15384,15 +15408,31 @@ function _renderFluxoCaixaCore(){
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
   // Calcula saldo anterior em cascata:
-  // Se filtro de mês está ativo, soma todos os lançamentos dos meses ANTERIORES ao menor mês selecionado
+  // Soma todos os lançamentos (FC realizados + CP/CR pagos) dos meses ANTERIORES ao menor mês selecionado
   let saldoAnt = saldoAntBase;
   const menorMes=_fcMenorMesSelecionado();
   if(menorMes){
-    const transAntes = fcDados.filter(t=>t.data && t.data < menorMes+'-01' && !t.pendente);
-    const somaAntes = transAntes.reduce((s,t)=>s+t.valor, 0);
-    saldoAnt = saldoAntBase + somaAntes;
+    // FC realizados anteriores
+    const transFC = fcDados.filter(t=>t.data && t.data < menorMes+'-01' && !t.pendente);
+    const somaFC = transFC.reduce((s,t)=>s+t.valor, 0);
+
+    // CP pagos anteriores que NÃO estão no FC (evitar dupla contagem)
+    const cpIdsNoFC=new Set(fcDados.filter(t=>t._cpId&&!t.pendente&&t.data<menorMes+'-01').map(t=>t._cpId));
+    const cpPagosAntes=(contasPagar||[]).filter(c=>
+      c.status==='Paga' && c.dt_pagamento && c.dt_pagamento < menorMes+'-01' && !cpIdsNoFC.has(c.id)
+    );
+    const somaCP = cpPagosAntes.reduce((s,c)=>s-Math.abs(c.valor_pago||c.valor||0), 0);
+
+    // CR recebidos anteriores que NÃO estão no FC
+    const crIdsNoFC=new Set(fcDados.filter(t=>t._crId&&!t.pendente&&t.data<menorMes+'-01').map(t=>t._crId));
+    const crRecebidosAntes=(contasReceber||[]).filter(c=>
+      c.status==='Recebida' && c.dt_recebimento && c.dt_recebimento < menorMes+'-01' && !crIdsNoFC.has(c.id)
+    );
+    const somaCR = crRecebidosAntes.reduce((s,c)=>s+Math.abs(c.valor_recebido||c.valor||0), 0);
+
+    saldoAnt = saldoAntBase + somaFC + somaCP + somaCR;
     const elSA = document.getElementById('fcSaldoAnterior');
-    if(elSA) elSA.title = 'Saldo base: '+fmtMoeda(saldoAntBase)+' + acumulado anterior: '+fmtMoeda(somaAntes);
+    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + FC: ${fmtMoeda(somaFC)} + CP: ${fmtMoeda(somaCP)} + CR: ${fmtMoeda(somaCR)}`;
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
