@@ -1385,7 +1385,7 @@ tr:hover td{background:#f9fbf9}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Vencimento</th><th>Fornecedor / Descrição</th><th class="mob-hide">Nº NF</th><th>Valor</th><th>Status</th>
+        <th>Vencimento</th><th>Fornecedor / Descrição</th><th>Valor</th><th>Status</th>
         <th class="mob-hide">Dt. Pagamento</th><th class="mob-hide">Juros/Multa</th>
         <th style="width:130px">Ações</th>
       </tr></thead>
@@ -7790,7 +7790,7 @@ async function confirmarEstMov(){
       unidade_saida: und,
       data: new Date().toISOString().split('T')[0],
       departamento: deptoFinal||null,
-      pdv: pdvLabel||null,
+      pdv_id: pdvId||null,
       observacao: obsFinal||null,
       criado_por: usuarioLogado?.nome||null
     });
@@ -12322,7 +12322,6 @@ function renderContasPagar(){
         ${c.vencimento?new Date(c.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}${urgBadge}
       </td>
       <td style="padding:8px 10px;font-weight:600;font-size:13px">${c.descricao||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#546e7a;white-space:nowrap" class="mob-hide">${c.num_doc||'—'}</td>
       <td style="padding:8px 10px;font-weight:700;color:${atrasado?'#c62828':isPaga?'#2e7d32':'#263238'};font-size:13px">
         ${isPaga?fmtMoeda(c.valor_pago||c.valor):fmtMoeda(c.valor)}
       </td>
@@ -13585,133 +13584,75 @@ async function importarCPdePlanilha(input){
     const wb=XLSX.read(data,{type:'array',cellDates:true});
     const ws0=wb.Sheets[wb.SheetNames[0]];
     const allRows=XLSX.utils.sheet_to_json(ws0,{header:1,raw:false,dateNF:'YYYY-MM-DD'});
-
-    // Encontra a linha de header real (contém palavras-chave como venc, valor, razão, desc)
     let headerRow=0;
     for(let i=0;i<Math.min(10,allRows.length);i++){
       const rowStr=(allRows[i]||[]).join('|').toLowerCase();
-      if(rowStr.includes('venc')||rowStr.includes('valor')||rowStr.includes('raz')||rowStr.includes('forn')||rowStr.includes('desc')){
-        headerRow=i; break;
-      }
+      if(rowStr.includes('venc')||rowStr.includes('valor')||rowStr.includes('raz')||rowStr.includes('forn')||rowStr.includes('desc')){headerRow=i;break;}
     }
-
     const header=(allRows[headerRow]||[]).map(h=>(h||'').toString().toLowerCase().trim());
     const ci={
-      data: header.findIndex(h=>h.includes('venc')||h.includes('data')),
-      desc: header.findIndex(h=>h.includes('raz')||h.includes('forn')||h.includes('nome')||h.includes('desc')||h.includes('histor')),
-      valor: header.findIndex(h=>h.includes('valor')||h.includes('líq')||h.includes('liq')||h.includes('total')||h.includes('vlr')),
-      nf: header.findIndex(h=>h.includes('nota')||h.includes(' nf')||h.includes('doc')||h.includes('fiscal')),
+      data:  header.findIndex(h=>h.includes('venc')||h.includes('data')),
+      desc:  header.findIndex(h=>h.includes('raz')||h.includes('forn')||h.includes('nome')||h.includes('desc')||h.includes('histor')),
+      valor: header.findIndex(h=>h.includes('valor')||h.includes('\u00edq')||h.includes('liq')||h.includes('total')||h.includes('vlr')),
+      nf:    header.findIndex(h=>h.includes('nota')||h.includes('fiscal')||h===' nf '||h==='nf'),
     };
-    if(ci.data<0) ci.data=0;
-    if(ci.desc<0) ci.desc=1;
-    if(ci.valor<0) ci.valor=2;
-
-    // Lê linhas a partir do header+1, ignora linhas sem descrição ou sem data válida
+    if(ci.data<0) ci.data=0; if(ci.desc<0) ci.desc=1; if(ci.valor<0) ci.valor=2;
     const novos=[];
-    const vistos=new Set();
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
-
-      // Parse da data — suporta M/D/YY (americano), DD/MM/YYYY (brasileiro), YYYY-MM-DD
       let dataStr='';
       const rawData=row[ci.data];
       if(!rawData) continue;
-      if(rawData instanceof Date){
-        dataStr=rawData.toISOString().substring(0,10);
-      } else {
+      if(rawData instanceof Date){ dataStr=rawData.toISOString().substring(0,10); }
+      else {
         const s=rawData.toString().trim();
         if(s.includes('/')){
           const p=s.split('/');
           if(p.length===3){
-            const d=parseInt(p[0]),m=parseInt(p[1]),y=parseInt(p[2]);
-            // M/D/YY americano: primeiro componente é mês (≤12), ano é 2 dígitos
-            if(p[2].length<=2){
-              dataStr=`${2000+y}-${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`;
-            } else if(p[0].length===4){
-              dataStr=`${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`;
-            } else {
-              dataStr=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-            }
+            if(p[2].length<=2){ dataStr=`${2000+parseInt(p[2])}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}`; }
+            else if(p[0].length===4){ dataStr=`${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`; }
+            else { dataStr=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`; }
           }
-        } else if(s.match(/^\d{4}-\d{2}-\d{2}/)){
-          dataStr=s.substring(0,10);
-        } else {
-          dataStr=_parseExcelDate(rawData)||'';
-        }
+        } else if(s.match(/^\d{4}-\d{2}-\d{2}/)){ dataStr=s.substring(0,10); }
+        else { dataStr=_parseExcelDate(rawData)||''; }
       }
       if(!dataStr||!dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
-
       const desc=(row[ci.desc]||'').toString().trim();
       if(!desc||desc.length<2) continue;
-
-      // Parse do valor — suporta "-R$ 2,562.12" (americano) e "2.562,12" (brasileiro)
       let valor=0;
       const rawVal=row[ci.valor];
-      if(typeof rawVal==='number'){
-        valor=Math.abs(rawVal);
-      } else {
+      if(typeof rawVal==='number'){ valor=Math.abs(rawVal); }
+      else {
         const s=(rawVal||'0').toString().replace(/[R$\s\-]/g,'').trim();
-        // Americano: vírgula como milhar, ponto como decimal → "2,562.12"
-        if(s.includes('.')&&s.includes(',')&&s.lastIndexOf('.')>s.lastIndexOf(',')){
-          valor=parseFloat(s.replace(/,/g,''))||0;
-        // Brasileiro: ponto como milhar, vírgula como decimal → "2.562,12"
-        } else if(s.includes(',')&&(!s.includes('.')||s.lastIndexOf(',')>s.lastIndexOf('.'))){
-          valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
-        } else {
-          valor=parseFloat(s.replace(/,/g,''))||0;
-        }
+        if(s.includes('.')&&s.includes(',')&&s.lastIndexOf('.')>s.lastIndexOf(',')){ valor=parseFloat(s.replace(/,/g,''))||0; }
+        else if(s.includes(',')&&(!s.includes('.')||s.lastIndexOf(',')>s.lastIndexOf('.'))){ valor=parseFloat(s.replace(/\./g,'').replace(',','.'))||0; }
+        else { valor=parseFloat(s.replace(/,/g,''))||0; }
         valor=Math.abs(valor);
       }
       if(!valor) continue;
-
       const nf=ci.nf>=0?(row[ci.nf]||'').toString().replace(/^0+/,'').trim()||null:null;
-      const key=`${dataStr}|${desc}|${valor}`;
-      if(vistos.has(key)) continue;
-      vistos.add(key);
-
-      novos.push({
-        descricao:desc, vencimento:dataStr, valor,
-        num_doc:nf, status:'Aberta',
-        criado_por:usuarioLogado?.nome||null,
-        observacao:'Importado de planilha'
-      });
+      novos.push({descricao:desc,vencimento:dataStr,valor,num_doc:nf,status:'Aberta',criado_por:usuarioLogado?.nome||null,observacao:'Importado de planilha'});
     }
-
-    if(!novos.length){ showToast('Nenhum lançamento válido encontrado. Verifique o formato da planilha.','err'); return; }
-
-    // Agrupa por NF: mesma NF + mesmo fornecedor + mesma data → soma valores
-    // NUNCA agrupa N/D, N/A, em branco ou nulos
+    if(!novos.length){ showToast('Nenhum lançamento válido encontrado','err'); return; }
+    // Agrupa por NF+fornecedor+data — N/D e vazias NÃO agrupam
     const agrupados=[];
     const mapaGrupos={};
     novos.forEach(c=>{
       const nf=(c.num_doc||'').trim();
-      const nfValida=nf&&nf!=='N/D'&&nf!=='N/A'&&nf!=='ND'&&nf!=='-'&&nf.length>0;
-      if(nfValida){
-        const key=`${c.descricao}|${nf}|${c.vencimento}`;
-        if(mapaGrupos[key]){
-          mapaGrupos[key].valor+=c.valor;
-        } else {
-          mapaGrupos[key]={...c};
-          agrupados.push(mapaGrupos[key]);
-        }
-      } else {
-        // Sem NF válida: entra individualmente
-        agrupados.push({...c});
-      }
+      const nfOk=nf&&!['N/D','N/A','ND','-',''].includes(nf.toUpperCase());
+      if(nfOk){
+        const key=`${c.descricao}||${nf}||${c.vencimento}`;
+        if(mapaGrupos[key]){ mapaGrupos[key].valor=parseFloat((mapaGrupos[key].valor+c.valor).toFixed(2)); }
+        else { mapaGrupos[key]={...c}; agrupados.push(mapaGrupos[key]); }
+      } else { agrupados.push({...c}); }
     });
-
-    const reduzidos=novos.length-agrupados.length;
-    const msgAgrup=reduzidos>0?`\n\n🔗 ${reduzidos} linha(s) agrupadas por NF (${novos.length} → ${agrupados.length} registros)`:'';
-
-    if(!confirm(`Importar ${agrupados.length} contas a pagar?${msgAgrup}\n\nColunas:\n- Data/Venc: "${header[ci.data]}"\n- Descrição: "${header[ci.desc]}"\n- Valor: "${header[ci.valor]}"\n\nPrimeiro: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
-
-    let ok=0, err=0;
-    for(const c of agrupados){
-      try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; console.error(e); }
-    }
-    await loadFinanceiro();
-    renderContasPagar();
-    showToast(`✅ ${ok} contas importadas!${err?` | ❌ ${err} erros`:''}`);
+    const red=novos.length-agrupados.length;
+    const msg=red>0?`\n\u{1F517} ${red} linhas agrupadas por NF (${novos.length} \u2192 ${agrupados.length})`:' (sem agrupamentos)';
+    if(!confirm(`Importar ${agrupados.length} contas?${msg}\n\nEx: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
+    let ok=0,err=0;
+    for(const c of agrupados){ try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; } }
+    await loadFinanceiro(); renderContasPagar();
+    showToast(`✅ ${ok} contas importadas!${err?` ❌ ${err} erros`:''}`);
   }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
 
