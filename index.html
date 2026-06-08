@@ -15426,34 +15426,23 @@ function _renderFluxoCaixaCore(){
   const saldoAntBase=parseFloat((document.getElementById('fcSaldoAnterior')?.value||'0')
     .replace(/[^0-9,.\-]/g,'').replace(',','.'))||0;
 
-  // Calcula saldo anterior em cascata:
-  // Soma todos os lançamentos (FC realizados + CP/CR pagos) dos meses ANTERIORES ao menor mês selecionado
+  // Calcula saldo anterior: soma TUDO que aconteceu antes do mês filtrado
   let saldoAnt = saldoAntBase;
   const menorMes=_fcMenorMesSelecionado();
   if(menorMes){
-    // FC realizados anteriores
-    const transFC = fcDados.filter(t=>t.data && t.data < menorMes+'-01' && !t.pendente);
-    const somaFC = transFC.reduce((s,t)=>s+t.valor, 0);
-
-    // CP pagos anteriores que NÃO estão no FC (evitar dupla contagem)
-    const cpIdsNoFC=new Set(fcDados.filter(t=>t._cpId&&!t.pendente&&t.data<menorMes+'-01').map(t=>t._cpId));
-    const cpPagosAntes=(contasPagar||[]).filter(c=>
-      c.status==='Paga' && c.dt_pagamento && c.dt_pagamento < menorMes+'-01' && !cpIdsNoFC.has(c.id)
+    // Soma todos os lançamentos FC (realizados) anteriores ao mês selecionado
+    // Inclui _origem:'CP' porque esses JÁ estão no fcDados com data correta
+    const transAntes = fcDados.filter(t=>
+      t && t.data && !t.pendente && t.data.substring(0,7) < menorMes
     );
-    const somaCP = cpPagosAntes.reduce((s,c)=>s-Math.abs(c.valor_pago||c.valor||0), 0);
+    const somaAntes = transAntes.reduce((s,t)=>s+t.valor, 0);
+    saldoAnt = saldoAntBase + somaAntes;
 
-    // CR recebidos anteriores que NÃO estão no FC
-    const crIdsNoFC=new Set(fcDados.filter(t=>t._crId&&!t.pendente&&t.data<menorMes+'-01').map(t=>t._crId));
-    const crRecebidosAntes=(contasReceber||[]).filter(c=>
-      c.status==='Recebida' && c.dt_recebimento && c.dt_recebimento < menorMes+'-01' && !crIdsNoFC.has(c.id)
-    );
-    const somaCR = crRecebidosAntes.reduce((s,c)=>s+Math.abs(c.valor_recebido||c.valor||0), 0);
+    console.log('[FC Saldo] menorMes:',menorMes,'base:',saldoAntBase,'somaAntes:',somaAntes,'total:',saldoAnt);
+    console.log('[FC Saldo] items antes:', transAntes.length, 'meses:', [...new Set(transAntes.map(t=>t.data.substring(0,7)))]);
 
-    saldoAnt = saldoAntBase + somaFC + somaCP + somaCR;
-    console.log('[FC Saldo]','Base:',saldoAntBase,'FC ant:',somaFC,'CP ant:',somaCP,'CR ant:',somaCR,'Total:',saldoAnt,'menorMes:',menorMes);
-    console.log('[FC Saldo] FC ant items:', transFC.length, transFC.map(t=>({dt:t.data,v:t.valor,orig:t._origem,cpId:t._cpId})));
     const elSA = document.getElementById('fcSaldoAnterior');
-    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + FC: ${fmtMoeda(somaFC)} + CP: ${fmtMoeda(somaCP)} + CR: ${fmtMoeda(somaCR)}`;
+    if(elSA) elSA.title = `Base: ${fmtMoeda(saldoAntBase)} + Acumulado anterior: ${fmtMoeda(somaAntes)} = ${fmtMoeda(saldoAnt)}`;
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
