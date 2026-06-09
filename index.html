@@ -1518,6 +1518,13 @@ tr:hover td{background:#f9fbf9}
   <div class="stat-row" id="statsPAG"></div>
   <div class="toolbar">
     <input type="text" id="buscaPAG" placeholder="Buscar fornecedor ou descrição..." oninput="renderPagamentos()" style="flex:1">
+    <input type="date" id="filtroPAG_de" onchange="renderPagamentos()" title="Data de" style="padding:7px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px">
+    <input type="date" id="filtroPAG_ate" onchange="renderPagamentos()" title="Data até" style="padding:7px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px">
+    <select id="filtroPAG_origem" onchange="renderPagamentos()" style="padding:7px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px">
+      <option value="">Todas as origens</option>
+      <option value="Contas a Pagar">CP</option>
+      <option value="Fluxo de Caixa">FC</option>
+    </select>
     <div style="position:relative" id="pagMesFiltroWrap">
       <button id="pagMesFiltroBtn" onclick="toggleMesFiltro('PAG',event)"
         style="padding:7px 28px 7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;min-width:160px;text-align:left;position:relative;white-space:nowrap">
@@ -1562,6 +1569,13 @@ tr:hover td{background:#f9fbf9}
   <div class="stat-row" id="statsREC"></div>
   <div class="toolbar">
     <input type="text" id="buscaREC" placeholder="Buscar cliente ou descrição..." oninput="renderRecebimentos()" style="flex:1">
+    <input type="date" id="filtroREC_de" onchange="renderRecebimentos()" title="Data de" style="padding:7px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px">
+    <input type="date" id="filtroREC_ate" onchange="renderRecebimentos()" title="Data até" style="padding:7px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px">
+    <select id="filtroREC_origem" onchange="renderRecebimentos()" style="padding:7px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px">
+      <option value="">Todas as origens</option>
+      <option value="Contas a Receber">CR</option>
+      <option value="Fluxo de Caixa">FC</option>
+    </select>
     <div style="position:relative" id="recMesFiltroWrap">
       <button id="recMesFiltroBtn" onclick="toggleMesFiltro('REC',event)"
         style="padding:7px 28px 7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;min-width:160px;text-align:left;position:relative;white-space:nowrap">
@@ -7218,54 +7232,24 @@ async function salvarNovaPecaGlobal(){
 
   fecharModal('modalNovaPecaGlobal');
 
-  // 1 card por PDV — usa fetch direto com JWT para aceitar campo 'quantidade'
-  // mesmo que o schema cache do Supabase ainda não tenha reconhecido a coluna
-  const SUPA_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
-  const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6a3Fjd3NyYWN2b3NkaHFrbWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjQwMTMsImV4cCI6MjA5MzEwMDAxM30.wRmRXfU9kGtPodxKC6tD69VoDlBNI7Su5DGqLYDBe9U';
-
+  // 1 card por destino (PDV+Setor) — quantidade fica na descrição até SQL ser executado
   let criadas=0;
-  const promises=destinos.map(async d=>{
+  for(const d of destinos){
     try{
-      const body={
+      const descFinal=[descricao, d.qtd>1?`${d.qtd} unidades`:null].filter(Boolean).join(' | ')||null;
+      await api('POST','pecas_projeto',{
         setor_id:d.setorId,
         pdv_id:d.pvId,
         nome,
         numero_desenho:desenho,
         responsavel,
-        descricao: (descricao?descricao+' ':'')+(d.qtd>1?'[qtd:'+d.qtd+']':'').trim()||null,
-        quantidade:d.qtd,
+        descricao:descFinal,
         status:'aguardando',
         criado_por:usuarioLogado?.nome||null
-      };
-      const r=await fetch(SUPA_URL+'/rest/v1/pecas_projeto',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'apikey':SUPA_KEY,
-          'Authorization':'Bearer '+SUPA_KEY,
-          'Prefer':'return=minimal'
-        },
-        body:JSON.stringify(body)
       });
-      if(r.ok) criadas++;
-      else {
-        // Fallback sem campo quantidade (coluna ainda não existe no banco)
-        const b2={...body}; delete b2.quantidade;
-        const r2=await fetch(SUPA_URL+'/rest/v1/pecas_projeto',{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'apikey':SUPA_KEY,
-            'Authorization':'Bearer '+SUPA_KEY,
-            'Prefer':'return=minimal'
-          },
-          body:JSON.stringify(b2)
-        });
-        if(r2.ok) criadas++;
-      }
+      criadas++;
     }catch(e){ console.error('[gpec]',e); }
-  });
-  await Promise.all(promises);
+  }
   await loadAll();
   const totalUn=destinos.reduce((s,d)=>s+d.qtd,0);
   showToast(`✅ ${criadas} card(s) criado(s) — ${totalUn} un em ${destinos.length} PDV(s)!`,'ok',5000);
@@ -12565,10 +12549,16 @@ function renderPagamentos(){
   const busca=(document.getElementById('buscaPAG')?.value||'').toLowerCase();
   const meses=[...new Set(listaBase.map(t=>t.data?.substring(0,7)).filter(Boolean))].sort();
   _populaMesFiltro('PAG',meses);
+  const filtroDePAG=document.getElementById('filtroPAG_de')?.value||'';
+  const filtroAtePAG=document.getElementById('filtroPAG_ate')?.value||'';
+  const filtroOrigemPAG=document.getElementById('filtroPAG_origem')?.value||'';
   const lista=listaBase.filter(t=>{
     if(!t.data) return false;
     if(!_mesAtivoFiltro('PAG',t.data)) return false;
     if(busca&&!(t.descricao+(t.nf||'')).toLowerCase().includes(busca)) return false;
+    if(filtroDePAG&&t.data<filtroDePAG) return false;
+    if(filtroAtePAG&&t.data>filtroAtePAG) return false;
+    if(filtroOrigemPAG&&t.origem!==filtroOrigemPAG) return false;
     return true;
   });
   const mesAtual=new Date().toISOString().substring(0,7);
@@ -12610,10 +12600,16 @@ function renderRecebimentos(){
   const busca=(document.getElementById('buscaREC')?.value||'').toLowerCase();
   const meses=[...new Set(listaBase.map(t=>t.data?.substring(0,7)).filter(Boolean))].sort();
   _populaMesFiltro('REC',meses);
+  const filtroDeREC=document.getElementById('filtroREC_de')?.value||'';
+  const filtroAteREC=document.getElementById('filtroREC_ate')?.value||'';
+  const filtroOrigemREC=document.getElementById('filtroREC_origem')?.value||'';
   const lista=listaBase.filter(t=>{
     if(!t.data) return false;
     if(!_mesAtivoFiltro('REC',t.data)) return false;
     if(busca&&!(t.descricao+(t.nf||'')).toLowerCase().includes(busca)) return false;
+    if(filtroDeREC&&t.data<filtroDeREC) return false;
+    if(filtroAteREC&&t.data>filtroAteREC) return false;
+    if(filtroOrigemREC&&t.origem!==filtroOrigemREC) return false;
     return true;
   });
   const mesAtual=new Date().toISOString().substring(0,7);
