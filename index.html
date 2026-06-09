@@ -13901,43 +13901,86 @@ async function importarPagamentosRealizados(input){
     // Índice das contas a pagar abertas para matching
     const abertas=(contasPagar||[]).filter(c=>c.status==='Aberta');
 
-    // Matching — 3 estratégias em cascata:
-    // P1: NF normalizada (sem zeros) + valor exato (centavos) — mais preciso
-    // P2: NF normalizada + nome parcial (12 chars) — NF bate mas valor difere (parcelamento, juros)
-    // P3: nome parcial + valor exato — sem NF (N/D)
-    const matches=[]; // {cpId, pagamento, estrategia, cp}
-    const cpUsados=new Set(); // evita marcar a mesma CP duas vezes
+    // Matching — 4 estratégias em cascata (do mais ao menos preciso):
+    // P1: NF normalizada + valor exato (centavos) — mais seguro
+    // P2: NF normalizada sozinha — valor pode diferir (juros, arredondamento, parcelas)
+    // P3: nome parcial (6 chars) + valor exato — fornecedores sem NF (N/D)
+    // P4: nome parcial (6 chars) + valor aproximado (±2%) — último recurso
+    const matches=[];
+    const cpUsados=new Set();
     const pagUsados=new Set();
 
-    function normNF(nf){ if(!nf) return ''; const s=nf.toString().trim().toUpperCase(); if(s==='N/D'||s==='ND'||s==='') return ''; return String(parseInt(s,10)||s); }
+    function normNF(nf){ if(!nf) return ''; const s=nf.toString().trim().toUpperCase(); if(s==='N/D'||s==='ND'||s==='N/A'||s===''||s==='-') return ''; const n=parseInt(s,10); return isNaN(n)?s:String(n); }
     function normNome(n){ return (n||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,12); }
 
-    // Monta índices das abertas
-    const idxNFValor={};   // nfNorm+'|'+valor → [cp]
-    const idxNFNome={};    // nfNorm+'|'+nomeNorm → [cp]
-    const idxNomeValor={}; // nomeNorm+'|'+valor → [cp]
+    // Índices para lookup rápido
+    const idxNF={};        // nfNorm → [cp] — P2
+    const idxNFValor={};   // nfNorm|valor → [cp] — P1
+    const idxNomeValor={}; // nome6|valor → [cp] — P3
+    const idxNome6={};     // nome6 → [cp] — P4
     abertas.forEach(cp=>{
       const nf=normNF(cp.num_doc);
       const nm=normNome(cp.descricao);
+      const nm6=nm.substring(0,6);
       const vl=Math.round((cp.valor||0)*100);
-      if(nf){ const k1=nf+'|'+vl; (idxNFValor[k1]=idxNFValor[k1]||[]).push(cp); }
-      if(nf){ const k2=nf+'|'+nm; (idxNFNome[k2]=idxNFNome[k2]||[]).push(cp); }
-      const k3=nm+'|'+vl; (idxNomeValor[k3]=idxNomeValor[k3]||[]).push(cp);
+      if(nf){
+        (idxNF[nf]=idxNF[nf]||[]).push(cp);
+        const k1=nf+'|'+vl; (idxNFValor[k1]=idxNFValor[k1]||[]).push(cp);
+      }
+      const k3=nm6+'|'+vl; (idxNomeValor[k3]=idxNomeValor[k3]||[]).push(cp);
+      (idxNome6[nm6]=idxNome6[nm6]||[]).push(cp);
     });
 
     for(let pi=0;pi<pagamentos.length;pi++){
       if(pagUsados.has(pi)) continue;
       const p=pagamentos[pi];
       let cpMatch=null, estrategia='';
+      const nm6=p.nomeNorm.substring(0,6);
 
       // P1: NF + valor exato
-      if(p.nfNorm){ const k=p.nfNorm+'|'+p.valor; const cands=(idxNFValor[k]||[]).filter(c=>!cpUsados.has(c.id)); if(cands.length===1){cpMatch=cands[0];estrategia='NF+Valor';} else if(cands.length>1){ const nm=p.nomeNorm; const sub=cands.filter(c=>normNome(c.descricao).startsWith(nm.substring(0,6))||nm.startsWith(normNome(c.descricao).substring(0,6))); cpMatch=sub.length===1?sub[0]:cands[0]; estrategia='NF+Valor(multi)'; } }
+      if(!cpMatch&&p.nfNorm){
+        const cands=(idxNFValor[p.nfNorm+'|'+p.valor]||[]).filter(c=>!cpUsados.has(c.id));
+        if(cands.length===1){ cpMatch=cands[0]; estrategia='P1:NF+Valor'; }
+        else if(cands.length>1){
+          // Desempata por nome
+          const sub=cands.filter(c=>normNome(c.descricao).startsWith(nm6)||nm6.startsWith(normNome(c.descricao).substring(0,6)));
+          cpMatch=sub[0]||cands[0]; estrategia='P1:NF+Valor(multi)';
+        }
+      }
 
-      // P2: NF + nome parcial (fallback quando valor difere — ex: parcelamento)
-      if(!cpMatch&&p.nfNorm){ const k=p.nfNorm+'|'+p.nomeNorm; const cands=(idxNFNome[k]||[]).filter(c=>!cpUsados.has(c.id)); if(cands.length>=1){cpMatch=cands[0];estrategia='NF+Nome';} }
+      // P2: NF sozinha (valor pode diferir — juros, arredondamento, parcelas)
+      if(!cpMatch&&p.nfNorm){
+        const cands=(idxNF[p.nfNorm]||[]).filter(c=>!cpUsados.has(c.id));
+        if(cands.length===1){ cpMatch=cands[0]; estrategia='P2:NF'; }
+        else if(cands.length>1){
+          // Desempata por nome mais próximo
+          const sub=cands.filter(c=>normNome(c.descricao).startsWith(nm6)||nm6.startsWith(normNome(c.descricao).substring(0,6)));
+          if(sub.length===1){ cpMatch=sub[0]; estrategia='P2:NF+Nome'; }
+          // Se ainda ambíguo, ordena por proximidade de valor e pega o mais próximo
+          else {
+            const sorted=cands.sort((a,b)=>Math.abs((a.valor||0)-p.rawVal)-Math.abs((b.valor||0)-p.rawVal));
+            cpMatch=sorted[0]; estrategia='P2:NF(closest)';
+          }
+        }
+      }
 
-      // P3: nome parcial + valor exato (para N/D sem NF)
-      if(!cpMatch){ const k=p.nomeNorm+'|'+p.valor; const cands=(idxNomeValor[k]||[]).filter(c=>!cpUsados.has(c.id)); if(cands.length===1){cpMatch=cands[0];estrategia='Nome+Valor';} }
+      // P3: nome parcial 6 chars + valor exato
+      if(!cpMatch){
+        const cands=(idxNomeValor[nm6+'|'+p.valor]||[]).filter(c=>!cpUsados.has(c.id));
+        if(cands.length===1){ cpMatch=cands[0]; estrategia='P3:Nome+Valor'; }
+        else if(cands.length>1){ cpMatch=cands[0]; estrategia='P3:Nome+Valor(multi)'; }
+      }
+
+      // P4: nome parcial 6 chars + valor aproximado ±2%
+      if(!cpMatch){
+        const tol=p.valor*0.02;
+        const cands=(idxNome6[nm6]||[]).filter(c=>{
+          if(cpUsados.has(c.id)) return false;
+          const cv=Math.round((c.valor||0)*100);
+          return Math.abs(cv-p.valor)<=Math.ceil(tol);
+        });
+        if(cands.length===1){ cpMatch=cands[0]; estrategia='P4:Nome~Valor'; }
+      }
 
       if(cpMatch){ matches.push({pi,cpId:cpMatch.id,estrategia,cp:cpMatch,pag:p}); cpUsados.add(cpMatch.id); pagUsados.add(pi); }
     }
