@@ -7790,7 +7790,7 @@ async function confirmarEstMov(){
       unidade_saida: und,
       data: new Date().toISOString().split('T')[0],
       departamento: deptoFinal||null,
-      pdv_id: pdvId||null,
+      pdv: pdvLabel||null,
       observacao: obsFinal||null,
       criado_por: usuarioLogado?.nome||null
     });
@@ -10777,7 +10777,7 @@ function renderMovEstoque(){
     const isEntrada=m.tipo==='entrada';
     const depto=m.departamento||'—';
     const pdvObj = m.pdv_id ? pdvs.find(p=>p.id===m.pdv_id) : null;
-    const pdvNumero = pdvObj ? (String(pdvObj.numero).startsWith('PDV') ? pdvObj.numero : 'PDV '+pdvObj.numero) : null;
+    const pdvNumero = pdvObj ? (String(pdvObj.numero).startsWith("PDV") ? pdvObj.numero : "PDV "+pdvObj.numero) : (m.pdv||null);
     const pdvLabel = pdvNumero ? `${pdvNumero}${pdvObj.cliente?' — '+pdvObj.cliente.substring(0,20):''}` : null;
     const deptoDisplay = pdvLabel || depto;
     const obsDisplay = (m.observacao || pdvNumero || '—').replace(/PDV\s+PDV\s*/gi,'PDV ');
