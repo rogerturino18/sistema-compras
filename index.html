@@ -14418,9 +14418,8 @@ async function importarPlanilhaFC(input){
           dt=y+'-'+m+'-'+d;
         } else continue;
 
-        // Descrição
-        const desc=String(r[iDesc]||'').trim();
-        if(!desc||desc.length<2) continue;
+        // Descrição — se vazia, usa fallback para não perder lançamentos com valor
+        const desc=String(r[iDesc]||'').trim()||'(s/ descrição)';
 
         // Processa cada coluna de valor
         const colunas=[
