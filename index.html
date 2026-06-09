@@ -1381,6 +1381,10 @@ tr:hover td{background:#f9fbf9}
       📂 Importar
       <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarCPdePlanilha(this)">
     </label>
+    <label class="btn" style="font-size:12px;background:#2e7d32;color:#fff;border-color:#1b5e20;cursor:pointer;margin:0" title="Importar relatório de pagamentos realizados do Omie — marca contas como Pagas automaticamente">
+      ✅ Baixar Pagos
+      <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPagamentosRealizados(this)">
+    </label>
     <button id="btnDesfazerImportCP" onclick="desfazerImportacaoCP()" style="display:none;font-size:12px;background:#e65100;color:#fff;border:1px solid #bf360c;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700" title="Apaga todas as contas importadas de planilha ainda em Aberto">↩️ Desfazer Importação</button>
   </div>
   <div class="tbl-wrap">
@@ -13735,6 +13739,191 @@ async function importarCPdePlanilha(input){
   }
 }
 
+
+// ── Importar Pagamentos Realizados (Omie) → marcar CP como Pago ─────────────
+async function importarPagamentosRealizados(input){
+  const file=input.files?.[0]; input.value='';
+  if(!file) return;
+  try{
+    if(typeof XLSX==='undefined'){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=res; s.onerror=rej; document.head.appendChild(s);
+      });
+    }
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const allRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,cellDates:true});
+
+    // Detecta header: linha com "Fornecedor" ou "fornec" ou "pago"
+    let hdrIdx=-1;
+    for(let i=0;i<Math.min(5,allRows.length);i++){
+      const s=(allRows[i]||[]).join('|').toLowerCase();
+      if(s.includes('fornec')||s.includes('pago')||s.includes('pagto')){hdrIdx=i;break;}
+    }
+    if(hdrIdx<0){showToast('Cabeçalho não encontrado na planilha','err');return;}
+
+    const hdr=(allRows[hdrIdx]||[]).map(h=>(h||'').toString().toLowerCase().trim());
+    const iDesc  = hdr.findIndex(h=>h.includes('fornec')||h.includes('raz'));
+    const iNF    = hdr.findIndex(h=>h.includes('nota')||h.includes('fiscal'));
+    const iDt    = hdr.findIndex(h=>h.includes('data')||h.includes('pagto')||h.includes('recbto'));
+    const iVal   = hdr.findIndex(h=>h.includes('pago')||h.includes('recebido')||h.includes('valor'));
+
+    // Lê pagamentos — pula linha de totais (sem fornecedor)
+    const pagamentos=[];
+    for(let i=hdrIdx+1;i<allRows.length;i++){
+      const r=allRows[i]||[];
+      const desc=(r[iDesc]||'').toString().trim();
+      if(!desc||desc.length<2) continue;
+      // Data
+      let dtStr='';
+      const rawDt=r[iDt];
+      if(!rawDt) continue;
+      if(rawDt instanceof Date){ const y=rawDt.getFullYear(),m=String(rawDt.getMonth()+1).padStart(2,'0'),d=String(rawDt.getDate()).padStart(2,'0'); dtStr=y+'-'+m+'-'+d; }
+      else { const s=rawDt.toString().trim(); if(s.match(/^\d{4}-\d{2}-\d{2}/)) dtStr=s.substring(0,10); }
+      if(!dtStr) continue;
+      // Valor
+      const rawVal=r[iVal];
+      const valor=typeof rawVal==='number'?Math.round(Math.abs(rawVal)*100):0;
+      if(!valor) continue; // ignora R$ 0,00
+      // NF normalizada (remove zeros à esquerda para comparar)
+      const nfRaw=(r[iNF]||'').toString().trim();
+      const nfNorm=nfRaw&&nfRaw.toUpperCase()!=='N/D'&&nfRaw!==''?String(parseInt(nfRaw,10)||nfRaw).trim():'';
+      // Nome normalizado (lowercase, sem pontuação, primeiros 12 chars)
+      const nomeNorm=desc.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,12);
+      pagamentos.push({desc,dtStr,valor,nfRaw,nfNorm,nomeNorm,rawVal:Math.abs(rawVal)});
+    }
+
+    if(!pagamentos.length){showToast('Nenhum pagamento válido encontrado','err');return;}
+
+    // Índice das contas a pagar abertas para matching
+    const abertas=(contasPagar||[]).filter(c=>c.status==='Aberta');
+
+    // Matching — 3 estratégias em cascata:
+    // P1: NF normalizada (sem zeros) + valor exato (centavos) — mais preciso
+    // P2: NF normalizada + nome parcial (12 chars) — NF bate mas valor difere (parcelamento, juros)
+    // P3: nome parcial + valor exato — sem NF (N/D)
+    const matches=[]; // {cpId, pagamento, estrategia, cp}
+    const cpUsados=new Set(); // evita marcar a mesma CP duas vezes
+    const pagUsados=new Set();
+
+    function normNF(nf){ if(!nf) return ''; const s=nf.toString().trim().toUpperCase(); if(s==='N/D'||s==='ND'||s==='') return ''; return String(parseInt(s,10)||s); }
+    function normNome(n){ return (n||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,12); }
+
+    // Monta índices das abertas
+    const idxNFValor={};   // nfNorm+'|'+valor → [cp]
+    const idxNFNome={};    // nfNorm+'|'+nomeNorm → [cp]
+    const idxNomeValor={}; // nomeNorm+'|'+valor → [cp]
+    abertas.forEach(cp=>{
+      const nf=normNF(cp.num_doc);
+      const nm=normNome(cp.descricao);
+      const vl=Math.round((cp.valor||0)*100);
+      if(nf){ const k1=nf+'|'+vl; (idxNFValor[k1]=idxNFValor[k1]||[]).push(cp); }
+      if(nf){ const k2=nf+'|'+nm; (idxNFNome[k2]=idxNFNome[k2]||[]).push(cp); }
+      const k3=nm+'|'+vl; (idxNomeValor[k3]=idxNomeValor[k3]||[]).push(cp);
+    });
+
+    for(let pi=0;pi<pagamentos.length;pi++){
+      if(pagUsados.has(pi)) continue;
+      const p=pagamentos[pi];
+      let cpMatch=null, estrategia='';
+
+      // P1: NF + valor exato
+      if(p.nfNorm){ const k=p.nfNorm+'|'+p.valor; const cands=(idxNFValor[k]||[]).filter(c=>!cpUsados.has(c.id)); if(cands.length===1){cpMatch=cands[0];estrategia='NF+Valor';} else if(cands.length>1){ const nm=p.nomeNorm; const sub=cands.filter(c=>normNome(c.descricao).startsWith(nm.substring(0,6))||nm.startsWith(normNome(c.descricao).substring(0,6))); cpMatch=sub.length===1?sub[0]:cands[0]; estrategia='NF+Valor(multi)'; } }
+
+      // P2: NF + nome parcial (fallback quando valor difere — ex: parcelamento)
+      if(!cpMatch&&p.nfNorm){ const k=p.nfNorm+'|'+p.nomeNorm; const cands=(idxNFNome[k]||[]).filter(c=>!cpUsados.has(c.id)); if(cands.length>=1){cpMatch=cands[0];estrategia='NF+Nome';} }
+
+      // P3: nome parcial + valor exato (para N/D sem NF)
+      if(!cpMatch){ const k=p.nomeNorm+'|'+p.valor; const cands=(idxNomeValor[k]||[]).filter(c=>!cpUsados.has(c.id)); if(cands.length===1){cpMatch=cands[0];estrategia='Nome+Valor';} }
+
+      if(cpMatch){ matches.push({pi,cpId:cpMatch.id,estrategia,cp:cpMatch,pag:p}); cpUsados.add(cpMatch.id); pagUsados.add(pi); }
+    }
+
+    const semMatch=pagamentos.filter((_,i)=>!pagUsados.has(i));
+
+    if(!matches.length){
+      showToast(`Nenhuma correspondência encontrada entre os ${pagamentos.length} pagamentos e as ${abertas.length} contas em aberto`,'err',7000);
+      return;
+    }
+
+    // Monta preview antes de confirmar
+    const totalMatch=matches.reduce((s,m)=>s+m.pag.rawVal,0);
+    const totalSemMatch=semMatch.reduce((s,p)=>s+p.rawVal,0);
+    const preview=matches.slice(0,8).map(m=>`• ${m.cp.descricao.substring(0,35)} | R$ ${m.pag.rawVal.toFixed(2)} [${m.estrategia}]`).join('
+');
+    const mais=matches.length>8?`
+… e mais ${matches.length-8} contas`:'';
+    const avisoSemMatch=semMatch.length?`
+
+⚠️ ${semMatch.length} pagamentos SEM correspondência (${fmtMoeda(totalSemMatch)}):
+`+semMatch.slice(0,5).map(p=>`  • ${p.desc.substring(0,40)}`).join('
+')+(semMatch.length>5?`
+  … e mais ${semMatch.length-5}`:''):'';
+
+    if(!confirm(`Marcar ${matches.length} contas como PAGAS? (${fmtMoeda(totalMatch)})
+
+Exemplos:
+${preview}${mais}${avisoSemMatch}`)) return;
+
+    // Modal de progresso
+    const progModal=document.createElement('div');
+    progModal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+    progModal.innerHTML=`
+      <div style="background:#fff;border-radius:16px;padding:32px 36px;min-width:340px;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,0.3);text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">✅</div>
+        <div style="font-weight:700;font-size:15px;color:#263238;margin-bottom:4px">Baixando pagamentos…</div>
+        <div id="bpProgDesc" style="font-size:12px;color:#78909c;margin-bottom:20px;min-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Preparando…</div>
+        <div style="background:#e0e0e0;border-radius:99px;height:10px;overflow:hidden;margin-bottom:10px">
+          <div id="bpProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2e7d32,#66bb6a);border-radius:99px;transition:width 0.2s"></div>
+        </div>
+        <div id="bpProgCount" style="font-size:13px;color:#546e7a;font-weight:600">0 / ${matches.length}</div>
+      </div>`;
+    document.body.appendChild(progModal);
+    const bar=document.getElementById('bpProgBar');
+    const cnt=document.getElementById('bpProgCount');
+    const desc=document.getElementById('bpProgDesc');
+
+    let ok=0,err=0;
+    const BATCH=8;
+    for(let b=0;b<matches.length;b+=BATCH){
+      const lote=matches.slice(b,b+BATCH);
+      if(desc) desc.textContent=lote[0].cp.descricao.substring(0,55);
+      await Promise.all(lote.map(async m=>{
+        try{
+          await api('PATCH','contas_pagar',{
+            status:'Paga',
+            dt_pagamento: m.pag.dtStr,
+            valor_pago: parseFloat(m.pag.rawVal.toFixed(2)),
+            observacao: (m.cp.observacao?m.cp.observacao+' | ':'')+'Baixado via planilha Omie'
+          },`?id=eq.${m.cpId}`);
+          ok++;
+        }catch(e){ err++; }
+        const done=ok+err;
+        if(bar) bar.style.width=Math.round(done/matches.length*100)+'%';
+        if(cnt) cnt.textContent=done+' / '+matches.length;
+      }));
+    }
+
+    progModal.remove();
+    await loadFinanceiro(); renderContasPagar();
+
+    let msg=`✅ ${ok} contas marcadas como Pagas!`;
+    if(err) msg+=` ❌ ${err} erros`;
+    if(semMatch.length) msg+=`\n⚠️ ${semMatch.length} pagamentos sem correspondência no sistema`;
+    showToast(msg,'ok',8000);
+
+    // Se houver sem match, mostra lista detalhada no console
+    if(semMatch.length){
+      console.group('[Baixar Pagos] Sem correspondência:');
+      semMatch.forEach(p=>console.log(p.desc,'| NF:',p.nfRaw,'| R$',p.rawVal.toFixed(2),'|',p.dtStr));
+      console.groupEnd();
+    }
+
+  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
+}
 
 // ── Desfazer importação de planilha CP ──────────────────────────────────────
 async function desfazerImportacaoCP(){
