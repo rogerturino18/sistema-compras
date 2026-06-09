@@ -1452,7 +1452,7 @@ tr:hover td{background:#f9fbf9}
           Todos os meses
           <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>
         </button>
-        <div id="fcMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:320px;overflow-y:auto;padding:6px 0">
+        <div id="fcMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);min-width:200px;max-height:320px;overflow-y:auto;padding:6px 0">
           <div style="padding:6px 12px;border-bottom:1px solid #f0f0f0;display:flex;gap:6px">
             <button onclick="fcMesMarcarTodos(true)" style="flex:1;padding:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;color:#2e7d32;cursor:pointer;font-weight:700">Todos</button>
             <button onclick="fcMesMarcarTodos(false)" style="flex:1;padding:4px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:11px;color:#c62828;cursor:pointer;font-weight:700">Nenhum</button>
@@ -1531,7 +1531,7 @@ tr:hover td{background:#f9fbf9}
         Todos os meses
         <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>
       </button>
-      <div id="pagMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:280px;overflow-y:auto;padding:6px 0">
+      <div id="pagMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:280px;overflow-y:auto;padding:6px 0">
         <div style="padding:6px 12px;border-bottom:1px solid #f0f0f0;display:flex;gap:6px">
           <button onclick="filtroMesTodos('PAG')" style="flex:1;padding:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;color:#2e7d32;cursor:pointer;font-weight:700">Todos</button>
           <button onclick="filtroMesNenhum('PAG')" style="flex:1;padding:4px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:11px;color:#c62828;cursor:pointer;font-weight:700">Nenhum</button>
@@ -1582,7 +1582,7 @@ tr:hover td{background:#f9fbf9}
         Todos os meses
         <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#888">▼</span>
       </button>
-      <div id="recMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:280px;overflow-y:auto;padding:6px 0">
+      <div id="recMesFiltroDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);min-width:200px;max-height:280px;overflow-y:auto;padding:6px 0">
         <div style="padding:6px 12px;border-bottom:1px solid #f0f0f0;display:flex;gap:6px">
           <button onclick="filtroMesTodos('REC')" style="flex:1;padding:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;color:#2e7d32;cursor:pointer;font-weight:700">Todos</button>
           <button onclick="filtroMesNenhum('REC')" style="flex:1;padding:4px;background:#ffebee;border:1px solid #ffcdd2;border-radius:6px;font-size:11px;color:#c62828;cursor:pointer;font-weight:700">Nenhum</button>
@@ -7230,11 +7230,21 @@ async function salvarNovaPecaGlobal(){
   const responsavel=document.getElementById('gpec_responsavel').value.trim()||null;
   const descricao=document.getElementById('gpec_desc').value.trim()||null;
 
+  // Consolidar destinos duplicados (mesmo PDV+Setor → soma quantidades)
+  const destinosMap={};
+  destinos.forEach(d=>{
+    const k=d.pvId+'|'+d.setorId;
+    if(destinosMap[k]) destinosMap[k].qtd+=d.qtd;
+    else destinosMap[k]={...d};
+  });
+  const destinosFinais=Object.values(destinosMap);
+
   fecharModal('modalNovaPecaGlobal');
+  showToast(`Criando ${destinosFinais.length} card(s)…`);
 
   // 1 card por destino (PDV+Setor) — quantidade fica na descrição até SQL ser executado
   let criadas=0;
-  for(const d of destinos){
+  for(const d of destinosFinais){
     try{
       const descFinal=[descricao, d.qtd>1?`${d.qtd} unidades`:null].filter(Boolean).join(' | ')||null;
       await api('POST','pecas_projeto',{
@@ -7251,8 +7261,8 @@ async function salvarNovaPecaGlobal(){
     }catch(e){ console.error('[gpec]',e); }
   }
   await loadAll();
-  const totalUn=destinos.reduce((s,d)=>s+d.qtd,0);
-  showToast(`✅ ${criadas} card(s) criado(s) — ${totalUn} un em ${destinos.length} PDV(s)!`,'ok',5000);
+  const totalUn=destinosFinais.reduce((s,d)=>s+d.qtd,0);
+  showToast(`✅ ${criadas} card(s) criado(s) — ${totalUn} un em ${destinosFinais.length} PDV(s)!`,'ok',5000);
 }
 
 function abrirModalPeca_semSetor(pdvId){
