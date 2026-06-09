@@ -13602,14 +13602,21 @@ async function importarCPdePlanilha(input){
     if(ci.data<0) ci.data=0; if(ci.desc<0) ci.desc=1; if(ci.valor<0) ci.valor=2;
 
     const novos=[];
+    // Forward-fill: planilhas tipo pivot têm fornecedor/NF só na 1ª linha do grupo
+    let _ffDesc='', _ffNF='';
     for(let i=headerRow+1;i<allRows.length;i++){
       const row=allRows[i]||[];
 
-      // Desc
-      const desc=(row[ci.desc]||'').toString().trim();
+      // Forward-fill fornecedor e NF
+      const rawDesc=(row[ci.desc]||'').toString().trim();
+      if(rawDesc&&rawDesc.length>=2) _ffDesc=rawDesc;
+      const rawNFcell=ci.nf>=0?(row[ci.nf]||'').toString().trim():'';
+      if(rawNFcell) _ffNF=rawNFcell;
+
+      const desc=_ffDesc;
       if(!desc||desc.length<2) continue;
 
-      // Data — vem como "2026-06-06 00:00:00" ou Date object ou "6/6/26"
+      // Data — vem como "2026-06-06 00:00:00" ou Date object ou "20/06/2026"
       let dataStr='';
       const rawData=row[ci.data];
       if(!rawData) continue;
@@ -13643,10 +13650,10 @@ async function importarCPdePlanilha(input){
       }
       if(!valor) continue;
 
-      // NF — mantém zeros à esquerda, ex: "000064562"
-      const nf=ci.nf>=0?(row[ci.nf]||'').toString().trim()||null:null;
+      // NF — usa forward-fill se célula vazia
+      const nf=rawNFcell||_ffNF||null;
 
-      novos.push({descricao:desc,vencimento:dataStr,valor,num_doc:nf,
+      novos.push({descricao:desc,vencimento:dataStr,valor,num_doc:nf||null,
         status:'Aberta',criado_por:usuarioLogado?.nome||null,observacao:'Importado de planilha'});
     }
 
