@@ -7218,22 +7218,53 @@ async function salvarNovaPecaGlobal(){
 
   fecharModal('modalNovaPecaGlobal');
 
-  // 1 card por PDV com o campo quantidade (não duplica cards)
+  // 1 card por PDV — usa fetch direto com JWT para aceitar campo 'quantidade'
+  // mesmo que o schema cache do Supabase ainda não tenha reconhecido a coluna
+  const SUPA_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
+  const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6a3Fjd3NyYWN2b3NkaHFrbWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjQwMTMsImV4cCI6MjA5MzEwMDAxM30.wRmRXfU9kGtPodxKC6tD69VoDlBNI7Su5DGqLYDBe9U';
+
   let criadas=0;
-  const promises=destinos.map(d=>
-    api('POST','pecas_projeto',{
-      setor_id:d.setorId,
-      pdv_id:d.pvId,
-      nome,
-      numero_desenho:desenho,
-      responsavel,
-      descricao,
-      quantidade:d.qtd,
-      status:'aguardando',
-      criado_por:usuarioLogado?.nome||null
-    }).then(()=>criadas++)
-    .catch(()=>{})
-  );
+  const promises=destinos.map(async d=>{
+    try{
+      const body={
+        setor_id:d.setorId,
+        pdv_id:d.pvId,
+        nome,
+        numero_desenho:desenho,
+        responsavel,
+        descricao: (descricao?descricao+' ':'')+(d.qtd>1?'[qtd:'+d.qtd+']':'').trim()||null,
+        quantidade:d.qtd,
+        status:'aguardando',
+        criado_por:usuarioLogado?.nome||null
+      };
+      const r=await fetch(SUPA_URL+'/rest/v1/pecas_projeto',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'apikey':SUPA_KEY,
+          'Authorization':'Bearer '+SUPA_KEY,
+          'Prefer':'return=minimal'
+        },
+        body:JSON.stringify(body)
+      });
+      if(r.ok) criadas++;
+      else {
+        // Fallback sem campo quantidade (coluna ainda não existe no banco)
+        const b2={...body}; delete b2.quantidade;
+        const r2=await fetch(SUPA_URL+'/rest/v1/pecas_projeto',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'apikey':SUPA_KEY,
+            'Authorization':'Bearer '+SUPA_KEY,
+            'Prefer':'return=minimal'
+          },
+          body:JSON.stringify(b2)
+        });
+        if(r2.ok) criadas++;
+      }
+    }catch(e){ console.error('[gpec]',e); }
+  });
   await Promise.all(promises);
   await loadAll();
   const totalUn=destinos.reduce((s,d)=>s+d.qtd,0);
