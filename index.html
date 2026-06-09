@@ -15471,18 +15471,31 @@ function renderFluxoCaixa(){
 }
 
 // Retorna lista de realizados do FC sem filtro de mês, deduplicada igual ao FC principal
+// Retorna o Set de chaves de lançamentos pagos via CP (origem CP ou _cpId)
+// Chave = data + fornecedor normalizado + valor absoluto arredondado
+// Usada para deduplicação consistente em toda a exibição do FC
+function _fcDescsPagasCPSet(){
+  // Usamos chave tripla (data+forn14+valor) para evitar falsos positivos de nome truncado
+  const set=new Set();
+  fcDados
+    .filter(t=>!t.pendente&&t.valor<0&&(t._origem==='CP'||t._cpId))
+    .forEach(t=>{
+      const forn=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+      // chave por data+forn (para suprimir importados do mesmo período/fornecedor)
+      set.add(t.data.substring(0,7)+'|'+forn);
+    });
+  return set;
+}
+
+// Retorna lista de realizados do FC SEM filtro de mês, usando a mesma deduplição da exibição principal
 function _fcListaRealizadosSemFiltro(){
-  const descsPagasCPnoFC=new Set(
-    fcDados
-      .filter(t=>!t.pendente&&t.valor<0&&(t._origem==='CP'||t._cpId))
-      .map(t=>(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14))
-      .filter(d=>d.length>4)
-  );
+  const cpSet=_fcDescsPagasCPSet();
   return fcDados.filter(t=>{
     if(!t||t.pendente||!t.data) return false;
+    // Oculta lançamento importado (sem _origem, sem _cpId) se já existe pagamento CP no mesmo mês/fornecedor
     if(t.valor<0&&!t._origem&&!t._cpId){
-      const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
-      if(descFC.length>4&&descsPagasCPnoFC.has(descFC)) return false;
+      const forn=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+      if(forn.length>4&&cpSet.has(t.data.substring(0,7)+'|'+forn)) return false;
     }
     return true;
   });
@@ -15517,14 +15530,8 @@ function _renderFluxoCaixaCore(){
   }
 
   // ── Realizados filtrados ──────────────────────────────────────────────────
-  // Descrições que já têm lançamento pago via CP no FC (com _origem CP)
-  // Isso cobre o caso: conta importada (R$1.713) + mesma conta editada e paga no CP (R$1.748)
-  const descsPagasCPnoFC=new Set(
-    fcDados
-      .filter(t=>!t.pendente&&t.valor<0&&(t._origem==='CP'||t._cpId))
-      .map(t=>(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14))
-      .filter(d=>d.length>4)
-  );
+  // Deduplicação: oculta importados (sem _origem/_cpId) se já existe pagamento CP no mesmo mês/fornecedor
+  const cpSet=_fcDescsPagasCPSet();
 
   // Guarda índice original de cada item para o botão excluir
   fcDados.forEach((t,i)=>{ if(t) t._fcIdx=i; });
@@ -15534,10 +15541,10 @@ function _renderFluxoCaixaCore(){
     if(!_fcMesAtivo(t.data)) return false;
     if(catFiltro&&t.categoria!==catFiltro) return false;
     if(busca&&!(t.fornecedor+t.categoria+t.nf).toLowerCase().includes(busca)) return false;
-    // Oculta lançamento importado (sem _origem, sem _cpId) se já foi pago via CP com mesma descrição
+    // Oculta lançamento importado se já foi pago via CP no mesmo mês
     if(t.valor<0&&!t._origem&&!t._cpId){
-      const descFC=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
-      if(descFC.length>4&&descsPagasCPnoFC.has(descFC)) return false;
+      const forn=(t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,14);
+      if(forn.length>4&&cpSet.has(t.data.substring(0,7)+'|'+forn)) return false;
     }
     return true;
   });
