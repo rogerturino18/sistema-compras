@@ -2859,7 +2859,7 @@ tr:hover td{background:#f9fbf9}
 
 <!-- MODAL ORDEM DE PRODUÇÃO -->
 <div class="modal-bg" id="modalOrdem">
-<div class="modal" style="max-width:540px">
+<div class="modal" style="max-width:560px">
   <div class="modal-header">
     <h3 id="modalOrdemTitulo">Nova Ordem de Produção</h3>
     <div class="modal-header-actions">
@@ -2869,10 +2869,11 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="modal-body">
   <div class="form-grid">
+    <!-- Passo 1: PDV (principal) ou sem PDV se multi-PDV -->
     <div class="form-group full">
-      <label>1. Selecione o PDV *</label>
+      <label>1. PDV Principal <span style="font-size:11px;color:#78909c;font-weight:400">(ou deixe em branco se distribuir entre vários)</span></label>
       <select id="ord_pdv_sel" onchange="filtrarPecasPorPDV()">
-        <option value="">Selecione um PDV...</option>
+        <option value="">Sem PDV fixo / Multi-PDV...</option>
       </select>
     </div>
     <div class="form-group full" id="grp_ord_peca" style="display:none">
@@ -2887,8 +2888,18 @@ tr:hover td{background:#f9fbf9}
         <div class="form-group full"><label>Descrição da Peça *</label><input id="ord_descricao" placeholder="Ex: Pino Maior"></div>
         <div class="form-group"><label>Número do Desenho</label><input id="ord_desenho" placeholder="Ex: 4-18912"></div>
         <div class="form-group"><label>Material</label><input id="ord_material" placeholder="Ex: ASTM A36"></div>
-        <div class="form-group"><label>Quantidade</label><input id="ord_qtd" type="number" min="1" value="1"></div>
+        <div class="form-group"><label>Quantidade Total *</label><input id="ord_qtd" type="number" min="1" value="1" oninput="atualizarResumoDistrib()"></div>
         <div class="form-group"><label>Data de Abertura</label><input id="ord_data" type="date"></div>
+      </div>
+
+      <!-- DISTRIBUIÇÃO POR PDV -->
+      <div id="grp_ord_distrib" style="margin-top:14px;border-top:1px solid #e0e0e0;padding-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <label style="margin:0;font-weight:700;font-size:13px">📦 Distribuição por PDV</label>
+          <button type="button" onclick="addLinhaDistrib()" style="background:#1565c0;color:#fff;border:none;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer">+ PDV</button>
+        </div>
+        <div id="ord_distrib_linhas" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div id="ord_distrib_resumo" style="margin-top:8px;font-size:12px;color:#546e7a;background:#f5f5f5;border-radius:6px;padding:6px 10px;display:none"></div>
       </div>
     </div>
   </div>
@@ -3468,6 +3479,7 @@ const APP_URL=(typeof window!=='undefined'&&window.location)?(window.location?.o
 const SITE_URL=(typeof window!=='undefined'&&window.location)?(window.location?.origin||''):'';
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
 
+let opDistribuicao=[];
 let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
@@ -3593,7 +3605,7 @@ async function loadFinanceiro(){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente,entradasNFe]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente,entradasNFe,opDistribuicao]=await Promise.all([
       api('GET','itens','','?order=created_at.asc').catch(e=>{console.warn('itens:',e.message);return [];}),
       api('GET','cotacoes','','?order=created_at.desc').catch(()=>[]),
       api('GET','fornecedores','','?order=razao_social.asc').catch(()=>[]),
@@ -3619,7 +3631,8 @@ async function loadAll(){
       api('GET','contas_pagar','','?order=vencimento.asc').catch(()=>[]),
       api('GET','contas_receber','','?order=vencimento.asc').catch(()=>[]),
       api('GET','contas_corrente','','?order=nome.asc').catch(()=>[]),
-      api('GET','entradas_nfe','','?order=created_at.desc').catch(()=>[])
+      api('GET','entradas_nfe','','?order=created_at.desc').catch(()=>[]),
+      api('GET','op_distribuicao','','?order=created_at.asc').catch(()=>[])
     ]);
     renderAll();
     verificarLembretes();
@@ -5815,19 +5828,31 @@ function renderOrdens(){
     return;
   }
 
+  // ── Expande ordens multi-PDV em entradas virtuais por PDV ─────────────
+  // Uma ordem com op_distribuicao gera um "slot virtual" por PDV
+  // { ...ordem, _qtdPDV: N, _isMulti: true }
+  function expandirOrdemPorPDV(ordem){
+    const dists=(opDistribuicao||[]).filter(d=>d.ordem_id===ordem.id);
+    if(!dists.length) return [ordem]; // ordem normal — usa pdv_id da OP
+    return dists.map(d=>({...ordem, pdv_id:d.pdv_id, _qtdPDV:d.quantidade, _isMulti:true, _ordemIdOrig:ordem.id}));
+  }
+
   // Agrupa ordens por PDV — ignora ordens sem PDV (não aparecem no kanban)
   const gruposAll={};
   ordens.filter(o=>{
-    if(!o.pdv_id) return false; // ignora ordens sem PDV
-    if(filtroPDV&&o.pdv_id!==filtroPDV) return false;
+    if(!o.pdv_id&&!(opDistribuicao||[]).some(d=>d.ordem_id===o.id)) return false; // ignora ordens sem PDV e sem distribuição
     if(b&&!(o.numero+''+o.descricao+o.desenho+o.material+'').toLowerCase().includes(b)) return false;
+    return true;
+  }).flatMap(expandirOrdemPorPDV).filter(o=>{
+    if(!o.pdv_id) return false;
+    if(filtroPDV&&o.pdv_id!==filtroPDV) return false;
     return true;
   }).forEach(o=>{
     if(!gruposAll[o.pdv_id]) gruposAll[o.pdv_id]=[];
     gruposAll[o.pdv_id].push(o);
   });
   const grupos={};
-  lista.filter(o=>o.pdv_id).forEach(o=>{
+  lista.flatMap(expandirOrdemPorPDV).filter(o=>o.pdv_id).forEach(o=>{
     if(!grupos[o.pdv_id]) grupos[o.pdv_id]=[];
     grupos[o.pdv_id].push(o);
   });
@@ -5897,7 +5922,10 @@ function renderOrdens(){
             <div style="padding:12px 14px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                 <span style="background:rgba(255,255,255,0.15);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700">Nº ${o.numero}</span>
-                <span style="color:rgba(255,255,255,0.6);font-size:10px">${o.quantidade||1} un</span>
+                <span style="display:flex;align-items:center;gap:4px">
+                  ${o._isMulti?`<span style="background:#ff8f00;color:#fff;padding:1px 6px;border-radius:6px;font-size:9px;font-weight:700">MULTI</span>`:''}
+                  <span style="color:rgba(255,255,255,0.6);font-size:10px">${o._qtdPDV||o.quantidade||1} un${o._isMulti?` / ${o.quantidade} total`:''}</span>
+                </span>
               </div>
               <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:6px">${o.descricao||'—'}</div>
               <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
@@ -6216,13 +6244,13 @@ function abrirModalOrdem(id){
   document.getElementById('modalOrdemTitulo').textContent = id ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção';
   // Popula select de PDVs
   const selPDV=document.getElementById('ord_pdv_sel');
-  selPDV.innerHTML='<option value="">Selecione um PDV...</option>';
+  selPDV.innerHTML='<option value="">Sem PDV fixo / Multi-PDV...</option>';
   pdvs.forEach(p=>{
     const temPecas=pecasProjeto.some(pc=>pc.pdv_id===p.id);
-    const o=document.createElement('option');
-    o.value=p.id;
-    o.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'')+(temPecas?' ✓':'');
-    selPDV.appendChild(o);
+    const opt=document.createElement('option');
+    opt.value=p.id;
+    opt.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'')+(temPecas?' ✓':'');
+    selPDV.appendChild(opt);
   });
   // Reset / prefill
   document.getElementById('ord_produto').innerHTML='<option value="">Selecione uma peça...</option>';
@@ -6234,7 +6262,50 @@ function abrirModalOrdem(id){
   document.getElementById('ord_qtd').value=o?.quantidade||1;
   document.getElementById('ord_data').value=o?.dt_abertura||new Date().toISOString().split('T')[0];
   if(o?.pdv_id) selPDV.value=o.pdv_id;
+
+  // Carrega distribuição existente (ao editar)
+  const linhasDiv=document.getElementById('ord_distrib_linhas');
+  linhasDiv.innerHTML='';
+  const distExist = id ? (opDistribuicao||[]).filter(d=>d.ordem_id===id) : [];
+  if(distExist.length){
+    distExist.forEach(d=>addLinhaDistrib(d.pdv_id, d.quantidade));
+  } else {
+    addLinhaDistrib(); // 1 linha vazia padrão
+  }
+  atualizarResumoDistrib();
   abrirModal('modalOrdem');
+}
+
+// Adiciona uma linha de distribuição PDV+Qtd
+function addLinhaDistrib(pdvId='', qtd=''){
+  const div=document.getElementById('ord_distrib_linhas');
+  const idx=div.children.length;
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;gap:6px;align-items:center';
+  row.innerHTML=`
+    <select data-distrib-pdv="${idx}" onchange="atualizarResumoDistrib()" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-size:12px">
+      <option value="">— PDV —</option>
+      ${pdvs.map(p=>`<option value="${p.id}"${p.id===pdvId?' selected':''}>PDV ${p.numero}${p.cliente?' — '+p.cliente.substring(0,25):''}</option>`).join('')}
+    </select>
+    <input data-distrib-qtd="${idx}" type="number" min="1" value="${qtd||''}" placeholder="Qtd" oninput="atualizarResumoDistrib()" style="width:72px;padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-weight:700;text-align:center">
+    <button type="button" onclick="this.parentElement.remove();atualizarResumoDistrib()" style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px" title="Remover">✕</button>`;
+  div.appendChild(row);
+  atualizarResumoDistrib();
+}
+
+// Atualiza o resumo (total distribuído vs total OP)
+function atualizarResumoDistrib(){
+  const totalOP=parseInt(document.getElementById('ord_qtd')?.value)||0;
+  const linhas=[...document.querySelectorAll('[data-distrib-qtd]')];
+  const totalDist=linhas.reduce((s,i)=>s+(parseInt(i.value)||0),0);
+  const resumo=document.getElementById('ord_distrib_resumo');
+  if(!resumo) return;
+  if(linhas.length===0||(!totalOP&&!totalDist)){resumo.style.display='none';return;}
+  const diff=totalOP-totalDist;
+  const cor=diff===0?'#2e7d32':diff<0?'#c62828':'#e65100';
+  const msg=diff===0?'✅ Distribuição completa':diff>0?`⚠️ Faltam ${diff} un para distribuir`:`❌ Excesso de ${Math.abs(diff)} un`;
+  resumo.style.display='block';
+  resumo.innerHTML=`<span style="color:${cor};font-weight:700">${msg}</span> <span style="color:#9e9e9e;margin-left:8px">Total: ${totalDist}/${totalOP} un</span>`;
 }
 
 function filtrarPecasPorPDV(){
@@ -6335,12 +6406,32 @@ async function salvarOrdem(){
   const prodOpt=document.getElementById('ord_produto');
   const opt=prodOpt.options[prodOpt.selectedIndex];
   const pecaId=(opt&&opt.value&&opt.value!=='manual')?opt.value:null;
+  const qtdTotal=Number(document.getElementById('ord_qtd').value)||1;
+
+  // Lê distribuição por PDV (ignora linhas sem PDV ou sem qtd)
+  const distribLinhas=[...document.querySelectorAll('[data-distrib-pdv]')].map((sel,i)=>{
+    const qtdEl=document.querySelector(`[data-distrib-qtd="${i}"]`)||
+                document.querySelectorAll('[data-distrib-qtd]')[i];
+    return {pdv_id:sel.value, quantidade:parseInt(qtdEl?.value)||0};
+  }).filter(d=>d.pdv_id&&d.quantidade>0);
+
+  // Valida distribuição
+  if(distribLinhas.length>0){
+    const totalDist=distribLinhas.reduce((s,d)=>s+d.quantidade,0);
+    if(totalDist!==qtdTotal){
+      if(!confirm(`A distribuição soma ${totalDist} un mas a OP tem ${qtdTotal} un. Salvar assim mesmo?`)) return;
+    }
+  }
+
+  // PDV principal = se 1 único PDV na distribuição, usa ele; senão usa o selecionado
+  const pdvPrincipal = distribLinhas.length===1 ? distribLinhas[0].pdv_id : (pdvId||null);
+
   const obj={
-    pdv_id:pdvId||null,
+    pdv_id:pdvPrincipal,
     descricao,
     desenho:document.getElementById('ord_desenho').value.trim()||null,
     material:document.getElementById('ord_material').value.trim()||null,
-    quantidade:Number(document.getElementById('ord_qtd').value)||1,
+    quantidade:qtdTotal,
     dt_abertura:document.getElementById('ord_data').value||new Date().toISOString().split('T')[0],
     criado_por:usuarioLogado?.nome||null
   };
@@ -6348,10 +6439,19 @@ async function salvarOrdem(){
     let res;
     if(editOrdemId){
       res=await api('PATCH','ordens_producao',obj,`?id=eq.${editOrdemId}`);
+      // Apaga distribuição antiga e recria
+      await api('DELETE','op_distribuicao','',`?ordem_id=eq.${editOrdemId}`).catch(()=>{});
       showToast('Ordem atualizada!');
     } else {
       res=await api('POST','ordens_producao',obj);
       showToast('Ordem criada!');
+    }
+    // Salva distribuição (multi-PDV)
+    if(res&&res[0]&&distribLinhas.length>1){
+      const ordemId=res[0].id||editOrdemId;
+      await Promise.all(distribLinhas.map(d=>
+        api('POST','op_distribuicao',{ordem_id:ordemId,pdv_id:d.pdv_id,quantidade:d.quantidade}).catch(()=>{})
+      ));
     }
     fecharModal('modalOrdem');
     await loadAll();
@@ -13852,21 +13952,11 @@ async function importarPagamentosRealizados(input){
     // Monta preview antes de confirmar
     const totalMatch=matches.reduce((s,m)=>s+m.pag.rawVal,0);
     const totalSemMatch=semMatch.reduce((s,p)=>s+p.rawVal,0);
-    const preview=matches.slice(0,8).map(m=>`• ${m.cp.descricao.substring(0,35)} | R$ ${m.pag.rawVal.toFixed(2)} [${m.estrategia}]`).join('
-');
-    const mais=matches.length>8?`
-… e mais ${matches.length-8} contas`:'';
-    const avisoSemMatch=semMatch.length?`
+    const preview=matches.slice(0,8).map(m=>`• ${m.cp.descricao.substring(0,35)} | R$ ${m.pag.rawVal.toFixed(2)} [${m.estrategia}]`).join('\n');
+    const mais=matches.length>8?`\n… e mais ${matches.length-8} contas`:'';
+    const avisoSemMatch=semMatch.length?'\n\n⚠️ '+semMatch.length+' pagamentos SEM correspondência ('+fmtMoeda(totalSemMatch)+'):\n'+semMatch.slice(0,5).map(p=>'  • '+p.desc.substring(0,40)).join('\n')+(semMatch.length>5?'\n  … e mais '+(semMatch.length-5):''):'';
 
-⚠️ ${semMatch.length} pagamentos SEM correspondência (${fmtMoeda(totalSemMatch)}):
-`+semMatch.slice(0,5).map(p=>`  • ${p.desc.substring(0,40)}`).join('
-')+(semMatch.length>5?`
-  … e mais ${semMatch.length-5}`:''):'';
-
-    if(!confirm(`Marcar ${matches.length} contas como PAGAS? (${fmtMoeda(totalMatch)})
-
-Exemplos:
-${preview}${mais}${avisoSemMatch}`)) return;
+    if(!confirm('Marcar '+matches.length+' contas como PAGAS? ('+fmtMoeda(totalMatch)+')\n\nExemplos:\n'+preview+mais+avisoSemMatch)) return;
 
     // Modal de progresso
     const progModal=document.createElement('div');
