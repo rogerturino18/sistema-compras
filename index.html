@@ -1510,6 +1510,11 @@ tr:hover td{background:#f9fbf9}
         📊 Importar Planilha
         <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPlanilhaFC(this)">
       </label>
+      <label style="padding:8px 14px;background:#2e7d32;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap" title="Importar relatório de pagamentos — marca contas a pagar como Pagas">
+        ✅ Baixar Pagos
+        <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPagamentosRealizados(this)">
+      </label>
+      <button id="btnDesfazerBaixaPAG" onclick="desfazerBaixaPagamentos()" style="padding:8px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:none;white-space:nowrap" title="Reverte contas marcadas como Pagas via planilha de volta para Aberta">↩️ Desfazer Baixa</button>
       <button class="btn" onclick="exportarExcelPag()" style="font-size:12px">📥 Exportar</button>
     </div>
   </div>
@@ -12343,6 +12348,15 @@ function renderPagamentos(){
   const tbody=document.getElementById('listaPAG');
   const statsEl=document.getElementById('statsPAG');
   if(!tbody) return;
+
+  // Mostrar botão Desfazer Baixa se houver contas baixadas via planilha
+  const btnDesfBaixa=document.getElementById('btnDesfazerBaixaPAG');
+  if(btnDesfBaixa){
+    const temBaixadas=(contasPagar||[]).some(c=>
+      c.status==='Paga' && (c.observacao||'').toLowerCase().includes('baixado via planilha omie')
+    );
+    btnDesfBaixa.style.display=temBaixadas?'':'none';
+  }
   const listaBase=_coletarPagamentos();
   const busca=(document.getElementById('buscaPAG')?.value||'').toLowerCase();
   const meses=[...new Set(listaBase.map(t=>t.data?.substring(0,7)).filter(Boolean))].sort();
@@ -14229,6 +14243,89 @@ async function importarPagamentosRealizados(input){
 }
 
 // ── Desfazer importação de planilha CP ──────────────────────────────────────
+// ── Desfazer Baixa via planilha — reverte contas Pagas de volta para Aberta ──
+async function desfazerBaixaPagamentos(){
+  const baixadas=(contasPagar||[]).filter(c=>
+    c.status==='Paga' && (c.observacao||'').toLowerCase().includes('baixado via planilha omie')
+  );
+
+  if(!baixadas.length){
+    showToast('Nenhuma conta baixada via planilha encontrada','err'); return;
+  }
+
+  // Preview
+  const total = baixadas.reduce((s,c)=>s+(c.valor_pago||c.valor||0), 0);
+  const preview = baixadas.slice(0,5).map(c=>`• ${(c.descricao||'').substring(0,40)} — ${fmtMoeda(c.valor_pago||c.valor||0)}`).join('\n');
+  const mais = baixadas.length>5 ? `\n… e mais ${baixadas.length-5} contas` : '';
+
+  if(!confirm(
+    `Reverter ${baixadas.length} contas de volta para "Aberta"?\n` +
+    `Total: ${fmtMoeda(total)}\n\n${preview}${mais}\n\n` +
+    `⚠️ Os lançamentos no Fluxo de Caixa gerados por esses pagamentos também serão removidos.`
+  )) return;
+
+  // Modal de progresso
+  const progModal=document.createElement('div');
+  progModal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+  progModal.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:32px 36px;min-width:340px;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,0.3);text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">↩️</div>
+      <div style="font-weight:700;font-size:15px;color:#263238;margin-bottom:4px">Desfazendo baixa…</div>
+      <div id="dsBxDesc" style="font-size:12px;color:#78909c;margin-bottom:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Preparando…</div>
+      <div style="background:#e0e0e0;border-radius:99px;height:10px;overflow:hidden;margin-bottom:10px">
+        <div id="dsBxBar" style="height:100%;width:0%;background:linear-gradient(90deg,#e65100,#ff8f00);border-radius:99px;transition:width 0.2s"></div>
+      </div>
+      <div id="dsBxCount" style="font-size:13px;color:#546e7a;font-weight:600">0 / ${baixadas.length}</div>
+    </div>`;
+  document.body.appendChild(progModal);
+  const bar=document.getElementById('dsBxBar');
+  const cnt=document.getElementById('dsBxCount');
+  const desc=document.getElementById('dsBxDesc');
+
+  let ok=0, err=0;
+  const BATCH=8;
+  for(let b=0;b<baixadas.length;b+=BATCH){
+    const lote=baixadas.slice(b,b+BATCH);
+    if(desc) desc.textContent=lote[0].descricao?.substring(0,55)||'…';
+    await Promise.all(lote.map(async c=>{
+      try{
+        // Limpa observação de "Baixado via planilha Omie"
+        const novaObs=(c.observacao||'')
+          .replace(/\s*\|\s*Baixado via planilha Omie/gi,'')
+          .replace(/Baixado via planilha Omie/gi,'')
+          .trim().replace(/^\|\s*/,'').replace(/\s*\|$/,'') || null;
+
+        await api('PATCH','contas_pagar',{
+          status:'Aberta',
+          dt_pagamento: null,
+          valor_pago: null,
+          observacao: novaObs
+        }, `?id=eq.${c.id}`);
+
+        // Remove lançamento no FC gerado pelo pagamento desta conta
+        if(fcDados){
+          const fcIdx=fcDados.findIndex(t=>t&&t._cpId===c.id&&t._origem==='CP');
+          if(fcIdx>=0){
+            const fc=fcDados[fcIdx];
+            await api('DELETE','fc_dados','',`?id=eq.${fc.id}`).catch(()=>{});
+            fcDados.splice(fcIdx,1);
+          }
+        }
+        ok++;
+      }catch(e){ err++; }
+      const done=ok+err;
+      if(bar) bar.style.width=Math.round(done/baixadas.length*100)+'%';
+      if(cnt) cnt.textContent=`${done} / ${baixadas.length}`;
+    }));
+  }
+
+  progModal.remove();
+  const btn=document.getElementById('btnDesfazerBaixaPAG');
+  if(btn) btn.style.display='none';
+  await loadFinanceiro(); renderPagamentos(); renderContasPagar();
+  showToast(`✅ ${ok} contas revertidas para Aberta!${err?` ❌ ${err} erros`:''}`, 'ok', 6000);
+}
+
 async function desfazerImportacaoCP(){
   // Contas com observação de importação (versão nova)
   const comObs = (contasPagar||[]).filter(c=>
