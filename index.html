@@ -1385,7 +1385,7 @@ tr:hover td{background:#f9fbf9}
       ✅ Baixar Pagos
       <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPagamentosRealizados(this)">
     </label>
-    <button id="btnDesfazerImportCP" onclick="desfazerImportacaoCP()" style="display:none;font-size:12px;background:#e65100;color:#fff;border:1px solid #bf360c;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700" title="Apaga todas as contas importadas de planilha ainda em Aberto">↩️ Desfazer Importação</button>
+    <button id="btnDesfazerImportCP" onclick="desfazerImportacaoCP()" style="font-size:12px;background:#e65100;color:#fff;border:1px solid #bf360c;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700" title="Apaga todas as contas importadas de planilha ainda em Aberto">↩️ Desfazer Importação</button>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -3012,6 +3012,48 @@ tr:hover td{background:#f9fbf9}
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalPeca')">Cancelar</button>
     <button class="btn primary" onclick="salvarPeca()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL CRIAR OP DA PEÇA (com distribuição multi-PDV) -->
+<div class="modal-bg" id="modalCriarOPPeca">
+<div class="modal" style="max-width:520px">
+  <div class="modal-header">
+    <h3>🔧 Criar Ordem de Produção</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalCriarOPPeca')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <!-- Info da peça -->
+    <div id="opPecaInfo" style="background:#e8f5e9;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px"></div>
+
+    <!-- Quantidade total -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="form-group" style="margin:0">
+        <label style="font-size:12px">Quantidade Total *</label>
+        <input id="opPeca_qtdTotal" type="number" min="1" value="1" oninput="opPecaAtualizarResumo()" style="font-size:15px;font-weight:700;text-align:center">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label style="font-size:12px">Data de Abertura</label>
+        <input id="opPeca_data" type="date">
+      </div>
+    </div>
+
+    <!-- Distribuição por PDV -->
+    <div style="border-top:1px solid #e0e0e0;padding-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <label style="font-weight:700;font-size:13px;margin:0">📦 Distribuição por PDV</label>
+        <button type="button" onclick="opPecaAddLinha()" style="background:#1565c0;color:#fff;border:none;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer">+ PDV</button>
+      </div>
+      <div id="opPeca_linhas" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div id="opPeca_resumo" style="margin-top:8px;font-size:12px;color:#546e7a;background:#f5f5f5;border-radius:6px;padding:7px 10px;display:none"></div>
+    </div>
+  </div>
+  <div class="modal-actions" style="padding:0 22px 22px">
+    <button class="btn" onclick="fecharModal('modalCriarOPPeca')">Cancelar</button>
+    <button class="btn primary" onclick="confirmarCriarOPdaPeca()">🔧 Criar Ordem</button>
   </div>
 </div>
 </div>
@@ -6834,7 +6876,8 @@ function renderProjetos(){
         const proj=getProjetista(peca.responsavel);
         let acoes='';
         if(col.status==='aguardando'||col.status==='pausado'){
-          acoes=`<button class="btn btn-sm primary" style="font-size:11px;padding:3px 8px" onclick="abrirIniciarTrabalho('${peca.id}')">▶ Iniciar</button>`;
+          acoes=`<button class="btn btn-sm primary" style="font-size:11px;padding:3px 8px" onclick="abrirIniciarTrabalho('${peca.id}')">▶ Iniciar</button>
+                 <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;font-size:11px;padding:3px 8px" onclick="abrirCriarOPdaPeca('${peca.id}')" title="Criar Ordem de Produção para esta peça">🔧 OP</button>`;
         } else if(col.status==='trabalhando'){
           acoes=`<button class="btn btn-sm" style="background:#fff9c4;color:#f57f17;border-color:#ffe082;font-size:11px;padding:3px 8px" onclick="pausarTrabalho('${peca.id}')">⏸ Pausar</button>
                  <button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:transparent;font-size:11px;padding:3px 8px" onclick="abrirFinalizarTrabalho('${peca.id}')" title="Finalizar e adicionar material">✅ + Mat.</button>
@@ -7134,6 +7177,133 @@ async function deletarPeca(id){
     await api('DELETE','pecas_projeto','',`?id=eq.${id}`);
     showToast('Peça removida!'); await loadAll();
   }catch(e){showToast('Erro','err');}
+}
+
+// ── CRIAR OP A PARTIR DA PEÇA (com distribuição multi-PDV) ─────────────────
+let _opPecaId = null; // peça atual para criar OP
+
+function abrirCriarOPdaPeca(pecaId){
+  _opPecaId = pecaId;
+  const peca = pecasProjeto.find(p=>p.id===pecaId);
+  const setor = setoresPDV.find(s=>s.id===peca?.setor_id);
+  const pdvOrigem = pdvs.find(p=>p.id===peca?.pdv_id);
+
+  // Info da peça
+  document.getElementById('opPecaInfo').innerHTML =
+    `<b>${peca?.nome||'—'}</b>${peca?.numero_desenho?' <span style="color:#1565c0">Nº '+peca.numero_desenho+'</span>':''}` +
+    `<br><span style="color:#546e7a;font-size:12px">📁 ${setor?.nome||'Sem setor'} · 📦 PDV ${pdvOrigem?.numero||'—'} ${pdvOrigem?.cliente||''}</span>`;
+
+  // Data padrão = hoje
+  document.getElementById('opPeca_data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('opPeca_qtdTotal').value = 1;
+
+  // Montar linhas de distribuição — começa com 1 linha: o PDV de origem da peça
+  const linhasDiv = document.getElementById('opPeca_linhas');
+  linhasDiv.innerHTML = '';
+  opPecaAddLinha(pdvOrigem?.id || '', 1);
+  opPecaAtualizarResumo();
+
+  abrirModal('modalCriarOPPeca');
+}
+
+function opPecaAddLinha(pdvId='', qtd=''){
+  const div = document.getElementById('opPeca_linhas');
+  const idx = div.children.length;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;align-items:center';
+  row.innerHTML = `
+    <select data-op-pdv="${idx}" onchange="opPecaAtualizarResumo()"
+      style="flex:1;padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:12px">
+      <option value="">— Selecione o PDV —</option>
+      ${pdvs.map(p=>`<option value="${p.id}"${p.id===pdvId?' selected':''}>PDV ${p.numero}${p.cliente?' — '+p.cliente.substring(0,28):''}</option>`).join('')}
+    </select>
+    <input data-op-qtd="${idx}" type="number" min="1" value="${qtd||''}" placeholder="Qtd"
+      oninput="opPecaAtualizarResumo()"
+      style="width:75px;padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:14px;font-weight:700;text-align:center">
+    <button type="button" onclick="this.parentElement.remove();opPecaAtualizarResumo()"
+      style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:7px;padding:5px 9px;cursor:pointer;font-size:12px">✕</button>`;
+  div.appendChild(row);
+  opPecaAtualizarResumo();
+}
+
+function opPecaAtualizarResumo(){
+  const total = parseInt(document.getElementById('opPeca_qtdTotal')?.value)||0;
+  const qtdEls = [...document.querySelectorAll('[data-op-qtd]')];
+  const somaDist = qtdEls.reduce((s,el)=>s+(parseInt(el.value)||0), 0);
+  const resumo = document.getElementById('opPeca_resumo');
+  if(!resumo) return;
+  if(!total && !somaDist){ resumo.style.display='none'; return; }
+  const diff = total - somaDist;
+  const cor = diff===0?'#2e7d32':diff<0?'#c62828':'#e65100';
+  const msg = diff===0 ? '✅ Distribuição completa'
+            : diff>0  ? `⚠️ Faltam ${diff} un`
+            :            `❌ Excesso de ${Math.abs(diff)} un`;
+  resumo.style.display = 'block';
+  resumo.innerHTML = `<span style="color:${cor};font-weight:700">${msg}</span>`+
+    `<span style="color:#9e9e9e;margin-left:8px">${somaDist} / ${total} un distribuídas</span>`;
+}
+
+async function confirmarCriarOPdaPeca(){
+  const peca = pecasProjeto.find(p=>p.id===_opPecaId);
+  if(!peca){ showToast('Peça não encontrada','err'); return; }
+
+  const qtdTotal = parseInt(document.getElementById('opPeca_qtdTotal').value)||0;
+  if(!qtdTotal){ showToast('Informe a quantidade total','err'); return; }
+
+  const dtAbertura = document.getElementById('opPeca_data').value || new Date().toISOString().split('T')[0];
+
+  // Coletar linhas de distribuição (ignora linhas sem PDV ou sem qtd)
+  const selEls = [...document.querySelectorAll('[data-op-pdv]')];
+  const distrib = selEls.map((sel,i)=>{
+    const qtdEl = document.querySelectorAll('[data-op-qtd]')[i];
+    return { pdv_id: sel.value, quantidade: parseInt(qtdEl?.value)||0 };
+  }).filter(d=>d.pdv_id && d.quantidade>0);
+
+  if(!distrib.length){ showToast('Adicione ao menos um PDV na distribuição','err'); return; }
+
+  // Valida soma
+  const somaDist = distrib.reduce((s,d)=>s+d.quantidade, 0);
+  if(somaDist !== qtdTotal){
+    if(!confirm(`A soma da distribuição (${somaDist} un) é diferente do total (${qtdTotal} un). Criar assim mesmo?`)) return;
+  }
+
+  // PDV principal: se só 1 PDV na distribuição usa ele; senão usa o PDV da peça
+  const pdvPrincipal = distrib.length===1 ? distrib[0].pdv_id : (peca.pdv_id||null);
+  const setor = setoresPDV.find(s=>s.id===peca.setor_id);
+
+  try{
+    fecharModal('modalCriarOPPeca');
+
+    // Criar a OP
+    const res = await api('POST','ordens_producao',{
+      pdv_id: pdvPrincipal,
+      descricao: peca.nome,
+      desenho: peca.numero_desenho||null,
+      material: null,
+      quantidade: qtdTotal,
+      dt_abertura: dtAbertura,
+      criado_por: usuarioLogado?.nome||null
+    });
+
+    if(!res||!res[0]) throw new Error('Sem retorno da API');
+    const ordemId = res[0].id;
+
+    // Salvar distribuição se multi-PDV
+    if(distrib.length > 1){
+      await Promise.all(distrib.map(d=>
+        api('POST','op_distribuicao',{
+          ordem_id: ordemId, pdv_id: d.pdv_id, quantidade: d.quantidade
+        }).catch(()=>{})
+      ));
+    }
+
+    await loadAll();
+    showToast(`✅ OP criada! ${distrib.length>1?distrib.length+' PDVs — ':''}`+
+      `${qtdTotal} un de "${peca.nome}"`,'ok',5000);
+
+    if(confirm('Imprimir a ordem agora?')) imprimirOrdem(ordemId);
+
+  }catch(e){ showToast('Erro ao criar OP: '+e.message,'err'); console.error(e); }
 }
 
 // Trabalho
@@ -12371,8 +12541,8 @@ function renderContasPagar(){
   // Mostrar/ocultar botão Desfazer Importação conforme existam contas importadas abertas
   const btnDesfCP=document.getElementById('btnDesfazerImportCP');
   if(btnDesfCP){
-    const temImportadas=(contasPagar||[]).some(c=>c.status==='Aberta'&&(c.observacao||'').toLowerCase().includes('importado de planilha'));
-    btnDesfCP.style.display=temImportadas?'':'none';
+    const temAbertas=(contasPagar||[]).some(c=>c.status==='Aberta');
+    btnDesfCP.style.display=temAbertas?'':'none';
   }
   const b=(document.getElementById('buscaCP')?.value||'').toLowerCase();
   const fSt=document.getElementById('filtroCP_status')?.value||'';
@@ -14060,13 +14230,42 @@ async function importarPagamentosRealizados(input){
 
 // ── Desfazer importação de planilha CP ──────────────────────────────────────
 async function desfazerImportacaoCP(){
-  const paraApagar = (contasPagar||[]).filter(c=>
+  // Contas com observação de importação (versão nova)
+  const comObs = (contasPagar||[]).filter(c=>
     c.status==='Aberta' && (c.observacao||'').toLowerCase().includes('importado de planilha')
   );
-  if(!paraApagar.length){
-    showToast('Nenhuma conta importada de planilha encontrada','err'); return;
+  // Contas sem observação mas abertas — pode incluir importações antigas sem observação
+  // Mostra modal de escolha se houver os dois casos
+  const semObs = (contasPagar||[]).filter(c=>
+    c.status==='Aberta' && !(c.observacao||'').toLowerCase().includes('importado de planilha')
+  );
+
+  let paraApagar = comObs;
+
+  if(!comObs.length && !semObs.length){
+    showToast('Nenhuma conta em Aberto encontrada','err'); return;
   }
-  if(!confirm(`Apagar ${paraApagar.length} contas importadas de planilha (status Aberta)?\n\nContas já pagas NÃO serão apagadas.`)) return;
+
+  if(!comObs.length && semObs.length){
+    // Só tem contas sem observação — importação antiga
+    if(!confirm(`Não foram encontradas contas com marcação de importação.\n\nExistem ${semObs.length} contas abertas SEM marcação (possivelmente da importação antiga).\n\nDeseja apagar TODAS as contas com status Aberta?\n\n⚠️ Isso apagará TUDO que está em aberto.`)) return;
+    paraApagar = semObs;
+  } else if(comObs.length && semObs.length){
+    // Tem os dois tipos — perguntar qual apagar
+    const resp = confirm(
+      `Foram encontrados 2 grupos de contas abertas:\n\n` +
+      `✅ ${comObs.length} com marcação "Importado de planilha"\n` +
+      `⚠️ ${semObs.length} SEM marcação (possível importação antiga)\n\n` +
+      `Clique OK para apagar SOMENTE as ${comObs.length} marcadas.\n` +
+      `Clique Cancelar para apagar TODOS os ${comObs.length + semObs.length} registros abertos.`
+    );
+    paraApagar = resp ? comObs : [...comObs, ...semObs];
+  } else {
+    // Só tem com observação — fluxo normal
+    if(!confirm(`Apagar ${comObs.length} contas importadas de planilha (status Aberta)?\n\nContas já pagas NÃO serão apagadas.`)) return;
+  }
+
+  if(!paraApagar.length) return;
 
   // Modal de progresso
   const progModal=document.createElement('div');
