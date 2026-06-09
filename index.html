@@ -14458,14 +14458,21 @@ async function importarPagamentosRealizados(input){
 
         // Insere diretamente no fcDados (sem loop de API — salva tudo de uma vez)
         let inserted=0;
+        // Conta ocorrências já no banco por chave (data+nome+valor+nf)
+        // para permitir múltiplos pagamentos legítimos com mesmo valor no mesmo dia
+        const inseridosRodada={};
         semMatch.forEach((p,i)=>{
-          // Evita duplicata: mesma data + fornecedor + valor já no FC
-          const jaTem=(fcDados||[]).some(t=>
-            !t.pendente && t.data===p.dtStr &&
-            Math.abs(t.valor+p.rawVal)<0.02 &&
-            (t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,10)===
-              p.desc.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,10)
-          );
+          const nfChave=p.nfRaw&&p.nfRaw.toUpperCase()!=='N/D'?p.nfRaw.toLowerCase():'';
+          const nomeChave=p.desc.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,10);
+          const chave=p.dtStr+'|'+nomeChave+'|'+p.rawVal.toFixed(2)+'|'+nfChave;
+          const qtdBanco=(fcDados||[]).filter(t=>
+            !t.pendente && t.data===p.dtStr && Math.abs(t.valor+p.rawVal)<0.02 &&
+            (t.fornecedor||'').toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,10)===nomeChave &&
+            (nfChave?(t.nf||'').toLowerCase()===nfChave:true)
+          ).length;
+          const qtdRodada=inseridosRodada[chave]||0;
+          const jaTem=qtdBanco>qtdRodada;
+          inseridosRodada[chave]=(inseridosRodada[chave]||0)+1;
           if(!jaTem){
             fcDados.push({
               fornecedor: p.desc,
