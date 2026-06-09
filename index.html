@@ -1381,6 +1381,7 @@ tr:hover td{background:#f9fbf9}
       📂 Importar
       <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarCPdePlanilha(this)">
     </label>
+    <button id="btnDesfazerImportCP" onclick="desfazerImportacaoCP()" style="display:none;font-size:12px;background:#e65100;color:#fff;border:1px solid #bf360c;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700" title="Apaga todas as contas importadas de planilha ainda em Aberto">↩️ Desfazer Importação</button>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -12263,6 +12264,12 @@ function exportarExcelRec(){
 // ===== FIM PAGAMENTOS / RECEBIMENTOS =====
 function renderContasPagar(){
   console.log('renderContasPagar called, contasPagar:', contasPagar?.length);
+  // Mostrar/ocultar botão Desfazer Importação conforme existam contas importadas abertas
+  const btnDesfCP=document.getElementById('btnDesfazerImportCP');
+  if(btnDesfCP){
+    const temImportadas=(contasPagar||[]).some(c=>c.status==='Aberta'&&(c.observacao||'').toLowerCase().includes('importado de planilha'));
+    btnDesfCP.style.display=temImportadas?'':'none';
+  }
   const b=(document.getElementById('buscaCP')?.value||'').toLowerCase();
   const fSt=document.getElementById('filtroCP_status')?.value||'';
   const fDe=document.getElementById('filtroCP_de')?.value||'';
@@ -13677,13 +13684,103 @@ async function importarCPdePlanilha(input){
     const msgGrupo=red>0?`\n\uD83D\uDD17 ${red} linhas agrupadas por NF (${novos.length} \u2192 ${agrupados.length} contas)`:' (sem agrupamentos por NF)';
     if(!confirm(`Importar ${agrupados.length} contas a pagar?${msgGrupo}\n\nEx: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
 
+    // ── Modal de progresso ──────────────────────────────────────────────
+    const progModal=document.createElement('div');
+    progModal.id='cpImportProgModal';
+    progModal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+    progModal.innerHTML=`
+      <div style="background:#fff;border-radius:16px;padding:32px 36px;min-width:340px;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,0.3);text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">📥</div>
+        <div style="font-weight:700;font-size:16px;color:#263238;margin-bottom:4px">Importando contas a pagar…</div>
+        <div id="cpProgDesc" style="font-size:12px;color:#78909c;margin-bottom:20px;min-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Preparando…</div>
+        <div style="background:#e0e0e0;border-radius:99px;height:10px;overflow:hidden;margin-bottom:12px">
+          <div id="cpProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#1565c0,#42a5f5);border-radius:99px;transition:width 0.2s ease"></div>
+        </div>
+        <div id="cpProgCount" style="font-size:13px;color:#546e7a;font-weight:600">0 / ${agrupados.length}</div>
+      </div>`;
+    document.body.appendChild(progModal);
+
+    const progBar=document.getElementById('cpProgBar');
+    const progCount=document.getElementById('cpProgCount');
+    const progDesc=document.getElementById('cpProgDesc');
+
+    // Envio em lotes de 8 paralelos para velocidade + controle
     let ok=0,err=0;
-    for(const c of agrupados){ try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; } }
+    const BATCH=8;
+    for(let b=0;b<agrupados.length;b+=BATCH){
+      const lote=agrupados.slice(b,b+BATCH);
+      // Atualiza descrição com o primeiro do lote
+      progDesc.textContent=lote[0].descricao.substring(0,55)+(lote[0].descricao.length>55?'…':'');
+      await Promise.all(lote.map(async c=>{
+        try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; }
+        // Atualiza barra a cada registro concluído
+        const done=ok+err;
+        const pct=Math.round(done/agrupados.length*100);
+        if(progBar) progBar.style.width=pct+'%';
+        if(progCount) progCount.textContent=`${done} / ${agrupados.length}`;
+      }));
+    }
+
+    // Remove modal e finaliza
+    progModal.remove();
+    _fcSkipReload=true;
     await loadFinanceiro(); renderContasPagar();
-    showToast(`\u2705 ${ok} contas importadas!${err?` \u274C ${err} erros`:''}`);
-  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
+    // Mostra botão Desfazer Importação
+    const btnDesfCP=document.getElementById('btnDesfazerImportCP');
+    if(btnDesfCP) btnDesfCP.style.display='';
+    showToast(`\u2705 ${ok} contas importadas!${err?` \u274C ${err} erros`:''}`,'ok',6000);
+  }catch(e){
+    const m=document.getElementById('cpImportProgModal'); if(m) m.remove();
+    showToast('Erro: '+e.message,'err'); console.error(e);
+  }
 }
 
+
+// ── Desfazer importação de planilha CP ──────────────────────────────────────
+async function desfazerImportacaoCP(){
+  const paraApagar = (contasPagar||[]).filter(c=>
+    c.status==='Aberta' && (c.observacao||'').toLowerCase().includes('importado de planilha')
+  );
+  if(!paraApagar.length){
+    showToast('Nenhuma conta importada de planilha encontrada','err'); return;
+  }
+  if(!confirm(`Apagar ${paraApagar.length} contas importadas de planilha (status Aberta)?\n\nContas já pagas NÃO serão apagadas.`)) return;
+
+  // Modal de progresso
+  const progModal=document.createElement('div');
+  progModal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+  progModal.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:32px 36px;min-width:320px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3)">
+      <div style="font-size:32px;margin-bottom:12px">🗑️</div>
+      <div style="font-weight:700;font-size:15px;color:#263238;margin-bottom:16px">Desfazendo importação…</div>
+      <div style="background:#e0e0e0;border-radius:99px;height:10px;overflow:hidden;margin-bottom:10px">
+        <div id="desfProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#e65100,#ff8f00);border-radius:99px;transition:width 0.2s"></div>
+      </div>
+      <div id="desfProgCount" style="font-size:13px;color:#546e7a;font-weight:600">0 / ${paraApagar.length}</div>
+    </div>`;
+  document.body.appendChild(progModal);
+  const bar=document.getElementById('desfProgBar');
+  const cnt=document.getElementById('desfProgCount');
+
+  let ok=0,err=0;
+  const BATCH=10;
+  for(let b=0;b<paraApagar.length;b+=BATCH){
+    const lote=paraApagar.slice(b,b+BATCH);
+    await Promise.all(lote.map(async c=>{
+      try{ await api('DELETE','contas_pagar','',`?id=eq.${c.id}`); ok++; }
+      catch(e){ err++; }
+      const done=ok+err;
+      if(bar) bar.style.width=Math.round(done/paraApagar.length*100)+'%';
+      if(cnt) cnt.textContent=`${done} / ${paraApagar.length}`;
+    }));
+  }
+
+  progModal.remove();
+  const btn=document.getElementById('btnDesfazerImportCP');
+  if(btn) btn.style.display='none';
+  await loadFinanceiro(); renderContasPagar();
+  showToast(`✅ ${ok} contas removidas!${err?` ❌ ${err} erros`:''}  Reimporte a planilha agora.`,'ok',7000);
+}
 
 async function importarCRdePlanilha(input){
   const file=input.files?.[0]; input.value='';
