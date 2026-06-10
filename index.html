@@ -7142,11 +7142,10 @@ function abrirModalNovaPecaGlobal(){
 
 function gpecAddLinha(pdvId='', setorId='', qtd=1){
   const div=document.getElementById('gpec_linhas');
-  const idx=div.children.length;
   const row=document.createElement('div');
+  row.className='gpec-row';
   row.style.cssText='display:grid;grid-template-columns:1fr 1fr 80px 32px;gap:6px;align-items:center';
 
-  // Opções de setor — filtradas pelo PDV selecionado
   function opcoesSetor(pvId){
     const setores=setoresPDV.filter(s=>s.pdv_id===pvId);
     if(!setores.length) return '<option value="">— sem setores —</option>';
@@ -7154,48 +7153,49 @@ function gpecAddLinha(pdvId='', setorId='', qtd=1){
   }
 
   row.innerHTML=`
-    <select data-gpec-pdv="${idx}" onchange="gpecAtualizarSetores(${idx})"
+    <select class="gpec-pdv-sel" onchange="gpecAtualizarSetoresRow(this)"
       style="padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:12px;width:100%">
       <option value="">— PDV —</option>
       ${pdvs.map(p=>`<option value="${p.id}"${p.id===pdvId?' selected':''}>PDV ${p.numero}${p.cliente?' — '+p.cliente.substring(0,22):''}</option>`).join('')}
     </select>
-    <select data-gpec-setor="${idx}"
+    <select class="gpec-setor-sel"
       style="padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:12px;width:100%">
       ${opcoesSetor(pdvId)}
     </select>
-    <input data-gpec-qtd="${idx}" type="number" min="1" value="${qtd}"
+    <input class="gpec-qtd-inp" type="number" min="1" value="${qtd}"
+      oninput="gpecAtualizarResumo()"
       style="padding:7px 6px;border:1px solid #ddd;border-radius:8px;font-size:14px;font-weight:700;text-align:center;width:100%">
-    <button type="button" onclick="this.closest('[data-gpec-row]').remove();gpecAtualizarResumo()"
+    <button type="button" onclick="this.closest('.gpec-row').remove();gpecAtualizarResumo()"
       style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center">✕</button>`;
-  row.setAttribute('data-gpec-row', idx);
   div.appendChild(row);
-  // Se PDV já selecionado, selecionar setor
-  if(pdvId) gpecAtualizarSetores(idx, setorId);
+  if(pdvId) gpecAtualizarSetoresRow(row.querySelector('.gpec-pdv-sel'), setorId);
 }
 
-function gpecAtualizarSetores(idx, preselId=''){
-  const pdvSel=document.querySelector(`[data-gpec-pdv="${idx}"]`);
-  const setorSel=document.querySelector(`[data-gpec-setor="${idx}"]`);
-  if(!pdvSel||!setorSel) return;
+// Atualiza setor de uma linha específica a partir do select de PDV
+function gpecAtualizarSetoresRow(pdvSel, preselId=''){
+  const row=pdvSel.closest('.gpec-row');
+  const setorSel=row?.querySelector('.gpec-setor-sel');
+  if(!setorSel) return;
   const pvId=pdvSel.value;
   const setores=setoresPDV.filter(s=>s.pdv_id===pvId);
   setorSel.innerHTML='<option value="">— Setor —</option>'+
     setores.map(s=>`<option value="${s.id}"${s.id===preselId?' selected':''}>${s.nome}</option>`).join('');
+  gpecAtualizarResumo();
 }
 
 function gpecAtualizarResumo(){
-  const linhas=[...document.querySelectorAll('[data-gpec-row]')];
+  const linhas=[...document.getElementById('gpec_linhas').querySelectorAll('.gpec-row')];
   const resumo=document.getElementById('gpec_resumo');
   if(!resumo) return;
   if(!linhas.length){ resumo.style.display='none'; return; }
   const total=linhas.reduce((s,row)=>{
-    const qtdEl=row.querySelector('[data-gpec-qtd]');
+    const qtdEl=row.querySelector('.gpec-qtd-inp');
     return s+(parseInt(qtdEl?.value)||0);
   },0);
   const pvs=linhas.map(row=>{
-    const pdvSel=row.querySelector('[data-gpec-pdv]');
+    const pdvSel=row.querySelector('.gpec-pdv-sel');
     const pdv=pdvs.find(p=>p.id===pdvSel?.value);
-    const qtdEl=row.querySelector('[data-gpec-qtd]');
+    const qtdEl=row.querySelector('.gpec-qtd-inp');
     if(!pdv) return null;
     return `PDV ${pdv.numero} × ${parseInt(qtdEl?.value)||0} un`;
   }).filter(Boolean);
@@ -7208,15 +7208,16 @@ async function salvarNovaPecaGlobal(){
   const nome=document.getElementById('gpec_nome').value.trim();
   if(!nome){ showToast('Informe o nome da peça','err'); return; }
 
-  const linhas=[...document.querySelectorAll('[data-gpec-row]')];
+  const container=document.getElementById('gpec_linhas');
+  const linhas=[...container.querySelectorAll('.gpec-row')];
   if(!linhas.length){ showToast('Adicione ao menos um PDV de destino','err'); return; }
 
   // Coletar destinos
   const destinos=[];
   for(const row of linhas){
-    const pdvSel=row.querySelector('[data-gpec-pdv]');
-    const setorSel=row.querySelector('[data-gpec-setor]');
-    const qtdEl=row.querySelector('[data-gpec-qtd]');
+    const pdvSel=row.querySelector('.gpec-pdv-sel');
+    const setorSel=row.querySelector('.gpec-setor-sel');
+    const qtdEl=row.querySelector('.gpec-qtd-inp');
     const pvId=pdvSel?.value;
     const setorId=setorSel?.value;
     const qtd=parseInt(qtdEl?.value)||1;
