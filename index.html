@@ -6437,55 +6437,83 @@ function ordAtualizarSelecao(){
   }
 }
 
-// Salva uma OP por linha selecionada
+// Salva ordens agrupando peças com mesmo nome+desenho em 1 OP única
 async function salvarOrdemMulti(){
   const chks = [...document.querySelectorAll('[id^="ord_chk_"]')].filter(c=>c.checked);
   if(!chks.length){ showToast('Selecione ao menos uma peça','err'); return; }
   const dtAbertura = document.getElementById('ord_data').value || new Date().toISOString().split('T')[0];
 
+  // Agrupar selecionadas por nome+desenho → mesma peça em PDVs diferentes = 1 OP
+  const grupos = {};
+  chks.forEach(c => {
+    const peca  = pecasProjeto.find(p=>p.id===c.value);
+    if(!peca) return;
+    const qtd   = parseInt(document.getElementById('ord_qtd_'+c.value)?.value)||1;
+    const key   = (peca.nome||'').trim()+'||'+(peca.numero_desenho||'').trim();
+    if(!grupos[key]) grupos[key] = {peca, itens:[], qtdTotal:0};
+    grupos[key].itens.push({peca, qtd, pdvId:peca.pdv_id});
+    grupos[key].qtdTotal += qtd;
+  });
+
+  const listaGrupos = Object.values(grupos);
   fecharModal('modalOrdem');
 
   // Modal de progresso
   const prog = document.createElement('div');
   prog.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center';
-  prog.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px 34px;min-width:300px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3)">
-    <div style="font-size:28px;margin-bottom:10px">🔧</div>
-    <div style="font-weight:700;font-size:14px;color:#263238;margin-bottom:14px">Criando ordens…</div>
-    <div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">
-      <div id="opBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2e7d32,#66bb6a);border-radius:99px;transition:width 0.2s"></div>
-    </div>
-    <div id="opCnt" style="font-size:12px;color:#546e7a">0 / ${chks.length}</div>
-  </div>`;
+  prog.innerHTML='<div style="background:#fff;border-radius:16px;padding:28px 34px;min-width:300px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3)">'+
+    '<div style="font-size:28px;margin-bottom:10px">🔧</div>'+
+    '<div style="font-weight:700;font-size:14px;color:#263238;margin-bottom:14px">Criando ordens…</div>'+
+    '<div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">'+
+    '<div id="opBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2e7d32,#66bb6a);border-radius:99px;transition:width 0.2s"></div></div>'+
+    '<div id="opCnt" style="font-size:12px;color:#546e7a">0 / '+listaGrupos.length+'</div></div>';
   document.body.appendChild(prog);
   const bar = document.getElementById('opBar');
   const cnt = document.getElementById('opCnt');
 
   let ok=0, err=0;
-  for(let i=0;i<chks.length;i++){
-    const pecaId = chks[i].value;
-    const peca   = pecasProjeto.find(p=>p.id===pecaId);
-    const qtdEl  = document.getElementById('ord_qtd_'+pecaId);
-    const qtd    = parseInt(qtdEl?.value)||1;
-    if(!peca){ err++; continue; }
+  const ordemIds = [];
+
+  for(let i=0;i<listaGrupos.length;i++){
+    const g = listaGrupos[i];
+    // PDV principal = primeiro da lista (ou null se multi-PDV)
+    const pdvPrincipal = g.itens.length===1 ? g.itens[0].pdvId : null;
     try{
-      await api('POST','ordens_producao',{
-        pdv_id: peca.pdv_id||null,
-        descricao: peca.nome,
-        desenho: peca.numero_desenho||null,
+      const res = await api('POST','ordens_producao',{
+        pdv_id: pdvPrincipal,
+        descricao: g.peca.nome,
+        desenho: g.peca.numero_desenho||null,
         material: null,
-        quantidade: qtd,
+        quantidade: g.qtdTotal,
         dt_abertura: dtAbertura,
         criado_por: usuarioLogado?.nome||null
       });
+      const ordemId = res?.[0]?.id;
+      // Salvar distribuição multi-PDV
+      if(ordemId && g.itens.length > 1){
+        await Promise.all(g.itens.map(it=>
+          api('POST','op_distribuicao',{
+            ordem_id: ordemId,
+            pdv_id: it.pdvId,
+            quantidade: it.qtd
+          }).catch(()=>{})
+        ));
+      }
+      if(ordemId) ordemIds.push(ordemId);
       ok++;
     }catch(e){ err++; console.error(e); }
-    if(bar) bar.style.width=Math.round((i+1)/chks.length*100)+'%';
-    if(cnt) cnt.textContent=`${i+1} / ${chks.length}`;
+    if(bar) bar.style.width=Math.round((i+1)/listaGrupos.length*100)+'%';
+    if(cnt) cnt.textContent=(i+1)+' / '+listaGrupos.length;
   }
 
   prog.remove();
   await loadAll();
   showToast('✅ '+ok+' ordem(ns) criada(s)!'+(err?' ❌ '+err+' erros':''), 'ok', 5000);
+
+  // Perguntar se quer imprimir
+  if(ordemIds.length && confirm('Deseja imprimir as ordens agora?')){
+    ordemIds.forEach((id,i)=>setTimeout(()=>imprimirOrdem(id), i*400));
+  }
 }
 
 // Adiciona uma linha de distribuição PDV+Qtd
@@ -6989,6 +7017,17 @@ function imprimirOrdem(id){
     <td style="border:1px solid #000;padding:4px">${o.material||''}</td>
     <td colspan="2" style="border:1px solid #000;padding:4px;font-size:20px;font-weight:700">${o.quantidade||''}</td>
   </tr>
+  ${(()=>{
+    // Distribuição de PDVs (quando multi-PDV)
+    const dist=(opDistribuicao||[]).filter(d=>d.ordem_id===id);
+    if(!dist.length) return '';
+    const linhas=dist.map(d=>{
+      const p=pdvs.find(x=>x.id===d.pdv_id);
+      const num=p?(String(p.numero||'').toUpperCase().startsWith('PDV')?p.numero:'PDV '+p.numero):'—';
+      return '<tr style="font-size:11px;text-align:center"><td style="border:1px solid #ccc;padding:3px;background:#f9f9f9">'+num+'</td><td colspan="2" style="border:1px solid #ccc;padding:3px;background:#f9f9f9;text-align:left">'+(p?.cliente||'')+'</td><td style="border:1px solid #ccc;padding:3px;background:#f9f9f9"></td><td colspan="2" style="border:1px solid #ccc;padding:3px;background:#f9f9f9;font-weight:700">'+d.quantidade+' un</td></tr>';
+    }).join('');
+    return '<tr style="background:#d9d9d9;font-size:9px;font-weight:700;text-align:center"><td style="border:1px solid #000;padding:3px">PDV</td><td colspan="2" style="border:1px solid #000;padding:3px">CLIENTE</td><td style="border:1px solid #000;padding:3px"></td><td colspan="2" style="border:1px solid #000;padding:3px">QTD POR PDV</td></tr>'+linhas;
+  })()}
   ${opRow('SERRA','TORNO')}
   ${opRow('PLAINA','CENTRO DE USINAGEM')}
   ${opRow('FURADEIRA','SOLDA')}
