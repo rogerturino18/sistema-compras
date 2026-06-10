@@ -6384,7 +6384,7 @@ function addLinhaDistrib(pdvId='', qtd=''){
   row.innerHTML=`
     <select data-distrib-pdv="${idx}" onchange="atualizarResumoDistrib()" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-size:12px">
       <option value="">— PDV —</option>
-      ${pdvs.map(p=>`<option value="${p.id}"${p.id===pdvId?' selected':''}>PDV ${p.numero}${p.cliente?' — '+p.cliente.substring(0,25):''}</option>`).join('')}
+      ${pdvs.map(p=>`<option value="${p.id}"${p.id===pdvId?' selected':''}>${(s=>s.toUpperCase().startsWith('PDV')?s:'PDV '+s)(String(p.numero||''))}${p.cliente?' — '+p.cliente.substring(0,25):''}</option>`).join('')}
     </select>
     <input data-distrib-qtd="${idx}" type="number" min="1" value="${qtd||''}" placeholder="Qtd" oninput="atualizarResumoDistrib()" style="width:72px;padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-weight:700;text-align:center">
     <button type="button" onclick="this.parentElement.remove();atualizarResumoDistrib()" style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px" title="Remover">✕</button>`;
@@ -7156,7 +7156,7 @@ function gpecAddLinha(pdvId='', setorId='', qtd=1){
     <select class="gpec-pdv-sel" onchange="gpecAtualizarSetoresRow(this)"
       style="padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:12px;width:100%">
       <option value="">— PDV —</option>
-      ${pdvs.map(p=>`<option value="${p.id}"${p.id===pdvId?' selected':''}>PDV ${p.numero}${p.cliente?' — '+p.cliente.substring(0,22):''}</option>`).join('')}
+      ${pdvs.map(p=>{const num=String(p.numero||'');const label=num.toUpperCase().startsWith('PDV')?num:'PDV '+num;return `<option value="${p.id}"${p.id===pdvId?' selected':''}>${label}${p.cliente?' — '+p.cliente.substring(0,22):''}</option>`;}).join('')}
     </select>
     <select class="gpec-setor-sel"
       style="padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:12px;width:100%">
@@ -7394,9 +7394,14 @@ function abrirCriarOPdaPeca(pecaId){
     `<b>${peca?.nome||'—'}</b>${peca?.numero_desenho?' <span style="color:#1565c0">Nº '+peca.numero_desenho+'</span>':''}` +
     `<br><span style="color:#546e7a;font-size:12px">📁 ${setor?.nome||'Sem setor'} · 📦 PDV ${pdvOrigem?.numero||'—'} ${pdvOrigem?.cliente||''}</span>`;
 
-  // Data padrão = hoje
+  // Pré-preencher quantidade com o valor da peça (coluna ou fallback da descrição)
+  let _qtdPeca = peca?.quantidade || 1;
+  if(_qtdPeca <= 1 && peca?.descricao){
+    const _m = (peca.descricao||'').match(/(\d+)\s*unidades/i);
+    if(_m) _qtdPeca = parseInt(_m[1]);
+  }
   document.getElementById('opPeca_data').value = new Date().toISOString().split('T')[0];
-  document.getElementById('opPeca_qtdTotal').value = 1;
+  document.getElementById('opPeca_qtdTotal').value = _qtdPeca;
 
   // Montar linhas de distribuição — começa com 1 linha: o PDV de origem da peça
   const linhasDiv = document.getElementById('opPeca_linhas');
@@ -7416,7 +7421,7 @@ function opPecaAddLinha(pdvId='', qtd=''){
     <select data-op-pdv="${idx}" onchange="opPecaAtualizarResumo()"
       style="flex:1;padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:12px">
       <option value="">— Selecione o PDV —</option>
-      ${pdvs.map(p=>`<option value="${p.id}"${p.id===pdvId?' selected':''}>PDV ${p.numero}${p.cliente?' — '+p.cliente.substring(0,28):''}</option>`).join('')}
+      ${pdvs.map(p=>{const num=String(p.numero||'');const label=num.toUpperCase().startsWith('PDV')?num:'PDV '+num;return `<option value="${p.id}"${p.id===pdvId?' selected':''}>${label}${p.cliente?' — '+p.cliente.substring(0,28):''}</option>`;}).join('')}
     </select>
     <input data-op-qtd="${idx}" type="number" min="1" value="${qtd||''}" placeholder="Qtd"
       oninput="opPecaAtualizarResumo()"
@@ -8019,43 +8024,127 @@ function renderHomeTiles(){
     return;
   }
 
-  // Badges dinâmicos
+  // Badges
   const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
   const ciPend=comprasInternas.filter(i=>!i.comprado).length;
   const opAtivas=(ordens||[]).filter(o=>o.status!=='concluida').length;
   const cpVenc=(contasPagar||[]).filter(c=>c.status==='Aberta'&&c.vencimento&&c.vencimento<new Date().toISOString().split('T')[0]).length;
-  const badges={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
+  const badgeMap={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
 
   // Permissões
   const perms=getPermissoesUsuario(usuarioLogado);
   const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
   const podeVer=(tab)=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab);
 
-  div.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:860px;margin:0 auto;padding:0 8px">'
-    + DASH_GRUPOS.map(g=>{
-        const subsVisiveis=g.subs.filter(s=>podeVer(s.tab));
-        if(!subsVisiveis.length) return '';
-        const subsHtml=subsVisiveis.map(s=>{
-          const bdg=badges[s.tab]>0?`<span style="background:#c62828;color:#fff;font-size:10px;font-weight:800;border-radius:10px;padding:1px 6px;margin-left:4px">${badges[s.tab]}</span>`:'';
-          return `<button onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
-            style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);border-radius:9px;cursor:pointer;color:#fff;font-size:13px;font-weight:600;white-space:nowrap;flex:1;min-width:140px;max-width:210px;transition:background 0.15s"
-            onmouseover="this.style.background='rgba(255,255,255,0.24)'"
-            onmouseout="this.style.background='rgba(255,255,255,0.12)'">
-            <span style="font-size:16px">${s.icon}</span>
-            <span style="flex:1;text-align:left">${s.label}${bdg}</span>
-            <span style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:400">${s.sub}</span>
-          </button>`;
-        }).join('');
-        return `<div style="background:${g.color}dd;border:1px solid rgba(255,255,255,0.12);border-radius:14px;overflow:hidden;backdrop-filter:blur(6px)">
-          <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;background:${g.color}">
-            <span style="font-size:17px">${g.icon}</span>
-            <span style="font-weight:800;font-size:13px;color:#fff;letter-spacing:0.8px;text-transform:uppercase">${g.label}</span>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px 12px">${subsHtml}</div>
-        </div>`;
-      }).join('')
-    +'</div>';
+  // Totaliza badges por grupo
+  function badgeGrupo(g){
+    const tot=g.subs.reduce((s,sb)=>s+(badgeMap[sb.tab]||0),0);
+    return tot>0?'<div class="tile-badge">'+tot+'</div>':'';
+  }
+
+  const gruposVisiveis=DASH_GRUPOS.filter(g=>g.subs.some(s=>podeVer(s.tab)));
+
+  // Monta quadrados principais (linha de até 4 por vez)
+  const rows=[];
+  for(let i=0;i<gruposVisiveis.length;i+=4) rows.push(gruposVisiveis.slice(i,i+4));
+
+  div.innerHTML='<div id="dashGrupoPaineis" style="display:flex;flex-direction:column;gap:14px;align-items:center;width:100%">'
+    + rows.map(row=>'<div class="tiles-row">'
+        + row.map(g=>{
+            const bdg=badgeGrupo(g);
+            return '<div class="tile tile-md" style="background:'+g.color+';cursor:pointer;position:relative;transition:transform 0.15s,box-shadow 0.15s" '
+              +'onclick="dashToggleGrupo(\''+g.id+'\')" '
+              +'id="tile_grp_'+g.id+'" '
+              +'onmouseover="this.style.transform=\'scale(1.04)\'" '
+              +'onmouseout="this.style.transform=\'scale(1)\'">'
+              +bdg
+              +'<div class="tile-icon">'+g.icon+'</div>'
+              +'<div class="tile-label">'+g.label+'</div>'
+              +'<div style="position:absolute;bottom:7px;right:8px;font-size:10px;opacity:0.6" id="tile_arr_'+g.id+'">▼</div>'
+              +'</div>';
+          }).join('')
+        +'</div>')
+      .join('')
+    // Painel de sub-itens — aparece abaixo dos quadrados ao clicar
+    +'<div id="dashSubPanel" style="display:none;width:100%;max-width:800px;background:rgba(0,0,0,0.45);backdrop-filter:blur(12px);border-radius:14px;padding:14px 16px;border:1px solid rgba(255,255,255,0.15)">'
+      +'<div id="dashSubLabel" style="font-size:12px;font-weight:800;color:rgba(255,255,255,0.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px"></div>'
+      +'<div id="dashSubBtns" style="display:flex;flex-wrap:wrap;gap:8px"></div>'
+    +'</div>'
+  +'</div>';
 }
+
+// Abre/fecha painel de sub-itens ao clicar no quadrado
+let _dashGrupoAtivo=null;
+function dashToggleGrupo(gId){
+  const g=DASH_GRUPOS.find(x=>x.id===gId);
+  if(!g) return;
+  const panel=document.getElementById('dashSubPanel');
+  const label=document.getElementById('dashSubLabel');
+  const btns=document.getElementById('dashSubBtns');
+  if(!panel) return;
+
+  // Permissões
+  const perms=getPermissoesUsuario(usuarioLogado);
+  const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
+  const podeVer=(tab)=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab);
+
+  // Badges
+  const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
+  const ciPend=comprasInternas.filter(i=>!i.comprado).length;
+  const opAtivas=(ordens||[]).filter(o=>o.status!=='concluida').length;
+  const cpVenc=(contasPagar||[]).filter(c=>c.status==='Aberta'&&c.vencimento&&c.vencimento<new Date().toISOString().split('T')[0]).length;
+  const badgeMap={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
+
+  // Reset seta de todos os tiles
+  DASH_GRUPOS.forEach(x=>{
+    const arr=document.getElementById('tile_arr_'+x.id);
+    const tile=document.getElementById('tile_grp_'+x.id);
+    if(arr) arr.textContent='▼';
+    if(tile) tile.style.boxShadow='';
+  });
+
+  // Fechar se clicou no mesmo grupo
+  if(_dashGrupoAtivo===gId){
+    panel.style.display='none';
+    _dashGrupoAtivo=null;
+    return;
+  }
+  _dashGrupoAtivo=gId;
+
+  // Destacar tile ativo
+  const tileAtivo=document.getElementById('tile_grp_'+gId);
+  const arrAtivo=document.getElementById('tile_arr_'+gId);
+  if(tileAtivo) tileAtivo.style.boxShadow='0 0 0 3px rgba(255,255,255,0.7)';
+  if(arrAtivo) arrAtivo.textContent='▲';
+
+  // Preencher sub-botões
+  label.textContent=g.icon+' '+g.label;
+  btns.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
+    const bdg=badgeMap[s.tab]>0?'<span style="background:#c62828;color:#fff;font-size:10px;font-weight:800;border-radius:10px;padding:1px 7px;margin-left:5px">'+badgeMap[s.tab]+'</span>':'';
+    return '<button onclick="fecharHomeScreen();sbGo('+s.tab+',\''+s.label+'\')" '
+      +'style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.2);border-radius:10px;cursor:pointer;color:#fff;font-size:13px;font-weight:600;white-space:nowrap;transition:background 0.15s" '
+      +'onmouseover="this.style.background=\'rgba(255,255,255,0.26)\'" '
+      +'onmouseout="this.style.background=\'rgba(255,255,255,0.14)\'">'
+      +'<span style="font-size:16px">'+s.icon+'</span>'
+      +'<span>'+s.label+bdg+'</span>'
+      +'<span style="font-size:10px;color:rgba(255,255,255,0.5)">'+s.sub+'</span>'
+      +'</button>';
+  }).join('');
+
+  // Posiciona painel logo abaixo do tile clicado
+  const tileEl=document.getElementById('tile_grp_'+gId);
+  const paineis=document.getElementById('dashGrupoPaineis');
+  if(tileEl&&paineis){
+    // Move o painel para após a linha do tile
+    const tileRow=tileEl.closest('.tiles-row');
+    if(tileRow&&tileRow.parentNode===paineis){
+      tileRow.after(panel);
+    }
+  }
+  panel.style.display='block';
+}
+
+
 
 
 // ===== ESTOQUE =====
