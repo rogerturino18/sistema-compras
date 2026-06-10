@@ -6033,6 +6033,7 @@ function renderOrdens(){
                 ${o.desenho?`<span style="background:rgba(255,255,255,0.15);color:#e3f2fd;padding:1px 8px;border-radius:8px;font-size:10px">📐 ${o.desenho}</span>`:''}
                 ${o.material?`<span style="background:rgba(255,255,255,0.15);color:#f3e5f5;padding:1px 8px;border-radius:8px;font-size:10px">⚙️ ${o.material}</span>`:''}
               </div>
+              ${o.observacao?`<div style="background:rgba(255,255,255,0.12);border-radius:6px;padding:4px 8px;font-size:10px;color:rgba(255,255,255,0.85);margin-bottom:6px">📦 ${o.observacao}</div>`:''}
               <div style="background:rgba(255,255,255,0.08);border-radius:8px;padding:6px 8px;text-align:center;color:rgba(255,255,255,0.5);font-size:10px;margin-bottom:8px">
                 ↕ Arraste para iniciar operação
               </div>
@@ -6479,6 +6480,16 @@ async function salvarOrdemMulti(){
     // PDV principal = primeiro da lista (ou null se multi-PDV)
     const pdvPrincipal = g.itens.length===1 ? g.itens[0].pdvId : null;
     try{
+      // Monta observação com distribuição para aparecer na OP
+      let obsDistrib = null;
+      if(g.itens.length > 1){
+        obsDistrib = g.itens.map(it=>{
+          const p = pdvs.find(x=>x.id===it.pdvId);
+          const num = p ? (String(p.numero||'').toUpperCase().startsWith('PDV')?p.numero:'PDV '+p.numero) : '—';
+          return num+': '+it.qtd+' un';
+        }).join(' | ');
+      }
+
       const res = await api('POST','ordens_producao',{
         pdv_id: pdvPrincipal,
         descricao: g.peca.nome,
@@ -6486,9 +6497,18 @@ async function salvarOrdemMulti(){
         material: null,
         quantidade: g.qtdTotal,
         dt_abertura: dtAbertura,
+        observacao: obsDistrib,
         criado_por: usuarioLogado?.nome||null
       });
-      const ordemId = res?.[0]?.id;
+
+      // Pegar ID — tenta res[0].id, senão busca pelo número mais recente
+      let ordemId = res?.[0]?.id;
+      if(!ordemId){
+        // Fallback: recarrega ordens e pega a última criada
+        const fresh = await api('GET','ordens_producao','','?order=created_at.desc&limit=1').catch(()=>[]);
+        ordemId = fresh?.[0]?.id;
+      }
+
       // Salvar distribuição multi-PDV
       if(ordemId && g.itens.length > 1){
         await Promise.all(g.itens.map(it=>
@@ -6496,7 +6516,7 @@ async function salvarOrdemMulti(){
             ordem_id: ordemId,
             pdv_id: it.pdvId,
             quantidade: it.qtd
-          }).catch(()=>{})
+          }).catch(e=>console.warn('op_distribuicao erro:',e))
         ));
       }
       if(ordemId) ordemIds.push(ordemId);
@@ -6867,6 +6887,7 @@ function imprimirOrdensSelecionadas(){
     <td style="border:1px solid #000;padding:3px;font-size:16px;font-weight:700">${o.quantidade||''}</td>
     <td style="border:1px solid #000;padding:3px;font-weight:700">${o.peso?Number(o.peso).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+' kg':''}</td>
   </tr>
+  ${o.observacao?`<tr><td class="lbl">DISTRIBUIÇÃO</td><td colspan="5" style="text-align:left;font-size:11px;padding:4px 8px;font-weight:600;color:#1565c0">${o.observacao}</td></tr>`:''}
   ${opRow('SERRA','TORNO')}
   ${opRow('PLAINA','CENTRO DE USINAGEM')}
   ${opRow('FURADEIRA','SOLDA')}
@@ -7028,6 +7049,7 @@ function imprimirOrdem(id){
     }).join('');
     return '<tr style="background:#d9d9d9;font-size:9px;font-weight:700;text-align:center"><td style="border:1px solid #000;padding:3px">PDV</td><td colspan="2" style="border:1px solid #000;padding:3px">CLIENTE</td><td style="border:1px solid #000;padding:3px"></td><td colspan="2" style="border:1px solid #000;padding:3px">QTD POR PDV</td></tr>'+linhas;
   })()}
+  ${o.observacao?`<tr><td class="lbl">DISTRIBUIÇÃO</td><td colspan="5" style="text-align:left;font-size:11px;padding:4px 8px;font-weight:600;color:#1565c0">${o.observacao}</td></tr>`:''}
   ${opRow('SERRA','TORNO')}
   ${opRow('PLAINA','CENTRO DE USINAGEM')}
   ${opRow('FURADEIRA','SOLDA')}
