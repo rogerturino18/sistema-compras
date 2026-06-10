@@ -6485,7 +6485,7 @@ async function salvarOrdemMulti(){
 
   prog.remove();
   await loadAll();
-  showToast(`✅ ${ok} ordem(ns) criada(s)!${err?` ❌ ${err} erros`:'`}`, 'ok', 5000);
+  showToast('✅ '+ok+' ordem(ns) criada(s)!'+(err?' ❌ '+err+' erros':''), 'ok', 5000);
 }
 
 // Adiciona uma linha de distribuição PDV+Qtd
