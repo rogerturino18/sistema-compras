@@ -7391,8 +7391,8 @@ function abrirCriarOPdaPeca(pecaId){
 
   // Info da peça
   document.getElementById('opPecaInfo').innerHTML =
-    `<b>${peca?.nome||'—'}</b>${peca?.numero_desenho?' <span style="color:#1565c0">Nº '+peca.numero_desenho+'</span>':''}` +
-    `<br><span style="color:#546e7a;font-size:12px">📁 ${setor?.nome||'Sem setor'} · 📦 PDV ${pdvOrigem?.numero||'—'} ${pdvOrigem?.cliente||''}</span>`;
+    `<br><span style="color:#546e7a;font-size:12px">📁 ${setor?.nome||'Sem setor'} · 📦 ${(n=>n.toUpperCase().startsWith('PDV')?n:'PDV '+n)(String(pdvOrigem?.numero||'—'))} ${pdvOrigem?.cliente||''}</span>`;
+    `<br><span style="color:#546e7a;font-size:12px">📁 ${setor?.nome||'Sem setor'} · 📦 ${(s=>s.toUpperCase().startsWith('PDV')?s:'PDV '+s)(String(pdvOrigem?.numero||'—'))}||'—'} ${pdvOrigem?.cliente||''}</span>`;
 
   // Pré-preencher quantidade com o valor da peça (coluna ou fallback da descrição)
   let _qtdPeca = peca?.quantidade || 1;
@@ -7406,7 +7406,7 @@ function abrirCriarOPdaPeca(pecaId){
   // Montar linhas de distribuição — começa com 1 linha: o PDV de origem da peça
   const linhasDiv = document.getElementById('opPeca_linhas');
   linhasDiv.innerHTML = '';
-  opPecaAddLinha(pdvOrigem?.id || '', 1);
+  opPecaAddLinha(pdvOrigem?.id || '', _qtdPeca);
   opPecaAtualizarResumo();
 
   abrirModal('modalCriarOPPeca');
@@ -7855,24 +7855,30 @@ const DASH_GRUPOS = [
   {
     id:'compras', label:'Compras', icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
     subs:[
-      {label:'Lista de Compras', icon:'📋', tab:1,  sub:'Matéria prima'},
-      {label:'Cotações',         icon:'💰', tab:6,  sub:'Ver preços'},
-      {label:'Compras Internas', icon:'🧾', tab:9,  sub:'Solicitações'},
-      {label:'Enviar Cotação',   icon:'📧', tab:10, sub:'E-mails'},
+      {label:'Lista de Compras',  icon:'📋', tab:1,  sub:'Matéria prima'},
+      {label:'Cotações',          icon:'💰', tab:6,  sub:'Ver preços'},
+      {label:'Compras Internas',  icon:'🛒', tab:9,  sub:'Solicitações'},
+      {label:'Enviar Cotação',    icon:'📧', tab:10, sub:'E-mails'},
+      {label:'Comparar Orçamentos',icon:'⚖️',tab:7,  sub:'Orçamentos'},
+      {label:'Pedido de Compra',  icon:'📑', tab:15, sub:'Pedidos'},
+      {label:'Fornecedores',      icon:'🏢', tab:2,  sub:'Cadastro'},
     ]
   },
   {
     id:'projeto', label:'Projeto', icon:'🎯', color:'linear-gradient(135deg,#2e7d32,#1b5e20)',
     subs:[
-      {label:'Projetos',      icon:'🎯', tab:3,  sub:'PDVs e peças'},
-      {label:'Lista Material',icon:'📝', tab:4,  sub:'Itens projetistas'},
+      {label:'Projetos',       icon:'🎯', tab:3,  sub:'PDVs e peças'},
+      {label:'Lista Material', icon:'📝', tab:4,  sub:'Itens projetistas'},
+      {label:'Requisições',    icon:'📋', tab:17, sub:'Requisições de material'},
+      {label:'Departamentos',  icon:'🏛️', tab:18, sub:'Setores internos'},
     ]
   },
   {
     id:'producao', label:'Produção', icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
     subs:[
-      {label:'Ordens',    icon:'🔧', tab:5,  sub:'Kanban / OP'},
-      {label:'Histórico', icon:'⏱', tab:27, sub:'Tempos de OP'},
+      {label:'Ordens',          icon:'🔧', tab:5,  sub:'Kanban / OP'},
+      {label:'Histórico Tempos',icon:'⏱️', tab:27, sub:'Tempos por OP'},
+      {label:'Terceirização',   icon:'🚚', tab:28, sub:'Serviços externos'},
     ]
   },
   {
@@ -7880,24 +7886,27 @@ const DASH_GRUPOS = [
     subs:[
       {label:'PDV',           icon:'🧾', tab:13, sub:'Pedidos de Venda'},
       {label:'Clientes',      icon:'👤', tab:14, sub:'Cadastro'},
-      {label:'Terceirização', icon:'🚚', tab:28, sub:'Serviços externos'},
     ]
   },
   {
     id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
     subs:[
-      {label:'Fluxo de Caixa',   icon:'📊', tab:21, sub:'Realizados'},
-      {label:'Contas a Pagar',   icon:'💸', tab:19, sub:'A pagar'},
-      {label:'Contas a Receber', icon:'💰', tab:20, sub:'A receber'},
-      {label:'Pagamentos',       icon:'✅', tab:25, sub:'Pagos'},
-      {label:'Recebimentos',     icon:'📥', tab:26, sub:'Recebidos'},
+      {label:'Fluxo de Caixa',    icon:'📊', tab:21, sub:'Realizados'},
+      {label:'Contas a Pagar',    icon:'💸', tab:19, sub:'A pagar'},
+      {label:'Contas a Receber',  icon:'💰', tab:20, sub:'A receber'},
+      {label:'Pagamentos',        icon:'✅', tab:25, sub:'Histórico pago'},
+      {label:'Recebimentos',      icon:'📥', tab:26, sub:'Histórico recebido'},
+      {label:'Contas Correntes',  icon:'🏦', tab:22, sub:'Saldos'},
+      {label:'DRE',               icon:'📈', tab:23, sub:'Resultado'},
     ]
   },
   {
     id:'estoque', label:'Estoque', icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
     subs:[
-      {label:'Estoque', icon:'📦', tab:11, sub:'MP e Produtos'},
-      {label:'Fiscal',  icon:'📄', tab:12, sub:'NF-e'},
+      {label:'Estoque',              icon:'📦', tab:11, sub:'MP e Produtos'},
+      {label:'Movimentações',        icon:'🔄', tab:16, sub:'Entradas e saídas'},
+      {label:'Fiscal / NF-e',        icon:'📄', tab:12, sub:'NF-e emissão'},
+      {label:'Entrada NF-e',         icon:'📥', tab:24, sub:'NF-e entrada'},
     ]
   },
 ];
@@ -8004,7 +8013,6 @@ function renderHomeTiles(){
   const div=document.getElementById('homeTiles');
   if(!div) return;
 
-  // Layout legado para perfis específicos
   if(isExpedicao()||isProjeto()){
     const tileDefs=isExpedicao()?TILE_DEFS_EXPEDICAO:TILE_DEFS_PROJETO;
     const perms=getPermissoesUsuario(usuarioLogado);
@@ -8024,43 +8032,39 @@ function renderHomeTiles(){
     return;
   }
 
-  // Badges
   const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
   const ciPend=comprasInternas.filter(i=>!i.comprado).length;
   const opAtivas=(ordens||[]).filter(o=>o.status!=='concluida').length;
   const cpVenc=(contasPagar||[]).filter(c=>c.status==='Aberta'&&c.vencimento&&c.vencimento<new Date().toISOString().split('T')[0]).length;
   const badgeMap={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
 
-  // Permissões
   const perms=getPermissoesUsuario(usuarioLogado);
   const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
   const podeVer=(tab)=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab);
   const gruposVisiveis=DASH_GRUPOS.filter(g=>g.subs.some(s=>podeVer(s.tab)));
 
-  // Badge total do grupo
   function badgeGrupo(g){
     const tot=g.subs.reduce((s,sb)=>s+(badgeMap[sb.tab]||0),0);
     return tot>0?'<div class="tile-badge">'+tot+'</div>':'';
   }
 
-  // Linha única de 6 tiles principais
+  // Cards principais — 3 por linha, tamanho generoso e ergonômico
   const tilesHtml=gruposVisiveis.map(g=>`
     <div class="tile tile-md" id="tile_grp_${g.id}"
-      style="background:${g.color};position:relative;transition:transform 0.15s,box-shadow 0.15s"
+      style="background:${g.color};position:relative;min-width:160px;flex:1;max-width:220px"
       onclick="dashToggleGrupo('${g.id}')"
-      onmouseover="this.style.transform='translateY(-4px) scale(1.02)';this.style.filter='brightness(1.1)'"
+      onmouseover="this.style.transform='translateY(-5px) scale(1.03)';this.style.filter='brightness(1.12)'"
       onmouseout="this.style.transform='';this.style.filter=''">
       ${badgeGrupo(g)}
-      <div class="tile-icon">${g.icon}</div>
-      <div class="tile-label">${g.label}</div>
+      <div class="tile-icon" style="font-size:42px">${g.icon}</div>
+      <div class="tile-label" style="font-size:16px;font-weight:800">${g.label}</div>
       <div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:rgba(255,255,255,0.5)" id="tile_arr_${g.id}">▼</div>
     </div>`).join('');
 
   div.innerHTML=
-    '<div class="tiles-row" style="flex-wrap:wrap">'+tilesHtml+'</div>'
-    // Painel de sub-tiles — aparece abaixo
-    +'<div id="dashSubPanel" style="display:none;width:100%;max-width:900px">'
-      +'<div id="dashSubRow" class="tiles-row" style="flex-wrap:wrap;justify-content:center"></div>'
+    '<div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:760px">'+tilesHtml+'</div>'
+    +'<div id="dashSubPanel" style="display:none;width:100%;max-width:760px">'
+      +'<div id="dashSubRow" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding-top:4px"></div>'
     +'</div>';
 }
 
@@ -8072,7 +8076,6 @@ function dashToggleGrupo(gId){
   const subRow=document.getElementById('dashSubRow');
   if(!panel||!subRow) return;
 
-  // Permissões e badges
   const perms=getPermissoesUsuario(usuarioLogado);
   const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
   const podeVer=(tab)=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab);
@@ -8082,15 +8085,13 @@ function dashToggleGrupo(gId){
   const cpVenc=(contasPagar||[]).filter(c=>c.status==='Aberta'&&c.vencimento&&c.vencimento<new Date().toISOString().split('T')[0]).length;
   const badgeMap={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
 
-  // Reset todos os tiles
   DASH_GRUPOS.forEach(x=>{
     const t=document.getElementById('tile_grp_'+x.id);
     const a=document.getElementById('tile_arr_'+x.id);
-    if(t){t.style.boxShadow='';t.style.outline='';}
+    if(t){t.style.outline='';t.style.boxShadow='';}
     if(a) a.textContent='▼';
   });
 
-  // Fechar se mesmo grupo
   if(_dashGrupoAtivo===gId){
     panel.style.display='none';
     _dashGrupoAtivo=null;
@@ -8098,28 +8099,29 @@ function dashToggleGrupo(gId){
   }
   _dashGrupoAtivo=gId;
 
-  // Destacar tile ativo
   const tAtivo=document.getElementById('tile_grp_'+gId);
   const aAtivo=document.getElementById('tile_arr_'+gId);
-  if(tAtivo) tAtivo.style.outline='3px solid rgba(255,255,255,0.8)';
+  if(tAtivo) tAtivo.style.outline='3px solid rgba(255,255,255,0.85)';
   if(aAtivo) aAtivo.textContent='▲';
 
-  // Sub-cards iguais aos principais mas menores (tile-sm)
+  // Sub-cards — mesmo estilo dos principais, ligeiramente menores
   subRow.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
     const bdg=badgeMap[s.tab]>0?'<div class="tile-badge" style="font-size:10px;padding:1px 6px;top:8px;right:8px">'+badgeMap[s.tab]+'</div>':'';
-    return `<div class="tile tile-sm" style="background:${g.color};position:relative"
+    return `<div class="tile tile-sm" style="background:${g.color};position:relative;min-width:120px;flex:1;max-width:170px"
       onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
-      onmouseover="this.style.transform='translateY(-4px) scale(1.04)';this.style.filter='brightness(1.15)'"
+      onmouseover="this.style.transform='translateY(-4px) scale(1.05)';this.style.filter='brightness(1.15)'"
       onmouseout="this.style.transform='';this.style.filter=''">
       ${bdg}
-      <div class="tile-icon" style="font-size:28px;margin-bottom:6px">${s.icon}</div>
-      <div class="tile-label" style="font-size:13px">${s.label}</div>
-      <div class="tile-sub">${s.sub}</div>
+      <div class="tile-icon" style="font-size:30px;margin-bottom:6px">${s.icon}</div>
+      <div class="tile-label" style="font-size:13px;font-weight:700">${s.label}</div>
+      <div class="tile-sub" style="font-size:10px">${s.sub}</div>
     </div>`;
   }).join('');
 
   panel.style.display='block';
 }
+
+
 
 
 // Abre/fecha painel de sub-itens ao clicar no quadrado
