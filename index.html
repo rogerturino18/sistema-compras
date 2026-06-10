@@ -7853,16 +7853,7 @@ const WALLPAPERS = [
 // Grupos da dashboard com sub-abas
 const DASH_GRUPOS = [
   {
-    id:'producao', label:'Produção', icon:'🏭', color:'#2e7d32',
-    subs:[
-      {label:'Projetos',      icon:'🎯', tab:3,  sub:'PDVs e peças'},
-      {label:'Ordens',        icon:'🔧', tab:5,  sub:'Kanban / OP'},
-      {label:'Lista Material',icon:'📝', tab:4,  sub:'Itens projetistas'},
-      {label:'Histórico',     icon:'⏱', tab:27, sub:'Tempos de OP'},
-    ]
-  },
-  {
-    id:'compras', label:'Compras', icon:'🛒', color:'#1565c0',
+    id:'compras', label:'Compras', icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
     subs:[
       {label:'Lista de Compras', icon:'📋', tab:1,  sub:'Matéria prima'},
       {label:'Cotações',         icon:'💰', tab:6,  sub:'Ver preços'},
@@ -7871,33 +7862,42 @@ const DASH_GRUPOS = [
     ]
   },
   {
-    id:'estoque', label:'Estoque', icon:'📦', color:'#00695c',
+    id:'projeto', label:'Projeto', icon:'🎯', color:'linear-gradient(135deg,#2e7d32,#1b5e20)',
     subs:[
-      {label:'Estoque',   icon:'📦', tab:11, sub:'MP e Produtos'},
-      {label:'Fiscal',    icon:'📄', tab:12, sub:'NF-e'},
+      {label:'Projetos',      icon:'🎯', tab:3,  sub:'PDVs e peças'},
+      {label:'Lista Material',icon:'📝', tab:4,  sub:'Itens projetistas'},
     ]
   },
   {
-    id:'financeiro', label:'Financeiro', icon:'💰', color:'#c62828',
+    id:'producao', label:'Produção', icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
+    subs:[
+      {label:'Ordens',    icon:'🔧', tab:5,  sub:'Kanban / OP'},
+      {label:'Histórico', icon:'⏱', tab:27, sub:'Tempos de OP'},
+    ]
+  },
+  {
+    id:'vendas', label:'Vendas', icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
+    subs:[
+      {label:'PDV',           icon:'🧾', tab:13, sub:'Pedidos de Venda'},
+      {label:'Clientes',      icon:'👤', tab:14, sub:'Cadastro'},
+      {label:'Terceirização', icon:'🚚', tab:28, sub:'Serviços externos'},
+    ]
+  },
+  {
+    id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
     subs:[
       {label:'Fluxo de Caixa',   icon:'📊', tab:21, sub:'Realizados'},
       {label:'Contas a Pagar',   icon:'💸', tab:19, sub:'A pagar'},
       {label:'Contas a Receber', icon:'💰', tab:20, sub:'A receber'},
-      {label:'Pagamentos',       icon:'✅', tab:25, sub:'Histórico pago'},
-      {label:'Recebimentos',     icon:'📥', tab:26, sub:'Histórico recebido'},
+      {label:'Pagamentos',       icon:'✅', tab:25, sub:'Pagos'},
+      {label:'Recebimentos',     icon:'📥', tab:26, sub:'Recebidos'},
     ]
   },
   {
-    id:'clientes', label:'Clientes / PDV', icon:'👥', color:'#6a1b9a',
+    id:'estoque', label:'Estoque', icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
     subs:[
-      {label:'PDV',       icon:'🏷', tab:13, sub:'Pedidos de Venda'},
-      {label:'Clientes',  icon:'👤', tab:14, sub:'Cadastro'},
-    ]
-  },
-  {
-    id:'terceiros', label:'Terceirização', icon:'🚚', color:'#37474f',
-    subs:[
-      {label:'Terceirização', icon:'🚚', tab:28, sub:'Serviços externos'},
+      {label:'Estoque', icon:'📦', tab:11, sub:'MP e Produtos'},
+      {label:'Fiscal',  icon:'📄', tab:12, sub:'NF-e'},
     ]
   },
 ];
@@ -8035,43 +8035,92 @@ function renderHomeTiles(){
   const perms=getPermissoesUsuario(usuarioLogado);
   const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
   const podeVer=(tab)=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab);
+  const gruposVisiveis=DASH_GRUPOS.filter(g=>g.subs.some(s=>podeVer(s.tab)));
 
-  // Totaliza badges por grupo
+  // Badge total do grupo
   function badgeGrupo(g){
     const tot=g.subs.reduce((s,sb)=>s+(badgeMap[sb.tab]||0),0);
     return tot>0?'<div class="tile-badge">'+tot+'</div>':'';
   }
 
-  const gruposVisiveis=DASH_GRUPOS.filter(g=>g.subs.some(s=>podeVer(s.tab)));
+  // Linha única de 6 tiles principais
+  const tilesHtml=gruposVisiveis.map(g=>`
+    <div class="tile tile-md" id="tile_grp_${g.id}"
+      style="background:${g.color};position:relative;transition:transform 0.15s,box-shadow 0.15s"
+      onclick="dashToggleGrupo('${g.id}')"
+      onmouseover="this.style.transform='translateY(-4px) scale(1.02)';this.style.filter='brightness(1.1)'"
+      onmouseout="this.style.transform='';this.style.filter=''">
+      ${badgeGrupo(g)}
+      <div class="tile-icon">${g.icon}</div>
+      <div class="tile-label">${g.label}</div>
+      <div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:rgba(255,255,255,0.5)" id="tile_arr_${g.id}">▼</div>
+    </div>`).join('');
 
-  // Monta quadrados principais (linha de até 4 por vez)
-  const rows=[];
-  for(let i=0;i<gruposVisiveis.length;i+=4) rows.push(gruposVisiveis.slice(i,i+4));
-
-  div.innerHTML='<div id="dashGrupoPaineis" style="display:flex;flex-direction:column;gap:14px;align-items:center;width:100%">'
-    + rows.map(row=>'<div class="tiles-row">'
-        + row.map(g=>{
-            const bdg=badgeGrupo(g);
-            return '<div class="tile tile-md" style="background:'+g.color+';cursor:pointer;position:relative;transition:transform 0.15s,box-shadow 0.15s" '
-              +'onclick="dashToggleGrupo(\''+g.id+'\')" '
-              +'id="tile_grp_'+g.id+'" '
-              +'onmouseover="this.style.transform=\'scale(1.04)\'" '
-              +'onmouseout="this.style.transform=\'scale(1)\'">'
-              +bdg
-              +'<div class="tile-icon">'+g.icon+'</div>'
-              +'<div class="tile-label">'+g.label+'</div>'
-              +'<div style="position:absolute;bottom:7px;right:8px;font-size:10px;opacity:0.6" id="tile_arr_'+g.id+'">▼</div>'
-              +'</div>';
-          }).join('')
-        +'</div>')
-      .join('')
-    // Painel de sub-itens — aparece abaixo dos quadrados ao clicar
-    +'<div id="dashSubPanel" style="display:none;width:100%;max-width:800px;background:rgba(0,0,0,0.45);backdrop-filter:blur(12px);border-radius:14px;padding:14px 16px;border:1px solid rgba(255,255,255,0.15)">'
-      +'<div id="dashSubLabel" style="font-size:12px;font-weight:800;color:rgba(255,255,255,0.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px"></div>'
-      +'<div id="dashSubBtns" style="display:flex;flex-wrap:wrap;gap:8px"></div>'
-    +'</div>'
-  +'</div>';
+  div.innerHTML=
+    '<div class="tiles-row" style="flex-wrap:wrap">'+tilesHtml+'</div>'
+    // Painel de sub-tiles — aparece abaixo
+    +'<div id="dashSubPanel" style="display:none;width:100%;max-width:900px">'
+      +'<div id="dashSubRow" class="tiles-row" style="flex-wrap:wrap;justify-content:center"></div>'
+    +'</div>';
 }
+
+let _dashGrupoAtivo=null;
+function dashToggleGrupo(gId){
+  const g=DASH_GRUPOS.find(x=>x.id===gId);
+  if(!g) return;
+  const panel=document.getElementById('dashSubPanel');
+  const subRow=document.getElementById('dashSubRow');
+  if(!panel||!subRow) return;
+
+  // Permissões e badges
+  const perms=getPermissoesUsuario(usuarioLogado);
+  const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
+  const podeVer=(tab)=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab);
+  const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
+  const ciPend=comprasInternas.filter(i=>!i.comprado).length;
+  const opAtivas=(ordens||[]).filter(o=>o.status!=='concluida').length;
+  const cpVenc=(contasPagar||[]).filter(c=>c.status==='Aberta'&&c.vencimento&&c.vencimento<new Date().toISOString().split('T')[0]).length;
+  const badgeMap={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
+
+  // Reset todos os tiles
+  DASH_GRUPOS.forEach(x=>{
+    const t=document.getElementById('tile_grp_'+x.id);
+    const a=document.getElementById('tile_arr_'+x.id);
+    if(t){t.style.boxShadow='';t.style.outline='';}
+    if(a) a.textContent='▼';
+  });
+
+  // Fechar se mesmo grupo
+  if(_dashGrupoAtivo===gId){
+    panel.style.display='none';
+    _dashGrupoAtivo=null;
+    return;
+  }
+  _dashGrupoAtivo=gId;
+
+  // Destacar tile ativo
+  const tAtivo=document.getElementById('tile_grp_'+gId);
+  const aAtivo=document.getElementById('tile_arr_'+gId);
+  if(tAtivo) tAtivo.style.outline='3px solid rgba(255,255,255,0.8)';
+  if(aAtivo) aAtivo.textContent='▲';
+
+  // Sub-cards iguais aos principais mas menores (tile-sm)
+  subRow.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
+    const bdg=badgeMap[s.tab]>0?'<div class="tile-badge" style="font-size:10px;padding:1px 6px;top:8px;right:8px">'+badgeMap[s.tab]+'</div>':'';
+    return `<div class="tile tile-sm" style="background:${g.color};position:relative"
+      onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
+      onmouseover="this.style.transform='translateY(-4px) scale(1.04)';this.style.filter='brightness(1.15)'"
+      onmouseout="this.style.transform='';this.style.filter=''">
+      ${bdg}
+      <div class="tile-icon" style="font-size:28px;margin-bottom:6px">${s.icon}</div>
+      <div class="tile-label" style="font-size:13px">${s.label}</div>
+      <div class="tile-sub">${s.sub}</div>
+    </div>`;
+  }).join('');
+
+  panel.style.display='block';
+}
+
 
 // Abre/fecha painel de sub-itens ao clicar no quadrado
 let _dashGrupoAtivo=null;
