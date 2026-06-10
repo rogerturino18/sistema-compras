@@ -8013,7 +8013,7 @@ function renderHomeTiles(){
       if(!rowF.length) return '';
       return '<div class="tiles-row">'+rowF.map(([label,icon,tab,color,size,sub])=>{
         const badge=badges[tab]>0?'<div class="tile-badge">'+badges[tab]+'</div>':'';
-        return '<div class="tile '+size+'" style="background:'+color+'" onclick="sbGo('+tab+',''+label+'')">'+badge+'<div class="tile-icon">'+icon+'</div><div class="tile-label">'+label+'</div>'+(sub?'<div class="tile-sub">'+sub+'</div>':'')+'</div>';
+        return '<div class="tile '+size+'" style="background:'+color+'" onclick="sbGo('+tab+',\''+label+'\')">'+badge+'<div class="tile-icon">'+icon+'</div><div class="tile-label">'+label+'</div>'+(sub?'<div class="tile-sub">'+sub+'</div>':'')+'</div>';
       }).join('')+'</div>';
     }).join('');
     return;
