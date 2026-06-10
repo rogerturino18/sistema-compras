@@ -2885,21 +2885,20 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="modal-body">
   <div class="form-grid">
-    <!-- Passo 1: PDV (principal) ou sem PDV se multi-PDV -->
+
+    <!-- Passo 1: Buscar peça (de qualquer PDV) -->
     <div class="form-group full">
-      <label>1. PDV Principal <span style="font-size:11px;color:#78909c;font-weight:400">(ou deixe em branco se distribuir entre vários)</span></label>
-      <select id="ord_pdv_sel" onchange="filtrarPecasPorPDV()">
-        <option value="">Sem PDV fixo / Multi-PDV...</option>
-      </select>
-    </div>
-    <div class="form-group full" id="grp_ord_peca" style="display:none">
-      <label>2. Selecione a Peça *</label>
+      <label>1. Selecione a Peça *</label>
       <select id="ord_produto" onchange="preencherDadosOrdem()">
-        <option value="">Selecione uma peça...</option>
+        <option value="">— Selecione uma peça do Projeto —</option>
       </select>
     </div>
+
+    <!-- Passo 2: Detalhes (aparecem após selecionar peça) -->
     <div id="grp_ord_detalhes" style="display:none;grid-column:1/-1">
-      <div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px" id="ord_preview"></div>
+      <!-- Preview da peça selecionada -->
+      <div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px" id="ord_preview"></div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="form-group full"><label>Descrição da Peça *</label><input id="ord_descricao" placeholder="Ex: Pino Maior"></div>
         <div class="form-group"><label>Número do Desenho</label><input id="ord_desenho" placeholder="Ex: 4-18912"></div>
@@ -2918,6 +2917,10 @@ tr:hover td{background:#f9fbf9}
         <div id="ord_distrib_resumo" style="margin-top:8px;font-size:12px;color:#546e7a;background:#f5f5f5;border-radius:6px;padding:6px 10px;display:none"></div>
       </div>
     </div>
+
+    <!-- Campos ocultos de compatibilidade -->
+    <input type="hidden" id="ord_pdv_sel" value="">
+    <div id="grp_ord_peca" style="display:none"></div>
   </div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
@@ -6341,35 +6344,65 @@ function abrirModalOrdem(id){
   editOrdemId = id || null;
   const o = id ? ordens.find(x=>x.id===id) : null;
   document.getElementById('modalOrdemTitulo').textContent = id ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção';
-  // Popula select de PDVs
-  const selPDV=document.getElementById('ord_pdv_sel');
-  selPDV.innerHTML='<option value="">Sem PDV fixo / Multi-PDV...</option>';
-  pdvs.forEach(p=>{
-    const temPecas=pecasProjeto.some(pc=>pc.pdv_id===p.id);
-    const opt=document.createElement('option');
-    opt.value=p.id;
-    opt.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'')+(temPecas?' ✓':'');
-    selPDV.appendChild(opt);
-  });
-  // Reset / prefill
-  document.getElementById('ord_produto').innerHTML='<option value="">Selecione uma peça...</option>';
-  document.getElementById('grp_ord_peca').style.display='none';
-  document.getElementById('grp_ord_detalhes').style.display=o?'block':'none';
-  document.getElementById('ord_descricao').value=o?.descricao||'';
-  document.getElementById('ord_desenho').value=o?.desenho||'';
-  document.getElementById('ord_material').value=o?.material||'';
-  document.getElementById('ord_qtd').value=o?.quantidade||1;
-  document.getElementById('ord_data').value=o?.dt_abertura||new Date().toISOString().split('T')[0];
-  if(o?.pdv_id) selPDV.value=o.pdv_id;
 
-  // Carrega distribuição existente (ao editar)
-  const linhasDiv=document.getElementById('ord_distrib_linhas');
-  linhasDiv.innerHTML='';
+  // Popula select de PEÇAS (de todos os PDVs, agrupadas por PDV)
+  const selPeca = document.getElementById('ord_produto');
+  selPeca.innerHTML = '<option value="">— Selecione uma peça do Projeto —</option>';
+
+  // Agrupa peças por PDV para exibir em optgroups
+  const pecasPendentes = pecasProjeto.filter(p => p.status !== 'concluido');
+  const porPDV = {};
+  pecasPendentes.forEach(p => {
+    const pdv = pdvs.find(x => x.id === p.pdv_id);
+    const chave = p.pdv_id || '__sempvd__';
+    if(!porPDV[chave]) porPDV[chave] = {pdv, pecas:[]};
+    porPDV[chave].pecas.push(p);
+  });
+
+  Object.values(porPDV).forEach(grupo => {
+    const pdv = grupo.pdv;
+    const numPDV = pdv ? (String(pdv.numero||'').toUpperCase().startsWith('PDV') ? pdv.numero : 'PDV '+pdv.numero) : 'Sem PDV';
+    const grpLabel = `${numPDV}${pdv?.cliente ? ' — '+pdv.cliente : ''}`;
+    const grp = document.createElement('optgroup');
+    grp.label = grpLabel;
+    grupo.pecas.forEach(p => {
+      const setor = setoresPDV.find(s => s.id === p.setor_id);
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      // Quantidade no label se > 1
+      let qtdLabel = '';
+      let q = p.quantidade || 1;
+      if(q <= 1 && p.descricao) { const m = (p.descricao||'').match(/(\d+)\s*unidades/i); if(m) q = parseInt(m[1]); }
+      if(q > 1) qtdLabel = ` [${q}×]`;
+      opt.textContent = `${p.nome}${qtdLabel}${p.numero_desenho ? ' — Nº '+p.numero_desenho : ''}${setor ? ' ('+setor.nome+')' : ''}`;
+      opt.dataset.pecaId = p.id;
+      grp.appendChild(opt);
+    });
+    selPeca.appendChild(grp);
+  });
+
+  // Prefill ao editar
+  document.getElementById('grp_ord_detalhes').style.display = o ? 'block' : 'none';
+  document.getElementById('ord_descricao').value = o?.descricao||'';
+  document.getElementById('ord_desenho').value   = o?.desenho||'';
+  document.getElementById('ord_material').value  = o?.material||'';
+  document.getElementById('ord_qtd').value       = o?.quantidade||1;
+  document.getElementById('ord_data').value      = o?.dt_abertura||new Date().toISOString().split('T')[0];
+  if(o) {
+    // Ao editar, selecionar a peça correspondente
+    const optEdit = selPeca.querySelector(`option[data-peca-id]`);
+    if(optEdit) selPeca.value = optEdit.value;
+    document.getElementById('ord_pdv_sel').value = o.pdv_id||'';
+  }
+
+  // Distribuição
+  const linhasDiv = document.getElementById('ord_distrib_linhas');
+  linhasDiv.innerHTML = '';
   const distExist = id ? (opDistribuicao||[]).filter(d=>d.ordem_id===id) : [];
   if(distExist.length){
     distExist.forEach(d=>addLinhaDistrib(d.pdv_id, d.quantidade));
   } else {
-    addLinhaDistrib(); // 1 linha vazia padrão
+    addLinhaDistrib();
   }
   atualizarResumoDistrib();
   abrirModal('modalOrdem');
@@ -6463,29 +6496,48 @@ function filtrarPecasPorPDV(){
 }
 
 function preencherDadosOrdem(){
-  const sel=document.getElementById('ord_produto');
-  const opt=sel.options[sel.selectedIndex];
-  const grpDet=document.getElementById('grp_ord_detalhes');
-  
-  if(!opt||!opt.value){grpDet.style.display='none';return;}
-  
-  grpDet.style.display='block';
-  
-  if(opt.value==='manual'){
-    document.getElementById('ord_preview').innerHTML='<b>Preenchimento manual</b> — preencha os campos abaixo';
-    ['ord_descricao','ord_desenho','ord_material'].forEach(id=>document.getElementById(id).value='');
-    return;
+  const sel = document.getElementById('ord_produto');
+  const pecaId = sel.value;
+  const grpDet = document.getElementById('grp_ord_detalhes');
+
+  if(!pecaId){ grpDet.style.display='none'; return; }
+
+  const peca = pecasProjeto.find(p => p.id === pecaId);
+  if(!peca){ grpDet.style.display='none'; return; }
+
+  grpDet.style.display = 'block';
+
+  // Preenche campos com dados da peça
+  document.getElementById('ord_descricao').value = peca.nome || '';
+  document.getElementById('ord_desenho').value   = peca.numero_desenho || '';
+  document.getElementById('ord_material').value  = '';
+
+  // Quantidade — lê da coluna ou da descrição
+  let qtd = peca.quantidade || 1;
+  if(qtd <= 1 && peca.descricao){
+    const m = (peca.descricao||'').match(/(\d+)\s*unidades/i);
+    if(m) qtd = parseInt(m[1]);
   }
-  
-  document.getElementById('ord_descricao').value=opt.dataset.descricao||'';
-  document.getElementById('ord_desenho').value=opt.dataset.desenho||'';
-  document.getElementById('ord_material').value='';
-  
-  const pdv=pdvs.find(p=>p.id===opt.dataset.pdvId);
-  document.getElementById('ord_preview').innerHTML=`
-    <b>📦 PDV ${pdv?.numero||'—'}</b>${pdv?.cliente?' — '+pdv.cliente:''}
-    ${pdv?.equipamento?'<br>🔧 '+pdv.equipamento:''}<br>
-    <span style="color:var(--gray)">📁 Setor: ${opt.dataset.setor||'—'} · Peça: <b>${opt.dataset.descricao||'—'}</b>${opt.dataset.desenho?' · Nº '+opt.dataset.desenho:''}</span>`;
+  document.getElementById('ord_qtd').value = qtd;
+
+  // PDV e setor para preview e distribuição padrão
+  const pdv   = pdvs.find(p => p.id === peca.pdv_id);
+  const setor = setoresPDV.find(s => s.id === peca.setor_id);
+  const numPDV = pdv ? (String(pdv.numero||'').toUpperCase().startsWith('PDV') ? pdv.numero : 'PDV '+pdv.numero) : '—';
+
+  document.getElementById('ord_pdv_sel').value = peca.pdv_id || '';
+  document.getElementById('ord_preview').innerHTML =
+    `<b>${numPDV}</b>${pdv?.cliente ? ' — '+pdv.cliente : ''}` +
+    `${pdv?.equipamento ? '<br>🔧 '+pdv.equipamento : ''}<br>` +
+    `<span style="color:#546e7a;font-size:12px">📁 ${setor?.nome||'—'} · Peça: <b>${peca.nome}</b>` +
+    `${peca.numero_desenho ? ' · Nº '+peca.numero_desenho : ''}` +
+    `${qtd > 1 ? ' · <b style="color:#e65100">'+qtd+'×</b>' : ''}</span>`;
+
+  // Preencher distribuição com o PDV da peça e a quantidade
+  const linhasDiv = document.getElementById('ord_distrib_linhas');
+  linhasDiv.innerHTML = '';
+  addLinhaDistrib(peca.pdv_id || '', qtd);
+  atualizarResumoDistrib();
 }
 
 async function deletarOrdem(id){
@@ -8048,10 +8100,10 @@ function renderHomeTiles(){
     return tot>0?'<div class="tile-badge">'+tot+'</div>':'';
   }
 
-  // Cards principais — 3 por linha, tamanho generoso e ergonômico
+  // Cards principais — 3 por linha (2 linhas de 3), grid fixo
   const tilesHtml=gruposVisiveis.map(g=>`
     <div class="tile tile-md" id="tile_grp_${g.id}"
-      style="background:${g.color};position:relative;min-width:160px;flex:1;max-width:220px"
+      style="background:${g.color};position:relative;width:210px"
       onclick="dashToggleGrupo('${g.id}')"
       onmouseover="this.style.transform='translateY(-5px) scale(1.03)';this.style.filter='brightness(1.12)'"
       onmouseout="this.style.transform='';this.style.filter=''">
@@ -8062,7 +8114,7 @@ function renderHomeTiles(){
     </div>`).join('');
 
   div.innerHTML=
-    '<div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:760px">'+tilesHtml+'</div>'
+    '<div style="display:grid;grid-template-columns:repeat(3,210px);gap:18px;justify-content:center">'+tilesHtml+'</div>'
     +'<div id="dashSubPanel" style="display:none;width:100%;max-width:760px">'
       +'<div id="dashSubRow" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding-top:4px"></div>'
     +'</div>';
