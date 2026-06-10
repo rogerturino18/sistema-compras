@@ -6966,7 +6966,7 @@ function renderProjetos(){
               ${setor?`<div style="font-size:10px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">📁 Setor: ${setor.nome}</div>`:''}
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 <div class="kanban-card-title" style="font-size:14px">${peca.nome}</div>
-                ${(peca.quantidade&&peca.quantidade>1)?`<span style="background:#e65100;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:800">${peca.quantidade}×</span>`:''}
+                ${(()=>{let q=peca.quantidade||1;if(q<=1&&peca.descricao){const m=(peca.descricao||'').match(/(\d+)\s*unidades/i);if(m)q=parseInt(m[1]);}return q>1?`<span style="background:#e65100;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:800">${q}×</span>`:'';})()} 
               </div>
               ${peca.numero_desenho?`<div style="margin-top:4px"><span style="background:#e3f2fd;color:#1565c0;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:600">📐 Nº ${peca.numero_desenho}</span></div>`:''}
             </div>
@@ -7845,6 +7845,58 @@ const WALLPAPERS = [
   'https://images.unsplash.com/photo-1552083375-1447ce886485?w=1920&q=80',
 ];
 
+// Grupos da dashboard com sub-abas
+const DASH_GRUPOS = [
+  {
+    id:'producao', label:'Produção', icon:'🏭', color:'#2e7d32',
+    subs:[
+      {label:'Projetos',      icon:'🎯', tab:3,  sub:'PDVs e peças'},
+      {label:'Ordens',        icon:'🔧', tab:5,  sub:'Kanban / OP'},
+      {label:'Lista Material',icon:'📝', tab:4,  sub:'Itens projetistas'},
+      {label:'Histórico',     icon:'⏱', tab:27, sub:'Tempos de OP'},
+    ]
+  },
+  {
+    id:'compras', label:'Compras', icon:'🛒', color:'#1565c0',
+    subs:[
+      {label:'Lista de Compras', icon:'📋', tab:1,  sub:'Matéria prima'},
+      {label:'Cotações',         icon:'💰', tab:6,  sub:'Ver preços'},
+      {label:'Compras Internas', icon:'🧾', tab:9,  sub:'Solicitações'},
+      {label:'Enviar Cotação',   icon:'📧', tab:10, sub:'E-mails'},
+    ]
+  },
+  {
+    id:'estoque', label:'Estoque', icon:'📦', color:'#00695c',
+    subs:[
+      {label:'Estoque',   icon:'📦', tab:11, sub:'MP e Produtos'},
+      {label:'Fiscal',    icon:'📄', tab:12, sub:'NF-e'},
+    ]
+  },
+  {
+    id:'financeiro', label:'Financeiro', icon:'💰', color:'#c62828',
+    subs:[
+      {label:'Fluxo de Caixa',   icon:'📊', tab:21, sub:'Realizados'},
+      {label:'Contas a Pagar',   icon:'💸', tab:19, sub:'A pagar'},
+      {label:'Contas a Receber', icon:'💰', tab:20, sub:'A receber'},
+      {label:'Pagamentos',       icon:'✅', tab:25, sub:'Histórico pago'},
+      {label:'Recebimentos',     icon:'📥', tab:26, sub:'Histórico recebido'},
+    ]
+  },
+  {
+    id:'clientes', label:'Clientes / PDV', icon:'👥', color:'#6a1b9a',
+    subs:[
+      {label:'PDV',       icon:'🏷', tab:13, sub:'Pedidos de Venda'},
+      {label:'Clientes',  icon:'👤', tab:14, sub:'Cadastro'},
+    ]
+  },
+  {
+    id:'terceiros', label:'Terceirização', icon:'🚚', color:'#37474f',
+    subs:[
+      {label:'Terceirização', icon:'🚚', tab:28, sub:'Serviços externos'},
+    ]
+  },
+];
+
 const TILE_DEFS = [
   [['Dashboard','🏠',0,'linear-gradient(135deg,#00838f,#006064)','tile-md','Visão geral'],
    ['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-md','Matéria prima'],
@@ -7946,37 +7998,65 @@ function atualizarRelogio(){
 function renderHomeTiles(){
   const div=document.getElementById('homeTiles');
   if(!div) return;
-  const tileDefs=isExpedicao()?TILE_DEFS_EXPEDICAO:isProjeto()?TILE_DEFS_PROJETO:TILE_DEFS;
+
+  // Layout legado para perfis específicos
+  if(isExpedicao()||isProjeto()){
+    const tileDefs=isExpedicao()?TILE_DEFS_EXPEDICAO:TILE_DEFS_PROJETO;
+    const perms=getPermissoesUsuario(usuarioLogado);
+    const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
+    const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
+    const ciPend=comprasInternas.filter(i=>!i.comprado).length;
+    const emDesenho=pecasProjeto.filter(p=>p.status==='trabalhando').length;
+    const badges={6:semCot,9:ciPend,3:emDesenho};
+    div.innerHTML=tileDefs.map(row=>{
+      const rowF=row.filter(([l,i,tab])=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab));
+      if(!rowF.length) return '';
+      return '<div class="tiles-row">'+rowF.map(([label,icon,tab,color,size,sub])=>{
+        const badge=badges[tab]>0?'<div class="tile-badge">'+badges[tab]+'</div>':'';
+        return '<div class="tile '+size+'" style="background:'+color+'" onclick="sbGo('+tab+',''+label+'')">'+badge+'<div class="tile-icon">'+icon+'</div><div class="tile-label">'+label+'</div>'+(sub?'<div class="tile-sub">'+sub+'</div>':'')+'</div>';
+      }).join('')+'</div>';
+    }).join('');
+    return;
+  }
+
+  // Badges dinâmicos
   const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
   const ciPend=comprasInternas.filter(i=>!i.comprado).length;
-  const emDesenho=pecasProjeto.filter(p=>p.status==='trabalhando').length;
-  const lmSemCot=itens.filter(i=>i.origem_projeto&&!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
-  const badges={6:semCot,9:ciPend,3:emDesenho,4:lmSemCot};
+  const opAtivas=(ordens||[]).filter(o=>o.status!=='concluida').length;
+  const cpVenc=(contasPagar||[]).filter(c=>c.status==='Aberta'&&c.vencimento&&c.vencimento<new Date().toISOString().split('T')[0]).length;
+  const badges={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
 
-  // Filtra tiles baseado nas permissões do usuário
-  const perms = getPermissoesUsuario(usuarioLogado);
-  const tabsPermitidas = (!usuarioLogado || isAprovador()) ? null : perms.map(p=>{
-    const m=MODULOS_SISTEMA.find(x=>x.id===p);
-    return m?m.tab:null;
-  }).filter(t=>t!==null);
+  // Permissões
+  const perms=getPermissoesUsuario(usuarioLogado);
+  const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
+  const podeVer=(tab)=>!tabsPermitidas||tab===0||tabsPermitidas.includes(tab);
 
-  div.innerHTML=tileDefs.map(row=>{
-    const rowFiltrado = row.filter(([label,icon,tab])=>
-      !tabsPermitidas || tab===0 || tabsPermitidas.includes(tab)
-    );
-    if(!rowFiltrado.length) return '';
-    return '<div class="tiles-row">'
-      +rowFiltrado.map(([label,icon,tab,color,size,sub])=>{
-        const badge=badges[tab]>0?'<div class="tile-badge">'+badges[tab]+'</div>':'';
-        return '<div class="tile '+size+'" style="background:'+color+'" onclick="sbGo('+tab+',\''+label+'\')">'
-          +badge+'<div class="tile-icon">'+icon+'</div>'
-          +'<div class="tile-label">'+label+'</div>'
-          +(sub?'<div class="tile-sub">'+sub+'</div>':'')
-          +'</div>';
+  div.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:860px;margin:0 auto;padding:0 8px">'
+    + DASH_GRUPOS.map(g=>{
+        const subsVisiveis=g.subs.filter(s=>podeVer(s.tab));
+        if(!subsVisiveis.length) return '';
+        const subsHtml=subsVisiveis.map(s=>{
+          const bdg=badges[s.tab]>0?`<span style="background:#c62828;color:#fff;font-size:10px;font-weight:800;border-radius:10px;padding:1px 6px;margin-left:4px">${badges[s.tab]}</span>`:'';
+          return `<button onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
+            style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);border-radius:9px;cursor:pointer;color:#fff;font-size:13px;font-weight:600;white-space:nowrap;flex:1;min-width:140px;max-width:210px;transition:background 0.15s"
+            onmouseover="this.style.background='rgba(255,255,255,0.24)'"
+            onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+            <span style="font-size:16px">${s.icon}</span>
+            <span style="flex:1;text-align:left">${s.label}${bdg}</span>
+            <span style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:400">${s.sub}</span>
+          </button>`;
+        }).join('');
+        return `<div style="background:${g.color}dd;border:1px solid rgba(255,255,255,0.12);border-radius:14px;overflow:hidden;backdrop-filter:blur(6px)">
+          <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;background:${g.color}">
+            <span style="font-size:17px">${g.icon}</span>
+            <span style="font-weight:800;font-size:13px;color:#fff;letter-spacing:0.8px;text-transform:uppercase">${g.label}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px 12px">${subsHtml}</div>
+        </div>`;
       }).join('')
-      +'</div>';
-  }).join('');
+    +'</div>';
 }
+
 
 // ===== ESTOQUE =====
 let estCatAtual = null; // categoria selecionada no filtro lateral
