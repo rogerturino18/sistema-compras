@@ -2878,7 +2878,7 @@ tr:hover td{background:#f9fbf9}
 
 <!-- MODAL ORDEM DE PRODUÇÃO -->
 <div class="modal-bg" id="modalOrdem">
-<div class="modal" style="max-width:560px">
+<div class="modal" style="max-width:600px">
   <div class="modal-header">
     <h3 id="modalOrdemTitulo">Nova Ordem de Produção</h3>
     <div class="modal-header-actions">
@@ -2886,49 +2886,45 @@ tr:hover td{background:#f9fbf9}
       <button class="modal-header-btn" onclick="fecharModal('modalOrdem')" title="Fechar">✕</button>
     </div>
   </div>
-  <div class="modal-body">
-  <div class="form-grid">
+  <div class="modal-body" style="padding-bottom:0">
 
-    <!-- Passo 1: Buscar peça (de qualquer PDV) -->
-    <div class="form-group full">
-      <label>1. Selecione a Peça *</label>
-      <select id="ord_produto" onchange="preencherDadosOrdem()">
-        <option value="">— Selecione uma peça do Projeto —</option>
-      </select>
+    <!-- Busca de peças -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <input id="ord_busca_peca" type="text" placeholder="🔍 Buscar por nome ou desenho..." oninput="filtrarListaOrdPecas()"
+        style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+      <input id="ord_data" type="date" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px">
     </div>
 
-    <!-- Passo 2: Detalhes (aparecem após selecionar peça) -->
-    <div id="grp_ord_detalhes" style="display:none;grid-column:1/-1">
-      <!-- Preview da peça selecionada -->
-      <div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px" id="ord_preview"></div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="form-group full"><label>Descrição da Peça *</label><input id="ord_descricao" placeholder="Ex: Pino Maior"></div>
-        <div class="form-group"><label>Número do Desenho</label><input id="ord_desenho" placeholder="Ex: 4-18912"></div>
-        <div class="form-group"><label>Material</label><input id="ord_material" placeholder="Ex: ASTM A36"></div>
-        <div class="form-group"><label>Quantidade Total *</label><input id="ord_qtd" type="number" min="1" value="1" oninput="atualizarResumoDistrib()"></div>
-        <div class="form-group"><label>Data de Abertura</label><input id="ord_data" type="date"></div>
-      </div>
-
-      <!-- DISTRIBUIÇÃO POR PDV -->
-      <div id="grp_ord_distrib" style="margin-top:14px;border-top:1px solid #e0e0e0;padding-top:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <label style="margin:0;font-weight:700;font-size:13px">📦 Distribuição por PDV</label>
-          <button type="button" onclick="addLinhaDistrib()" style="background:#1565c0;color:#fff;border:none;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer">+ PDV</button>
-        </div>
-        <div id="ord_distrib_linhas" style="display:flex;flex-direction:column;gap:6px"></div>
-        <div id="ord_distrib_resumo" style="margin-top:8px;font-size:12px;color:#546e7a;background:#f5f5f5;border-radius:6px;padding:6px 10px;display:none"></div>
-      </div>
+    <!-- Cabeçalho da tabela -->
+    <div style="display:grid;grid-template-columns:32px 1fr 90px 80px;gap:0;background:#f5f7f5;border-radius:8px 8px 0 0;border:1px solid #e0e0e0;padding:7px 12px;font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:0.5px">
+      <span></span>
+      <span>Peça / PDV</span>
+      <span style="text-align:center">Qtd Projeto</span>
+      <span style="text-align:center">Qtd OP</span>
     </div>
+
+    <!-- Lista de peças com checkbox -->
+    <div id="ord_lista_pecas" style="max-height:340px;overflow-y:auto;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;margin-bottom:10px"></div>
+
+    <!-- Resumo total selecionado -->
+    <div id="ord_resumo_sel" style="display:none;background:#e8f5e9;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#2e7d32;font-weight:600"></div>
 
     <!-- Campos ocultos de compatibilidade -->
+    <input type="hidden" id="ord_produto" value="">
     <input type="hidden" id="ord_pdv_sel" value="">
+    <input type="hidden" id="ord_descricao" value="">
+    <input type="hidden" id="ord_desenho" value="">
+    <input type="hidden" id="ord_material" value="">
+    <input type="hidden" id="ord_qtd" value="1">
     <div id="grp_ord_peca" style="display:none"></div>
+    <div id="grp_ord_detalhes" style="display:none"></div>
+    <div id="ord_preview" style="display:none"></div>
+    <div id="ord_distrib_linhas" style="display:none"></div>
+    <div id="ord_distrib_resumo" style="display:none"></div>
   </div>
-  </div>
-  <div class="modal-actions" style="padding:0 22px 22px">
+  <div class="modal-actions" style="padding:12px 22px 18px">
     <button class="btn" onclick="fecharModal('modalOrdem')">Cancelar</button>
-    <button class="btn primary" onclick="salvarOrdem()">🔧 Criar Ordem</button>
+    <button class="btn primary" onclick="salvarOrdemMulti()" id="btnCriarOrdemMulti" disabled style="opacity:0.5">🔧 Criar Ordem(ns)</button>
   </div>
 </div>
 </div>
@@ -6347,68 +6343,149 @@ function abrirModalOrdem(id){
   editOrdemId = id || null;
   const o = id ? ordens.find(x=>x.id===id) : null;
   document.getElementById('modalOrdemTitulo').textContent = id ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção';
-
-  // Popula select de PEÇAS (de todos os PDVs, agrupadas por PDV)
-  const selPeca = document.getElementById('ord_produto');
-  selPeca.innerHTML = '<option value="">— Selecione uma peça do Projeto —</option>';
-
-  // Agrupa peças por PDV para exibir em optgroups
-  const pecasPendentes = pecasProjeto.filter(p => p.status !== 'concluido');
-  const porPDV = {};
-  pecasPendentes.forEach(p => {
-    const pdv = pdvs.find(x => x.id === p.pdv_id);
-    const chave = p.pdv_id || '__sempvd__';
-    if(!porPDV[chave]) porPDV[chave] = {pdv, pecas:[]};
-    porPDV[chave].pecas.push(p);
-  });
-
-  Object.values(porPDV).forEach(grupo => {
-    const pdv = grupo.pdv;
-    const numPDV = pdv ? (String(pdv.numero||'').toUpperCase().startsWith('PDV') ? pdv.numero : 'PDV '+pdv.numero) : 'Sem PDV';
-    const grpLabel = `${numPDV}${pdv?.cliente ? ' — '+pdv.cliente : ''}`;
-    const grp = document.createElement('optgroup');
-    grp.label = grpLabel;
-    grupo.pecas.forEach(p => {
-      const setor = setoresPDV.find(s => s.id === p.setor_id);
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      // Quantidade no label se > 1
-      let qtdLabel = '';
-      let q = p.quantidade || 1;
-      if(q <= 1 && p.descricao) { const m = (p.descricao||'').match(/(\d+)\s*unidades/i); if(m) q = parseInt(m[1]); }
-      if(q > 1) qtdLabel = ` [${q}×]`;
-      opt.textContent = `${p.nome}${qtdLabel}${p.numero_desenho ? ' — Nº '+p.numero_desenho : ''}${setor ? ' ('+setor.nome+')' : ''}`;
-      opt.dataset.pecaId = p.id;
-      grp.appendChild(opt);
-    });
-    selPeca.appendChild(grp);
-  });
-
-  // Prefill ao editar
-  document.getElementById('grp_ord_detalhes').style.display = o ? 'block' : 'none';
-  document.getElementById('ord_descricao').value = o?.descricao||'';
-  document.getElementById('ord_desenho').value   = o?.desenho||'';
-  document.getElementById('ord_material').value  = o?.material||'';
-  document.getElementById('ord_qtd').value       = o?.quantidade||1;
-  document.getElementById('ord_data').value      = o?.dt_abertura||new Date().toISOString().split('T')[0];
-  if(o) {
-    // Ao editar, selecionar a peça correspondente
-    const optEdit = selPeca.querySelector(`option[data-peca-id]`);
-    if(optEdit) selPeca.value = optEdit.value;
-    document.getElementById('ord_pdv_sel').value = o.pdv_id||'';
-  }
-
-  // Distribuição
-  const linhasDiv = document.getElementById('ord_distrib_linhas');
-  linhasDiv.innerHTML = '';
-  const distExist = id ? (opDistribuicao||[]).filter(d=>d.ordem_id===id) : [];
-  if(distExist.length){
-    distExist.forEach(d=>addLinhaDistrib(d.pdv_id, d.quantidade));
-  } else {
-    addLinhaDistrib();
-  }
-  atualizarResumoDistrib();
+  document.getElementById('ord_data').value = o?.dt_abertura || new Date().toISOString().split('T')[0];
+  document.getElementById('ord_busca_peca').value = '';
+  renderListaOrdPecas();
   abrirModal('modalOrdem');
+}
+
+// Renderiza a lista de peças com checkbox
+function renderListaOrdPecas(filtro=''){
+  const lista = document.getElementById('ord_lista_pecas');
+  const btn   = document.getElementById('btnCriarOrdemMulti');
+  if(!lista) return;
+
+  // Todas as peças não concluídas, agrupadas por nome+desenho
+  const pecas = pecasProjeto.filter(p => p.status !== 'concluido');
+
+  // Agrupar por nome+desenho para mostrar todas as instâncias
+  const grupos = {};
+  pecas.forEach(p => {
+    const key = (p.nome||'')+'||'+(p.numero_desenho||'');
+    if(!grupos[key]) grupos[key] = {nome:p.nome, desenho:p.numero_desenho, itens:[]};
+    grupos[key].itens.push(p);
+  });
+
+  const filtroLow = filtro.toLowerCase();
+  let html = '';
+  let totalGrupos = 0;
+
+  Object.values(grupos).forEach(g => {
+    if(filtroLow && !g.nome.toLowerCase().includes(filtroLow) && !(g.desenho||'').toLowerCase().includes(filtroLow)) return;
+    totalGrupos++;
+
+    // Cabeçalho do grupo (nome da peça)
+    html += `<div style="background:#f5f7f5;padding:7px 12px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;gap:8px">
+      <span style="font-weight:700;font-size:13px;color:#263238">${g.nome}</span>
+      ${g.desenho?`<span style="background:#e3f2fd;color:#1565c0;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:600">Nº ${g.desenho}</span>`:''}
+    </div>`;
+
+    // Linhas por PDV
+    g.itens.forEach(p => {
+      const pdv   = pdvs.find(x => x.id === p.pdv_id);
+      const setor = setoresPDV.find(s => s.id === p.setor_id);
+      const numPDV = pdv ? (String(pdv.numero||'').toUpperCase().startsWith('PDV') ? pdv.numero : 'PDV '+pdv.numero) : 'Sem PDV';
+      // Quantidade do projeto
+      let qtdProj = p.quantidade || 1;
+      if(qtdProj <= 1 && p.descricao){ const m=(p.descricao||'').match(/(\d+)\s*unidades/i); if(m) qtdProj=parseInt(m[1]); }
+      const jaTemOP = ordens.some(o => o.pdv_id === p.pdv_id && (o.descricao||'').toLowerCase() === (p.nome||'').toLowerCase() && o.status !== 'concluido');
+
+      html += `<div style="display:grid;grid-template-columns:32px 1fr 90px 80px;gap:0;padding:8px 12px;border-bottom:1px solid #f0f0f0;align-items:center;background:${jaTemOP?'#fff8e1':'#fff'}" id="ord_row_${p.id}">
+        <input type="checkbox" id="ord_chk_${p.id}" value="${p.id}"
+          onchange="ordAtualizarSelecao()"
+          style="width:16px;height:16px;cursor:pointer;accent-color:#1565c0">
+        <label for="ord_chk_${p.id}" style="cursor:pointer">
+          <span style="font-size:13px;font-weight:600;color:#37474f">${numPDV}</span>
+          ${pdv?.cliente?`<span style="font-size:11px;color:#78909c"> — ${pdv.cliente.substring(0,30)}</span>`:''}
+          <br><span style="font-size:11px;color:#78909c">📁 ${setor?.nome||'—'}</span>
+          ${jaTemOP?'<span style="font-size:10px;color:#f57f17;margin-left:6px">⚠️ já tem OP</span>':''}
+        </label>
+        <div style="text-align:center;font-weight:700;font-size:14px;color:#1565c0">${qtdProj}</div>
+        <input type="number" id="ord_qtd_${p.id}" min="1" value="${qtdProj}"
+          style="width:60px;text-align:center;padding:4px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-weight:700;margin:0 auto;display:block"
+          oninput="ordAtualizarSelecao()">
+      </div>`;
+    });
+  });
+
+  if(!totalGrupos) html = '<div style="padding:24px;text-align:center;color:#9e9e9e;font-size:13px">Nenhuma peça pendente encontrada</div>';
+  lista.innerHTML = html;
+  ordAtualizarSelecao();
+}
+
+function filtrarListaOrdPecas(){
+  renderListaOrdPecas(document.getElementById('ord_busca_peca').value);
+}
+
+function ordAtualizarSelecao(){
+  const chks = [...document.querySelectorAll('[id^="ord_chk_"]')].filter(c=>c.checked);
+  const btn  = document.getElementById('btnCriarOrdemMulti');
+  const resumo = document.getElementById('ord_resumo_sel');
+  if(btn){
+    btn.disabled = chks.length===0;
+    btn.style.opacity = chks.length===0?'0.5':'1';
+    btn.textContent = chks.length>1?`🔧 Criar ${chks.length} Ordens`:'🔧 Criar Ordem';
+  }
+  if(resumo){
+    if(!chks.length){ resumo.style.display='none'; return; }
+    const total = chks.reduce((s,c)=>{
+      const qtdEl = document.getElementById('ord_qtd_'+c.value);
+      return s + (parseInt(qtdEl?.value)||1);
+    },0);
+    resumo.style.display='block';
+    resumo.innerHTML=`✅ ${chks.length} PDV(s) selecionado(s) · ${total} unidade(s) total`;
+  }
+}
+
+// Salva uma OP por linha selecionada
+async function salvarOrdemMulti(){
+  const chks = [...document.querySelectorAll('[id^="ord_chk_"]')].filter(c=>c.checked);
+  if(!chks.length){ showToast('Selecione ao menos uma peça','err'); return; }
+  const dtAbertura = document.getElementById('ord_data').value || new Date().toISOString().split('T')[0];
+
+  fecharModal('modalOrdem');
+
+  // Modal de progresso
+  const prog = document.createElement('div');
+  prog.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+  prog.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px 34px;min-width:300px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3)">
+    <div style="font-size:28px;margin-bottom:10px">🔧</div>
+    <div style="font-weight:700;font-size:14px;color:#263238;margin-bottom:14px">Criando ordens…</div>
+    <div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">
+      <div id="opBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2e7d32,#66bb6a);border-radius:99px;transition:width 0.2s"></div>
+    </div>
+    <div id="opCnt" style="font-size:12px;color:#546e7a">0 / ${chks.length}</div>
+  </div>`;
+  document.body.appendChild(prog);
+  const bar = document.getElementById('opBar');
+  const cnt = document.getElementById('opCnt');
+
+  let ok=0, err=0;
+  for(let i=0;i<chks.length;i++){
+    const pecaId = chks[i].value;
+    const peca   = pecasProjeto.find(p=>p.id===pecaId);
+    const qtdEl  = document.getElementById('ord_qtd_'+pecaId);
+    const qtd    = parseInt(qtdEl?.value)||1;
+    if(!peca){ err++; continue; }
+    try{
+      await api('POST','ordens_producao',{
+        pdv_id: peca.pdv_id||null,
+        descricao: peca.nome,
+        desenho: peca.numero_desenho||null,
+        material: null,
+        quantidade: qtd,
+        dt_abertura: dtAbertura,
+        criado_por: usuarioLogado?.nome||null
+      });
+      ok++;
+    }catch(e){ err++; console.error(e); }
+    if(bar) bar.style.width=Math.round((i+1)/chks.length*100)+'%';
+    if(cnt) cnt.textContent=`${i+1} / ${chks.length}`;
+  }
+
+  prog.remove();
+  await loadAll();
+  showToast(`✅ ${ok} ordem(ns) criada(s)!${err?` ❌ ${err} erros`:'`}`, 'ok', 5000);
 }
 
 // Adiciona uma linha de distribuição PDV+Qtd
