@@ -8069,9 +8069,8 @@ const DASH_GRUPOS = [
   {
     id:'producao', label:'Produção', icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
     subs:[
-      {label:'Ordens',          icon:'🔧', tab:5,  sub:'Kanban / OP'},
-      {label:'Histórico Tempos',icon:'⏱️', tab:27, sub:'Tempos por OP'},
-      {label:'Terceirização',   icon:'🚚', tab:28, sub:'Serviços externos'},
+      {label:'Ordens',           icon:'🔧', tab:5,  sub:'Kanban / OP'},
+      {label:'Histórico Tempos', icon:'⏱️', tab:27, sub:'Tempos por OP'},
     ]
   },
   {
@@ -8225,6 +8224,7 @@ function renderHomeTiles(){
     return;
   }
 
+  // Badges
   const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
   const ciPend=comprasInternas.filter(i=>!i.comprado).length;
   const opAtivas=(ordens||[]).filter(o=>o.status!=='concluida').length;
@@ -8241,33 +8241,67 @@ function renderHomeTiles(){
     return tot>0?'<div class="tile-badge">'+tot+'</div>':'';
   }
 
-  // Cards principais — 3 por linha (2 linhas de 3), grid fixo
+  // Grid 3×2 de cards principais
   const tilesHtml=gruposVisiveis.map(g=>`
-    <div class="tile tile-md" id="tile_grp_${g.id}"
+    <div class="tile tile-md dash-main-tile" id="tile_grp_${g.id}"
       style="background:${g.color};position:relative;width:210px"
-      onclick="dashToggleGrupo('${g.id}')"
-      onmouseover="this.style.transform='translateY(-5px) scale(1.03)';this.style.filter='brightness(1.12)'"
-      onmouseout="this.style.transform='';this.style.filter=''">
+      onclick="dashToggleGrupo('${g.id}')">
       ${badgeGrupo(g)}
       <div class="tile-icon" style="font-size:42px">${g.icon}</div>
       <div class="tile-label" style="font-size:16px;font-weight:800">${g.label}</div>
-      <div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:rgba(255,255,255,0.5)" id="tile_arr_${g.id}">▼</div>
     </div>`).join('');
 
   div.innerHTML=
-    '<div style="display:grid;grid-template-columns:repeat(3,210px);gap:18px;justify-content:center;width:690px">'+tilesHtml+'</div>'
-    +'<div id="dashSubPanel" style="display:none;width:100%;max-width:760px">'
-      +'<div id="dashSubRow" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding-top:4px"></div>'
+    // Camada dos cards principais
+    '<div id="dashMainGrid" style="display:grid;grid-template-columns:repeat(3,210px);gap:18px;justify-content:center;width:690px;transition:all 0.3s ease">'+tilesHtml+'</div>'
+    // Camada dos sub-cards (escondida inicialmente)
+    +'<div id="dashSubGrid" style="display:none;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:800px;opacity:0;transition:opacity 0.3s ease">'
+      +'<div id="dashSubHeader" style="display:flex;align-items:center;gap:12px;width:100%">'
+        +'<button onclick="dashFecharSub()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:10px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:700;backdrop-filter:blur(8px)">← Voltar</button>'
+        +'<span id="dashSubTitle" style="color:#fff;font-size:18px;font-weight:800"></span>'
+      +'</div>'
+      +'<div id="dashSubRow" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;width:100%"></div>'
     +'</div>';
+
+  // Injetar CSS de transição
+  if(!document.getElementById('dashTransCSS')){
+    const s=document.createElement('style');
+    s.id='dashTransCSS';
+    s.textContent=`
+      .dash-main-tile{cursor:pointer;transition:transform 0.2s,filter 0.2s,opacity 0.3s,box-shadow 0.2s!important}
+      .dash-main-tile:hover{transform:translateY(-5px) scale(1.03)!important;filter:brightness(1.12)!important}
+      .dash-main-tile.dim{opacity:0.25!important;transform:scale(0.92)!important;pointer-events:none}
+      .dash-main-tile.active{outline:3px solid rgba(255,255,255,0.9);box-shadow:0 0 30px rgba(255,255,255,0.3)}
+      #dashSubGrid{animation:fadeIn 0.3s ease}
+      @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    `;
+    document.head.appendChild(s);
+  }
 }
 
 let _dashGrupoAtivo=null;
+
+function dashFecharSub(){
+  _dashGrupoAtivo=null;
+  const mainGrid=document.getElementById('dashMainGrid');
+  const subGrid=document.getElementById('dashSubGrid');
+  if(mainGrid){
+    mainGrid.style.display='grid';
+    mainGrid.style.opacity='1';
+    document.querySelectorAll('.dash-main-tile').forEach(t=>{
+      t.classList.remove('dim','active');
+    });
+  }
+  if(subGrid){ subGrid.style.display='none'; subGrid.style.opacity='0'; }
+}
+
 function dashToggleGrupo(gId){
   const g=DASH_GRUPOS.find(x=>x.id===gId);
   if(!g) return;
-  const panel=document.getElementById('dashSubPanel');
-  const subRow=document.getElementById('dashSubRow');
-  if(!panel||!subRow) return;
+
+  // Se clicou no mesmo → fechar
+  if(_dashGrupoAtivo===gId){ dashFecharSub(); return; }
+  _dashGrupoAtivo=gId;
 
   const perms=getPermissoesUsuario(usuarioLogado);
   const tabsPermitidas=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
@@ -8278,40 +8312,51 @@ function dashToggleGrupo(gId){
   const cpVenc=(contasPagar||[]).filter(c=>c.status==='Aberta'&&c.vencimento&&c.vencimento<new Date().toISOString().split('T')[0]).length;
   const badgeMap={1:semCot,9:ciPend,5:opAtivas,19:cpVenc};
 
-  DASH_GRUPOS.forEach(x=>{
-    const t=document.getElementById('tile_grp_'+x.id);
-    const a=document.getElementById('tile_arr_'+x.id);
-    if(t){t.style.outline='';t.style.boxShadow='';}
-    if(a) a.textContent='▼';
+  const mainGrid=document.getElementById('dashMainGrid');
+  const subGrid=document.getElementById('dashSubGrid');
+  const subRow=document.getElementById('dashSubRow');
+  const subTitle=document.getElementById('dashSubTitle');
+
+  // Dimmer os outros tiles, destacar o ativo
+  document.querySelectorAll('.dash-main-tile').forEach(t=>{
+    if(t.id==='tile_grp_'+gId){
+      t.classList.add('active');
+      t.classList.remove('dim');
+    } else {
+      t.classList.add('dim');
+      t.classList.remove('active');
+    }
   });
 
-  if(_dashGrupoAtivo===gId){
-    panel.style.display='none';
-    _dashGrupoAtivo=null;
-    return;
-  }
-  _dashGrupoAtivo=gId;
+  // Após breve delay (animação dim), esconde grid e mostra sub-cards
+  setTimeout(()=>{
+    if(mainGrid) mainGrid.style.opacity='0';
+    setTimeout(()=>{
+      if(mainGrid) mainGrid.style.display='none';
 
-  const tAtivo=document.getElementById('tile_grp_'+gId);
-  const aAtivo=document.getElementById('tile_arr_'+gId);
-  if(tAtivo) tAtivo.style.outline='3px solid rgba(255,255,255,0.85)';
-  if(aAtivo) aAtivo.textContent='▲';
+      // Preencher sub-cards
+      const num=String(g.label||'').toUpperCase().startsWith(g.icon)?g.label:g.icon+' '+g.label;
+      if(subTitle) subTitle.textContent=num;
 
-  // Sub-cards — mesmo estilo dos principais, ligeiramente menores
-  subRow.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
-    const bdg=badgeMap[s.tab]>0?'<div class="tile-badge" style="font-size:10px;padding:1px 6px;top:8px;right:8px">'+badgeMap[s.tab]+'</div>':'';
-    return `<div class="tile tile-sm" style="background:${g.color};position:relative;min-width:120px;flex:1;max-width:170px"
-      onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
-      onmouseover="this.style.transform='translateY(-4px) scale(1.05)';this.style.filter='brightness(1.15)'"
-      onmouseout="this.style.transform='';this.style.filter=''">
-      ${bdg}
-      <div class="tile-icon" style="font-size:30px;margin-bottom:6px">${s.icon}</div>
-      <div class="tile-label" style="font-size:13px;font-weight:700">${s.label}</div>
-    </div>`;
-  }).join('');
+      subRow.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
+        const bdg=badgeMap[s.tab]>0?'<div class="tile-badge" style="font-size:10px;padding:1px 6px;top:8px;right:8px">'+badgeMap[s.tab]+'</div>':'';
+        return `<div class="tile tile-sm" style="background:${g.color};position:relative;width:100%;height:140px;cursor:pointer;transition:transform 0.2s,filter 0.2s"
+          onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
+          onmouseover="this.style.transform='translateY(-4px) scale(1.04)';this.style.filter='brightness(1.15)'"
+          onmouseout="this.style.transform='';this.style.filter=''">
+          ${bdg}
+          <div class="tile-icon" style="font-size:30px;margin-bottom:6px">${s.icon}</div>
+          <div class="tile-label" style="font-size:13px;font-weight:700">${s.label}</div>
+        </div>`;
+      }).join('');
 
-  panel.style.display='block';
+      subGrid.style.display='flex';
+      requestAnimationFrame(()=>{ subGrid.style.opacity='1'; });
+    }, 200);
+  }, 150);
 }
+
+
 
 
 
