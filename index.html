@@ -3814,6 +3814,7 @@ async function loadAll(){
       api('GET','op_distribuicao','','?order=created_at.asc').catch(()=>[])
     ]);
   await carregarCatsEstoque();
+  await carregarFamiliaCodigos();
     renderAll();
     verificarLembretes();
     renderHomeTiles();
@@ -9110,20 +9111,50 @@ function showCatTab(n){
   if(n===2) renderFamiliaLista();
 }
 
+let _familiaCodCache = null;
+
 function getFamiliaCodigos(){
+  if(_familiaCodCache) return _familiaCodCache;
   try{
     const saved = JSON.parse(localStorage.getItem('sl_familia_codigos')||'null');
     if(saved) return saved;
   }catch(e){}
-  // Retorna os padrões hardcoded
   return {...FAMILIA_CODIGOS};
 }
 
-function saveFamiliaCodigos(map){
+async function saveFamiliaCodigos(map){
+  _familiaCodCache = map;
   localStorage.setItem('sl_familia_codigos', JSON.stringify(map));
-  // Atualiza o objeto em memória
   Object.keys(FAMILIA_CODIGOS).forEach(k=>delete FAMILIA_CODIGOS[k]);
   Object.assign(FAMILIA_CODIGOS, map);
+  // Sincroniza para todos via Supabase
+  try{
+    await fetch(SB_URL+'/rest/v1/app_config',{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({chave:'sl_familia_codigos',valor:JSON.stringify(map),atualizado:new Date().toISOString()})
+    });
+  }catch(e){ console.warn('[familia] sync falhou:',e.message); }
+}
+
+async function carregarFamiliaCodigos(){
+  try{
+    const res = await api('GET','app_config','','?chave=eq.sl_familia_codigos');
+    if(res&&res.length&&res[0].valor){
+      const map = JSON.parse(res[0].valor);
+      if(map&&Object.keys(map).length){
+        _familiaCodCache = map;
+        localStorage.setItem('sl_familia_codigos', JSON.stringify(map));
+        Object.keys(FAMILIA_CODIGOS).forEach(k=>delete FAMILIA_CODIGOS[k]);
+        Object.assign(FAMILIA_CODIGOS, map);
+        return;
+      }
+    }
+  }catch(e){ console.warn('[familia] load falhou:',e.message); }
+  // Publica o estado local para o banco na primeira vez
+  const local = getFamiliaCodigos();
+  _familiaCodCache = local;
+  await saveFamiliaCodigos(local);
 }
 
 function renderFamiliaLista(){
@@ -9155,35 +9186,35 @@ function renderFamiliaLista(){
   }).join('') || '<div style="color:#9e9e9e;text-align:center;padding:12px">Nenhuma família configurada</div>';
 }
 
-function salvarPrefixoFamilia(cat){
+async function salvarPrefixoFamilia(cat){
   const key = 'pfx_'+cat.replace(/\W/g,'_');
   const newPrefix = document.getElementById(key)?.value.trim();
   if(!newPrefix){ showToast('Informe o prefixo','err'); return; }
   const map = getFamiliaCodigos();
   map[cat] = newPrefix;
-  saveFamiliaCodigos(map);
+  await saveFamiliaCodigos(map);
   renderFamiliaLista();
   showToast(`✅ ${cat} → ${newPrefix}`);
 }
 
-function adicionarFamiliaEstoque(){
+async function adicionarFamiliaEstoque(){
   const cat = document.getElementById('famNovaCat')?.value;
   const prefix = document.getElementById('famNovoPrefix')?.value.trim();
   if(!cat || !prefix){ showToast('Selecione a categoria e informe o prefixo','err'); return; }
   const map = getFamiliaCodigos();
   if(map[cat]){ showToast(`${cat} já tem o prefixo ${map[cat]} — edite acima`,'err'); renderFamiliaLista(); return; }
   map[cat] = prefix;
-  saveFamiliaCodigos(map);
+  await saveFamiliaCodigos(map);
   document.getElementById('famNovoPrefix').value = '';
   renderFamiliaLista();
   showToast(`✅ Família criada: ${cat} → ${prefix}.XXX`);
 }
 
-function removerFamiliaEstoque(cat){
+async function removerFamiliaEstoque(cat){
   const map = getFamiliaCodigos();
   if(!confirm(`Remover o prefixo "${map[cat]}" da categoria "${cat}"?\n\nOs itens já codificados não serão afetados.`)) return;
   delete map[cat];
-  saveFamiliaCodigos(map);
+  await saveFamiliaCodigos(map);
   renderFamiliaLista();
   showToast(`Família "${cat}" removida`);
 }
@@ -9228,21 +9259,21 @@ function _atualizarSelectCategorias(){
   sel.innerHTML = cats.map(c=>`<option value="${c}" ${c===atualVal?'selected':''}>${c}</option>`).join('');
 }
 
-function adicionarCategoriaEstoque(){
+async function adicionarCategoriaEstoque(){
   const input = document.getElementById('catNovaInput');
   const nome = input?.value.trim();
   if(!nome){ showToast('Digite o nome da categoria','err'); return; }
   const cats = getCatsEstoque();
   if(cats.some(c=>c.toLowerCase()===nome.toLowerCase())){ showToast('Categoria já existe','err'); return; }
   cats.push(nome);
-  saveCatsEstoque(cats);
+  await saveCatsEstoque(cats);
   if(input) input.value='';
   renderCatListaGerenciar();
   renderEstoque();
   showToast(`✅ Categoria "${nome}" adicionada!`);
 }
 
-function removerCategoriaEstoque(idx){
+async function removerCategoriaEstoque(idx){
   const cats = getCatsEstoque();
   const nome = cats[idx];
   if(!nome) return;
@@ -9250,7 +9281,7 @@ function removerCategoriaEstoque(idx){
   if(usada){ showToast('Não é possível remover: há itens nessa categoria','err'); return; }
   if(!confirm(`Remover a categoria "${nome}"?`)) return;
   cats.splice(idx,1);
-  saveCatsEstoque(cats);
+  await saveCatsEstoque(cats);
   renderCatListaGerenciar();
   renderEstoque();
   showToast(`Categoria "${nome}" removida!`);
