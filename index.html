@@ -3294,9 +3294,24 @@ tr:hover td{background:#f9fbf9}
         <option>PC</option><option>KG</option><option>UN</option><option>MT</option><option>M2</option><option>BARRA</option><option>PAR</option><option>JG</option><option>CX</option>
       </select>
     </div>
-    <div class="form-group"><label>Custo Unitário (R$)</label><input id="est_valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
+    <div class="form-group"><label>Custo Unitário (R$) <span style="color:#78909c;font-weight:400;font-size:10px">— ou use Preço/kg abaixo</span></label><input id="est_valor" type="number" step="0.01" min="0" placeholder="0,00" oninput="estAtualizarCalcPeso()"></div>
     <div class="form-group"><label>Preço de Venda (R$)</label><input id="est_preco_venda" type="number" step="0.01" min="0" placeholder="0,00"></div>
-    <div class="form-group"><label>Peso Unitário (kg)</label><input id="est_peso" type="number" step="0.0001" min="0" placeholder="0,000"></div>
+    <div class="form-group"><label>Peso Unitário (kg) <span style="color:#78909c;font-weight:400;font-size:10px">por peça</span></label><input id="est_peso" type="number" step="0.0001" min="0" placeholder="0,000" oninput="estAtualizarCalcPeso()"></div>
+    <div class="form-group"><label>Preço por Kg (R$/kg) <span style="color:#78909c;font-weight:400;font-size:10px">preencha e calcule</span></label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="est_preco_kg" type="number" step="0.01" min="0" placeholder="0,00" oninput="estAtualizarCalcPeso()" style="flex:1">
+        <button type="button" onclick="estCalcularCustoUnitario()" title="Calcular Custo Unitário = Peso × Preço/kg"
+          style="padding:8px 12px;background:#1565c0;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">
+          = Calcular
+        </button>
+      </div>
+    </div>
+    <!-- Preview do cálculo -->
+    <div id="est_calc_preview" class="form-group full" style="display:none">
+      <div style="background:#e8f5e9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1b5e20;border:1px solid #a5d6a7">
+        <span id="est_calc_formula" style="font-weight:600"></span>
+      </div>
+    </div>
     <div class="form-group"><label>Nota Fiscal</label><input id="est_nf" placeholder="Nº da NF (opcional)"></div>
     <div class="form-group full"><label>Observação</label><textarea id="est_obs" rows="2" placeholder="Observações..."></textarea></div>
   </div>
@@ -3481,6 +3496,19 @@ tr:hover td{background:#f9fbf9}
       <div id="nfeVencimentosList"></div>
       <button onclick="adicionarParcelaNFe()" style="margin-top:8px;padding:6px 14px;background:#fff;border:1px dashed #f57f17;border-radius:8px;color:#f57f17;font-size:12px;font-weight:600;cursor:pointer">+ Adicionar Parcela</button>
     </div>
+  </div>
+  <!-- Toggle gerar CP -->
+  <div style="padding:0 22px 12px;display:flex;align-items:center;gap:10px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#37474f;font-weight:600">
+      <input type="checkbox" id="nfe_gerar_cp" checked
+        style="width:16px;height:16px;accent-color:#1565c0;cursor:pointer">
+      <span>💸 Gerar Conta a Pagar</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#37474f;font-weight:600;margin-left:16px">
+      <input type="checkbox" id="nfe_dar_entrada_estoque" checked
+        style="width:16px;height:16px;accent-color:#2e7d32;cursor:pointer">
+      <span>📦 Dar entrada no Estoque</span>
+    </label>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px;gap:8px">
     <button class="btn" onclick="fecharModal('modalNFe')">Cancelar</button>
@@ -8488,7 +8516,9 @@ function renderEstoque(){
   const valorTotal = estoqueItens.reduce((acc,i)=>{
     const mov = estoqueMov.filter(m=>m.item_id===i.id);
     const saldo = mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-    return acc + saldo*(i.valor_unitario||0);
+    // Se tem preco_kg e peso_unitario → valor = saldo × peso × preco_kg
+    const vUnit = i.valor_unitario || (i.preco_kg && i.peso_unitario ? i.preco_kg * i.peso_unitario : 0);
+    return acc + saldo * vUnit;
   },0);
   const semCodigo = estoqueItens.filter(i=>!i.codigo).length;
   const cats2 = [...new Set(estoqueItens.map(i=>i.categoria||'Matéria Prima').filter(Boolean))].length;
@@ -8675,6 +8705,39 @@ async function confirmarEstMov(){
   }catch(e){showToast('Erro ao registrar movimentação','err');console.error(e);}
 }
 
+// ── Cálculo Peso × Preço/kg ──────────────────────────────────────────────
+
+function estAtualizarCalcPeso(){
+  const peso    = parseFloat(document.getElementById('est_peso')?.value)     || 0;
+  const precoKg = parseFloat(document.getElementById('est_preco_kg')?.value) || 0;
+  const qtd     = parseFloat(document.getElementById('est_qtd')?.value)      || 0;
+  const preview = document.getElementById('est_calc_preview');
+  const formula = document.getElementById('est_calc_formula');
+  if(!preview || !formula) return;
+  if(peso > 0 && precoKg > 0){
+    const custoUnit  = peso * precoKg;
+    const totalPecas = custoUnit * (qtd || 1);
+    const fmt = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+    preview.style.display = 'block';
+    let txt = peso+' kg &times; '+fmt(precoKg)+'/kg = <b>'+fmt(custoUnit)+'</b>';
+    if(qtd > 1) txt += '&nbsp;&nbsp;|&nbsp;&nbsp; Total ('+qtd+' un): <b>'+fmt(totalPecas)+'</b>';
+    formula.innerHTML = txt;
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function estCalcularCustoUnitario(){
+  const peso    = parseFloat(document.getElementById('est_peso')?.value)     || 0;
+  const precoKg = parseFloat(document.getElementById('est_preco_kg')?.value) || 0;
+  if(!peso || !precoKg){ showToast('Preencha o Peso Unitário e o Preço por Kg primeiro','err'); return; }
+  const custoUnit = +(peso * precoKg).toFixed(4);
+  const el = document.getElementById('est_valor');
+  if(el){ el.value = custoUnit; el.style.background='#e8f5e9'; setTimeout(()=>{el.style.background='';},1500); }
+  estAtualizarCalcPeso();
+  showToast('Custo unitário calculado: '+custoUnit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}));
+}
+
 function abrirModalEstoque(sub, id){
   editEstoqueId = id;
   estSubAtual = sub;
@@ -8691,6 +8754,7 @@ function abrirModalEstoque(sub, id){
   set('est_mat', item?.material);
   set('est_qtd', item?.qtd_inicial||0);
   set('est_valor', item?.valor_unitario);
+  set('est_preco_kg', item?.preco_kg || '');
   set('est_preco_venda', item?.preco_venda);
   set('est_peso', item?.peso_unitario);
   set('est_nf', item?.nota_fiscal);
@@ -8887,6 +8951,7 @@ async function salvarEstoque(){
     qtd_inicial: parseInt(document.getElementById('est_qtd').value)||0,
     unidade: document.getElementById('est_und').value,
     valor_unitario: parseFloat(document.getElementById('est_valor').value)||null,
+    preco_kg:       parseFloat(document.getElementById('est_preco_kg')?.value)||null,
     preco_venda: parseFloat(document.getElementById('est_preco_venda')?.value)||null,
     peso_unitario: parseFloat(document.getElementById('est_peso')?.value)||null,
     nota_fiscal: document.getElementById('est_nf').value.trim()||null,
@@ -9107,7 +9172,7 @@ function gerarRelatorioContabil(){
     const entradas = mov.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.quantidade,0);
     const saidas   = mov.filter(m=>m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0);
     const saldo    = (item.qtd_inicial||0) + entradas - saidas;
-    const valorUnit = item.valor_unitario||0;
+    const valorUnit = item.valor_unitario || (item.preco_kg && item.peso_unitario ? item.preco_kg * item.peso_unitario : 0);
     const valorTotal = saldo * valorUnit;
     return {
       codigo:    item.codigo||'—',
@@ -17955,7 +18020,12 @@ async function _salvarNFe(status){
       await _processarEntradaNFe(nfeId||editNFeId, obj);
     }
 
-    showToast(status==='Entrada Realizada'?'✅ Entrada confirmada! CP + Estoque gerados.':'Rascunho salvo!');
+    const _gerarCP = document.getElementById('nfe_gerar_cp')?.checked !== false;
+    const _darEst  = document.getElementById('nfe_dar_entrada_estoque')?.checked !== false;
+    let _msg = status==='Entrada Realizada'
+      ? '✅ Entrada confirmada!' + (_gerarCP?' CP gerada.':' ⚠️ CP não gerada.') + (_darEst?' Estoque atualizado.':' Estoque não atualizado.')
+      : 'Rascunho salvo!';
+    showToast(_msg);
     fecharModal('modalNFe');
     await loadAll();
   }catch(e){showToast('Erro ao salvar NF-e','err');console.error(e);}
@@ -17975,11 +18045,13 @@ async function confirmarEntradaRapida(id){
 
 // ── Process: generate CP + stock movement ─────────────────────────────────
 async function _processarEntradaNFe(nfeId, n){
-  // 1. Generate Contas a Pagar
+  // 1. Generate Contas a Pagar (se checkbox marcado)
+  const gerarCP = document.getElementById('nfe_gerar_cp')?.checked !== false;
   const n_parcelas=parseInt(document.getElementById('nfe_parcelas')?.value)||1;
   const venc=n.vencimento||hoje();
   const parcelas=n_parcelas>1?gerarParcelas(venc,n_parcelas,n.valor_total):[{vencimento:venc,valor:n.valor_total}];
 
+  if(gerarCP){
   for(let i=0;i<parcelas.length;i++){
     const p=parcelas[i];
     // Check if CP already exists for this NF-e
@@ -18000,6 +18072,7 @@ async function _processarEntradaNFe(nfeId, n){
       }).catch(()=>{});
     }
   }
+  } // fim if(gerarCP)
 
   // 2. Stock movements for each item
   const itens=typeof n.itens==='string'?JSON.parse(n.itens||'[]'):n.itens||[];
