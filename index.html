@@ -861,6 +861,7 @@ tr:hover td{background:#f9fbf9}
         <button class="btn" onclick="abrirGerenciarCategorias()" style="font-size:12px" title="Adicionar ou editar categorias">🏷️ Categorias</button>
         <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
+        <button class="btn" onclick="gerarRelatorioContabil()" style="font-size:12px;background:#6a1b9a;color:#fff;border-color:#4a148c" title="Relatório mensal para contabilidade">📋 Relatório Contábil</button>
         <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
         <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
       </div>
@@ -9092,6 +9093,176 @@ function removerCategoriaEstoque(idx){
   renderCatListaGerenciar();
   renderEstoque();
   showToast(`Categoria "${nome}" removida!`);
+}
+
+// ── RELATÓRIO CONTÁBIL DE ESTOQUE ─────────────────────────────────────────
+function gerarRelatorioContabil(){
+  const hoje = new Date();
+  const mesAno = hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const dataGer = hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // Calcular saldo e valor de cada item
+  const itensDados = estoqueItens.map(item=>{
+    const mov = estoqueMov.filter(m=>m.item_id===item.id);
+    const entradas = mov.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.quantidade,0);
+    const saidas   = mov.filter(m=>m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0);
+    const saldo    = (item.qtd_inicial||0) + entradas - saidas;
+    const valorUnit = item.valor_unitario||0;
+    const valorTotal = saldo * valorUnit;
+    return {
+      codigo:    item.codigo||'—',
+      descricao: item.descricao||'—',
+      categoria: item.categoria||'Matéria Prima',
+      material:  item.material||'—',
+      unidade:   item.unidade||'PC',
+      local:     item.localizacao||'—',
+      saldo:     Math.max(0, saldo),
+      valorUnit,
+      valorTotal: Math.max(0, valorTotal),
+      ncm:       item.ncm||'—'
+    };
+  }).filter(i=>i.saldo>0); // apenas itens com saldo positivo
+
+  // Agrupar por categoria
+  const cats = [...new Set(itensDados.map(i=>i.categoria))].sort();
+  const totalGeral = itensDados.reduce((s,i)=>s+i.valorTotal,0);
+  const qtdGeral   = itensDados.reduce((s,i)=>s+i.saldo,0);
+
+  const fmt = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const fmtN = n => n.toLocaleString('pt-BR',{minimumFractionDigits:2});
+
+  // Montar HTML do relatório
+  const catRows = cats.map(cat=>{
+    const itsCat = itensDados.filter(i=>i.categoria===cat).sort((a,b)=>a.descricao.localeCompare(b.descricao,'pt-BR'));
+    const totalCat = itsCat.reduce((s,i)=>s+i.valorTotal,0);
+    const rows = itsCat.map((i,idx)=>`
+      <tr style="background:${idx%2===0?'#fff':'#fafafa'}">
+        <td style="padding:6px 8px;font-family:monospace;font-size:11px;color:#546e7a">${i.codigo}</td>
+        <td style="padding:6px 8px;font-size:12px">${i.descricao}</td>
+        <td style="padding:6px 8px;font-size:11px;color:#546e7a">${i.material}</td>
+        <td style="padding:6px 8px;font-size:11px;color:#546e7a;text-align:center">${i.ncm}</td>
+        <td style="padding:6px 8px;text-align:center;font-size:11px">${i.unidade}</td>
+        <td style="padding:6px 8px;text-align:center;font-size:11px;color:#546e7a">${i.local}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px">${fmtN(i.saldo)}</td>
+        <td style="padding:6px 8px;text-align:right;font-size:11px;color:#546e7a">${fmt(i.valorUnit)}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px;color:#1565c0">${fmt(i.valorTotal)}</td>
+      </tr>`).join('');
+    return `
+      <tr>
+        <td colspan="9" style="background:#1565c0;color:#fff;padding:8px 12px;font-weight:700;font-size:12px;letter-spacing:0.5px">
+          📦 ${cat.toUpperCase()}
+          <span style="float:right;font-size:11px;font-weight:400">${itsCat.length} item(ns) · ${fmt(totalCat)}</span>
+        </td>
+      </tr>
+      ${rows}
+      <tr style="background:#e3f2fd">
+        <td colspan="6" style="padding:6px 12px;font-size:11px;color:#1565c0;font-weight:700">Subtotal — ${cat}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:700;color:#1565c0;font-size:12px">${fmtN(itsCat.reduce((s,i)=>s+i.saldo,0))}</td>
+        <td></td>
+        <td style="padding:6px 8px;text-align:right;font-weight:700;color:#1565c0;font-size:13px">${fmt(totalCat)}</td>
+      </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório Contábil de Estoque — ${mesAno}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#263238;background:#fff;padding:0}
+    @page{margin:15mm 12mm;size:A4 landscape}
+    @media print{.no-print{display:none!important}.page-break{page-break-before:always}}
+    table{width:100%;border-collapse:collapse}
+    th{background:#263238;color:#fff;padding:8px 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap}
+    td{border-bottom:1px solid #e8ecef}
+    .header{background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;margin-bottom:0}
+    .total-row{background:#263238!important;color:#fff!important}
+    .total-row td{color:#fff!important;font-size:14px;font-weight:800;padding:10px 12px}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:14px 0;margin-bottom:0}
+    .sum-card{background:#f5f7f5;border-radius:8px;padding:12px 16px;border-left:4px solid #1565c0}
+    .sum-card.green{border-color:#2e7d32}
+    .sum-card.red{border-color:#c62828}
+    .sum-card.purple{border-color:#6a1b9a}
+    .sum-label{font-size:10px;color:#546e7a;text-transform:uppercase;font-weight:700;margin-bottom:4px}
+    .sum-val{font-size:18px;font-weight:800;color:#263238}
+    .footer{margin-top:20px;padding:12px;border-top:2px solid #e0e0e0;display:flex;justify-content:space-between;font-size:10px;color:#78909c}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div style="font-size:22px;font-weight:800">SL Óleos</div>
+      <div style="font-size:14px;opacity:0.85;margin-top:2px">Relatório Contábil de Estoque — ${mesAno}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:12px;opacity:0.75">Gerado em ${dataGer}</div>
+      <div style="font-size:12px;opacity:0.75">Data base: posição atual</div>
+    </div>
+  </div>
+
+  <div style="padding:0 0 12px 0">
+    <div class="summary">
+      <div class="sum-card">
+        <div class="sum-label">Total de Itens</div>
+        <div class="sum-val">${itensDados.length}</div>
+        <div style="font-size:10px;color:#78909c;margin-top:2px">${qtdGeral.toFixed(0)} unidades em estoque</div>
+      </div>
+      <div class="sum-card green">
+        <div class="sum-label">Valor Total do Estoque</div>
+        <div class="sum-val" style="font-size:15px">${fmt(totalGeral)}</div>
+        <div style="font-size:10px;color:#78909c;margin-top:2px">${cats.length} categoria(s)</div>
+      </div>
+      <div class="sum-card purple">
+        <div class="sum-label">Maior Categoria</div>
+        ${(()=>{const mc=cats.map(c=>({c,v:itensDados.filter(i=>i.categoria===c).reduce((s,i)=>s+i.valorTotal,0)})).sort((a,b)=>b.v-a.v)[0];return mc?`<div class="sum-val" style="font-size:13px">${mc.c}</div><div style="font-size:10px;color:#78909c;margin-top:2px">${fmt(mc.v)}</div>`:'<div class="sum-val">—</div>';})()} 
+      </div>
+      <div class="sum-card red">
+        <div class="sum-label">Itens Sem Valor</div>
+        <div class="sum-val">${estoqueItens.filter(i=>!i.valor_unitario||i.valor_unitario===0).length}</div>
+        <div style="font-size:10px;color:#78909c;margin-top:2px">necessitam avaliação</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:80px">Código</th>
+          <th>Descrição</th>
+          <th style="width:100px">Material</th>
+          <th style="width:80px;text-align:center">NCM</th>
+          <th style="width:45px;text-align:center">UN</th>
+          <th style="width:90px;text-align:center">Localização</th>
+          <th style="width:70px;text-align:right">Saldo</th>
+          <th style="width:90px;text-align:right">Valor Unit.</th>
+          <th style="width:110px;text-align:right">Valor Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${catRows}
+        <tr class="total-row">
+          <td colspan="6" style="padding:10px 12px;font-size:13px">TOTAL GERAL DO ESTOQUE</td>
+          <td style="text-align:right;padding:10px 8px">${fmtN(qtdGeral)}</td>
+          <td></td>
+          <td style="text-align:right;padding:10px 8px;font-size:16px">${fmt(totalGeral)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <span>SL Óleos — Sistema de Gestão Interno</span>
+    <span>Gerado em ${dataGer} · ${itensDados.length} itens com saldo positivo · Itens com saldo zero foram omitidos</span>
+    <span>Assinatura: ___________________________</span>
+  </div>
+
+  <script>window.onload=()=>window.print();<\/script>
+</body>
+</html>`;
+
+  const w = window.open('','_blank','width=1100,height=750');
+  w.document.write(html);
+  w.document.close();
 }
 
 function exportarExcelEstoque(){
