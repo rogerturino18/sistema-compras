@@ -862,8 +862,7 @@ tr:hover td{background:#f9fbf9}
         <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
         <button class="btn" onclick="gerarRelatorioContabil()" style="font-size:12px;background:#6a1b9a;color:#fff;border-color:#4a148c" title="Relatório mensal para contabilidade">📋 Relatório Contábil</button>
-        <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
-        <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
+        <button class="btn" onclick="abrirPrecificacaoLote()" style="font-size:12px;background:#e65100;color:#fff;border-color:#bf360c" title="Definir preços para vários itens de uma vez">💲 Preços em Lote</button>
       </div>
 
       <!-- Tabela -->
@@ -3254,6 +3253,56 @@ tr:hover td{background:#f9fbf9}
 </div>
 
 <!-- MODAL ITEM ESTOQUE -->
+<!-- MODAL PRECIFICAÇÃO EM LOTE -->
+<div class="modal-bg" id="modalPrecLote">
+<div class="modal" style="max-width:720px">
+  <div class="modal-header">
+    <h3>💲 Preços em Lote</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalPrecLote')">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" style="padding-bottom:0">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <input id="precLote_busca" type="text" placeholder="🔍 Buscar por descrição ou material..." oninput="precLoteRender()"
+        style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+      <select id="precLote_cat" onchange="precLoteRender()" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px">
+        <option value="">Todas as categorias</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#546e7a;cursor:pointer">
+        <input type="checkbox" id="precLote_semPreco" onchange="precLoteRender()" style="accent-color:#e65100"> Só sem preço
+      </label>
+    </div>
+    <div style="background:#fff3e0;border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:700;color:#e65100;white-space:nowrap">⚡ Aplicar a todos visíveis:</span>
+      <div style="display:flex;gap:6px;align-items:center;flex:1;flex-wrap:wrap">
+        <input id="precLote_massVal" type="number" step="0.01" min="0" placeholder="R$ valor unitário"
+          style="width:140px;padding:7px 10px;border:1px solid #ffcc80;border-radius:8px;font-size:13px">
+        <span style="font-size:12px;color:#78909c">OU</span>
+        <input id="precLote_massPesoKg" type="number" step="0.01" min="0" placeholder="R$/kg"
+          style="width:100px;padding:7px 10px;border:1px solid #ffcc80;border-radius:8px;font-size:13px" oninput="precLoteMassCalcKg()">
+        <span id="precLote_massKgInfo" style="font-size:11px;color:#78909c"></span>
+        <button onclick="precLoteAplicarMassa()" type="button"
+          style="padding:7px 14px;background:#e65100;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">
+          Aplicar a todos ↓
+        </button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 70px 80px 90px 110px;gap:6px;padding:6px 10px;background:#f5f7f5;border-radius:8px 8px 0 0;border:1px solid #e0e0e0;font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">
+      <span>Descrição / Material</span><span style="text-align:center">UN</span>
+      <span style="text-align:center">Peso (kg)</span><span style="text-align:right">R$/kg</span>
+      <span style="text-align:right">Custo Unit. (R$)</span>
+    </div>
+    <div id="precLote_lista" style="max-height:380px;overflow-y:auto;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;margin-bottom:8px"></div>
+    <div id="precLote_resumo" style="font-size:12px;color:#546e7a;padding:2px"></div>
+  </div>
+  <div class="modal-actions" style="padding:12px 22px 18px">
+    <button class="btn" onclick="fecharModal('modalPrecLote')">Cancelar</button>
+    <button class="btn primary" onclick="precLoteSalvar()">💾 Salvar Preços</button>
+  </div>
+</div>
+</div>
+
 <div class="modal-bg" id="modalEstoque">
 <div class="modal" style="max-width:540px">
   <div class="modal-header">
@@ -3268,7 +3317,7 @@ tr:hover td{background:#f9fbf9}
   <div class="form-grid">
     <div class="form-group full"><label>Descrição *</label><input id="est_desc" placeholder="Ex: Barra Redonda SAE 1020, Eixo Cônico..."></div>
     <div class="form-group"><label>Categoria *</label>
-      <select id="est_categoria">
+      <select id="est_categoria" onchange="estTogglePrecoVenda()">
         <option value="Matéria Prima">Matéria Prima</option>
         <option value="Acessórios Comerciais">Acessórios Comerciais</option>
         <option value="Produto Final">Produto Final</option>
@@ -3295,7 +3344,7 @@ tr:hover td{background:#f9fbf9}
       </select>
     </div>
     <div class="form-group"><label>Custo Unitário (R$) <span style="color:#78909c;font-weight:400;font-size:10px">— ou use Preço/kg abaixo</span></label><input id="est_valor" type="number" step="0.01" min="0" placeholder="0,00" oninput="estAtualizarCalcPeso()"></div>
-    <div class="form-group"><label>Preço de Venda (R$)</label><input id="est_preco_venda" type="number" step="0.01" min="0" placeholder="0,00"></div>
+    <div class="form-group" id="grp_est_preco_venda" style="display:none"><label>Preço de Venda (R$)</label><input id="est_preco_venda" type="number" step="0.01" min="0" placeholder="0,00"></div>
     <div class="form-group"><label>Peso Unitário (kg) <span style="color:#78909c;font-weight:400;font-size:10px">por peça</span></label><input id="est_peso" type="number" step="0.0001" min="0" placeholder="0,000" oninput="estAtualizarCalcPeso()"></div>
     <div class="form-group"><label>Preço por Kg (R$/kg) <span style="color:#78909c;font-weight:400;font-size:10px">preencha e calcule</span></label>
       <div style="display:flex;gap:6px;align-items:center">
@@ -3764,6 +3813,7 @@ async function loadAll(){
       api('GET','entradas_nfe','','?order=created_at.desc').catch(()=>[]),
       api('GET','op_distribuicao','','?order=created_at.asc').catch(()=>[])
     ]);
+  await carregarCatsEstoque();
     renderAll();
     verificarLembretes();
     renderHomeTiles();
@@ -8705,6 +8755,13 @@ async function confirmarEstMov(){
   }catch(e){showToast('Erro ao registrar movimentação','err');console.error(e);}
 }
 
+// ── Preço de Venda — só para Produto Final ───────────────────────────────
+function estTogglePrecoVenda(){
+  const cat = document.getElementById('est_categoria')?.value||'';
+  const grp = document.getElementById('grp_est_preco_venda');
+  if(grp) grp.style.display = cat==='Produto Final' ? '' : 'none';
+}
+
 // ── Cálculo Peso × Preço/kg ──────────────────────────────────────────────
 
 function estAtualizarCalcPeso(){
@@ -8756,6 +8813,7 @@ function abrirModalEstoque(sub, id){
   set('est_valor', item?.valor_unitario);
   set('est_preco_kg', item?.preco_kg || '');
   set('est_preco_venda', item?.preco_venda);
+  estTogglePrecoVenda();  // mostrar/ocultar Preço de Venda conforme categoria
   set('est_peso', item?.peso_unitario);
   set('est_nf', item?.nota_fiscal);
   set('est_obs', item?.observacao);
@@ -8997,13 +9055,51 @@ function _atualizarPreviewCodigo(isEdit){
 
 const CATS_FIXAS_SISTEMA = ['Matéria Prima','Acessórios Comerciais','Produto Final'];
 
+// Categorias de estoque — salvas no Supabase (app_config) para todos os usuários
+// Cache local para não bater no banco a cada render
+let _catsEstoqueCache = null;
+
 function getCatsEstoque(){
-  try{ return JSON.parse(localStorage.getItem('sl_cats_estoque')||'null') || ['Matéria Prima','Acessórios Comerciais','Produto Final','Ferramentas','EPI / Segurança','Embalagem','Manutenção','Insumos','Outros']; }
-  catch(e){ return ['Matéria Prima','Acessórios Comerciais','Produto Final','Insumos','Outros']; }
+  // 1. Usa cache em memória (carregado no loadAll)
+  if(_catsEstoqueCache) return _catsEstoqueCache;
+  // 2. Fallback: localStorage (migração)
+  try{
+    const local = JSON.parse(localStorage.getItem('sl_cats_estoque')||'null');
+    if(local && local.length) return local;
+  }catch(e){}
+  // 3. Padrão
+  return ['Matéria Prima','Acessórios Comerciais','Produto Final','Ferramentas','EPI / Segurança','Embalagem','Manutenção','Insumos','Outros'];
 }
 
-function saveCatsEstoque(cats){
+async function saveCatsEstoque(cats){
+  _catsEstoqueCache = cats;
   localStorage.setItem('sl_cats_estoque', JSON.stringify(cats));
+  // Salva no Supabase para sincronizar todos os usuários
+  try{
+    await fetch(SB_URL+'/rest/v1/app_config',{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({chave:'sl_cats_estoque',valor:JSON.stringify(cats),atualizado:new Date().toISOString()})
+    });
+  }catch(e){ console.warn('[cats] sync falhou:',e.message); }
+}
+
+async function carregarCatsEstoque(){
+  try{
+    const res = await api('GET','app_config','','?chave=eq.sl_cats_estoque');
+    if(res&&res.length&&res[0].valor){
+      const cats = JSON.parse(res[0].valor);
+      if(cats&&cats.length){
+        _catsEstoqueCache = cats;
+        localStorage.setItem('sl_cats_estoque', JSON.stringify(cats));
+        return;
+      }
+    }
+  }catch(e){ console.warn('[cats] load falhou:',e.message); }
+  // Se não tem no banco ainda, pega do localStorage e publica
+  const local = getCatsEstoque();
+  _catsEstoqueCache = local;
+  await saveCatsEstoque(local); // publica para o banco
 }
 
 function showCatTab(n){
@@ -9158,6 +9254,190 @@ function removerCategoriaEstoque(idx){
   renderCatListaGerenciar();
   renderEstoque();
   showToast(`Categoria "${nome}" removida!`);
+}
+
+// ── PRECIFICAÇÃO EM LOTE ─────────────────────────────────────────────────
+
+// Map de alterações pendentes: id → {valor_unitario, preco_kg}
+let _precLoteAlteracoes = {};
+
+function abrirPrecificacaoLote(){
+  _precLoteAlteracoes = {};
+  // Popular select de categorias
+  const sel = document.getElementById('precLote_cat');
+  if(sel){
+    const cats = [...new Set(estoqueItens.map(i=>i.categoria||'Matéria Prima').filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">Todas as categorias</option>' +
+      cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+  document.getElementById('precLote_busca').value = '';
+  document.getElementById('precLote_semPreco').checked = false;
+  document.getElementById('precLote_massVal').value = '';
+  document.getElementById('precLote_massPesoKg').value = '';
+  document.getElementById('precLote_massKgInfo').textContent = '';
+  precLoteRender();
+  abrirModal('modalPrecLote');
+}
+
+function precLoteGetLista(){
+  const busca  = (document.getElementById('precLote_busca')?.value||'').toLowerCase();
+  const cat    = document.getElementById('precLote_cat')?.value||'';
+  const semPrc = document.getElementById('precLote_semPreco')?.checked;
+  return estoqueItens.filter(i=>{
+    if(cat && (i.categoria||'Matéria Prima')!==cat) return false;
+    if(busca && !(i.descricao+i.material+i.codigo+'').toLowerCase().includes(busca)) return false;
+    if(semPrc && (i.valor_unitario||(_precLoteAlteracoes[i.id]?.valor_unitario))) return false;
+    return true;
+  }).sort((a,b)=>(a.descricao||'').localeCompare(b.descricao||'','pt-BR'));
+}
+
+function precLoteRender(){
+  const lista = precLoteGetLista();
+  const div = document.getElementById('precLote_lista');
+  const resumo = document.getElementById('precLote_resumo');
+  if(!div) return;
+
+  if(!lista.length){
+    div.innerHTML='<div style="padding:20px;text-align:center;color:#9e9e9e;font-size:13px">Nenhum item encontrado</div>';
+    if(resumo) resumo.textContent='';
+    return;
+  }
+
+  div.innerHTML = lista.map((item,idx)=>{
+    const alt = _precLoteAlteracoes[item.id]||{};
+    const valAtual  = alt.valor_unitario ?? item.valor_unitario ?? '';
+    const precoKg   = alt.preco_kg ?? item.preco_kg ?? '';
+    const pesoUnit  = item.peso_unitario||0;
+    const alterado  = !!_precLoteAlteracoes[item.id];
+    const bg = alterado ? '#e8f5e9' : (idx%2===0?'#fff':'#fafafa');
+    return `<div style="display:grid;grid-template-columns:1fr 70px 80px 90px 110px;gap:6px;padding:7px 10px;background:${bg};border-bottom:1px solid #f0f0f0;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#263238">${item.descricao||'—'}</div>
+        <div style="font-size:10px;color:#78909c">${item.material||''} ${item.categoria?'· '+item.categoria:''}</div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:#546e7a">${item.unidade||'PC'}</div>
+      <div style="text-align:center;font-size:12px;color:#546e7a">${pesoUnit||'—'}</div>
+      <input type="number" step="0.01" min="0" value="${precoKg}"
+        placeholder="R$/kg" data-prec-kg="${item.id}"
+        oninput="precLoteInputKg(this,'${item.id}')"
+        style="padding:5px 8px;border:1px solid ${alterado?'#a5d6a7':'#e0e0e0'};border-radius:7px;font-size:12px;text-align:right;width:100%">
+      <input type="number" step="0.01" min="0" value="${valAtual}"
+        placeholder="0,00" data-prec-val="${item.id}"
+        oninput="precLoteInputVal(this,'${item.id}')"
+        style="padding:5px 8px;border:1px solid ${alterado?'#a5d6a7':'#e0e0e0'};border-radius:7px;font-size:12px;text-align:right;width:100%;font-weight:${alterado?'700':'400'}">
+    </div>`;
+  }).join('');
+
+  const totalAlterados = Object.keys(_precLoteAlteracoes).length;
+  if(resumo) resumo.textContent = totalAlterados > 0
+    ? totalAlterados+' item(ns) com alterações pendentes — clique em Salvar Preços'
+    : lista.length+' item(ns) listados';
+}
+
+function precLoteInputVal(el, id){
+  const v = parseFloat(el.value);
+  if(!_precLoteAlteracoes[id]) _precLoteAlteracoes[id]={};
+  _precLoteAlteracoes[id].valor_unitario = isNaN(v) ? null : v;
+  el.style.borderColor = '#a5d6a7';
+  el.style.fontWeight = '700';
+  const resumo = document.getElementById('precLote_resumo');
+  if(resumo) resumo.textContent = Object.keys(_precLoteAlteracoes).length+' item(ns) com alterações pendentes';
+}
+
+function precLoteInputKg(el, id){
+  const preco_kg = parseFloat(el.value)||0;
+  if(!_precLoteAlteracoes[id]) _precLoteAlteracoes[id]={};
+  _precLoteAlteracoes[id].preco_kg = isNaN(parseFloat(el.value)) ? null : parseFloat(el.value);
+  // Calcular valor unitário automaticamente se item tem peso
+  const item = estoqueItens.find(i=>i.id===id);
+  const peso = item?.peso_unitario||0;
+  if(peso > 0 && preco_kg > 0){
+    const custoUnit = +(peso * preco_kg).toFixed(4);
+    _precLoteAlteracoes[id].valor_unitario = custoUnit;
+    // Atualizar o input de valor unitário da mesma linha
+    const valEl = document.querySelector(`[data-prec-val="${id}"]`);
+    if(valEl){ valEl.value = custoUnit; valEl.style.borderColor='#a5d6a7'; valEl.style.fontWeight='700'; }
+  }
+  el.style.borderColor = '#a5d6a7';
+  const resumo = document.getElementById('precLote_resumo');
+  if(resumo) resumo.textContent = Object.keys(_precLoteAlteracoes).length+' item(ns) com alterações pendentes';
+}
+
+function precLoteMassCalcKg(){
+  const precoKg = parseFloat(document.getElementById('precLote_massPesoKg')?.value)||0;
+  const info = document.getElementById('precLote_massKgInfo');
+  if(!info) return;
+  if(precoKg > 0){
+    info.textContent = '— será calculado × peso de cada item';
+    info.style.color = '#e65100';
+  } else {
+    info.textContent = '';
+  }
+}
+
+function precLoteAplicarMassa(){
+  const valMassa  = parseFloat(document.getElementById('precLote_massVal')?.value)||0;
+  const precoKg   = parseFloat(document.getElementById('precLote_massPesoKg')?.value)||0;
+  if(!valMassa && !precoKg){ showToast('Preencha o valor unitário ou R$/kg para aplicar','err'); return; }
+
+  const lista = precLoteGetLista();
+  lista.forEach(item=>{
+    if(!_precLoteAlteracoes[item.id]) _precLoteAlteracoes[item.id]={};
+    if(precoKg > 0){
+      _precLoteAlteracoes[item.id].preco_kg = precoKg;
+      const peso = item.peso_unitario||0;
+      if(peso > 0){
+        _precLoteAlteracoes[item.id].valor_unitario = +(peso * precoKg).toFixed(4);
+      }
+    }
+    if(valMassa > 0 && !precoKg){
+      _precLoteAlteracoes[item.id].valor_unitario = valMassa;
+    }
+  });
+
+  precLoteRender();
+  showToast('⚡ '+lista.length+' itens atualizados — clique em Salvar Preços');
+}
+
+async function precLoteSalvar(){
+  const ids = Object.keys(_precLoteAlteracoes);
+  if(!ids.length){ showToast('Nenhuma alteração para salvar','err'); return; }
+  if(!confirm('Salvar preços de '+ids.length+' item(ns)?')) return;
+
+  fecharModal('modalPrecLote');
+
+  // Progresso
+  const prog = document.createElement('div');
+  prog.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center';
+  prog.innerHTML='<div style="background:#fff;border-radius:14px;padding:28px 34px;min-width:280px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3)">'+
+    '<div style="font-size:26px;margin-bottom:8px">💲</div>'+
+    '<div style="font-weight:700;font-size:14px;color:#263238;margin-bottom:12px">Salvando preços…</div>'+
+    '<div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">'+
+    '<div id="precBar" style="height:100%;width:0%;background:linear-gradient(90deg,#e65100,#ff8f00);border-radius:99px;transition:width 0.2s"></div></div>'+
+    '<div id="precCnt" style="font-size:12px;color:#546e7a">0 / '+ids.length+'</div></div>';
+  document.body.appendChild(prog);
+  const bar = document.getElementById('precBar');
+  const cnt = document.getElementById('precCnt');
+
+  let ok=0, err=0;
+  for(let i=0;i<ids.length;i++){
+    const id = ids[i];
+    const alt = _precLoteAlteracoes[id];
+    const patch = {};
+    if(alt.valor_unitario != null) patch.valor_unitario = alt.valor_unitario;
+    if(alt.preco_kg != null) patch.preco_kg = alt.preco_kg;
+    try{
+      await api('PATCH','estoque_itens',patch,`?id=eq.${id}`);
+      ok++;
+    }catch(e){ err++; }
+    if(bar) bar.style.width=Math.round((i+1)/ids.length*100)+'%';
+    if(cnt) cnt.textContent=(i+1)+' / '+ids.length;
+  }
+
+  prog.remove();
+  _precLoteAlteracoes = {};
+  await loadAll();
+  showToast('✅ '+ok+' preço(s) salvo(s)!'+(err?' ❌ '+err+' erros':''), 'ok', 5000);
 }
 
 // ── RELATÓRIO CONTÁBIL DE ESTOQUE ─────────────────────────────────────────
