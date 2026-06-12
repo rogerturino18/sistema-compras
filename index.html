@@ -861,7 +861,8 @@ tr:hover td{background:#f9fbf9}
         <button class="btn" onclick="abrirGerenciarCategorias()" style="font-size:12px" title="Adicionar ou editar categorias">🏷️ Categorias</button>
         <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
-        <button class="btn" onclick="gerarRelatorioContabil()" style="font-size:12px;background:#6a1b9a;color:#fff;border-color:#4a148c" title="Relatório mensal para contabilidade">📋 Relatório Contábil</button>
+        <button class="btn" onclick="gerarRelatorioContabil()" style="font-size:12px;background:#6a1b9a;color:#fff;border-color:#4a148c" title="Relatório mensal para contabilidade — versão impressão">📋 Relatório Contábil</button>
+        <button class="btn" onclick="exportarRelatorioContabilExcel()" style="font-size:12px;background:#217346;color:#fff;border-color:#1a5c38" title="Relatório contábil em Excel (.xlsx)">📊 Contábil Excel</button>
         <button class="btn" onclick="abrirPrecificacaoLote()" style="font-size:12px;background:#e65100;color:#fff;border-color:#bf360c" title="Definir preços para vários itens de uma vez">💲 Preços em Lote</button>
       </div>
 
@@ -9478,6 +9479,135 @@ async function precLoteSalvar(){
   _precLoteAlteracoes = {};
   await loadAll();
   showToast('✅ '+ok+' preço(s) salvo(s)!'+(err?' ❌ '+err+' erros':''), 'ok', 5000);
+}
+
+// ── RELATÓRIO CONTÁBIL — VERSÃO EXCEL ────────────────────────────────────
+async function exportarRelatorioContabilExcel(){
+  // Carrega SheetJS se necessário
+  if(typeof XLSX === 'undefined'){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload=res; s.onerror=rej; document.head.appendChild(s);
+    });
+  }
+
+  const hoje = new Date();
+  const mesAno = hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const dataGer = hoje.toLocaleDateString('pt-BR');
+
+  // Calcular dados (mesma lógica do relatório HTML)
+  const itensDados = estoqueItens.map(item=>{
+    const mov = estoqueMov.filter(m=>m.item_id===item.id);
+    const entradas = mov.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.quantidade,0);
+    const saidas   = mov.filter(m=>m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0);
+    const saldo    = Math.max(0,(item.qtd_inicial||0)+entradas-saidas);
+    const valorUnit = item.valor_unitario || (item.preco_kg&&item.peso_unitario?item.preco_kg*item.peso_unitario:0);
+    const valorTotal = saldo * valorUnit;
+    return {
+      codigo:    item.codigo||'',
+      descricao: item.descricao||'',
+      categoria: item.categoria||'Matéria Prima',
+      material:  item.material||'',
+      ncm:       item.ncm||'',
+      unidade:   item.unidade||'PC',
+      local:     item.localizacao||'',
+      saldo,
+      valorUnit,
+      valorTotal: Math.max(0,valorTotal)
+    };
+  }).filter(i=>i.saldo>0).sort((a,b)=>{
+    if(a.categoria!==b.categoria) return a.categoria.localeCompare(b.categoria,'pt-BR');
+    return a.descricao.localeCompare(b.descricao,'pt-BR');
+  });
+
+  if(!itensDados.length){ showToast('Nenhum item com saldo para exportar','err'); return; }
+
+  // ── Montar planilha ──────────────────────────────────────────────────────
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
+
+  // Título
+  wsData.push([`RELATÓRIO CONTÁBIL DE ESTOQUE — ${mesAno.toUpperCase()}`]);
+  wsData.push([`Gerado em: ${dataGer}   |   SL Óleos`]);
+  wsData.push([]);
+
+  // Resumo
+  const totalGeral = itensDados.reduce((s,i)=>s+i.valorTotal,0);
+  const qtdTotal   = itensDados.reduce((s,i)=>s+i.saldo,0);
+  const cats = [...new Set(itensDados.map(i=>i.categoria))];
+  wsData.push(['RESUMO','','','','','','','','']);
+  wsData.push(['Total de Itens',itensDados.length,'','Categorias',cats.length,'','Valor Total',totalGeral,'']);
+  wsData.push([]);
+
+  // Cabeçalho da tabela
+  wsData.push(['CÓDIGO','DESCRIÇÃO','CATEGORIA','MATERIAL','NCM','UN','LOCALIZAÇÃO','SALDO','VALOR UNIT. (R$)','VALOR TOTAL (R$)']);
+
+  // Linha de início dos dados (para aplicar fórmulas)
+  const rowStart = wsData.length + 1;
+
+  // Dados agrupados por categoria
+  let catAtual = '';
+  itensDados.forEach(i=>{
+    if(i.categoria !== catAtual){
+      catAtual = i.categoria;
+      wsData.push([`— ${i.categoria.toUpperCase()} —`,'','','','','','','','','']);
+    }
+    wsData.push([
+      i.codigo, i.descricao, i.categoria, i.material,
+      i.ncm, i.unidade, i.local,
+      i.saldo, i.valorUnit, i.valorTotal
+    ]);
+  });
+
+  // Total geral
+  wsData.push([]);
+  wsData.push(['TOTAL GERAL','','','','','','',qtdTotal,'',totalGeral]);
+
+  // Criar worksheet
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Larguras das colunas
+  ws['!cols'] = [
+    {wch:12},{wch:45},{wch:20},{wch:16},{wch:12},
+    {wch:6},{wch:14},{wch:10},{wch:16},{wch:16}
+  ];
+
+  // Estilos básicos via formato de número para valores monetários
+  // (SheetJS free não suporta estilos avançados, mas formata os números)
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let R=rowStart-1; R<=range.e.r; R++){
+    const cellVal = ws[XLSX.utils.encode_cell({r:R, c:8})]; // Valor Unit
+    const cellTot = ws[XLSX.utils.encode_cell({r:R, c:9})]; // Valor Total
+    if(cellVal && typeof cellVal.v === 'number') cellVal.z = '#,##0.0000';
+    if(cellTot && typeof cellTot.v === 'number') cellTot.z = '#,##0.00';
+    const cellSld = ws[XLSX.utils.encode_cell({r:R, c:7})]; // Saldo
+    if(cellSld && typeof cellSld.v === 'number') cellSld.z = '#,##0.00';
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Estoque Contábil');
+
+  // ── Segunda aba: por categoria (resumo) ──────────────────────────────────
+  const wsSumData = [['RESUMO POR CATEGORIA','',''],['','',''],['CATEGORIA','QTDE ITENS','VALOR TOTAL (R$)']];
+  cats.forEach(cat=>{
+    const itsCat = itensDados.filter(i=>i.categoria===cat);
+    wsSumData.push([cat, itsCat.length, itsCat.reduce((s,i)=>s+i.valorTotal,0)]);
+  });
+  wsSumData.push([]);
+  wsSumData.push(['TOTAL GERAL', itensDados.length, totalGeral]);
+  const wsSum = XLSX.utils.aoa_to_sheet(wsSumData);
+  wsSum['!cols'] = [{wch:25},{wch:12},{wch:18}];
+  // Formato moeda na coluna C
+  for(let R=3; R<wsSumData.length; R++){
+    const c = wsSum[XLSX.utils.encode_cell({r:R,c:2})];
+    if(c && typeof c.v==='number') c.z='#,##0.00';
+  }
+  XLSX.utils.book_append_sheet(wb, wsSum, 'Resumo por Categoria');
+
+  // Download
+  const nomeArq = `relatorio_contabil_estoque_${hoje.toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, nomeArq);
+  showToast('✅ Excel gerado! '+itensDados.length+' itens exportados.', 'ok', 4000);
 }
 
 // ── RELATÓRIO CONTÁBIL DE ESTOQUE ─────────────────────────────────────────
