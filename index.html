@@ -6436,8 +6436,8 @@ function renderListaOrdPecas(filtro=''){
   const btn   = document.getElementById('btnCriarOrdemMulti');
   if(!lista) return;
 
-  // Todas as peças não concluídas, agrupadas por nome+desenho
-  const pecas = pecasProjeto.filter(p => p.status !== 'concluido');
+  // Todas as peças (incluindo concluídas — podem precisar de nova OP)
+  const pecas = pecasProjeto;
 
   // Agrupar por nome+desenho para mostrar todas as instâncias
   const grupos = {};
@@ -6470,8 +6470,9 @@ function renderListaOrdPecas(filtro=''){
       let qtdProj = p.quantidade || 1;
       if(qtdProj <= 1 && p.descricao){ const m=(p.descricao||'').match(/(\d+)\s*unidades/i); if(m) qtdProj=parseInt(m[1]); }
       const jaTemOP = ordens.some(o => o.pdv_id === p.pdv_id && (o.descricao||'').toLowerCase() === (p.nome||'').toLowerCase() && o.status !== 'concluido');
+      const isConcluida = p.status === 'concluido';
 
-      html += `<div style="display:grid;grid-template-columns:32px 1fr 90px 80px;gap:0;padding:8px 12px;border-bottom:1px solid #f0f0f0;align-items:center;background:${jaTemOP?'#fff8e1':'#fff'}" id="ord_row_${p.id}">
+      html += `<div style="display:grid;grid-template-columns:32px 1fr 90px 80px;gap:0;padding:8px 12px;border-bottom:1px solid #f0f0f0;align-items:center;background:${isConcluida?'#f3e5f5':jaTemOP?'#fff8e1':'#fff'}" id="ord_row_${p.id}">
         <input type="checkbox" id="ord_chk_${p.id}" value="${p.id}"
           onchange="ordAtualizarSelecao()"
           style="width:16px;height:16px;cursor:pointer;accent-color:#1565c0">
@@ -6479,7 +6480,8 @@ function renderListaOrdPecas(filtro=''){
           <span style="font-size:13px;font-weight:600;color:#37474f">${numPDV}</span>
           ${pdv?.cliente?`<span style="font-size:11px;color:#78909c"> — ${pdv.cliente.substring(0,30)}</span>`:''}
           <br><span style="font-size:11px;color:#78909c">📁 ${setor?.nome||'—'}</span>
-          ${jaTemOP?'<span style="font-size:10px;color:#f57f17;margin-left:6px">⚠️ já tem OP</span>':''}
+          ${isConcluida?'<span style="font-size:10px;color:#6a1b9a;margin-left:6px">✅ concluída</span>':''}
+          ${jaTemOP&&!isConcluida?'<span style="font-size:10px;color:#f57f17;margin-left:6px">⚠️ já tem OP</span>':''}
         </label>
         <div style="text-align:center;font-weight:700;font-size:14px;color:#1565c0">${qtdProj}</div>
         <input type="number" id="ord_qtd_${p.id}" min="1" value="${qtdProj}"
@@ -7363,7 +7365,7 @@ async function dragDrop(e,pdvId,novoStatus){
 function abrirConcluidosPDV(pdvId){
   const pdv=pdvs.find(p=>p.id===pdvId);
   const pecas=pecasProjeto.filter(p=>p.pdv_id===pdvId&&p.status==='concluido');
-  document.getElementById('modalConcluidosTitulo').textContent=`✅ Peças Concluídas — PDV ${pdv?.numero||''} ${pdv?.cliente||''}`;
+  document.getElementById('modalConcluidosTitulo').textContent=`✅ Peças Concluídas — ${(n=>n.toUpperCase().startsWith('PDV')?n:'PDV '+n)(String(pdv?.numero||''))} ${pdv?.cliente||''}`;
 
   document.getElementById('concluidosPDVConteudo').innerHTML=pecas.length?`
     <p style="font-size:13px;color:var(--gray);margin-bottom:14px">${pecas.length} peça${pecas.length!==1?'s':''} concluída${pecas.length!==1?'s':''}</p>
