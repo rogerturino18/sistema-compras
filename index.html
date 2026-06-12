@@ -7050,28 +7050,25 @@ function imprimirOrdem(id){
     };
   };
 
+  // Larguras fixas: OPERADOR=22%, DT/HR INICIAL=19%, DT/HR FINAL=9% — espelhadas nos dois lados
+  const W={op:'22%', ini:'19%', fim:'9%'};
+  const cellHdr=(w,txt)=>`<td style="border:1px solid #000;padding:3px 4px;width:${w};font-weight:700;text-align:center;background:#f0f0f0;font-size:10px">${txt}</td>`;
+  const cellDat=(w,txt)=>`<td style="border:1px solid #000;padding:3px 4px;width:${w};text-align:center;font-size:11px">${txt}</td>`;
+
   const opRow=(op1,op2)=>{
     const t1=getTempo(op1), t2=getTempo(op2);
     return `
     <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:10px">
-      <td colspan="3" style="border:1px solid #000;padding:4px">${op1}</td>
-      <td colspan="3" style="border:1px solid #000;padding:4px">${op2}</td>
+      <td colspan="3" style="border:1px solid #000;padding:4px;width:50%">${op1}</td>
+      <td colspan="3" style="border:1px solid #000;padding:4px;width:50%">${op2}</td>
     </tr>
-    <tr style="font-size:10px;font-weight:700;text-align:center;background:#f0f0f0">
-      <td style="border:1px solid #000;padding:3px 4px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR FINAL</td>
-      <td style="border:1px solid #000;padding:3px 4px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR FINAL</td>
+    <tr>
+      ${cellHdr(W.op,'OPERADOR')}${cellHdr(W.ini,'DT/HR INICIAL')}${cellHdr(W.fim,'DT/HR FINAL')}
+      ${cellHdr(W.op,'OPERADOR')}${cellHdr(W.ini,'DT/HR INICIAL')}${cellHdr(W.fim,'DT/HR FINAL')}
     </tr>
-    <tr style="height:28px;font-size:11px;text-align:center">
-      <td style="border:1px solid #000;padding:3px 4px">${t1.operador}</td>
-      <td style="border:1px solid #000;padding:3px 4px">${t1.ini}</td>
-      <td style="border:1px solid #000;padding:3px 4px">${t1.fim}</td>
-      <td style="border:1px solid #000;padding:3px 4px">${t2.operador}</td>
-      <td style="border:1px solid #000;padding:3px 4px">${t2.ini}</td>
-      <td style="border:1px solid #000;padding:3px 4px">${t2.fim}</td>
+    <tr style="height:28px">
+      ${cellDat(W.op,t1.operador)}${cellDat(W.ini,t1.ini)}${cellDat(W.fim,t1.fim)}
+      ${cellDat(W.op,t2.operador)}${cellDat(W.ini,t2.ini)}${cellDat(W.fim,t2.fim)}
     </tr>`;};
 
   const conteudo=`<!DOCTYPE html>
@@ -10907,7 +10904,11 @@ async function dispararEmailBemVindo(){
     </p>
     <div style="background:#e8f5e9;border-radius:12px;padding:24px;margin-bottom:28px;border-left:4px solid #2e7d32">
       <p style="margin:0 0 14px;font-size:12px;color:#2e7d32;font-weight:700;text-transform:uppercase;letter-spacing:0.8px">🔑 Suas credenciais de acesso</p>
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+  <colgroup>
+    <col style="width:22%"><col style="width:19%"><col style="width:9%">
+    <col style="width:22%"><col style="width:19%"><col style="width:9%">
+  </colgroup>
         <tr><td style="padding:8px 0;font-size:13px;color:#546e7a;width:80px;vertical-align:top">E-mail</td><td style="padding:8px 0;font-size:14px;color:#263238;font-weight:700">${u.email}</td></tr>
         <tr><td colspan="2" style="border-top:1px solid #c8e6c9;padding:0"></td></tr>
         <tr><td style="padding:8px 0;font-size:13px;color:#546e7a;vertical-align:top">Senha</td><td style="padding:8px 0;font-size:16px;color:#2e7d32;font-weight:700;font-family:monospace;letter-spacing:3px">${u.senha}</td></tr>
