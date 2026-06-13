@@ -508,11 +508,11 @@ tr:hover td{background:#f9fbf9}
   <div class="sb-icon" id="sbico_producao" onclick="sbToggle('producao')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🔧<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Produção</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
   <div class="sb-icon" id="sbico_vendas" onclick="sbToggle('vendas')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🧾<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Vendas</span></div>
-  <div class="sb-icon" id="sbico_financeiro" onclick="sbToggle('financeiro')" style="width:40px;height:40px;border-radius:10px;display:none;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">💰<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Financeiro</span></div>
+  <div class="sb-icon" id="sbico_financeiro" onclick="sbToggle('financeiro')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">💰<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Financeiro</span></div>
   <div class="sb-icon" id="sbico_estoque" onclick="sbToggle('estoque')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">📦<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Estoque</span></div>
 </div>
 <!-- Painéis sidebar -->
-<div id="sbpanel_financeiro" style="display:none!important;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
+<div id="sbpanel_financeiro" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#1b5e20;text-transform:uppercase;border-bottom:1px solid #e8f5e9">💰 Financeiro</div>
   <div style="padding:6px 0">
     <div class="sbi" onclick="sbGo(19,'Contas a Pagar')">📤 Contas a Pagar</div>
@@ -8168,9 +8168,7 @@ const DASH_GRUPOS = [
       {label:'Clientes',      icon:'👤', tab:14, sub:'Cadastro'},
     ]
   },
-  // FINANCEIRO OCULTO TEMPORARIAMENTE — dados preservados no banco
-  // Para reativar: remover o comentário e restaurar o bloco abaixo
-  /*{
+  {
     id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
     subs:[
       {label:'Fluxo de Caixa',    icon:'📊', tab:21, sub:'Realizados'},
@@ -8181,7 +8179,7 @@ const DASH_GRUPOS = [
       {label:'Contas Correntes',  icon:'🏦', tab:22, sub:'Saldos'},
       {label:'DRE',               icon:'📈', tab:23, sub:'Resultado'},
     ]
-  },*/
+  },
   {
     id:'estoque', label:'Estoque', icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
     subs:[
@@ -11576,11 +11574,7 @@ function sbToggle(group){
   if(mobBtn) mobBtn.classList.add('active');
 }
 
-// Abas financeiras ocultas temporariamente — dados preservados no banco
-const _TABS_OCULTAS = new Set([19,20,21,22,23,25,26]);
-
 function sbGo(tab, name){
-  if(_TABS_OCULTAS.has(tab)){ showToast('Módulo financeiro temporariamente indisponível','err'); return; }
   fecharHomeScreen();
   sbCloseAll();
   showTab(tab);
