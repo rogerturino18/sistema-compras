@@ -24,9 +24,9 @@
   --green:#2e7d32;--green-light:#4caf50;--green-pale:#e8f5e9;--green-dark:#1b5e20;
   --yellow:#f9a825;--dark:#263238;--gray:#546e7a;--bg:#f0f4f0;--white:#fff;--border:#dce4dc;
 }
-body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--dark);background:var(--bg);min-height:100vh}
+body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--dark);background:var(--bg);min-height:100vh;padding-top:56px}
 .app-content{display:none}
-.header{background:var(--green);padding:0 20px;height:56px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15);position:sticky;top:0;z-index:20}
+.header{background:var(--green);padding:0 20px;height:56px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15);position:fixed;top:0;left:0;right:0;z-index:20}
 .header-logo{width:42px;height:42px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--green);flex-shrink:0}
 .header-text h1{font-size:16px;font-weight:700;color:#fff}
 .header-text p{font-size:11px;color:rgba(255,255,255,0.7)}
@@ -257,7 +257,7 @@ tr:hover td{background:#f9fbf9}
 .user-badge{margin-left:auto;display:flex;align-items:center;gap:8px;cursor:pointer}
 .user-avatar{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
 .user-name{font-size:12px;color:rgba(255,255,255,0.9);font-weight:500}
-.user-menu{position:absolute;top:60px;right:16px;background:#fff;border-radius:10px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:50;min-width:180px;display:none}
+.user-menu{position:fixed;top:56px;right:16px;background:#fff;border-radius:10px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:100;min-width:180px;display:none}
 .user-menu.open{display:block}
 .user-menu-item{padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--dark)}
 .user-menu-item:hover{background:var(--green-pale)}
