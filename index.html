@@ -3487,8 +3487,8 @@ tr:hover td{background:#f9fbf9}
     <div class="tbl-wrap">
       <table class="data-table">
         <thead><tr>
-          <th>Data</th><th>Funcionário</th><th>EPIs Entregues</th>
-          <th>Total Itens</th><th>Registrado por</th><th>Observação</th><th>Ações</th>
+          <th>Data</th><th>Funcionário</th><th>EPIs Entregues (item × qtd)</th>
+          <th>Registrado por</th><th>Observação</th><th>Ações</th>
         </tr></thead>
         <tbody id="listaEPI"></tbody>
       </table>
@@ -3598,11 +3598,11 @@ let _editFuncEPIId  = null;
 async function carregarDadosEPI(){
   try{
     const [r1,r2] = await Promise.all([
-      api('GET','epi_entregas','','?order=data.desc').catch(()=>[]),
-      api('GET','epi_funcionarios','','?order=nome.asc').catch(()=>[])
+      api('GET','epi_entregas','','?order=data.desc').catch(e=>{ console.warn('[EPI entregas]',e.message); return []; }),
+      api('GET','epi_funcionarios','','?order=nome.asc').catch(e=>{ console.warn('[EPI funcionarios]',e.message); return []; })
     ]);
-    epiEntregas     = r1||[];
-    epiFuncionarios = r2||[];
+    epiEntregas     = Array.isArray(r1)?r1:[];
+    epiFuncionarios = Array.isArray(r2)?r2:[];
   }catch(e){ console.warn('[EPI]',e.message); }
 }
 
@@ -3663,22 +3663,26 @@ function renderEPI(){
   if(mes) lista=lista.filter(r=>(r.data||'').startsWith(mes));
   if(func) lista=lista.filter(r=>r.funcionario_id===func);
 
-  if(!lista.length){ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:#bdbdbd">Nenhuma entrega registrada</td></tr>'; return; }
+  if(!lista.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:#bdbdbd">Nenhuma entrega registrada</td></tr>'; return; }
 
   tbody.innerHTML=lista.map(r=>{
     const fn=epiFuncionarios.find(f=>f.id===r.funcionario_id);
     const itens=typeof r.itens==='string'?JSON.parse(r.itens||'[]'):r.itens||[];
     const totalQtd=itens.reduce((s,i)=>s+(i.quantidade||1),0);
-    const resumo=itens.slice(0,3).map(i=>`<span style="background:#e8f5e9;color:#2e7d32;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:600;margin:1px;display:inline-block">${i.nome}${i.quantidade>1?' x'+i.quantidade:''}</span>`).join('')+(itens.length>3?`<span style="font-size:10px;color:#9e9e9e"> +${itens.length-3}</span>`:'');
+    // Todos os itens com quantidade individual
+    const resumo=itens.map(i=>`
+      <div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+        <span style="background:#e8f5e9;color:#1b5e20;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;flex:1">${i.nome}</span>
+        <span style="background:#1b5e20;color:#fff;border-radius:12px;padding:1px 8px;font-size:11px;font-weight:800;min-width:28px;text-align:center">${i.quantidade||1} ${i.unidade||'un'}</span>
+      </div>`).join('');
     const dt=r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'--';
     return `<tr>
-      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${dt}</td>
-      <td style="padding:8px 10px;font-weight:600;color:#263238">${fn?.nome||'--'}</td>
-      <td style="padding:8px 10px">${resumo||'--'}</td>
-      <td style="padding:8px 10px;text-align:center;font-weight:700;color:#2e7d32">${totalQtd}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#546e7a">${r.registrado_por||'--'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#78909c">${r.observacao||'--'}</td>
-      <td style="padding:6px 8px;white-space:nowrap">
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;vertical-align:top">${dt}</td>
+      <td style="padding:8px 10px;font-weight:600;color:#263238;vertical-align:top">${fn?.nome||'--'}<br><span style="font-size:10px;color:#9e9e9e;font-weight:400">${fn?.cargo||''}</span></td>
+      <td style="padding:8px 10px;vertical-align:top">${resumo||'--'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#546e7a;vertical-align:top">${r.registrado_por||'--'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#78909c;vertical-align:top">${r.observacao||'--'}</td>
+      <td style="padding:6px 8px;white-space:nowrap;vertical-align:top">
         <button class="btn btn-sm danger" onclick="excluirEntregaEPI('${r.id}')" title="Excluir">🗑</button>
       </td>
     </tr>`;
@@ -3848,7 +3852,15 @@ async function salvarFuncEPI(){
     await carregarDadosEPI();
     renderFuncionariosEPI();
     showToast(_editFuncEPIId?'Funcionario atualizado!':'Funcionario cadastrado!');
-  }catch(e){ showToast('Erro: '+e.message,'err'); }
+  }catch(e){
+    const msg = e.message||'';
+    if(msg.includes('relation') || msg.includes('does not exist') || msg.includes('42P01')){
+      showToast('Tabela epi_funcionarios nao existe no Supabase. Execute o SQL de criacao.','err',8000);
+    } else {
+      showToast('Erro ao salvar: '+msg,'err',6000);
+    }
+    console.error('[EPI]',e);
+  }
 }
 
 async function excluirFuncEPI(id){
