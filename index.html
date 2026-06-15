@@ -10138,6 +10138,7 @@ const MODULOS_SISTEMA = [
   {id:'entrada_nfe',label:'🧾 Entrada NF-e',         tab:24},
   {id:'requisicoes',label:'📋 Requisições',          tab:17},
   {id:'admin',      label:'⚙️ Administração',        tab:18},
+  {id:'epi',        label:'🦺 Controle EPI',           tab:29},
 ];
 
 // Extrai permissões do campo perfil (formato: "Cargo:mod1,mod2,mod3" ou só "Cargo")
@@ -10194,7 +10195,7 @@ const TAB_GRUPO_SIDEBAR = {
   7:'compras',9:'compras',10:'compras',11:'estoque',12:'vendas',13:'vendas',
   14:'vendas',17:'compras',18:'compras',19:'financeiro',20:'financeiro',
   21:'financeiro',22:'financeiro',23:'financeiro',24:'financeiro',25:'financeiro',
-  26:'financeiro',27:'producao',
+  26:'financeiro',27:'producao',29:'epi',
 };
 
 // Aplica permissões na UI — oculta ícones, sidebar items, cards e bloqueia tabs
@@ -10221,7 +10222,7 @@ function aplicarPermissoes(){
   });
 
   // 1. Oculta/mostra ícones do sidebar lateral (sbico_*)
-  ['compras','projetos','producao','vendas','financeiro','estoque'].forEach(g=>{
+  ['compras','projetos','producao','vendas','financeiro','estoque','epi'].forEach(g=>{
     const ico=document.getElementById('sbico_'+g);
     if(ico) ico.style.display = gruposPermitidos.has(g) ? '' : 'none';
   });
