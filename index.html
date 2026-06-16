@@ -866,15 +866,15 @@ tr:hover td{background:#f9fbf9}
       <div style="flex:1;overflow:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px">
           <thead>
-            <tr style="background:#f0f4f0;position:sticky;top:0;z-index:2">
-              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Código</th>
-              <th style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Tipo</th>
+            <tr id="estThead" style="background:#f0f4f0;position:sticky;top:0;z-index:2">
+              <th onclick="estOrdenarPor('codigo')" style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por código">Código <span id="estSortIco_codigo"></span></th>
+              <th onclick="estOrdenarPor('descricao')" style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer" title="Ordenar por tipo/descrição">Tipo <span id="estSortIco_descricao"></span></th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">NCM</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Saldo</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Custo Unit.</th>
+              <th onclick="estOrdenarPor('saldo')" style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por saldo">Saldo <span id="estSortIco_saldo"></span></th>
+              <th onclick="estOrdenarPor('custo')" style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por custo">Custo Unit. <span id="estSortIco_custo"></span></th>
               <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Preço Venda</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Peso Unit.</th>
+              <th onclick="estOrdenarPor('peso')" style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por peso">Peso Unit. <span id="estSortIco_peso"></span></th>
               <th style="width:120px"></th>
             </tr>
           </thead>
@@ -8065,6 +8065,15 @@ function dashToggleGrupo(gId){
 let estCatAtual = null; // categoria selecionada no filtro lateral
 let estOrdemRecentes = false;
 let estOcultarZero = false;
+let estSortCol='descricao';
+let estSortDir=1;
+
+function estOrdenarPor(col){
+  if(estSortCol===col){ estSortDir*=-1; }
+  else { estSortCol=col; estSortDir=(col==='saldo'?-1:1); }
+  estOrdemRecentes=false;
+  renderEstoque();
+}
 
 function toggleOrdemEstoque(){
   estOrdemRecentes = !estOrdemRecentes;
@@ -8165,17 +8174,28 @@ function renderEstoque(){
   const badge = document.getElementById('estCatAtualBadge');
   if(badge) badge.textContent = estCatAtual ? `${lista.length} item(ns)` : '';
 
-  // Ordenação: recentes primeiro (por id/created_at) ou A→Z
+  // Ordenação
   if(estOrdemRecentes){
-    lista.sort((a,b)=>{
-      // Tenta ordenar por created_at, depois por id
-      const da = a.created_at||a.id||'';
-      const db = b.created_at||b.id||'';
-      return db.localeCompare(da);
-    });
+    lista.sort((a,b)=>{ const da=a.created_at||a.id||''; const db=b.created_at||b.id||''; return db.localeCompare(da); });
   } else {
-    lista.sort((a,b)=>(a.descricao||a.tipo_peca||'').localeCompare(b.descricao||b.tipo_peca||'','pt-BR'));
+    // Calcular saldo para ordenação
+    const calcSaldo=i=>{ const mv=estoqueMov.filter(m=>m.item_id===i.id); return (i.qtd_inicial||0)+mv.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.quantidade,0)-mv.filter(m=>m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0); };
+    lista.sort((a,b)=>{
+      let va,vb;
+      if(estSortCol==='saldo'){ va=calcSaldo(a); vb=calcSaldo(b); return (va-vb)*estSortDir; }
+      if(estSortCol==='custo'){ va=a.valor_unitario||0; vb=b.valor_unitario||0; return (va-vb)*estSortDir; }
+      if(estSortCol==='peso'){ va=a.peso_unitario||0; vb=b.peso_unitario||0; return (va-vb)*estSortDir; }
+      if(estSortCol==='codigo'){ va=a.codigo||''; vb=b.codigo||''; return va.localeCompare(vb,'pt-BR')*estSortDir; }
+      // descricao (padrão)
+      va=a.descricao||a.tipo_peca||''; vb=b.descricao||b.tipo_peca||'';
+      return va.localeCompare(vb,'pt-BR')*estSortDir;
+    });
   }
+  // Atualizar ícones de ordenação
+  ['codigo','descricao','saldo','custo','peso'].forEach(col=>{
+    const el=document.getElementById('estSortIco_'+col);
+    if(el) el.textContent=(!estOrdemRecentes&&estSortCol===col)?(estSortDir===1?' ↑':' ↓'):'';
+  });
 
   // Stats
   const totalItens = estoqueItens.length;
