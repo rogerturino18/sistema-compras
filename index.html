@@ -10244,13 +10244,25 @@ const GRUPO_TABS = {
   admin:      [18],
 };
 
-// Mapeamento tab → grupo sidebar pai
+// Mapeamento tab → grupo sidebar pai (espelha EXATAMENTE a estrutura real dos painéis HTML abaixo —
+// qualquer divergência aqui faz o ícone errado da sidebar acender para uma permissão concedida)
 const TAB_GRUPO_SIDEBAR = {
-  1:'compras',2:'compras',3:'projetos',4:'projetos',5:'producao',6:'compras',
-  7:'compras',9:'compras',10:'compras',11:'estoque',12:'vendas',13:'vendas',
-  14:'vendas',17:'compras',18:'compras',19:'financeiro',20:'financeiro',
-  21:'financeiro',22:'financeiro',23:'financeiro',24:'financeiro',25:'financeiro',
-  26:'financeiro',27:'producao',29:'epi',
+  // sbpanel_compras: Lista de Compras(1), Entrada NF-e(24), Fornecedores(2), Comparar Orçamentos(7),
+  //                   Compras Internas(9), Enviar Cotação(10), Pedido de Compra(15)
+  1:'compras',2:'compras',6:'compras',7:'compras',9:'compras',10:'compras',15:'compras',24:'compras',
+  // sbpanel_projetos: Projetos/PDVs(3), Lista de Material(4)
+  3:'projetos',4:'projetos',
+  // sbpanel_producao: Ordens(5), Histórico de Tempos(27)
+  5:'producao',27:'producao',
+  // sbpanel_vendas: Clientes(14), PDV(13), Fiscal/NF-e(12)
+  12:'vendas',13:'vendas',14:'vendas',
+  // sbpanel_financeiro: Contas a Pagar(19), Contas a Receber(20), Fluxo de Caixa(21),
+  //                      Pagamentos(25), Recebimentos(26), Contas Correntes(22), DRE(23)
+  19:'financeiro',20:'financeiro',21:'financeiro',22:'financeiro',23:'financeiro',25:'financeiro',26:'financeiro',
+  // sbpanel_estoque: Itens em Estoque(11), Movimentações(16), Requisições(17), Departamentos(18)
+  11:'estoque',16:'estoque',17:'estoque',18:'estoque',
+  // EPI tem ícone próprio (sbico_epi → tab 29 direto, sem painel lateral)
+  29:'epi',
 };
 
 // Aplica permissões na UI — oculta ícones, sidebar items, cards e bloqueia tabs
@@ -10297,7 +10309,19 @@ function aplicarPermissoes(){
     el.style.display = perms.includes(mod) ? '' : 'none';
   });
 
-  // 4. Bloqueia navegação para tabs sem permissão (protege contra acesso direto)
+  // 4. Oculta/mostra botões da barra de navegação mobile (mobnav_*)
+  const mobMapPerm={'compras':'mobnav_comp','projetos':'mobnav_comp','producao':'mobnav_prod','vendas':'mobnav_vend','estoque':'mobnav_est','financeiro':'mobnav_fin'};
+  Object.entries(mobMapPerm).forEach(([g,btnId])=>{
+    const btn=document.getElementById(btnId);
+    if(!btn) return;
+    // O botão mobile compartilha ícone entre múltiplos grupos (ex: compras+projetos no mesmo botão) —
+    // só esconde se NENHUM dos grupos que ele representa estiver liberado.
+    const gruposDoBotao=Object.entries(mobMapPerm).filter(([,b])=>b===btnId).map(([gg])=>gg);
+    const podeVerBotao=gruposDoBotao.some(gg=>gruposPermitidos.has(gg));
+    btn.style.display = podeVerBotao ? '' : 'none';
+  });
+
+  // 5. Bloqueia navegação para tabs sem permissão (showTab/sbGo verificam window._tabsPermitidas)
   window._tabsPermitidas = tabsPermitidas;
 }
 
