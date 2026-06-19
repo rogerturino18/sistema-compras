@@ -5882,7 +5882,10 @@ function renderCI(){
       </td>
       <td>${i.categoria||'—'}</td>
       <td>${i.quantidade||0} ${i.unidade||''}</td>
-      <td><button class="btn btn-sm" onclick="abrirModalCISimples('${i.id}')">✏️</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirModalCISimples('${i.id}')" title="Editar">✏️</button>
+        <button class="btn btn-sm danger" onclick="deletarCI('${i.id}')" title="Excluir">🗑</button>
+      </td>
     </tr>`).join('');
     return;
   }
@@ -10143,15 +10146,18 @@ function isExpedicao(){
 }
 function isAprovador(){
   if(!usuarioLogado) return false;
-  // E-mails de administradores (comparação case-insensitive)
+  // E-mails de administradores (comparação case-insensitive) — única fonte confiável de acesso total
   const admins=['adm.geral@sloleos.com.br','roger@sloleos.com.br','sylvio@sloleos.com.br'];
   const emailLower=(usuarioLogado.email||'').trim().toLowerCase();
   if(admins.includes(emailLower)) return true;
-  // Verifica perfil/cargo (case-insensitive)
-  const perfilStr=(usuarioLogado.perfil||usuarioLogado.cargo||usuarioLogado.tipo||'').toLowerCase();
-  if(perfilStr.includes('admin')||perfilStr.includes('aprovador')||perfilStr==='gestor') return true;
   // Verifica flag is_admin no registro do usuário
   if(usuarioLogado.is_admin===true||usuarioLogado.is_admin==='true'||usuarioLogado.is_admin===1) return true;
+  // Verifica CARGO (nunca o campo perfil, que contém |PERMS:... e poderia conter a palavra "admin"
+  // só porque o módulo "Administração" foi marcado nas permissões — isso NÃO deve dar acesso total).
+  // Exige correspondência exata do cargo, não substring, para não vazar acesso por coincidência de texto.
+  const cargoStr=(usuarioLogado.cargo||'').trim().toLowerCase();
+  const cargosAdmin=['admin','administrador','aprovador','gestor'];
+  if(cargosAdmin.includes(cargoStr)) return true;
   return false;
 }
 
