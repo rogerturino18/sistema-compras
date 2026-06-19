@@ -3151,7 +3151,7 @@ tr:hover td{background:#f9fbf9}
   <div class="form-grid">
     <div class="form-group full"><label>Descrição *</label><input id="est_desc" placeholder="Ex: Barra Redonda SAE 1020, Eixo Cônico..."></div>
     <div class="form-group"><label>Categoria *</label>
-      <select id="est_categoria">
+      <select id="est_categoria" onchange="togglePrecoVendaPorCategoria()">
         <option value="Matéria Prima">Matéria Prima</option>
         <option value="Acessórios Comerciais">Acessórios Comerciais</option>
         <option value="Produto Final">Produto Final</option>
@@ -3173,20 +3173,28 @@ tr:hover td{background:#f9fbf9}
     </div>
     <div class="form-group"><label>Quantidade Atual *</label><input id="est_qtd" type="number" step="1" min="0" value="0"></div>
     <div class="form-group"><label>Unidade</label>
-      <select id="est_und">
+      <select id="est_und" onchange="toggleModoCustoBarra()">
         <option>PC</option><option>KG</option><option>UN</option><option>MT</option><option>M2</option><option>BARRA</option><option>PAR</option><option>JG</option><option>CX</option>
       </select>
     </div>
-    <div id="est_grupo_regra3" class="form-group full" style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:12px;margin-top:-4px">
-      <label style="color:#e65100;display:flex;align-items:center;gap:6px">📏 Cálculo por comprimento (regra de 3) <span style="font-weight:400;font-size:10px;text-transform:none;color:#9e9e9e">— útil para barras roscadas: preencha para calcular o Custo Unitário automaticamente</span></label>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px">
-        <div><label style="font-size:10px;color:#795548">Preço por metro inteiro (R$/m)</label><input id="est_preco_metro" type="number" step="0.01" min="0" placeholder="Ex: 12,00" oninput="calcularRegraTresMetro()"></div>
-        <div><label style="font-size:10px;color:#795548">Comprimento que tenho (mm)</label><input id="est_comprimento_mm" type="number" step="1" min="0" placeholder="Ex: 203" oninput="calcularRegraTresMetro()"></div>
-        <div><label style="font-size:10px;color:#795548">Custo Unitário calculado</label><input id="est_custo_calculado_preview" type="text" disabled style="background:#fff;font-weight:700;color:#2e7d32"></div>
-      </div>
+
+    <!-- Custo Unitário: campo normal (qualquer unidade exceto BARRA) -->
+    <div class="form-group" id="est_grupo_custo_normal"><label>Custo Unitário (R$)</label><input id="est_valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
+
+    <!-- Custo Unitário: modo barra roscada (Unidade = BARRA) — substitui o campo acima -->
+    <div class="form-group" id="est_grupo_custo_barra" style="display:none">
+      <label>Preço por metro (R$/m) <span style="color:var(--gray);font-weight:400;font-size:10px;text-transform:none">→ calcula o custo da peça</span></label>
+      <input id="est_preco_metro" type="number" step="0.01" min="0" placeholder="Ex: 12,00" oninput="calcularCustoBarra()">
     </div>
-    <div class="form-group"><label>Custo Unitário (R$)</label><input id="est_valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
-    <div class="form-group"><label>Preço de Venda (R$)</label><input id="est_preco_venda" type="number" step="0.01" min="0" placeholder="0,00"></div>
+    <div class="form-group" id="est_grupo_comprimento_barra" style="display:none">
+      <label>Comprimento da peça (mm)</label>
+      <input id="est_comprimento_mm" type="number" step="1" min="0" placeholder="Ex: 203" oninput="calcularCustoBarra()">
+    </div>
+    <div class="form-group full" id="est_grupo_custo_barra_resultado" style="display:none;background:#f1f8f1;border:1px solid #a5d6a7;border-radius:8px;padding:8px 12px;margin-top:-6px">
+      <span style="font-size:12px;color:#2e7d32">Custo Unitário desta peça: <b id="est_custo_barra_texto" style="font-size:14px">R$ 0,00</b></span>
+    </div>
+
+    <div class="form-group" id="est_grupo_preco_venda"><label>Preço de Venda (R$)</label><input id="est_preco_venda" type="number" step="0.01" min="0" placeholder="0,00"></div>
     <div class="form-group"><label>Peso Unitário (kg)</label><input id="est_peso" type="number" step="0.0001" min="0" placeholder="0,000"></div>
     <div class="form-group"><label>Nota Fiscal</label><input id="est_nf" placeholder="Nº da NF (opcional)"></div>
     <div class="form-group full"><label>Observação</label><textarea id="est_obs" rows="2" placeholder="Observações..."></textarea></div>
@@ -8459,11 +8467,10 @@ function abrirModalEstoque(sub, id){
   set('est_obs', item?.observacao);
   if(document.getElementById('est_local')) document.getElementById('est_local').value = item?.localizacao||'Barracão 1';
   if(document.getElementById('est_und')) document.getElementById('est_und').value = item?.unidade||'PC';
-  // Limpa os campos auxiliares da regra de 3 (preço/m e comprimento) — são só uma calculadora,
-  // não ficam salvos no banco, então sempre começam vazios ao abrir o modal
-  const limpa = (el) => { const e=document.getElementById(el); if(e) e.value=''; };
-  limpa('est_preco_metro'); limpa('est_comprimento_mm'); limpa('est_custo_calculado_preview');
-  toggleRegraTresMetro();
+  // Campos de barra roscada — persistem no item (preco_metro, comprimento_mm) para reaparecer ao editar
+  set('est_preco_metro', item?.preco_metro);
+  set('est_comprimento_mm', item?.comprimento_mm);
+  toggleModoCustoBarra();
   // Categoria: atualiza o select com categorias dinâmicas (localStorage) ANTES de setar o valor
   const catEl = document.getElementById('est_categoria');
   if(catEl){
@@ -8479,9 +8486,10 @@ function abrirModalEstoque(sub, id){
       catEl.appendChild(opt);
       catEl.value = cat;
     }
-    // Atualiza preview do código automático quando categoria muda
-    catEl.onchange = () => _atualizarPreviewCodigo(!!id);
+    // Atualiza preview do código automático E visibilidade do Preço de Venda quando categoria muda
+    catEl.onchange = () => { _atualizarPreviewCodigo(!!id); togglePrecoVendaPorCategoria(); };
   }
+  togglePrecoVendaPorCategoria();
   // Preview do código automático (somente itens novos sem código)
   _atualizarPreviewCodigo(!!id);
   abrirModal('modalEstoque');
@@ -8643,6 +8651,8 @@ async function salvarEstoque(){
   if(!codigoFinal && !editEstoqueId) {
     codigoFinal = gerarProximoCodigo(categoria);
   }
+  const unidade = document.getElementById('est_und').value;
+  const isBarra = unidade === 'BARRA';
   const toUp = s => (s||'').toUpperCase().trim() || null;
   const obj = {
     descricao: desc.toUpperCase(),
@@ -8652,9 +8662,11 @@ async function salvarEstoque(){
     material: toUp(document.getElementById('est_mat').value),
     localizacao: document.getElementById('est_local').value,
     qtd_inicial: parseInt(document.getElementById('est_qtd').value)||0,
-    unidade: document.getElementById('est_und').value,
+    unidade,
     valor_unitario: parseFloat(document.getElementById('est_valor').value)||null,
-    preco_venda: parseFloat(document.getElementById('est_preco_venda')?.value)||null,
+    preco_metro: isBarra ? (parseFloat(document.getElementById('est_preco_metro')?.value)||null) : null,
+    comprimento_mm: isBarra ? (parseFloat(document.getElementById('est_comprimento_mm')?.value)||null) : null,
+    preco_venda: categoria==='Produto Final' ? (parseFloat(document.getElementById('est_preco_venda')?.value)||null) : null,
     peso_unitario: parseFloat(document.getElementById('est_peso')?.value)||null,
     nota_fiscal: document.getElementById('est_nf').value.trim()||null,
     observacao: document.getElementById('est_obs').value.trim()||null,
@@ -8684,26 +8696,33 @@ async function deletarEstoqueItem(id){
   }catch(e){showToast('Erro','err');}
 }
 
-// ── Regra de 3 para itens vendidos por metro (barras roscadas, tarugos, etc.) ──
-// O fornecedor vende a barra inteira por metro, mas no estoque sobram pedaços
-// cortados menores. Aqui: Preço/metro × Comprimento que tenho = Custo Unitário do pedaço.
-function toggleRegraTresMetro(){
-  const grupo = document.getElementById('est_grupo_regra3');
-  if(grupo) grupo.style.display = '';
+// ── Custo Unitário inteligente para Barras Roscadas (Unidade = BARRA) ──────
+// O fornecedor vende a barra por metro, mas o estoque guarda peças já cortadas
+// em mm. Quando Unidade=BARRA, o campo "Custo Unitário" comum é substituído por
+// "Preço por metro" + "Comprimento (mm)", e o custo da peça é calculado sozinho.
+function toggleModoCustoBarra(){
+  const isBarra = document.getElementById('est_und').value === 'BARRA';
+  document.getElementById('est_grupo_custo_normal').style.display = isBarra ? 'none' : '';
+  document.getElementById('est_grupo_custo_barra').style.display = isBarra ? '' : 'none';
+  document.getElementById('est_grupo_comprimento_barra').style.display = isBarra ? '' : 'none';
+  document.getElementById('est_grupo_custo_barra_resultado').style.display = isBarra ? '' : 'none';
+  if(isBarra) calcularCustoBarra();
 }
 
-function calcularRegraTresMetro(){
+function calcularCustoBarra(){
   const precoMetro = parseFloat(document.getElementById('est_preco_metro')?.value)||0;
   const comprimentoMm = parseFloat(document.getElementById('est_comprimento_mm')?.value)||0;
-  const preview = document.getElementById('est_custo_calculado_preview');
-  const campoValor = document.getElementById('est_valor');
-  if(precoMetro>0 && comprimentoMm>0){
-    const custo = (precoMetro/1000) * comprimentoMm; // R$/mm × mm = R$
-    if(preview) preview.value = 'R$ ' + custo.toFixed(2).replace('.',',');
-    if(campoValor) campoValor.value = custo.toFixed(2);
-  } else {
-    if(preview) preview.value = '';
-  }
+  const custo = (precoMetro/1000) * comprimentoMm; // R$/mm × mm = R$ da peça
+  document.getElementById('est_custo_barra_texto').textContent = 'R$ ' + custo.toFixed(2).replace('.',',');
+  // Mantém o campo real (est_valor) sempre sincronizado — é ele que é salvo no banco
+  document.getElementById('est_valor').value = custo.toFixed(2);
+}
+
+// Preço de Venda só faz sentido para itens que a empresa vende (Produto Final)
+function togglePrecoVendaPorCategoria(){
+  const cat = document.getElementById('est_categoria').value;
+  const grupo = document.getElementById('est_grupo_preco_venda');
+  if(grupo) grupo.style.display = (cat==='Produto Final') ? '' : 'none';
 }
 
 function _atualizarPreviewCodigo(isEdit){
