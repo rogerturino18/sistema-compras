@@ -1879,8 +1879,8 @@ tr:hover td{background:#f9fbf9}
     </div>
     <!-- Aba Permissões -->
     <div id="euTab2" style="padding:16px 20px;display:none">
-      <p style="font-size:12px;color:#546e7a;margin-bottom:14px">Selecione os módulos que este usuário pode acessar. Deixe todos marcados para acesso total.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="euPermissoesGrid">
+      <p style="font-size:12px;color:#546e7a;margin-bottom:14px">Marque os módulos que este usuário pode acessar. Cada módulo libera tudo que está dentro dele de uma vez — não é possível liberar "pela metade".</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="euPermissoesGrid">
         <!-- Preenchido por JS -->
       </div>
       <div style="margin-top:14px;display:flex;gap:8px">
@@ -10196,6 +10196,21 @@ const MODULOS_SISTEMA = [
   {id:'epi',        label:'🦺 Controle EPI',           tab:29},
 ];
 
+// ── Grupos de permissão (espelham os 6 cards da Dashboard + EPI) ──────────
+// Marcar/desmarcar um grupo aqui ativa/desativa de uma vez TODOS os módulos
+// internos listados — evita o erro de liberar só "Entrada NF-e" e esquecer
+// o resto de Compras, por exemplo.
+const GRUPOS_PERMISSAO = [
+  {id:'g_compras',    label:'Compras',    icon:'🛒', cor:'#1565c0', modulos:['compras','cotacoes','compint','envio','entrada_nfe','fiscal']},
+  {id:'g_projeto',    label:'Projeto',    icon:'🎯', cor:'#2e7d32', modulos:['projetos','material']},
+  {id:'g_producao',   label:'Produção',   icon:'🏭', cor:'#558b2f', modulos:['producao','requisicoes']},
+  {id:'g_vendas',     label:'Vendas',     icon:'🏷️', cor:'#6a1b9a', modulos:['pdv','clientes']},
+  {id:'g_financeiro', label:'Financeiro', icon:'💰', cor:'#c62828', modulos:['financeiro','receber','fluxo']},
+  {id:'g_estoque',    label:'Estoque',    icon:'📦', cor:'#00695c', modulos:['estoque']},
+  {id:'g_epi',        label:'EPI',        icon:'🦺', cor:'#e65100', modulos:['epi']},
+  {id:'g_admin',      label:'Administração', icon:'⚙️', cor:'#37474f', modulos:['admin']},
+];
+
 // Extrai permissões do campo perfil (formato: "Cargo:mod1,mod2,mod3" ou só "Cargo")
 function getPermissoesUsuario(u){
   if(!u) return MODULOS_SISTEMA.map(m=>m.id);
@@ -10339,22 +10354,26 @@ function renderPermissoesGrid(){
   const permsAtivas = u ? getPermissoesUsuario(u) : MODULOS_SISTEMA.map(m=>m.id);
   const grid = document.getElementById('euPermissoesGrid');
   if(!grid) return;
-  grid.innerHTML = MODULOS_SISTEMA.map(m=>`
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #eceff1;border-radius:10px;cursor:pointer;background:#fff;${permsAtivas.includes(m.id)?'border-color:#a5d6a7;background:#f1f8f1':''}">
-      <input type="checkbox" id="perm_${m.id}" ${permsAtivas.includes(m.id)?'checked':''} 
-        onchange="this.closest('label').style.borderColor=this.checked?'#a5d6a7':'#eceff1';this.closest('label').style.background=this.checked?'#f1f8f1':'#fff'"
-        style="width:16px;height:16px;accent-color:#2e7d32;cursor:pointer">
-      <span style="font-size:13px;font-weight:600">${m.label}</span>
-    </label>`).join('');
+  grid.innerHTML = GRUPOS_PERMISSAO.map(g=>{
+    // Grupo considerado "marcado" se TODOS os módulos internos estiverem ativos
+    const todosAtivos = g.modulos.every(m=>permsAtivas.includes(m));
+    return `
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eceff1;border-radius:10px;cursor:pointer;background:#fff;${todosAtivos?`border-color:${g.cor};background:${g.cor}14`:''}">
+      <input type="checkbox" id="permgrp_${g.id}" data-modulos="${g.modulos.join(',')}" ${todosAtivos?'checked':''}
+        onchange="this.closest('label').style.borderColor=this.checked?'${g.cor}':'#eceff1';this.closest('label').style.background=this.checked?'${g.cor}14':'#fff'"
+        style="width:18px;height:18px;accent-color:${g.cor};cursor:pointer">
+      <span style="font-size:14px;font-weight:700;color:#263238">${g.icon} ${g.label}</span>
+    </label>`;
+  }).join('');
 }
 
 function marcarTodasPerms(marcar){
-  MODULOS_SISTEMA.forEach(m=>{
-    const el = document.getElementById('perm_'+m.id);
+  GRUPOS_PERMISSAO.forEach(g=>{
+    const el = document.getElementById('permgrp_'+g.id);
     if(el){
       el.checked = marcar;
       const lbl = el.closest('label');
-      if(lbl){ lbl.style.borderColor=marcar?'#a5d6a7':'#eceff1'; lbl.style.background=marcar?'#f1f8f1':'#fff'; }
+      if(lbl){ lbl.style.borderColor=marcar?g.cor:'#eceff1'; lbl.style.background=marcar?g.cor+'14':'#fff'; }
     }
   });
 }
@@ -10442,8 +10461,13 @@ async function salvarEdicaoUsuario(){
   const id = document.getElementById('eu_id').value;
   const cargoAtual = document.getElementById('eu_cargo').value.trim()||'';
 
-  // Sempre salva PERMS explicitamente — nunca omite para não cair no fallback por cargo
-  const permsSelecionadas = MODULOS_SISTEMA.filter(m=>document.getElementById('perm_'+m.id)?.checked).map(m=>m.id);
+  // Lê os checkboxes de GRUPO (visão simplificada) e expande para a lista completa
+  // de módulos internos que cada grupo representa — nunca salva módulo "pela metade".
+  const permsSelecionadas = [];
+  GRUPOS_PERMISSAO.forEach(g=>{
+    const el = document.getElementById('permgrp_'+g.id);
+    if(el?.checked) permsSelecionadas.push(...g.modulos);
+  });
   const perfilLabel = cargoAtual || 'Usuário';
   // Formato: "Cargo|PERMS:mod1,mod2,..." — sempre inclui PERMS para sobrepor mapeamento por cargo
   const perfilComPerms = `${perfilLabel}|PERMS:${permsSelecionadas.join(',')}`;
