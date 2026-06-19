@@ -7961,17 +7961,17 @@ function atualizarRelogio(){
 // ── Grupos da dashboard com sub-abas ────────────────────────────────────
 const DASH_GRUPOS = [
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
-   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2}]},
+   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Entrada NF-e',icon:'📥',tab:24}]},
   {id:'projeto',    label:'Projeto',    icon:'🎯', color:'linear-gradient(135deg,#2e7d32,#1b5e20)',
-   subs:[{label:'Projetos',icon:'🎯',tab:3},{label:'Lista Material',icon:'📝',tab:4},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18}]},
+   subs:[{label:'Projetos',icon:'🎯',tab:3},{label:'Lista Material',icon:'📝',tab:4}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
    subs:[{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27}]},
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
-   subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14}]},
+   subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12}]},
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
    subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
-   subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Fiscal / NF-e',icon:'📄',tab:12},{label:'Entrada NF-e',icon:'📥',tab:24}]},
+   subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18}]},
 ];
 
 let _dashGrupoAtivo = null;
@@ -10209,14 +10209,13 @@ const MODULOS_SISTEMA = [
 // internos listados — evita o erro de liberar só "Entrada NF-e" e esquecer
 // o resto de Compras, por exemplo.
 const GRUPOS_PERMISSAO = [
-  {id:'g_compras',    label:'Compras',    icon:'🛒', cor:'#1565c0', modulos:['compras','cotacoes','compint','envio','entrada_nfe','fiscal']},
+  {id:'g_compras',    label:'Compras',    icon:'🛒', cor:'#1565c0', modulos:['compras','cotacoes','compint','envio','entrada_nfe']},
   {id:'g_projeto',    label:'Projeto',    icon:'🎯', cor:'#2e7d32', modulos:['projetos','material']},
-  {id:'g_producao',   label:'Produção',   icon:'🏭', cor:'#558b2f', modulos:['producao','requisicoes']},
-  {id:'g_vendas',     label:'Vendas',     icon:'🏷️', cor:'#6a1b9a', modulos:['pdv','clientes']},
+  {id:'g_producao',   label:'Produção',   icon:'🏭', cor:'#558b2f', modulos:['producao']},
+  {id:'g_vendas',     label:'Vendas',     icon:'🏷️', cor:'#6a1b9a', modulos:['pdv','clientes','fiscal']},
   {id:'g_financeiro', label:'Financeiro', icon:'💰', cor:'#c62828', modulos:['financeiro','receber','fluxo']},
-  {id:'g_estoque',    label:'Estoque',    icon:'📦', cor:'#00695c', modulos:['estoque']},
+  {id:'g_estoque',    label:'Estoque',    icon:'📦', cor:'#00695c', modulos:['estoque','requisicoes','admin']},
   {id:'g_epi',        label:'EPI',        icon:'🦺', cor:'#e65100', modulos:['epi']},
-  {id:'g_admin',      label:'Administração', icon:'⚙️', cor:'#37474f', modulos:['admin']},
 ];
 
 // Extrai permissões do campo perfil (formato: "Cargo:mod1,mod2,mod3" ou só "Cargo")
