@@ -3173,12 +3173,12 @@ tr:hover td{background:#f9fbf9}
     </div>
     <div class="form-group"><label>Quantidade Atual *</label><input id="est_qtd" type="number" step="1" min="0" value="0"></div>
     <div class="form-group"><label>Unidade</label>
-      <select id="est_und" onchange="toggleRegraTresMetro()">
+      <select id="est_und">
         <option>PC</option><option>KG</option><option>UN</option><option>MT</option><option>M2</option><option>BARRA</option><option>PAR</option><option>JG</option><option>CX</option>
       </select>
     </div>
-    <div id="est_grupo_regra3" class="form-group full" style="display:none;background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:12px;margin-top:-4px">
-      <label style="color:#e65100;display:flex;align-items:center;gap:6px">📏 Cálculo por comprimento (regra de 3) <span style="font-weight:400;font-size:10px;text-transform:none;color:#9e9e9e">— preencha para calcular o Custo Unitário automaticamente</span></label>
+    <div id="est_grupo_regra3" class="form-group full" style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:12px;margin-top:-4px">
+      <label style="color:#e65100;display:flex;align-items:center;gap:6px">📏 Cálculo por comprimento (regra de 3) <span style="font-weight:400;font-size:10px;text-transform:none;color:#9e9e9e">— útil para barras roscadas: preencha para calcular o Custo Unitário automaticamente</span></label>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px">
         <div><label style="font-size:10px;color:#795548">Preço por metro inteiro (R$/m)</label><input id="est_preco_metro" type="number" step="0.01" min="0" placeholder="Ex: 12,00" oninput="calcularRegraTresMetro()"></div>
         <div><label style="font-size:10px;color:#795548">Comprimento que tenho (mm)</label><input id="est_comprimento_mm" type="number" step="1" min="0" placeholder="Ex: 203" oninput="calcularRegraTresMetro()"></div>
@@ -8688,10 +8688,8 @@ async function deletarEstoqueItem(id){
 // O fornecedor vende a barra inteira por metro, mas no estoque sobram pedaços
 // cortados menores. Aqui: Preço/metro × Comprimento que tenho = Custo Unitário do pedaço.
 function toggleRegraTresMetro(){
-  const und = document.getElementById('est_und').value;
   const grupo = document.getElementById('est_grupo_regra3');
-  if(!grupo) return;
-  grupo.style.display = (und==='MT'||und==='BARRA') ? '' : 'none';
+  if(grupo) grupo.style.display = '';
 }
 
 function calcularRegraTresMetro(){
