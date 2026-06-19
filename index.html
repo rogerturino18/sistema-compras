@@ -3149,7 +3149,7 @@ tr:hover td{background:#f9fbf9}
   <div class="modal-body">
   <input type="hidden" id="est_tipo_hidden" value="materia_prima">
   <div class="form-grid">
-    <div class="form-group full"><label>Descrição *</label><input id="est_desc" placeholder="Ex: Barra Redonda SAE 1020, Eixo Cônico..."></div>
+    <div class="form-group full"><label>Descrição *</label><input id="est_desc" placeholder="Ex: Barra Redonda SAE 1020, Eixo Cônico..." oninput="toggleModoCustoBarra()"></div>
     <div class="form-group"><label>Categoria *</label>
       <select id="est_categoria" onchange="togglePrecoVendaPorCategoria()">
         <option value="Matéria Prima">Matéria Prima</option>
@@ -3178,25 +3178,20 @@ tr:hover td{background:#f9fbf9}
       </select>
     </div>
 
-    <div class="form-group full" style="display:flex;align-items:center;gap:8px;margin-top:-4px">
-      <input type="checkbox" id="est_eh_barra" onchange="toggleModoCustoBarra()" style="width:17px;height:17px;accent-color:#e65100;cursor:pointer">
-      <label for="est_eh_barra" style="margin:0;cursor:pointer;text-transform:none;font-size:13px;color:#5d4037">📏 É barra roscada cortada (calcular custo a partir do preço por metro)</label>
-    </div>
-
-    <!-- Custo Unitário: campo normal (qualquer unidade exceto BARRA) -->
+    <!-- Custo Unitário: campo normal -->
     <div class="form-group" id="est_grupo_custo_normal"><label>Custo Unitário (R$)</label><input id="est_valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
 
-    <!-- Custo Unitário: modo barra roscada (Unidade = BARRA) — substitui o campo acima -->
+    <!-- Custo Unitário: modo barra roscada — detectado automaticamente pela descrição (ex: "BARRA ROSCADA - M10 X 1,5 X 203") -->
     <div class="form-group" id="est_grupo_custo_barra" style="display:none">
       <label>Preço por metro (R$/m) <span style="color:var(--gray);font-weight:400;font-size:10px;text-transform:none">→ calcula o custo da peça</span></label>
       <input id="est_preco_metro" type="number" step="0.01" min="0" placeholder="Ex: 12,00" oninput="calcularCustoBarra()">
     </div>
     <div class="form-group" id="est_grupo_comprimento_barra" style="display:none">
       <label>Comprimento da peça (mm)</label>
-      <input id="est_comprimento_mm" type="number" step="1" min="0" placeholder="Ex: 203" oninput="calcularCustoBarra()">
+      <input id="est_comprimento_mm" type="number" step="1" min="0" placeholder="Ex: 203" oninput="toggleModoCustoBarra()">
     </div>
     <div class="form-group full" id="est_grupo_custo_barra_resultado" style="display:none;background:#f1f8f1;border:1px solid #a5d6a7;border-radius:8px;padding:8px 12px;margin-top:-6px">
-      <span style="font-size:12px;color:#2e7d32">Custo Unitário desta peça: <b id="est_custo_barra_texto" style="font-size:14px">R$ 0,00</b></span>
+      <span style="font-size:11px;color:#558b2f">📏 Detectado como barra roscada — </span><span style="font-size:12px;color:#2e7d32">Custo Unitário desta peça: <b id="est_custo_barra_texto" style="font-size:14px">R$ 0,00</b></span>
     </div>
 
     <div class="form-group" id="est_grupo_preco_venda"><label>Preço de Venda (R$)</label><input id="est_preco_venda" type="number" step="0.01" min="0" placeholder="0,00"></div>
@@ -8472,8 +8467,8 @@ function abrirModalEstoque(sub, id){
   set('est_obs', item?.observacao);
   if(document.getElementById('est_local')) document.getElementById('est_local').value = item?.localizacao||'Barracão 1';
   if(document.getElementById('est_und')) document.getElementById('est_und').value = item?.unidade||'PC';
-  // Campos de barra roscada — persistem no item (eh_barra_roscada, preco_metro, comprimento_mm)
-  document.getElementById('est_eh_barra').checked = !!item?.eh_barra_roscada;
+  // Campos de barra roscada — persistem no item (preco_metro, comprimento_mm); a detecção
+  // de "é barra roscada cortada" é sempre automática (descrição + comprimento<1000mm)
   set('est_preco_metro', item?.preco_metro);
   set('est_comprimento_mm', item?.comprimento_mm);
   toggleModoCustoBarra();
@@ -8658,7 +8653,7 @@ async function salvarEstoque(){
     codigoFinal = gerarProximoCodigo(categoria);
   }
   const unidade = document.getElementById('est_und').value;
-  const isBarra = document.getElementById('est_eh_barra').checked;
+  const isBarra = ehBarraRoscadaCortada();
   const toUp = s => (s||'').toUpperCase().trim() || null;
   const obj = {
     descricao: desc.toUpperCase(),
@@ -8670,7 +8665,6 @@ async function salvarEstoque(){
     qtd_inicial: parseInt(document.getElementById('est_qtd').value)||0,
     unidade,
     valor_unitario: parseFloat(document.getElementById('est_valor').value)||null,
-    eh_barra_roscada: isBarra,
     preco_metro: isBarra ? (parseFloat(document.getElementById('est_preco_metro')?.value)||null) : null,
     comprimento_mm: isBarra ? (parseFloat(document.getElementById('est_comprimento_mm')?.value)||null) : null,
     preco_venda: categoria==='Produto Final' ? (parseFloat(document.getElementById('est_preco_venda')?.value)||null) : null,
@@ -8707,16 +8701,25 @@ async function deletarEstoqueItem(id){
 // O fornecedor vende a barra por metro, mas o estoque guarda peças já cortadas
 // em mm. Quando Unidade=BARRA, o campo "Custo Unitário" comum é substituído por
 // "Preço por metro" + "Comprimento (mm)", e o custo da peça é calculado sozinho.
+// Detecta automaticamente se o item é uma barra roscada cortada (comprimento < 1m):
+// só pela descrição conter "BARRA ROSCADA" + o comprimento informado ser menor que 1000mm.
+// Sem checkbox manual — o sistema decide sozinho, sem o usuário precisar lembrar de marcar nada.
+function ehBarraRoscadaCortada(){
+  const desc = (document.getElementById('est_desc')?.value||'').toUpperCase();
+  const comprimento = parseFloat(document.getElementById('est_comprimento_mm')?.value)||0;
+  const pareceBarra = desc.includes('BARRA ROSCADA');
+  // Enquanto o comprimento ainda não foi digitado (0), mostra a calculadora mesmo assim
+  // se a descrição já bate — assim que o usuário digitar o comprimento, valida o <1000mm.
+  if(!pareceBarra) return false;
+  return comprimento===0 || comprimento<1000;
+}
+
 function toggleModoCustoBarra(){
-  const isBarra = document.getElementById('est_eh_barra').checked;
+  const isBarra = ehBarraRoscadaCortada();
   document.getElementById('est_grupo_custo_normal').style.display = isBarra ? 'none' : '';
   document.getElementById('est_grupo_custo_barra').style.display = isBarra ? '' : 'none';
   document.getElementById('est_grupo_comprimento_barra').style.display = isBarra ? '' : 'none';
   document.getElementById('est_grupo_custo_barra_resultado').style.display = isBarra ? '' : 'none';
-  // A quantidade aqui é número de PEÇAS cortadas, não de barras inteiras de 1m —
-  // por isso a unidade correta é sempre PC, nunca BARRA (que sugeriria barra inteira)
-  const undEl = document.getElementById('est_und');
-  if(isBarra && undEl.value==='BARRA') undEl.value='PC';
   if(isBarra) calcularCustoBarra();
 }
 
