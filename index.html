@@ -8062,7 +8062,7 @@ function dashFecharSub(){
   _dashGrupoAtivo=null;
   const mg=document.getElementById('dashMainGrid');
   const sg=document.getElementById('dashSubGrid');
-  if(mg){mg.style.display='grid';mg.style.opacity='1';document.querySelectorAll('.dash-main-tile').forEach(t=>{t.classList.remove('dim','active');});}
+  if(mg){mg.style.display='flex';mg.style.opacity='1';document.querySelectorAll('.dash-main-tile').forEach(t=>{t.classList.remove('dim','active');});}
   if(sg){sg.style.display='none';}
 }
 
