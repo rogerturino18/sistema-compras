@@ -6362,9 +6362,9 @@ function renderOrdens(){
         }
         if(op==='Terceirizado'){
           const ativo = st==='terceirizado';
-          return `<td onclick="terceirizarOrdem('${o.id}')"
+          return `<td onclick="${ativo?'retornarTerceirizado':'terceirizarOrdem'}('${o.id}')"
             style="background:${ativo?COR_OPERACAO['Terceirizado']:'#fff'};color:${ativo?'#fff':'#ef6c00'};border:1px solid ${ativo?COR_OPERACAO['Terceirizado']:'#b0bec5'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-            title="${ativo?'Terceirizado — clique para editar':'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${ativo?'🚚':''}</td>`;
+            title="${ativo?'Terceirizado — clique para registrar retorno':'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${ativo?'🚚':''}</td>`;
         }
         const tempo = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
         const concluidasOp = temposOP.filter(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
@@ -6386,6 +6386,7 @@ function renderOrdens(){
           </div>
           ${o.desenho||o.material?`<div style="font-size:10px;color:#9e9e9e">${[o.desenho,o.material].filter(Boolean).join(' · ')}</div>`:''}
         </td>
+        <td style="padding:8px 4px;text-align:center;font-weight:700;color:#37474f">${o.quantidade||1}</td>
         ${celulas}
         <td style="padding:6px 8px;white-space:nowrap;text-align:center">
           <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
@@ -6403,7 +6404,7 @@ function renderOrdens(){
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
-            <col style="width:70px"><col style="width:200px">
+            <col style="width:70px"><col style="width:200px"><col style="width:50px">
             ${COLS_FIXAS.map(()=>`<col style="width:62px">`).join('')}
             <col style="width:110px">
           </colgroup>
@@ -6411,6 +6412,7 @@ function renderOrdens(){
             <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Ordem</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
+              <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Qtd</th>
               ${COLS_FIXAS.map(op=>`<th style="padding:6px 2px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;line-height:1.2;overflow:hidden">${op==='Centro de Usinagem'?'Centro<br>Usin.':op}</th>`).join('')}
               <th style="width:110px"></th>
             </tr>
