@@ -6255,10 +6255,10 @@ async function concluirEtapa(id){
 }
 
 // ===== ORDENS DE PRODUÇÃO =====
-const OPERACOES_PROD=['Serra','Torno','Plaina','Centro de Usinagem','Furadeira','Solda','Freza','Montagem'];
+const OPERACOES_PROD=['Serra','Torno','Plaina','Centro de Usinagem','Furação','Freza','Solda','Montagem'];
 const COR_OPERACAO={
   'Serra':'#1565c0','Torno':'#1565c0','Plaina':'#00838f','Centro de Usinagem':'#e65100',
-  'Furadeira':'#558b2f','Solda':'#c62828','Freza':'#37474f','Montagem':'#2e7d32'
+  'Furação':'#558b2f','Freza':'#6a1b9a','Solda':'#c62828','Montagem':'#2e7d32','Terceirizado':'#ef6c00'
 };
 
 let opAtual=null;
@@ -6295,7 +6295,7 @@ function renderOrdens(){
     return;
   }
 
-  // Status de cada ordem (mesma lógica de antes)
+  // Status de cada ordem
   const statusOrdem=o=>{
     if(o.status==='terceirizado') return 'terceirizado';
     const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t));
@@ -6312,52 +6312,60 @@ function renderOrdens(){
     return true;
   });
 
-  // Agrupa por PDV — cada PDV é um bloco de grade próprio, com suas próprias colunas de etapas
+  // Agrupa por PDV — cada PDV é um bloco de grade próprio
   const porPdv={};
   visiveisPainel.forEach(o=>{
     if(!porPdv[o.pdv_id]) porPdv[o.pdv_id]=[];
     porPdv[o.pdv_id].push(o);
   });
 
-  div.innerHTML = Object.entries(porPdv).map(([pdvId, ordensGrupo])=>{
-    const pdv=pdvs.find(p=>p.id===pdvId);
+  // Ordena os blocos de PDV numericamente pelo número do PDV (68, 70, 75...)
+  const gruposOrdenados = Object.entries(porPdv).sort(([idA],[idB])=>{
+    const pdvA = pdvs.find(p=>p.id===idA), pdvB = pdvs.find(p=>p.id===idB);
+    const numA = parseFloat(pdvA?.numero) || 0, numB = parseFloat(pdvB?.numero) || 0;
+    if(numA !== numB) return numA - numB;
+    return (pdvA?.numero||'').localeCompare(pdvB?.numero||'', 'pt-BR', {numeric:true});
+  });
 
-    // Colunas dinâmicas: só as operações que ALGUMA ordem deste grupo já usou
-    // (tempos_op existentes) + as que estão atualmente em andamento — assim cada
-    // PDV mostra só as etapas relevantes às peças dele (algumas usam outras máquinas).
-    const opsUsadas=new Set();
-    ordensGrupo.forEach(o=>{
-      temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t)).forEach(t=>opsUsadas.add(t.operacao));
-    });
-    // Garante ordem estável seguindo OPERACOES_PROD, e acrescenta no fim qualquer
-    // operação "extra" (ex: terceirizada com nome diferente) que não esteja na lista padrão.
-    const colsOps=[...OPERACOES_PROD.filter(op=>opsUsadas.has(op)), ...[...opsUsadas].filter(op=>!OPERACOES_PROD.includes(op))];
-    // Se nenhuma operação foi usada ainda neste grupo, mostra as 4 primeiras como sugestão inicial
-    const colsFinal = colsOps.length ? colsOps : OPERACOES_PROD.slice(0,4);
+  // Todas as colunas são sempre as mesmas e fixas: Aguardando + as 8 máquinas + Terceirizado.
+  // Células compactas (mais estreitas) para caber todas as máquinas na tela sem rolagem horizontal excessiva.
+  const COLS_FIXAS = ['Aguardando', ...OPERACOES_PROD, 'Terceirizado'];
+
+  div.innerHTML = gruposOrdenados.map(([pdvId, ordensGrupo])=>{
+    const pdv=pdvs.find(p=>p.id===pdvId);
 
     const linhas = ordensGrupo.map(o=>{
       const st=statusOrdem(o);
-      const corStatus = {aguardando:'#9e9e9e', andamento:'#1565c0', terceirizado:'#e65100', concluido:'#2e7d32'}[st];
-      const labelStatus = {aguardando:'⏳ Aguardando', andamento:'▶ Em andamento', terceirizado:'🚚 Terceirizado', concluido:'✅ Pronto'}[st];
 
-      const celulas = colsFinal.map(op=>{
+      const celulas = COLS_FIXAS.map(op=>{
+        if(op==='Aguardando'){
+          const ativo = st==='aguardando';
+          return `<td onclick="abrirMenuEtapaOrdem(event,'${o.id}','Aguardando')"
+            style="background:${ativo?'#eceff1':'#fff'};color:#607d8b;border:1px solid ${ativo?'#b0bec5':'#f0f0f0'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;min-width:34px;transition:filter 0.15s"
+            title="${ativo?'Peça aguardando':'Voltar para Aguardando'}" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'">${ativo?'⏳':''}</td>`;
+        }
+        if(op==='Terceirizado'){
+          const ativo = st==='terceirizado';
+          return `<td onclick="terceirizarOrdem('${o.id}')"
+            style="background:${ativo?COR_OPERACAO['Terceirizado']:'#fff'};color:${ativo?'#fff':'#ef6c00'};border:1px solid ${ativo?COR_OPERACAO['Terceirizado']:'#f0f0f0'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;min-width:34px;transition:filter 0.15s"
+            title="${ativo?'Terceirizado — clique para editar':'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${ativo?'🚚':''}</td>`;
+        }
         const tempo = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
         const concluidoOp = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
-        let bg='#fff', txt='', borda='#e0e0e0', titulo='Clique para iniciar';
+        let bg='#fff', txt='', borda='#f0f0f0', titulo='Clique para iniciar';
         if(tempo){ bg=COR_OPERACAO[op]||'#1565c0'; txt='▶'; borda=bg; titulo='Em andamento — '+(tempo.operador||''); }
         else if(concluidoOp){ bg='#e8f5e9'; txt='✓'; borda='#a5d6a7'; titulo='Concluído'; }
         return `<td onclick="abrirMenuEtapaOrdem(event,'${o.id}','${op.replace(/'/g,"\\'")}')"
-          style="background:${bg};color:${tempo?'#fff':'#2e7d32'};border:1px solid ${borda};text-align:center;font-weight:700;font-size:13px;cursor:pointer;padding:8px 4px;min-width:44px;transition:filter 0.15s"
+          style="background:${bg};color:${tempo?'#fff':'#2e7d32'};border:1px solid ${borda};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;min-width:34px;transition:filter 0.15s"
           title="${titulo}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${txt}</td>`;
       }).join('');
 
       return `<tr style="border-bottom:1px solid #f0f0f0">
         <td style="padding:8px 10px;font-weight:700;color:#263238;white-space:nowrap">Nº ${o.numero}</td>
-        <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:220px">
+        <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.descricao||'—'}</div>
           ${o.desenho||o.material?`<div style="font-size:10px;color:#9e9e9e">${[o.desenho,o.material].filter(Boolean).join(' · ')}</div>`:''}
         </td>
-        <td style="padding:8px 6px;text-align:center"><span style="background:${corStatus}1a;color:${corStatus};padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap">${labelStatus}</span></td>
         ${celulas}
         <td style="padding:6px 8px;white-space:nowrap;text-align:center">
           <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
@@ -6378,8 +6386,7 @@ function renderOrdens(){
             <tr style="background:#fafafa;border-bottom:2px solid #e0e0e0">
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Ordem</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
-              <th style="padding:8px 6px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Status</th>
-              ${colsFinal.map(op=>`<th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:10px;text-transform:uppercase;min-width:44px">${op}</th>`).join('')}
+              ${COLS_FIXAS.map(op=>`<th style="padding:6px 2px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;min-width:34px;line-height:1.2">${op==='Centro de Usinagem'?'Centro<br>Usin.':op}</th>`).join('')}
               <th style="width:110px"></th>
             </tr>
           </thead>
@@ -6396,6 +6403,25 @@ function renderOrdens(){
 function abrirMenuEtapaOrdem(event, ordemId, operacao){
   event.stopPropagation();
   document.getElementById('menuEtapaOrdem')?.remove();
+
+  // Coluna "Aguardando" é especial: não tem tempo próprio, ela só reflete o
+  // estado neutro. Clicar nela cancela qualquer operação em andamento da ordem.
+  if(operacao==='Aguardando'){
+    const tempoAtivoQualquer = temposOP.find(t=>t.ordem_id===ordemId&&t.operacao!=='REPROCESSAR'&&!t.dt_hr_final);
+    if(!tempoAtivoQualquer){ showToast('Esta peça já está aguardando'); return; }
+    const menu=document.createElement('div');
+    menu.id='menuEtapaOrdem';
+    menu.className='user-menu open';
+    menu.style.position='fixed';
+    menu.style.zIndex='200';
+    menu.style.left=Math.min(event.clientX,window.innerWidth-260)+'px';
+    menu.style.top=Math.min(event.clientY,window.innerHeight-100)+'px';
+    menu.innerHTML=`<div class="user-menu-item" onclick="document.getElementById('menuEtapaOrdem').remove();pausarEtapaOrdem('${tempoAtivoQualquer.id}')">⏳ Voltar para Aguardando (cancela "${tempoAtivoQualquer.operacao}")</div>`;
+    document.body.appendChild(menu);
+    const fechar=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',fechar); } };
+    setTimeout(()=>document.addEventListener('click',fechar),0);
+    return;
+  }
 
   const tempoAtivo = temposOP.find(t=>t.ordem_id===ordemId&&t.operacao===operacao&&t.operacao!=='REPROCESSAR'&&!t.dt_hr_final);
   const tempoConcluido = temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao===operacao&&t.operacao!=='REPROCESSAR'&&t.dt_hr_final).sort((a,b)=>new Date(b.dt_hr_final)-new Date(a.dt_hr_final))[0];
