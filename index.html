@@ -6306,9 +6306,25 @@ function renderOrdens(){
     return emAndamento ? 'andamento' : 'aguardando';
   };
 
+  // Data/hora em que a ordem foi concluída (maior dt_hr_final entre as operações reais)
+  const dataConclusao=o=>{
+    const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t)&&t.dt_hr_final);
+    if(!tops.length) return null;
+    return tops.reduce((max,t)=>{ const d=new Date(t.dt_hr_final); return d>max?d:max; }, new Date(0));
+  };
+
+  // "Recém concluída" = terminou HOJE. Fica visível até meia-noite, com etiqueta
+  // discreta "✓ Pronta", sem precisar marcar "Mostrar concluídas" nem reabrir nada
+  // na mão — assim dá pra voltar e iniciar outra passagem na mesma máquina com calma.
+  const hojeStr = new Date().toLocaleDateString('pt-BR');
+  const recemConcluida=o=>{
+    const dt = dataConclusao(o);
+    return dt ? dt.toLocaleDateString('pt-BR')===hojeStr : false;
+  };
+
   const visiveisPainel=todasFiltradas.filter(o=>{
     const st=statusOrdem(o);
-    if(st==='concluido'&&!mostrarConc) return false;
+    if(st==='concluido'&&!mostrarConc&&!recemConcluida(o)) return false;
     return true;
   });
 
@@ -6364,7 +6380,10 @@ function renderOrdens(){
       return `<tr style="border-bottom:1px solid #b0bec5">
         <td style="padding:8px 10px;font-weight:700;color:#263238;white-space:nowrap">Nº ${o.numero}</td>
         <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
-          <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.descricao||'—'}</div>
+          <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px">
+            ${o.descricao||'—'}
+            ${st==='concluido'&&recemConcluida(o)?'<span style="background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap" title="Concluída hoje — some da lista a partir de amanhã, a menos que marque \'Mostrar concluídas\'">✓ Pronta hoje</span>':''}
+          </div>
           ${o.desenho||o.material?`<div style="font-size:10px;color:#9e9e9e">${[o.desenho,o.material].filter(Boolean).join(' · ')}</div>`:''}
         </td>
         ${celulas}
