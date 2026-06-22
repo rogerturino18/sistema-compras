@@ -6351,10 +6351,11 @@ function renderOrdens(){
             title="${ativo?'Terceirizado — clique para editar':'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${ativo?'🚚':''}</td>`;
         }
         const tempo = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
-        const concluidoOp = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
+        const concluidasOp = temposOP.filter(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
         let bg='#fff', txt='', borda='#b0bec5', titulo='Clique para iniciar';
         if(tempo){ bg=COR_OPERACAO[op]||'#1565c0'; txt='▶'; borda=bg; titulo='Em andamento — '+(tempo.operador||''); }
-        else if(concluidoOp){ bg='#e8f5e9'; txt='✓'; borda='#a5d6a7'; titulo='Concluído'; }
+        else if(concluidasOp.length>1){ bg='#e8f5e9'; txt=concluidasOp.length+'x'; borda='#a5d6a7'; titulo=concluidasOp.length+' passagens concluídas — clique para ver'; }
+        else if(concluidasOp.length===1){ bg='#e8f5e9'; txt='✓'; borda='#a5d6a7'; titulo='Concluído'; }
         return `<td onclick="abrirMenuEtapaOrdem(event,'${o.id}','${op.replace(/'/g,"\\'")}')"
           style="background:${bg};color:${tempo?'#fff':'#2e7d32'};border:1px solid ${borda};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
           title="${titulo}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${txt}</td>`;
@@ -6410,6 +6411,8 @@ function renderOrdens(){
 // nunca "solto" em outra parte da tela.
 function _posicionarMenuEtapa(menu, elementoClicado){
   const rect = elementoClicado.getBoundingClientRect();
+  menu.style.right='auto'; // a classe .user-menu tem right:16px fixo (pensado para o menu do usuário);
+                            // sem isso, o menu ficava esticado entre o left definido e o right:16px da classe
   document.body.appendChild(menu);
   const menuW = menu.offsetWidth || 240;
   const menuH = menu.offsetHeight || 50;
@@ -6437,7 +6440,9 @@ function abrirMenuEtapaOrdem(event, ordemId, operacao){
     menu.className='user-menu open';
     menu.style.position='fixed';
     menu.style.zIndex='200';
+    menu.style.width='fit-content';
     menu.style.minWidth='240px';
+    menu.style.maxWidth='340px';
     menu.innerHTML=`<div class="user-menu-item" onclick="document.getElementById('menuEtapaOrdem').remove();pausarEtapaOrdem('${tempoAtivoQualquer.id}')">⏳ Voltar para Aguardando (cancela "${tempoAtivoQualquer.operacao}")</div>`;
     _posicionarMenuEtapa(menu, elClicado);
     const fechar=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',fechar); } };
@@ -6446,14 +6451,27 @@ function abrirMenuEtapaOrdem(event, ordemId, operacao){
   }
 
   const tempoAtivo = temposOP.find(t=>t.ordem_id===ordemId&&t.operacao===operacao&&t.operacao!=='REPROCESSAR'&&!t.dt_hr_final);
-  const tempoConcluido = temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao===operacao&&t.operacao!=='REPROCESSAR'&&t.dt_hr_final).sort((a,b)=>new Date(b.dt_hr_final)-new Date(a.dt_hr_final))[0];
+  const temposConcluidos = temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao===operacao&&t.operacao!=='REPROCESSAR'&&t.dt_hr_final).sort((a,b)=>new Date(b.dt_hr_final)-new Date(a.dt_hr_final));
 
   const opts=[];
   if(tempoAtivo){
     opts.push(`<div class="user-menu-item" onclick="document.getElementById('menuEtapaOrdem').remove();abrirFinalizarOp('${tempoAtivo.id}')">✅ Concluir esta etapa</div>`);
     opts.push(`<div class="user-menu-item" onclick="document.getElementById('menuEtapaOrdem').remove();pausarEtapaOrdem('${tempoAtivo.id}')">⏸ Pausar (voltar para Aguardando)</div>`);
-  } else if(tempoConcluido){
-    opts.push(`<div class="user-menu-item" onclick="document.getElementById('menuEtapaOrdem').remove();reabrirEtapaOrdem('${tempoConcluido.id}')">↩️ Reabrir esta etapa</div>`);
+  } else if(temposConcluidos.length){
+    // Já passou por aqui uma ou mais vezes — lista cada passagem (operador + horário)
+    // e sempre oferece a opção de registrar uma NOVA passagem (peça volta pra mesma máquina).
+    const fmtCurto = dt => dt ? new Date(dt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    if(temposConcluidos.length>1){
+      opts.push(`<div style="padding:8px 14px 2px;font-size:10px;color:#9e9e9e;text-transform:uppercase;font-weight:700">${temposConcluidos.length} passagens por aqui</div>`);
+    }
+    temposConcluidos.forEach(t=>{
+      opts.push(`<div class="user-menu-item" style="flex-direction:column;align-items:flex-start;gap:2px" onclick="document.getElementById('menuEtapaOrdem').remove();reabrirEtapaOrdem('${t.id}')" title="Clique para reabrir esta passagem">
+        <span>↩️ ${t.operador||'—'}</span>
+        <span style="font-size:10px;color:#9e9e9e;padding-left:22px">${fmtCurto(t.dt_hr_inicial)} → ${fmtCurto(t.dt_hr_final)}</span>
+      </div>`);
+    });
+    opts.push(`<div style="border-top:1px solid #eee;margin:4px 0"></div>`);
+    opts.push(`<div class="user-menu-item" style="color:#1565c0;font-weight:700" onclick="document.getElementById('menuEtapaOrdem').remove();abrirIniciarOp('${ordemId}','${operacao.replace(/'/g,"\\'")}')">➕ Iniciar nova passagem por ${operacao}</div>`);
   } else {
     opts.push(`<div class="user-menu-item" onclick="document.getElementById('menuEtapaOrdem').remove();abrirIniciarOp('${ordemId}','${operacao.replace(/'/g,"\\'")}')">▶ Iniciar ${operacao}</div>`);
   }
@@ -6463,7 +6481,9 @@ function abrirMenuEtapaOrdem(event, ordemId, operacao){
   menu.className='user-menu open';
   menu.style.position='fixed';
   menu.style.zIndex='200';
-  menu.style.minWidth='200px';
+  menu.style.width='fit-content';
+  menu.style.minWidth='180px';
+  menu.style.maxWidth='300px';
   menu.innerHTML=opts.join('');
   _posicionarMenuEtapa(menu, elClicado);
 
