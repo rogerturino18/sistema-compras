@@ -6341,26 +6341,26 @@ function renderOrdens(){
         if(op==='Aguardando'){
           const ativo = st==='aguardando';
           return `<td onclick="abrirMenuEtapaOrdem(event,'${o.id}','Aguardando')"
-            style="background:${ativo?'#eceff1':'#fff'};color:#607d8b;border:1px solid ${ativo?'#b0bec5':'#f0f0f0'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;min-width:34px;transition:filter 0.15s"
+            style="background:${ativo?'#eceff1':'#fff'};color:#607d8b;border:1px solid ${ativo?'#90a4ae':'#b0bec5'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
             title="${ativo?'Peça aguardando':'Voltar para Aguardando'}" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'">${ativo?'⏳':''}</td>`;
         }
         if(op==='Terceirizado'){
           const ativo = st==='terceirizado';
           return `<td onclick="terceirizarOrdem('${o.id}')"
-            style="background:${ativo?COR_OPERACAO['Terceirizado']:'#fff'};color:${ativo?'#fff':'#ef6c00'};border:1px solid ${ativo?COR_OPERACAO['Terceirizado']:'#f0f0f0'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;min-width:34px;transition:filter 0.15s"
+            style="background:${ativo?COR_OPERACAO['Terceirizado']:'#fff'};color:${ativo?'#fff':'#ef6c00'};border:1px solid ${ativo?COR_OPERACAO['Terceirizado']:'#b0bec5'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
             title="${ativo?'Terceirizado — clique para editar':'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${ativo?'🚚':''}</td>`;
         }
         const tempo = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
         const concluidoOp = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
-        let bg='#fff', txt='', borda='#f0f0f0', titulo='Clique para iniciar';
+        let bg='#fff', txt='', borda='#b0bec5', titulo='Clique para iniciar';
         if(tempo){ bg=COR_OPERACAO[op]||'#1565c0'; txt='▶'; borda=bg; titulo='Em andamento — '+(tempo.operador||''); }
         else if(concluidoOp){ bg='#e8f5e9'; txt='✓'; borda='#a5d6a7'; titulo='Concluído'; }
         return `<td onclick="abrirMenuEtapaOrdem(event,'${o.id}','${op.replace(/'/g,"\\'")}')"
-          style="background:${bg};color:${tempo?'#fff':'#2e7d32'};border:1px solid ${borda};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;min-width:34px;transition:filter 0.15s"
+          style="background:${bg};color:${tempo?'#fff':'#2e7d32'};border:1px solid ${borda};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
           title="${titulo}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${txt}</td>`;
       }).join('');
 
-      return `<tr style="border-bottom:1px solid #f0f0f0">
+      return `<tr style="border-bottom:1px solid #b0bec5">
         <td style="padding:8px 10px;font-weight:700;color:#263238;white-space:nowrap">Nº ${o.numero}</td>
         <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.descricao||'—'}</div>
@@ -6381,12 +6381,17 @@ function renderOrdens(){
         <span style="float:right;font-weight:400;color:#9e9e9e">${ordensGrupo.length} ordem${ordensGrupo.length!==1?'ns':''}</span>
       </div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
+          <colgroup>
+            <col style="width:70px"><col style="width:200px">
+            ${COLS_FIXAS.map(()=>`<col style="width:62px">`).join('')}
+            <col style="width:110px">
+          </colgroup>
           <thead>
-            <tr style="background:#fafafa;border-bottom:2px solid #e0e0e0">
+            <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Ordem</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
-              ${COLS_FIXAS.map(op=>`<th style="padding:6px 2px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;min-width:34px;line-height:1.2">${op==='Centro de Usinagem'?'Centro<br>Usin.':op}</th>`).join('')}
+              ${COLS_FIXAS.map(op=>`<th style="padding:6px 2px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;line-height:1.2;overflow:hidden">${op==='Centro de Usinagem'?'Centro<br>Usin.':op}</th>`).join('')}
               <th style="width:110px"></th>
             </tr>
           </thead>
@@ -6400,9 +6405,27 @@ function renderOrdens(){
 // ── Menu rápido ao clicar numa célula da grade de produção ─────────────────
 // Mostra Iniciar / Pausar (volta para Aguardando) / Concluir, dependendo do
 // estado atual daquela operação para aquela ordem.
+// O menu é posicionado pela célula clicada (event.currentTarget), não pelas
+// coordenadas do mouse — assim ele sempre nasce exatamente embaixo da célula,
+// nunca "solto" em outra parte da tela.
+function _posicionarMenuEtapa(menu, elementoClicado){
+  const rect = elementoClicado.getBoundingClientRect();
+  document.body.appendChild(menu);
+  const menuW = menu.offsetWidth || 240;
+  const menuH = menu.offsetHeight || 50;
+  let left = rect.left;
+  let top = rect.bottom + 4;
+  if(left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+  if(left < 8) left = 8;
+  if(top + menuH > window.innerHeight - 8) top = rect.top - menuH - 4; // abre pra cima se não couber embaixo
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+}
+
 function abrirMenuEtapaOrdem(event, ordemId, operacao){
   event.stopPropagation();
   document.getElementById('menuEtapaOrdem')?.remove();
+  const elClicado = event.currentTarget;
 
   // Coluna "Aguardando" é especial: não tem tempo próprio, ela só reflete o
   // estado neutro. Clicar nela cancela qualquer operação em andamento da ordem.
@@ -6414,10 +6437,9 @@ function abrirMenuEtapaOrdem(event, ordemId, operacao){
     menu.className='user-menu open';
     menu.style.position='fixed';
     menu.style.zIndex='200';
-    menu.style.left=Math.min(event.clientX,window.innerWidth-260)+'px';
-    menu.style.top=Math.min(event.clientY,window.innerHeight-100)+'px';
+    menu.style.minWidth='240px';
     menu.innerHTML=`<div class="user-menu-item" onclick="document.getElementById('menuEtapaOrdem').remove();pausarEtapaOrdem('${tempoAtivoQualquer.id}')">⏳ Voltar para Aguardando (cancela "${tempoAtivoQualquer.operacao}")</div>`;
-    document.body.appendChild(menu);
+    _posicionarMenuEtapa(menu, elClicado);
     const fechar=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',fechar); } };
     setTimeout(()=>document.addEventListener('click',fechar),0);
     return;
@@ -6441,10 +6463,9 @@ function abrirMenuEtapaOrdem(event, ordemId, operacao){
   menu.className='user-menu open';
   menu.style.position='fixed';
   menu.style.zIndex='200';
-  menu.style.left=Math.min(event.clientX,window.innerWidth-220)+'px';
-  menu.style.top=Math.min(event.clientY,window.innerHeight-150)+'px';
+  menu.style.minWidth='200px';
   menu.innerHTML=opts.join('');
-  document.body.appendChild(menu);
+  _posicionarMenuEtapa(menu, elClicado);
 
   const fechar=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',fechar); } };
   setTimeout(()=>document.addEventListener('click',fechar),0);
@@ -7026,7 +7047,21 @@ ${o.foto_produto?`<div style="margin-top:6px;text-align:center"><img src="${o.fo
   table{width:100%;border-collapse:collapse;} td{border:1px solid #000;padding:2px 4px;}
 </style></head><body>
 ${paginasHtml}
-<script>window.onload=()=>{document.title='Ordens de Produção';window.print();window.close();}<\/script>
+<script>
+  // Garante que todas as logos (base64) terminem de carregar antes de imprimir —
+  // window.onload pode disparar antes da imagem inline terminar de decodificar.
+  document.title='Ordens de Produção';
+  function imprimirAgora(){ window.print(); window.close(); }
+  const imgs = Array.from(document.querySelectorAll('img'));
+  const pendentes = imgs.filter(img=>!img.complete);
+  if(pendentes.length===0){ setTimeout(imprimirAgora, 150); }
+  else {
+    let restantes = pendentes.length, jaImprimiu = false;
+    const checar=()=>{ restantes--; if(restantes<=0 && !jaImprimiu){ jaImprimiu=true; imprimirAgora(); } };
+    pendentes.forEach(img=>{ img.addEventListener('load', checar); img.addEventListener('error', checar); });
+    setTimeout(()=>{ if(!jaImprimiu){ jaImprimiu=true; imprimirAgora(); } }, 800);
+  }
+<\/script>
 </body></html>`;
 
   const win=window.open('','_blank','width=750,height=1050');
@@ -7155,11 +7190,26 @@ function imprimirOrdem(id){
   const win=window.open('','_blank','width=700,height=1000');
   win.document.write(conteudo);
   win.document.close();
-  win.onload=()=>{
+
+  // Garante que a imagem do logo (base64) termine de decodificar/renderizar antes
+  // de imprimir — win.onload pode disparar antes do layout da imagem estar pronto,
+  // fazendo a logo "desaparecer" na impressão. Espera o decode da própria <img>,
+  // com um tempo máximo de segurança caso algo impeça o evento de disparar.
+  const imprimirAgora=()=>{
     win.document.title='Ordem Nº '+o.numero;
     win.print();
     win.close();
   };
+  const imgLogo = win.document.querySelector('img');
+  if(imgLogo && !imgLogo.complete){
+    let jaImprimiu=false;
+    const disparar=()=>{ if(jaImprimiu) return; jaImprimiu=true; imprimirAgora(); };
+    imgLogo.addEventListener('load', disparar);
+    imgLogo.addEventListener('error', disparar);
+    setTimeout(disparar, 600); // segurança: imprime mesmo se o evento não disparar
+  } else {
+    setTimeout(imprimirAgora, 150);
+  }
 }
 
 function getProjetista(nome){
