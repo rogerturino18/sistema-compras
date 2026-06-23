@@ -700,6 +700,7 @@ tr:hover td{background:#f9fbf9}
     </label>
     <button class="btn" onclick="exportarExcel('ordens')" style="white-space:nowrap">📊 Excel</button>
     <button class="btn" onclick="abrirGestaoImpressao()" style="white-space:nowrap;background:#e3f2fd;border-color:#90caf9;color:#1565c0">🖨️ Gestão de Impressão</button>
+    <button class="btn" id="btnLixeiraOrdens" onclick="abrirLixeiraOrdens()" style="white-space:nowrap;background:#fce4ec;border-color:#f8bbd0;color:#ad1457">🗑️ Lixeira</button>
     <button class="btn primary" onclick="abrirModalOrdem(null)">+ Nova Ordem</button>
   </div>
   <div id="listaOrdens"></div>
@@ -2896,6 +2897,19 @@ tr:hover td{background:#f9fbf9}
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalOrdem')">Cancelar</button>
     <button class="btn primary" onclick="salvarOrdem()">🔧 Criar Ordem</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg" id="modalLixeiraOrdens">
+<div class="modal" style="max-width:650px">
+  <div class="modal-header">
+    <h3>🗑️ Lixeira — Ordens Excluídas</h3>
+    <button class="modal-header-btn" onclick="fecharModal('modalLixeiraOrdens')">✕</button>
+  </div>
+  <div style="padding:0 22px 22px">
+    <p style="font-size:12px;color:#546e7a;margin-bottom:14px">Ordens excluídas ficam guardadas aqui por 30 dias antes de serem removidas definitivamente. Você pode restaurá-las a qualquer momento dentro desse período.</p>
+    <div id="listaLixeiraOrdens" style="max-height:420px;overflow-y:auto"></div>
   </div>
 </div>
 </div>
@@ -6276,10 +6290,18 @@ function renderOrdens(){
     pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
   }
 
+  // Atualiza contador da Lixeira no botão da toolbar
+  const btnLix=document.getElementById('btnLixeiraOrdens');
+  if(btnLix){
+    const nLix=ordens.filter(o=>o.excluida_em).length;
+    btnLix.innerHTML = nLix>0 ? `🗑️ Lixeira (${nLix})` : '🗑️ Lixeira';
+  }
+
   const temposReais=t=>t.operacao&&t.operacao!=='REPROCESSAR';
 
   // Filtra ordens visíveis (ignora ordens sem PDV — igual ao comportamento anterior)
   const todasFiltradas=ordens.filter(o=>{
+    if(o.excluida_em) return false; // está na lixeira, não aparece na grade normal
     if(!o.pdv_id) return false;
     if(filtroPDV&&o.pdv_id!==filtroPDV) return false;
     if(b){
@@ -6870,14 +6892,64 @@ function preencherDadosOrdem(){
     <span style="color:var(--gray)">📁 Setor: ${opt.dataset.setor||'—'} · Peça: <b>${opt.dataset.descricao||'—'}</b>${opt.dataset.desenho?' · Nº '+opt.dataset.desenho:''}</span>`;
 }
 
+// Soft-delete: a ordem não é removida do banco, só marcada com excluida_em.
+// Fica escondida da lista normal, mas pode ser restaurada pela Lixeira por 30 dias.
 async function deletarOrdem(id){
-  if(!confirm('Excluir esta ordem de produção?')) return;
+  const o = ordens.find(x=>x.id===id);
+  const desc = o ? `Ordem Nº ${o.numero} — ${o.descricao||'sem descrição'}` : 'esta ordem de produção';
+  if(!confirm(`Excluir ${desc}?\n\nEla ficará na Lixeira por 30 dias, podendo ser restaurada se for engano.`)) return;
+  try{
+    await api('PATCH','ordens_producao',{excluida_em:new Date().toISOString()},`?id=eq.${id}`);
+    showToast('Ordem movida para a Lixeira!');
+    await loadAll();
+  }catch(e){showToast('Erro ao excluir','err');console.error(e);}
+}
+
+async function restaurarOrdem(id){
+  try{
+    await api('PATCH','ordens_producao',{excluida_em:null},`?id=eq.${id}`);
+    showToast('Ordem restaurada!');
+    await loadAll();
+    abrirLixeiraOrdens();
+  }catch(e){showToast('Erro ao restaurar','err');console.error(e);}
+}
+
+async function excluirOrdemPermanente(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!confirm(`Excluir definitivamente a Ordem Nº ${o?.numero||''}?\n\nIsso NÃO pode ser desfeito — o histórico de tempos será apagado para sempre.`)) return;
   try{
     await api('DELETE','tempos_op','',`?ordem_id=eq.${id}`).catch(()=>{});
     await api('DELETE','ordens_producao','',`?id=eq.${id}`);
-    showToast('Ordem excluída!');
+    showToast('Ordem excluída permanentemente!');
     await loadAll();
+    abrirLixeiraOrdens();
   }catch(e){showToast('Erro ao excluir','err');console.error(e);}
+}
+
+function abrirLixeiraOrdens(){
+  const div = document.getElementById('listaLixeiraOrdens');
+  const TRINTA_DIAS_MS = 30*24*60*60*1000;
+  const agora = Date.now();
+  const excluidas = ordens.filter(o=>o.excluida_em).sort((a,b)=>new Date(b.excluida_em)-new Date(a.excluida_em));
+
+  if(!excluidas.length){
+    div.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:#9e9e9e">🗑️ A lixeira está vazia.</div>';
+  } else {
+    div.innerHTML = excluidas.map(o=>{
+      const dtExc = new Date(o.excluida_em);
+      const diasRestantes = Math.max(0, Math.ceil((TRINTA_DIAS_MS - (agora - dtExc.getTime()))/(24*60*60*1000)));
+      const pdv = pdvs.find(p=>p.id===o.pdv_id);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #f0f0f0;border-radius:8px;margin-bottom:8px">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">Nº ${o.numero} — ${o.descricao||'—'}</div>
+          <div style="font-size:11px;color:#9e9e9e">${pdv?'PDV '+pdv.numero+(pdv.cliente?' · '+pdv.cliente:''):''} · Excluída em ${dtExc.toLocaleDateString('pt-BR')} · ${diasRestantes>0?diasRestantes+' dia(s) restante(s)':'será removida em breve'}</div>
+        </div>
+        <button class="btn btn-sm primary" onclick="restaurarOrdem('${o.id}')" title="Restaurar">↩️ Restaurar</button>
+        <button class="btn btn-sm danger" onclick="excluirOrdemPermanente('${o.id}')" title="Excluir definitivamente">🗑️ Excluir já</button>
+      </div>`;
+    }).join('');
+  }
+  abrirModal('modalLixeiraOrdens');
 }
 
 async function salvarOrdem(){
