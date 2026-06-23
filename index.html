@@ -6282,7 +6282,19 @@ function renderOrdens(){
   const todasFiltradas=ordens.filter(o=>{
     if(!o.pdv_id) return false;
     if(filtroPDV&&o.pdv_id!==filtroPDV) return false;
-    if(b&&!(o.numero+''+o.descricao+o.desenho+o.material+'').toLowerCase().includes(b)) return false;
+    if(b){
+      // Busca puramente numérica (ex: "91") deve achar o NÚMERO da ordem exatamente —
+      // nunca por substring dentro de outro campo (desenho, material etc.), que antes
+      // causava falsos positivos (ex: buscar "91" encontrava o "91" escondido em "19175").
+      if(/^\d+$/.test(b)){
+        if(String(o.numero)!==b) return false;
+      } else {
+        // Busca por texto: campos concatenados COM separador, para nunca colar o fim
+        // de um campo com o início do próximo e formar uma correspondência falsa.
+        const texto=[o.numero,o.descricao,o.desenho,o.material].filter(Boolean).join(' | ').toLowerCase();
+        if(!texto.includes(b)) return false;
+      }
+    }
     return true;
   });
 
@@ -6404,16 +6416,16 @@ function renderOrdens(){
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
-            <col style="width:70px"><col style="width:200px"><col style="width:50px">
-            ${COLS_FIXAS.map(()=>`<col style="width:62px">`).join('')}
+            <col style="width:70px"><col style="width:200px"><col style="width:80px">
+            ${COLS_FIXAS.map(op=>op==='Centro de Usinagem'?`<col style="width:90px">`:`<col style="width:62px">`).join('')}
             <col style="width:110px">
           </colgroup>
           <thead>
             <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Ordem</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
-              <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Qtd</th>
-              ${COLS_FIXAS.map(op=>`<th style="padding:6px 2px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;line-height:1.2;overflow:hidden">${op==='Centro de Usinagem'?'Centro<br>Usin.':op}</th>`).join('')}
+              <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Quantidade</th>
+              ${COLS_FIXAS.map(op=>`<th style="padding:6px 2px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;line-height:1.2;word-break:break-word">${op}</th>`).join('')}
               <th style="width:110px"></th>
             </tr>
           </thead>
@@ -7345,7 +7357,10 @@ function renderProjetos(){
               <div class="kanban-card-title" style="font-size:14px">${peca.nome}</div>
               ${peca.numero_desenho?`<div style="margin-top:4px"><span style="background:#e3f2fd;color:#1565c0;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:600">📐 Nº ${peca.numero_desenho}</span></div>`:''}
             </div>
-            ${!isProjetista()?`<button onclick="deletarPeca('${peca.id}')" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:14px;padding:0;line-height:1;flex-shrink:0" title="Remover">✕</button>`:''}
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button onclick="abrirModalPeca('${peca.setor_id||''}','${peca.id}')" style="background:none;border:none;color:#90a4ae;cursor:pointer;font-size:13px;padding:0;line-height:1" title="Editar peça">✏️</button>
+              ${!isProjetista()?`<button onclick="deletarPeca('${peca.id}')" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Remover">✕</button>`:''}
+            </div>
           </div>
           ${col.status==='trabalhando'?`<div class="kanban-card-timer" id="timer_${peca.id}">00:00:00</div>`:''}
           ${col.status==='pausado'?`<div style="text-align:center;color:#f57f17;font-size:12px;font-weight:600;margin:6px 0">⏸ Em pausa</div>`:''}
@@ -7580,11 +7595,20 @@ async function deletarSetor(id){
 }
 
 // Peça
-function abrirModalPeca(setorId){
+function abrirModalPeca(setorId, pecaId){
   document.getElementById('modalPeca').dataset.setorId=setorId;
-  document.getElementById('modalPeca').dataset.editId='';
-  ['pec_nome','pec_desenho','pec_responsavel','pec_desc'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('modalPecaTitulo').textContent='Nova Peça';
+  document.getElementById('modalPeca').dataset.editId=pecaId||'';
+  if(pecaId){
+    const peca=pecasProjeto.find(p=>p.id===pecaId);
+    document.getElementById('pec_nome').value=peca?.nome||'';
+    document.getElementById('pec_desenho').value=peca?.numero_desenho||'';
+    document.getElementById('pec_responsavel').value=peca?.responsavel||'';
+    document.getElementById('pec_desc').value=peca?.descricao||'';
+    document.getElementById('modalPecaTitulo').textContent='Editar Peça';
+  } else {
+    ['pec_nome','pec_desenho','pec_responsavel','pec_desc'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('modalPecaTitulo').textContent='Nova Peça';
+  }
   abrirModal('modalPeca');
 }
 
@@ -7592,16 +7616,25 @@ async function salvarPeca(){
   const nome=document.getElementById('pec_nome').value.trim();
   if(!nome){showToast('Informe o nome da peça','err');return;}
   const setorId=document.getElementById('modalPeca').dataset.setorId;
+  const editId=document.getElementById('modalPeca').dataset.editId;
   const setor=setoresPDV.find(s=>s.id===setorId);
+  const dados={
+    nome, numero_desenho:document.getElementById('pec_desenho').value.trim()||null,
+    responsavel:document.getElementById('pec_responsavel').value.trim()||null,
+    descricao:document.getElementById('pec_desc').value.trim()||null,
+  };
   try{
-    await api('POST','pecas_projeto',{
-      setor_id:setorId, pdv_id:setor?.pdv_id||null,
-      nome, numero_desenho:document.getElementById('pec_desenho').value.trim()||null,
-      responsavel:document.getElementById('pec_responsavel').value.trim()||null,
-      descricao:document.getElementById('pec_desc').value.trim()||null,
-      status:'aguardando', criado_por:usuarioLogado?.nome||null
-    });
-    showToast('Peça cadastrada!'); fecharModal('modalPeca'); await loadAll();
+    if(editId){
+      await api('PATCH','pecas_projeto',dados,`?id=eq.${editId}`);
+      showToast('Peça atualizada!');
+    } else {
+      await api('POST','pecas_projeto',{
+        setor_id:setorId, pdv_id:setor?.pdv_id||null,
+        ...dados, status:'aguardando', criado_por:usuarioLogado?.nome||null
+      });
+      showToast('Peça cadastrada!');
+    }
+    fecharModal('modalPeca'); await loadAll();
   }catch(e){showToast('Erro','err');}
 }
 
