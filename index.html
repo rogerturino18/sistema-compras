@@ -1639,7 +1639,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="stat-row" id="statsDesenhos"></div>
   <div class="toolbar" style="margin-bottom:12px">
-    <input type="text" id="buscaDesenho" placeholder="Buscar por PDV, equipamento, cliente..." oninput="renderDesenhosRecebidos()" style="flex:1">
+    <input type="text" id="buscaDesenho" placeholder="Buscar por PDV, equipamento, cliente, montagem, peça, nº de desenho..." oninput="renderDesenhosRecebidos()" style="flex:1">
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#546e7a;white-space:nowrap;cursor:pointer">
       <input type="checkbox" id="desFiltroPendentes" onchange="renderDesenhosRecebidos()" style="width:15px;height:15px;cursor:pointer"> Só com pendências
     </label>
@@ -6878,6 +6878,12 @@ let _nosTemp = [];
 // um por coluna já aberta. _colunaPath.length+1 colunas são exibidas no total.
 let _colunaPath = [];
 
+// Estado da árvore de LEITURA (tela principal, fora do modal de edição) — quais
+// montagens/itens o usuário deixou abertos manualmente (acordeão). Ignorado
+// enquanto há um termo de busca ativo, que força a abertura só do caminho até
+// os resultados encontrados.
+let _arvoreExpandidos = new Set();
+
 function _tempId(){ return 'tmp_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
 
 function _filhosDe(parentId){ return _nosTemp.filter(n=>n.parent_id===parentId); }
@@ -7163,6 +7169,18 @@ async function salvarDesenhoRecebido(){
       // de montagem, etc.) e recria do zero com o estado atual das colunas. Apaga por
       // id, do nó mais profundo pro mais raso (não depende de qual FK específica liga
       // cada um, então funciona independente de como a árvore está organizada).
+      //
+      // IMPORTANTE: busca a árvore antiga DIRETO DO BANCO agora (não usa os arrays
+      // montagensRecebidas/itensDesenhoRecebido que já estavam em memória) — se a aba
+      // ficou aberta desde uma sessão anterior, ou se houve outro salvamento nesse
+      // meio tempo, esses arrays podem estar desatualizados, e o delete deixaria de
+      // encontrar cópias que já existem no banco, duplicando a cada novo salvamento.
+      const [montagensFrescas, itensFrescos] = await Promise.all([
+        api('GET','montagens_recebidas','','?order=id.asc').catch(()=>montagensRecebidas),
+        api('GET','itens_desenho_recebido','','?order=item_numero.asc').catch(()=>itensDesenhoRecebido)
+      ]);
+      montagensRecebidas = montagensFrescas;
+      itensDesenhoRecebido = itensFrescos;
       // Vínculos já feitos (ordem_id, item_compra_id) são preservados porque vieram
       // junto nos nós carregados em _coletarArvoreDoEquipamento.
       const arvoreAntiga = _coletarArvoreDoEquipamento(editId);
@@ -7323,47 +7341,116 @@ function _statusComercial(it){
   return {pendente:true, html:`<span style="color:#e65100;font-weight:700;font-size:11px">🛒 Na lista de compras</span>`};
 }
 
-// Renderização recursiva da árvore salva (tela principal, só leitura + ações) —
-// indentação simples por nível, já que aqui não precisa de navegação por colunas
-// (é só consulta/acompanhamento do que já foi cadastrado). Montagem e Item podem
-// ser pai um do outro em qualquer combinação/profundidade — por isso a busca de
-// filhos olha as duas FKs possíveis (montagem_pai_id/item_pai_id para montagem,
-// montagem_id/item_pai_id para item) em todo nível, recursão unificada.
-function _renderArvoreLeitura(parentId, indent, desenhoId){
-  const ehRaiz = parentId===null;
-  const montagensFilhas = ehRaiz
-    ? montagensRecebidas.filter(m=>m.desenho_id===desenhoId && !m.montagem_pai_id && !m.item_pai_id)
-    : montagensRecebidas.filter(m=>m.montagem_pai_id===parentId || m.item_pai_id===parentId);
-  const itensFilhos = ehRaiz
-    ? itensDesenhoRecebido.filter(i=>i.desenho_id===desenhoId && !i.montagem_id && !i.item_pai_id)
-    : itensDesenhoRecebido.filter(i=>i.montagem_id===parentId || i.item_pai_id===parentId);
+// Conta recursivamente quantos itens pendentes (sem OP/compra) existem dentro de
+// um nó (montagem ou item) — usado pro badge "N pendentes" que aparece quando o
+// ramo está fechado, pra dar pra saber onde tem trabalho sem precisar abrir tudo.
+function _contarPendenciasSubarvore(no, filhosPorId){
+  let n = 0;
+  if(no.tipo==='item'){
+    const pendente = (no.item_tipo==='fabricar' && !no.ordem_id) ||
+      ((no.item_tipo==='comercial'||no.item_tipo==='materia_prima') && _statusComercial(no).pendente);
+    if(pendente) n++;
+  }
+  (filhosPorId[no.id]||[]).forEach(f => n += _contarPendenciasSubarvore(f, filhosPorId));
+  return n;
+}
 
-  if(!montagensFilhas.length && !itensFilhos.length) return '';
+// Acha, dentro da árvore de um equipamento, todo nó cujo nome/desenho bate com o
+// termo buscado — e devolve também o conjunto de ids "no caminho" até cada um
+// deles (pais, avós, etc.), pra forçar a abertura desses ramos automaticamente.
+function _buscarNaArvore(arvore, termo){
+  const termoMin = termo.toLowerCase();
+  const porId = {}; arvore.forEach(n=>porId[n.id]=n);
+  const idsMatch = new Set(), idsAbrir = new Set();
+  arvore.forEach(n=>{
+    const nome = n.tipo==='montagem' ? (n.nome_montagem||'') : (n.denominacao||'');
+    const desenho = n.tipo==='montagem' ? (n.numero_desenho||'') : (n.desenho_peca||'');
+    if(nome.toLowerCase().includes(termoMin) || desenho.toLowerCase().includes(termoMin)){
+      idsMatch.add(n.id);
+      let atual = n;
+      while(atual && atual.parent_id){
+        idsAbrir.add(atual.parent_id);
+        atual = porId[atual.parent_id];
+      }
+    }
+  });
+  return {idsMatch, idsAbrir};
+}
 
-  // Cada item ou montagem pode ter, dentro dele, tanto outros itens quanto outras
-  // montagens (mesmas opções disponíveis em qualquer nível) — por isso ambos chamam
-  // de volta esta mesma função pra desenhar o que tiver dentro deles.
-  const linhaItemERecursivo = (it, indentAtual) => {
-    const statusHtml = it.tipo==='fabricar'
-      ? (it.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px">✅ OP criada</span>` : `<button class="btn btn-sm primary" onclick="criarOPdoItemDesenho('${it.id}')" style="font-size:11px;padding:3px 8px">🔧 Criar OP</button>`)
-      : _statusComercial(it).html;
-    const linhaPropria = `<tr style="border-bottom:1px solid #f5f5f5">
-      <td style="padding:6px 8px 6px ${8+indentAtual}px;font-size:12px;font-weight:600">${_iconeItemTipo(it.tipo)} ${it.denominacao||'—'}</td>
-      <td style="padding:6px 8px;font-size:11px;color:#546e7a">${it.desenho_peca||'—'}</td>
-      <td style="padding:6px 8px;font-size:11px;color:#546e7a">${it.material||'—'}</td>
-      <td style="padding:6px 8px;font-size:11px;text-align:center">${it.quantidade||1}</td>
-      <td style="padding:6px 8px;text-align:right">${statusHtml}</td>
-    </tr>`;
-    return linhaPropria + _renderArvoreLeitura(it.id, indentAtual+16, desenhoId);
+function _toggleNoArvore(id){
+  if(_arvoreExpandidos.has(id)) _arvoreExpandidos.delete(id);
+  else _arvoreExpandidos.add(id);
+  renderDesenhosRecebidos();
+}
+
+function _expandirTudoEquip(desenhoId){
+  _coletarArvoreDoEquipamento(desenhoId).forEach(n=>_arvoreExpandidos.add(n.id));
+  renderDesenhosRecebidos();
+}
+function _recolherTudoEquip(desenhoId){
+  _coletarArvoreDoEquipamento(desenhoId).forEach(n=>_arvoreExpandidos.delete(n.id));
+  renderDesenhosRecebidos();
+}
+
+// Renderização em cascata (acordeão) da árvore salva de um equipamento — cada
+// Montagem ou Item com filhos abre/fecha ao clicar, igual pastas de um explorador
+// de arquivos. Com busca ativa, ignora o estado manual e força a abertura só do
+// caminho até os nós encontrados, destacando o trecho que bateu.
+function _renderArvoreCascata(desenhoId, termoBusca){
+  const arvore = _coletarArvoreDoEquipamento(desenhoId);
+  if(!arvore.length) return '';
+
+  const filhosPorId = {};
+  arvore.forEach(n=>{
+    const chave = n.parent_id===null ? 'raiz' : n.parent_id;
+    (filhosPorId[chave] = filhosPorId[chave]||[]).push(n);
+  });
+
+  let idsMatch = new Set(), idsAbrir = new Set();
+  if(termoBusca) ({idsMatch, idsAbrir} = _buscarNaArvore(arvore, termoBusca));
+
+  const destaca = texto => {
+    if(!termoBusca || !texto) return texto||'';
+    const i = texto.toLowerCase().indexOf(termoBusca.toLowerCase());
+    if(i<0) return texto;
+    return texto.slice(0,i) + '<mark style="background:#fff59d;border-radius:2px;padding:0 1px">' + texto.slice(i,i+termoBusca.length) + '</mark>' + texto.slice(i+termoBusca.length);
   };
-  const linhasItens = itensFilhos.map(it=>linhaItemERecursivo(it, indent)).join('');
 
-  const blocosMontagens = montagensFilhas.map(m=>`
-    <tr><td colspan="5" style="padding:6px 8px 6px ${8+indent}px;background:#f9fbe7;font-size:11px;font-weight:700;color:#827717">📁 ${m.nome_montagem||'Montagem sem nome'}${m.numero_desenho?' · '+m.numero_desenho:''}${m.material?' · '+m.material:''}</td></tr>
-    ${_renderArvoreLeitura(m.id, indent+16, desenhoId)}
-  `).join('');
+  const renderNo = (no, profundidade) => {
+    const filhos = filhosPorId[no.id]||[];
+    const temFilhos = filhos.length>0;
+    const ehMatch = idsMatch.has(no.id);
+    const aberto = termoBusca ? (idsAbrir.has(no.id) || ehMatch) : _arvoreExpandidos.has(no.id);
+    const indentPx = 14 + profundidade*20;
+    const corDestaque = ehMatch ? '#fff8e1' : null;
 
-  return linhasItens + blocosMontagens;
+    let linha;
+    if(no.tipo==='montagem'){
+      const pend = _contarPendenciasSubarvore(no, filhosPorId);
+      linha = `<div onclick="_toggleNoArvore('${no.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px 8px ${indentPx}px;cursor:pointer;border-bottom:1px solid #eee;background:${corDestaque||'#f9fbe7'}">
+        <span style="font-size:10px;color:#9e9e9e;display:inline-block;transition:transform .15s;transform:rotate(${aberto?90:0}deg);flex-shrink:0">▶</span>
+        <span style="font-size:13px;flex-shrink:0">📁</span>
+        <span style="font-size:12px;font-weight:700;color:#827717">${destaca(no.nome_montagem||'Montagem sem nome')}${no.numero_desenho?' · '+destaca(no.numero_desenho):''}${no.material?' · '+destaca(no.material):''}</span>
+        ${pend>0 ? `<span style="margin-left:auto;font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;flex-shrink:0;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
+      </div>`;
+    } else {
+      const statusHtml = no.item_tipo==='fabricar'
+        ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`)
+        : _statusComercial(no).html;
+      linha = `<div onclick="${temFilhos?`_toggleNoArvore('${no.id}')`:''}" style="display:flex;align-items:center;gap:8px;padding:7px 12px 7px ${indentPx}px;cursor:${temFilhos?'pointer':'default'};border-bottom:1px solid #f5f5f5;background:${corDestaque||'#fff'}">
+        ${temFilhos ? `<span style="font-size:10px;color:#9e9e9e;display:inline-block;transition:transform .15s;transform:rotate(${aberto?90:0}deg);flex-shrink:0">▶</span>` : `<span style="width:10px;flex-shrink:0"></span>`}
+        <span style="font-size:12px;font-weight:600;flex:2;min-width:0">${_iconeItemTipo(no.tipo)} ${destaca(no.denominacao||'—')}</span>
+        <span style="font-size:11px;color:#546e7a;flex:1;min-width:0">${destaca(no.desenho_peca||'')}</span>
+        <span style="font-size:11px;color:#546e7a;flex:1;min-width:0">${destaca(no.material||'')}</span>
+        <span style="font-size:11px;color:#546e7a;width:28px;text-align:center;flex-shrink:0">${no.quantidade||1}</span>
+        <span style="flex-shrink:0">${statusHtml}</span>
+      </div>`;
+    }
+    const filhosHtml = temFilhos ? `<div style="display:${aberto?'block':'none'}">${filhos.map(f=>renderNo(f,profundidade+1)).join('')}</div>` : '';
+    return linha + filhosHtml;
+  };
+
+  return (filhosPorId['raiz']||[]).map(n=>renderNo(n,0)).join('');
 }
 
 function renderDesenhosRecebidos(){
@@ -7385,7 +7472,13 @@ function renderDesenhosRecebidos(){
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
     if(busca){
       const texto=[pdv?.numero,pdv?.cliente,d.nome_equipamento,d.numero_geral].filter(Boolean).join(' | ').toLowerCase();
-      if(!texto.includes(busca)) return false;
+      // A busca agora também procura DENTRO da árvore (nome/nº de desenho de
+      // montagens e itens, em qualquer profundidade) — não só nos dados do
+      // equipamento. Sem isso, procurar pelo nº de uma peça aninhada não achava
+      // nada mesmo o equipamento existindo e contendo aquela peça.
+      const bateNoEquip = texto.includes(busca);
+      const bateNaArvore = _buscarNaArvore(_coletarArvoreDoEquipamento(d.id), busca).idsMatch.size>0;
+      if(!bateNoEquip && !bateNaArvore) return false;
     }
     if(soPendentes && !temPendencia(d)) return false;
     return true;
@@ -7416,7 +7509,7 @@ function renderDesenhosRecebidos(){
 
   div.innerHTML = lista.map(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
-    const corpoArvore = _renderArvoreLeitura(null, 0, d.id);
+    const corpoArvore = _renderArvoreCascata(d.id, busca);
 
     return `<div style="margin-bottom:16px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
       <div style="background:#f5f5f5;padding:12px 16px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -7425,14 +7518,23 @@ function renderDesenhosRecebidos(){
           <div style="font-size:11px;color:#9e9e9e">Recebido em ${new Date(d.data_recebimento+'T12:00').toLocaleDateString('pt-BR')}</div>
         </div>
         <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="_expandirTudoEquip('${d.id}')" title="Abrir todos os ramos">⊞ Expandir tudo</button>
+          <button class="btn btn-sm" onclick="_recolherTudoEquip('${d.id}')" title="Fechar todos os ramos">⊟ Recolher tudo</button>
           <button class="btn btn-sm" onclick="abrirModalDesenhoRecebido('${d.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm danger" onclick="deletarDesenhoRecebido('${d.id}')" title="Excluir">🗑</button>
         </div>
       </div>
-      ${corpoArvore ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:#fafafa"><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Denominação</th><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Desenho/Padrão</th><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Material</th><th style="padding:6px 8px;text-align:center;font-size:9px;color:#9e9e9e;text-transform:uppercase">Qtd</th><th></th></tr></thead>
-        <tbody>${corpoArvore}</tbody>
-      </table></div>` : `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhuma montagem ou item cadastrado neste equipamento</div>`}
+      ${corpoArvore ? `<div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fafafa;border-bottom:1px solid #eee">
+          <span style="width:18px"></span>
+          <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;flex:2">Denominação</span>
+          <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;flex:1">Desenho/Padrão</span>
+          <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;flex:1">Material</span>
+          <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;width:28px;text-align:center">Qtd</span>
+          <span style="width:90px"></span>
+        </div>
+        <div style="overflow-x:auto;max-height:560px;overflow-y:auto">${corpoArvore}</div>
+      </div>` : `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhuma montagem ou item cadastrado neste equipamento</div>`}
     </div>`;
   }).join('');
 }
