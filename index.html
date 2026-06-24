@@ -557,8 +557,8 @@ tr:hover td{background:#f9fbf9}
 <div id="sbpanel_producao" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1);overflow-y:auto">
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🔧 Produção</div>
   <div style="padding:6px 0">
+    <div class="sbi" onclick="sbGo(28,'Estrutura de Equipamentos')">📐 Estrutura de Equipamentos</div>
     <div class="sbi" onclick="sbGo(5,'Ordens')">🔧 Ordens de Produção</div>
-    <div class="sbi" onclick="sbGo(28,'Desenhos Recebidos')">📐 Desenhos Recebidos</div>
     <div class="sbi" onclick="sbGo(27,'Histórico de Tempos')">⏱️ Histórico de Tempos</div>
   </div>
 </div>
@@ -1632,7 +1632,7 @@ tr:hover td{background:#f9fbf9}
 <div class="panel" id="tab28">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
     <div>
-      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📐 Desenhos Recebidos</h2>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📐 Estrutura de Equipamentos</h2>
       <p style="font-size:12px;color:#546e7a;margin:4px 0 0">PDV → Equipamento → Montagens → Itens. Itens "Fabricar" abrem Ordem de Produção; itens "Comercial" entram na Lista de Compras.</p>
     </div>
     <button class="btn primary" onclick="abrirModalDesenhoRecebido(null)" style="white-space:nowrap">+ Novo Equipamento Recebido</button>
@@ -6953,12 +6953,16 @@ function renderColunas(){
     const linhas = filhos.map(no=>{
       if(no.tipo==='montagem'){
         const ativo = no.id===ativoNestaColuna;
-        return `<div style="display:flex;align-items:center;gap:4px;padding:6px 8px;border-bottom:1px solid #eee;background:${ativo?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
-          <span style="font-size:13px">📁</span>
-          <input value="${(no.nome_montagem||'').replace(/"/g,'&quot;')}" data-no-nome-input="${no.id}" oninput="atualizarNo('${no.id}','nome_montagem',this.value)" onclick="event.stopPropagation()" placeholder="Nome da montagem" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px;font-weight:600">
-          <input value="${(no.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','numero_desenho',this.value)" onclick="event.stopPropagation()" placeholder="Nº desenho" style="width:62px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
-          <button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
-          <span style="font-size:11px;color:#9e9e9e;flex-shrink:0">▶</span>
+        return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativo?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+            <span style="font-size:13px;flex-shrink:0">📁</span>
+            <input value="${(no.nome_montagem||'').replace(/"/g,'&quot;')}" data-no-nome-input="${no.id}" oninput="atualizarNo('${no.id}','nome_montagem',this.value)" onclick="event.stopPropagation()" placeholder="Nome da montagem" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;padding-left:19px">
+            <input value="${(no.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','numero_desenho',this.value)" onclick="event.stopPropagation()" placeholder="Nº desenho" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
+            <button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
+            <span style="font-size:11px;color:#558b2f;flex-shrink:0;font-weight:700" title="Clique na linha pra abrir">▶ abrir</span>
+          </div>
         </div>`;
       }
       // item (fabricar ou comercial) — layout muda conforme o tipo:
@@ -6977,7 +6981,7 @@ function renderColunas(){
         return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:#fff">
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:12px">${iconeTipo}</span>
-            <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" placeholder="Ex: Parafuso Sextavado M14x25" title="Ex: Parafuso Sextavado M14 x 25 — ou — Rolamento 22305 C/C SKF" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px;font-weight:600">
+            <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" placeholder="Ex: Parafuso Sextavado M14x25" title="Ex: Parafuso Sextavado M14 x 25 — ou — Rolamento 22305 C/C SKF" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
             <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
             ${botaoRemover}
           </div>
@@ -6987,7 +6991,7 @@ function renderColunas(){
       return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:#fff">
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
           <span style="font-size:12px">${iconeTipo}</span>
-          <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" placeholder="Denominação" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px;font-weight:600">
+          <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" placeholder="Denominação" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
           ${botaoRemover}
         </div>
         <div style="display:flex;gap:3px">
@@ -6999,7 +7003,7 @@ function renderColunas(){
       </div>`;
     }).join('') || `<div style="padding:14px;text-align:center;color:#bbb;font-size:11px">Vazio</div>`;
 
-    html += `<div style="min-width:240px;width:240px;flex-shrink:0;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;max-height:320px">
+    html += `<div style="min-width:280px;width:280px;flex-shrink:0;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;max-height:320px">
       <div style="padding:7px 10px;background:#eceff1;font-size:11px;font-weight:700;color:#37474f;border-bottom:1px solid #e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${labelTopo}">${labelTopo}</div>
       <div style="flex:1;overflow-y:auto">${linhas}</div>
       <div style="display:flex;gap:4px;padding:6px;border-top:1px solid #e0e0e0;background:#fafafa">
@@ -8756,7 +8760,7 @@ const DASH_GRUPOS = [
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
    subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Entrada NF-e',icon:'📥',tab:24}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
-   subs:[{label:'Ordens',icon:'🔧',tab:5},{label:'Desenhos Recebidos',icon:'📐',tab:28},{label:'Histórico Tempos',icon:'⏱️',tab:27}]},
+   subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27}]},
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
    subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12}]},
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
@@ -11027,7 +11031,7 @@ const MODULOS_SISTEMA = [
   {id:'projetos',   label:'🎯 Projetos / PDVs',     tab:3},
   {id:'material',   label:'📝 Lista de Material',   tab:4},
   {id:'producao',   label:'🔧 Ordens / Produção',   tab:5},
-  {id:'desenhos',   label:'📐 Desenhos Recebidos',   tab:28},
+  {id:'desenhos',   label:'📐 Estrutura de Equipamentos',   tab:28},
   {id:'cotacoes',   label:'💰 Cotações',             tab:6},
   {id:'compint',    label:'🛒 Compras Internas',     tab:9},
   {id:'envio',      label:'📧 Enviar Cotação',       tab:10},
