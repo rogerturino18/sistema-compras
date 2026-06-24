@@ -203,6 +203,16 @@ tr:hover td{background:#f9fbf9}
   .modal-body{padding:12px 14px !important}
   .form-grid{grid-template-columns:1fr !important;gap:8px !important}
   .form-group.full{grid-column:1 !important}
+  /* Itens do Desenho Recebido: vira cartão empilhado no mobile (sem scroll horizontal) */
+  .desenho-itens-tbl{min-width:0 !important}
+  .desenho-itens-tbl colgroup,.desenho-itens-tbl thead{display:none}
+  .desenho-itens-tbl tbody,.desenho-itens-tbl tr,.desenho-itens-tbl td{display:block;width:auto !important}
+  .desenho-itens-tbl tr{border:1px solid #cfd8dc !important;border-radius:8px;margin-bottom:10px;padding:6px 8px;background:#fff}
+  .desenho-itens-tbl td{display:flex !important;align-items:center;gap:10px;padding:5px 2px !important;border:none !important}
+  .desenho-itens-tbl td::before{content:attr(data-label);flex:0 0 88px;font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:#78909c;font-weight:700}
+  .desenho-itens-tbl td[data-label=""]{justify-content:flex-end;padding-top:2px !important}
+  .desenho-itens-tbl td[data-label=""]::before{display:none}
+  .desenho-itens-tbl td input,.desenho-itens-tbl td select{flex:1;min-width:0}
   .grid2{grid-template-columns:1fr !important}
   .kanban-wrap,.kanban-board-outer{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .kanban-board{min-width:600px}
@@ -1649,7 +1659,7 @@ tr:hover td{background:#f9fbf9}
 
 <!-- MODAL DESENHO RECEBIDO (cabeçalho + itens) -->
 <div class="modal-bg" id="modalDesenhoRecebido">
-<div class="modal" style="max-width:920px">
+<div class="modal" style="width:940px;max-width:96vw">
   <div class="modal-header">
     <h3 id="desModalTitulo">Novo Desenho Recebido</h3>
     <button class="modal-header-btn" onclick="fecharModal('modalDesenhoRecebido')">✕</button>
@@ -1670,11 +1680,11 @@ tr:hover td{background:#f9fbf9}
       <button class="btn btn-sm" onclick="adicionarLinhaItemDesenho()">+ Adicionar item</button>
     </div>
     <div style="overflow-x:auto;margin-top:8px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;min-width:760px" id="tblItensDesenho">
+      <table class="desenho-itens-tbl" style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;min-width:840px" id="tblItensDesenho">
         <colgroup>
-          <col style="width:140px"><col style="width:45px"><col style="width:auto">
-          <col style="width:130px"><col style="width:90px"><col style="width:48px">
-          <col style="width:110px"><col style="width:30px">
+          <col style="width:160px"><col style="width:48px"><col style="width:auto">
+          <col style="width:130px"><col style="width:130px"><col style="width:52px">
+          <col style="width:120px"><col style="width:34px">
         </colgroup>
         <thead>
           <tr style="background:#f5f5f5">
@@ -6921,19 +6931,19 @@ function renderLinhasItemDesenho(){
   }
   tbody.innerHTML = _itensDesenhoTemp.map((it,idx)=>`
     <tr style="border-bottom:1px solid #f0f0f0">
-      <td style="padding:4px"><input value="${(it.subgrupo||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'subgrupo',this.value)" placeholder="Ex: Cilindro Pneumático" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;background:#fffde7"></td>
-      <td style="padding:4px"><input value="${it.item_numero||''}" oninput="atualizarLinhaItemDesenho(${idx},'item_numero',this.value)" style="width:40px;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
-      <td style="padding:4px"><input value="${(it.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'denominacao',this.value)" placeholder="Ex: Porca Sextavada" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
-      <td style="padding:4px"><input value="${(it.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'desenho_peca',this.value)" placeholder="3-18930 ou DIN 933" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
-      <td style="padding:4px"><input value="${(it.material||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'material',this.value)" placeholder="SAE 1045" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
-      <td style="padding:4px"><input type="number" min="1" value="${it.quantidade||1}" oninput="atualizarLinhaItemDesenho(${idx},'quantidade',this.value)" style="width:42px;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;text-align:center"></td>
-      <td style="padding:4px">
+      <td data-label="Subgrupo" style="padding:4px"><input value="${(it.subgrupo||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'subgrupo',this.value)" placeholder="Ex: Cilindro Pneumático" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;background:#fffde7"></td>
+      <td data-label="Item" style="padding:4px"><input value="${it.item_numero||''}" oninput="atualizarLinhaItemDesenho(${idx},'item_numero',this.value)" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
+      <td data-label="Denominação" style="padding:4px"><input value="${(it.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'denominacao',this.value)" placeholder="Ex: Porca Sextavada" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
+      <td data-label="Desenho/Padrão" style="padding:4px"><input value="${(it.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'desenho_peca',this.value)" placeholder="3-18930 ou DIN 933" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
+      <td data-label="Material" style="padding:4px"><input value="${(it.material||'').replace(/"/g,'&quot;')}" oninput="atualizarLinhaItemDesenho(${idx},'material',this.value)" placeholder="SAE 1045" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px"></td>
+      <td data-label="Quantidade" style="padding:4px"><input type="number" min="1" value="${it.quantidade||1}" oninput="atualizarLinhaItemDesenho(${idx},'quantidade',this.value)" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;text-align:center"></td>
+      <td data-label="Tipo" style="padding:4px">
         <select onchange="atualizarLinhaItemDesenho(${idx},'tipo',this.value)" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px">
           <option value="fabricar" ${it.tipo==='fabricar'?'selected':''}>🔧 Fabricar</option>
           <option value="comercial" ${it.tipo==='comercial'?'selected':''}>🛒 Comercial</option>
         </select>
       </td>
-      <td style="padding:4px;text-align:center"><button onclick="removerLinhaItemDesenho(${idx})" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:14px" title="Remover linha">✕</button></td>
+      <td data-label="" style="padding:4px;text-align:center"><button onclick="removerLinhaItemDesenho(${idx})" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:14px" title="Remover linha">✕</button></td>
     </tr>`).join('');
 }
 
