@@ -1649,7 +1649,7 @@ tr:hover td{background:#f9fbf9}
 
 <!-- MODAL EQUIPAMENTO RECEBIDO (cabeçalho + montagens + itens de cada montagem) -->
 <div class="modal-bg" id="modalDesenhoRecebido">
-<div class="modal" style="width:1100px;max-width:96vw">
+<div class="modal" id="modalDesenhoRecebidoBox" style="width:820px;max-width:96vw">
   <div class="modal-header">
     <h3 id="desModalTitulo">Novo Equipamento Recebido</h3>
     <button class="modal-header-btn" onclick="fecharModal('modalDesenhoRecebido')">✕</button>
@@ -7013,6 +7013,21 @@ function renderColunas(){
     </div>`;
   }
   container.innerHTML = html;
+  _ajustarLarguraModalEquip(numColunas);
+}
+
+// O modal de Equipamento Recebido tem largura fixa de fábrica (boa pro cabeçalho de
+// 4 campos), mas precisa CRESCER conforme mais colunas da árvore são abertas — senão
+// ou fica espremido (poucas colunas, modal grande) ou sobra vazio (modal grande, 1 coluna só).
+// MIN garante o cabeçalho confortável mesmo com a árvore vazia; MAX evita modal gigante,
+// a partir daí a própria #colunasArvore (overflow-x:auto) assume o scroll horizontal.
+function _ajustarLarguraModalEquip(numColunas){
+  const modal = document.querySelector('#modalDesenhoRecebido .modal');
+  if(!modal) return;
+  const MIN_LARGURA = 820, MAX_LARGURA = 1100;
+  const larguraArvore = numColunas*280 + 2; // +2 = borda do container da árvore
+  const desejada = larguraArvore + 44; // 44 = padding lateral do modal (22px de cada lado)
+  modal.style.width = Math.max(MIN_LARGURA, Math.min(desejada, MAX_LARGURA)) + 'px';
 }
 
 function _desPdvMudou(){
