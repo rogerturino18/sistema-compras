@@ -1654,21 +1654,21 @@ tr:hover td{background:#f9fbf9}
     <h3 id="desModalTitulo">Novo Equipamento Recebido</h3>
     <button class="modal-header-btn" onclick="fecharModal('modalDesenhoRecebido')">✕</button>
   </div>
-  <div style="padding:0 22px 22px;max-height:78vh;overflow-y:auto">
-    <div class="form-grid">
+  <div style="padding:0 22px 18px;max-height:85vh;overflow-y:auto">
+    <div class="form-grid" style="grid-template-columns:repeat(4,1fr);gap:8px">
       <div class="form-group"><label>PDV *</label>
         <select id="des_pdv_sel" onchange="_desPdvMudou()"><option value="">Selecione o PDV...</option></select>
       </div>
-      <div class="form-group"><label>Data de Recebimento *</label><input type="date" id="des_data"></div>
+      <div class="form-group"><label>Data Recebimento *</label><input type="date" id="des_data"></div>
       <div class="form-group"><label>Nome do Equipamento</label><input id="des_nome_equip" placeholder="Ex: Alimentador TRH800"></div>
-      <div class="form-group"><label>Nº do Desenho Geral</label><input id="des_numero_geral" placeholder="Ex: 1-18961"></div>
-      <div class="form-group full"><label>Observação</label><input id="des_obs" placeholder="Opcional"></div>
+      <div class="form-group"><label>Nº Desenho Geral</label><input id="des_numero_geral" placeholder="Ex: 1-18961"></div>
     </div>
+    <div class="form-group full" style="margin-top:6px"><label>Observação</label><input id="des_obs" placeholder="Opcional"></div>
 
-    <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between">
+    <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
       <label style="font-weight:700;font-size:13px;color:#37474f">📁 Estrutura do equipamento <span style="font-weight:400;font-size:10px;color:#9e9e9e;text-transform:none">— clique numa montagem pra abrir o que tem dentro dela; pode ter montagem dentro de montagem, sem limite</span></label>
     </div>
-    <div id="colunasArvore" style="margin-top:8px;display:flex;gap:0;overflow-x:auto;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa"></div>
+    <div id="colunasArvore" style="margin-top:6px;display:flex;gap:0;overflow-x:auto;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa"></div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalDesenhoRecebido')">Cancelar</button>
@@ -6923,6 +6923,15 @@ function atualizarNo(nodeId, campo, valor){
   }
 }
 
+// Trocar entre Fabricar/Comercial muda o layout dos campos do item (Comercial não
+// tem número de desenho interno, é descrito numa linha só) — por isso, diferente
+// de atualizarNo(), aqui é preciso re-renderizar a coluna pra refletir o novo layout.
+function mudarTipoItem(nodeId, valor){
+  const no = _nosTemp.find(n=>n.id===nodeId);
+  if(no) no.item_tipo = valor;
+  renderColunas();
+}
+
 function selecionarMontagem(idxColuna, montagemId){
   _colunaPath = _colunaPath.slice(0, idxColuna);
   _colunaPath.push(montagemId);
@@ -6952,28 +6961,45 @@ function renderColunas(){
           <span style="font-size:11px;color:#9e9e9e;flex-shrink:0">▶</span>
         </div>`;
       }
-      // item (fabricar ou comercial)
+      // item (fabricar ou comercial) — layout muda conforme o tipo:
+      // Comercial não tem número de desenho interno, é descrito numa linha só
+      // (ex: "PARAFUSO SEXTAVADO M14 X 25" ou "ROLAMENTO 22305 C/C SKF").
+      // Fabricar mantém Denominação + Desenho/Padrão + Material separados.
       const corTipo = no.item_tipo==='comercial' ? '#e65100' : '#1565c0';
       const iconeTipo = no.item_tipo==='comercial' ? '🛒' : '🔧';
+      const seletorTipo = `<select onchange="mudarTipoItem('${no.id}',this.value)" style="width:100%;margin-top:3px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;color:${corTipo}">
+          <option value="fabricar" ${no.item_tipo==='fabricar'?'selected':''}>🔧 Fabricar</option>
+          <option value="comercial" ${no.item_tipo==='comercial'?'selected':''}>🛒 Comercial</option>
+        </select>`;
+      const botaoRemover = `<button onclick="removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>`;
+
+      if(no.item_tipo==='comercial'){
+        return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:#fff">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+            <span style="font-size:12px">${iconeTipo}</span>
+            <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" placeholder="Ex: Parafuso Sextavado M14x25" title="Ex: Parafuso Sextavado M14 x 25 — ou — Rolamento 22305 C/C SKF" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px;font-weight:600">
+            <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
+            ${botaoRemover}
+          </div>
+          ${seletorTipo}
+        </div>`;
+      }
       return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:#fff">
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
           <span style="font-size:12px">${iconeTipo}</span>
           <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" placeholder="Denominação" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px;font-weight:600">
-          <button onclick="removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
+          ${botaoRemover}
         </div>
         <div style="display:flex;gap:3px">
           <input value="${(no.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','desenho_peca',this.value)" placeholder="Desenho/Padrão" style="flex:1;min-width:0;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
           <input value="${(no.material||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','material',this.value)" placeholder="Material" style="width:62px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
           <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
         </div>
-        <select onchange="atualizarNo('${no.id}','item_tipo',this.value)" style="width:100%;margin-top:3px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;color:${corTipo}">
-          <option value="fabricar" ${no.item_tipo==='fabricar'?'selected':''}>🔧 Fabricar</option>
-          <option value="comercial" ${no.item_tipo==='comercial'?'selected':''}>🛒 Comercial</option>
-        </select>
+        ${seletorTipo}
       </div>`;
     }).join('') || `<div style="padding:14px;text-align:center;color:#bbb;font-size:11px">Vazio</div>`;
 
-    html += `<div style="min-width:240px;width:240px;flex-shrink:0;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;max-height:420px">
+    html += `<div style="min-width:240px;width:240px;flex-shrink:0;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;max-height:320px">
       <div style="padding:7px 10px;background:#eceff1;font-size:11px;font-weight:700;color:#37474f;border-bottom:1px solid #e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${labelTopo}">${labelTopo}</div>
       <div style="flex:1;overflow-y:auto">${linhas}</div>
       <div style="display:flex;gap:4px;padding:6px;border-top:1px solid #e0e0e0;background:#fafafa">
