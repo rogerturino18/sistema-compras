@@ -1666,6 +1666,23 @@ tr:hover td{background:#f9fbf9}
     </div>
 
     <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between">
+      <label style="font-weight:700;font-size:13px;color:#37474f">🛒 Acessórios Comerciais do Equipamento <span style="font-weight:400;font-size:10px;color:#9e9e9e;text-transform:none">(parafuso, porca, arruela, gaxeta, rolamento... direto do equipamento, fora de qualquer montagem)</span></label>
+      <button class="btn btn-sm" onclick="adicionarItemEquipamento()">+ Acessório</button>
+    </div>
+    <div style="overflow-x:auto;margin-top:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;min-width:560px" id="tblItensEquip">
+        <colgroup><col style="width:auto"><col style="width:150px"><col style="width:60px"><col style="width:26px"></colgroup>
+        <thead><tr style="background:#f5f5f5">
+          <th style="padding:5px 8px;text-align:left;font-size:10px;color:#546e7a;text-transform:uppercase">Denominação</th>
+          <th style="padding:5px 8px;text-align:left;font-size:10px;color:#546e7a;text-transform:uppercase">Desenho/Padrão</th>
+          <th style="padding:5px 8px;text-align:center;font-size:10px;color:#546e7a;text-transform:uppercase">Qtd</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="corpoItensEquip"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between">
       <label style="font-weight:700;font-size:13px;color:#37474f">📁 Montagens deste equipamento</label>
       <button class="btn btn-sm primary" onclick="adicionarMontagem()">+ Adicionar Montagem</button>
     </div>
@@ -6861,7 +6878,37 @@ function criarOPdaPeca(pecaId){
 // mesma usada pela aba Compras), com vínculo de volta pra mostrar o status
 // real de compra (cotação/comprado), não um checkbox isolado.
 // ════════════════════════════════════════════════════════════════════════
-let _montagensTemp = []; // [{id, nome_montagem, numero_desenho, material, quantidade, itens:[{id,item_numero,denominacao,desenho_peca,material,quantidade,tipo,ordem_id,item_compra_id}]}]
+let _montagensTemp = []; // [{id, nome_montagem, numero_desenho, quantidade, itens:[{id,item_numero,denominacao,desenho_peca,material,quantidade,tipo,ordem_id,item_compra_id}]}]
+let _itensEquipTemp = []; // acessórios comerciais direto do equipamento, fora de qualquer montagem — [{id,denominacao,desenho_peca,quantidade,item_compra_id}]
+
+function adicionarItemEquipamento(){
+  _itensEquipTemp.push({id:null, denominacao:'', desenho_peca:'', quantidade:1, item_compra_id:null});
+  renderItensEquipTemp();
+}
+
+function removerItemEquipamento(idx){
+  _itensEquipTemp.splice(idx,1);
+  renderItensEquipTemp();
+}
+
+function atualizarItemEquipamento(idx, campo, valor){
+  _itensEquipTemp[idx][campo] = valor;
+}
+
+function renderItensEquipTemp(){
+  const tbody = document.getElementById('corpoItensEquip');
+  if(!_itensEquipTemp.length){
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:10px;text-align:center;color:#bbb;font-size:11px">Nenhum acessório direto do equipamento ainda</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = _itensEquipTemp.map((it,idx)=>`
+    <tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:3px"><input value="${(it.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarItemEquipamento(${idx},'denominacao',this.value)" placeholder="Ex: Parafuso Allen" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px"></td>
+      <td style="padding:3px"><input value="${(it.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarItemEquipamento(${idx},'desenho_peca',this.value)" placeholder="Ex: DIN 933" style="width:100%;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px"></td>
+      <td style="padding:3px"><input type="number" min="1" value="${it.quantidade||1}" oninput="atualizarItemEquipamento(${idx},'quantidade',this.value)" style="width:50px;padding:4px;border:1px solid #e0e0e0;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:3px;text-align:center"><button onclick="removerItemEquipamento(${idx})" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:13px" title="Remover">✕</button></td>
+    </tr>`).join('');
+}
 
 function _desPdvMudou(){
   const sel = document.getElementById('des_pdv_sel');
@@ -6902,6 +6949,8 @@ function abrirModalDesenhoRecebido(desenhoId){
       ...m,
       itens: itensDesenhoRecebido.filter(i=>i.montagem_id===m.id).map(i=>({...i}))
     }));
+    // Acessórios comerciais diretos do equipamento (sem montagem_id, ligados direto pelo desenho_id)
+    _itensEquipTemp = itensDesenhoRecebido.filter(i=>i.desenho_id===desenhoId&&!i.montagem_id).map(i=>({...i}));
   } else {
     document.getElementById('desModalTitulo').textContent='Novo Equipamento Recebido';
     document.getElementById('des_pdv_sel').value='';
@@ -6910,14 +6959,16 @@ function abrirModalDesenhoRecebido(desenhoId){
     document.getElementById('des_numero_geral').value='';
     document.getElementById('des_obs').value='';
     _montagensTemp = [];
+    _itensEquipTemp = [];
   }
   renderMontagensTemp();
+  renderItensEquipTemp();
   selPDV.dataset.lastValue = selPDV.value;
   abrirModal('modalDesenhoRecebido');
 }
 
 function adicionarMontagem(){
-  const novaMontagem = {id:null, nome_montagem:'', numero_desenho:'', material:'', quantidade:1, itens:[]};
+  const novaMontagem = {id:null, nome_montagem:'', numero_desenho:'', quantidade:1, itens:[]};
   _montagensTemp.push(novaMontagem);
   // Pergunta a quantidade de itens pra já criar as linhas vazias de uma vez,
   // evitando clicar em "+ Item" repetidamente um por um.
@@ -6985,7 +7036,6 @@ function renderMontagensTemp(){
         <span style="font-size:13px">📁</span>
         <input value="${(m.nome_montagem||'').replace(/"/g,'&quot;')}" oninput="atualizarMontagem(${idxM},'nome_montagem',this.value)" placeholder="Nome da montagem (ex: Cilindro Pneumático)" style="flex:1;min-width:160px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;font-weight:600">
         <input value="${(m.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarMontagem(${idxM},'numero_desenho',this.value)" placeholder="Nº desenho (ex: 1-19035)" style="width:140px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px">
-        <input value="${(m.material||'').replace(/"/g,'&quot;')}" oninput="atualizarMontagem(${idxM},'material',this.value)" placeholder="Material" style="width:100px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px">
         <input type="number" min="1" value="${m.quantidade||1}" oninput="atualizarMontagem(${idxM},'quantidade',this.value)" title="Quantidade desta montagem" style="width:50px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;text-align:center">
         <button onclick="removerMontagem(${idxM})" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:15px" title="Remover montagem">✕</button>
       </div>
@@ -7036,9 +7086,25 @@ async function salvarDesenhoRecebido(){
         await api('DELETE','itens_desenho_recebido','',`?montagem_id=eq.${m.id}`);
       }
       await api('DELETE','montagens_recebidas','',`?desenho_id=eq.${editId}`);
+      // Itens comerciais diretos do equipamento (sem montagem) também são recriados do zero
+      await api('DELETE','itens_desenho_recebido','',`?desenho_id=eq.${editId}&montagem_id=is.null`);
     } else {
       const res = await api('POST','desenhos_recebidos',cabecalho);
       desenhoId = res?.[0]?.id;
+    }
+
+    // Acessórios comerciais diretos do equipamento (fora de qualquer montagem)
+    for(const it of _itensEquipTemp){
+      if(!it.denominacao && !it.desenho_peca) continue;
+      await api('POST','itens_desenho_recebido',{
+        desenho_id: desenhoId,
+        montagem_id: null,
+        denominacao: it.denominacao||null,
+        desenho_peca: it.desenho_peca||null,
+        quantidade: Number(it.quantidade)||1,
+        tipo: 'comercial',
+        item_compra_id: it.item_compra_id||null
+      });
     }
 
     for(const m of _montagensTemp){
@@ -7047,7 +7113,6 @@ async function salvarDesenhoRecebido(){
         desenho_id: desenhoId,
         nome_montagem: m.nome_montagem||null,
         numero_desenho: m.numero_desenho||null,
-        material: m.material||null,
         quantidade: Number(m.quantidade)||1
       });
       const montagemId = resM?.[0]?.id;
@@ -7151,6 +7216,7 @@ function renderDesenhosRecebidos(){
 
   const montagensDoEquip = id => montagensRecebidas.filter(m=>m.desenho_id===id);
   const itensDaMontagem = id => itensDesenhoRecebido.filter(i=>i.montagem_id===id);
+  const itensDiretosDoEquip = id => itensDesenhoRecebido.filter(i=>i.desenho_id===id&&!i.montagem_id);
 
   // Status real de um item comercial, consultando a Lista de Compras de verdade
   const statusComercial = it=>{
@@ -7163,9 +7229,10 @@ function renderDesenhosRecebidos(){
     return {pendente:true, html:`<span style="color:#e65100;font-weight:700;font-size:11px">🛒 Na lista de compras</span>`};
   };
 
-  const temPendencia = d => montagensDoEquip(d.id).some(m=>itensDaMontagem(m.id).some(it=>
-    (it.tipo==='fabricar'&&!it.ordem_id) || (it.tipo==='comercial'&&statusComercial(it).pendente)
-  ));
+  const temPendencia = d => itensDiretosDoEquip(d.id).some(it=>statusComercial(it).pendente)
+    || montagensDoEquip(d.id).some(m=>itensDaMontagem(m.id).some(it=>
+        (it.tipo==='fabricar'&&!it.ordem_id) || (it.tipo==='comercial'&&statusComercial(it).pendente)
+      ));
 
   let lista = desenhosRecebidos.filter(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
@@ -7203,6 +7270,7 @@ function renderDesenhosRecebidos(){
   div.innerHTML = lista.map(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
     const montagensDoD = montagensDoEquip(d.id);
+    const itensDiretos = itensDiretosDoEquip(d.id);
 
     const linhaItemHtml = it=>{
       const statusHtml = it.tipo==='fabricar'
@@ -7219,10 +7287,24 @@ function renderDesenhosRecebidos(){
       </tr>`;
     };
 
+    // Itens diretos do equipamento (acessórios comerciais, sempre comercial, sem coluna Material/Tipo repetida)
+    const blocoItensDiretos = itensDiretos.length ? `<div style="border-top:1px solid #eceff1">
+        <div style="padding:6px 16px;background:#fff3e0;font-size:11px;font-weight:700;color:#e65100">🛒 Acessórios Comerciais do Equipamento</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:#fafafa"><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Denominação</th><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Desenho/Padrão</th><th style="padding:6px 8px;text-align:center;font-size:9px;color:#9e9e9e;text-transform:uppercase">Qtd</th><th></th></tr></thead>
+          <tbody>${itensDiretos.map(it=>`<tr style="border-bottom:1px solid #f5f5f5">
+            <td style="padding:6px 8px;font-size:12px;font-weight:600">${it.denominacao||'—'}</td>
+            <td style="padding:6px 8px;font-size:11px;color:#546e7a">${it.desenho_peca||'—'}</td>
+            <td style="padding:6px 8px;font-size:11px;text-align:center">${it.quantidade||1}</td>
+            <td style="padding:6px 8px;text-align:right">${statusComercial(it).html}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>` : '';
+
     const blocosMontagens = montagensDoD.map(m=>{
       const itensM = itensDaMontagem(m.id);
       return `<div style="border-top:1px solid #eceff1">
-        <div style="padding:6px 16px;background:#f9fbe7;font-size:11px;font-weight:700;color:#827717">📁 ${m.nome_montagem||'Montagem sem nome'}${m.numero_desenho?' · '+m.numero_desenho:''}${m.material?' · '+m.material:''}</div>
+        <div style="padding:6px 16px;background:#f9fbe7;font-size:11px;font-weight:700;color:#827717">📁 ${m.nome_montagem||'Montagem sem nome'}${m.numero_desenho?' · '+m.numero_desenho:''}</div>
         ${itensM.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:#fafafa"><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Item</th><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Denominação</th><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Desenho/Padrão</th><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Material</th><th style="padding:6px 8px;text-align:center;font-size:9px;color:#9e9e9e;text-transform:uppercase">Qtd</th><th style="padding:6px 8px;text-align:left;font-size:9px;color:#9e9e9e;text-transform:uppercase">Tipo</th><th></th></tr></thead>
           <tbody>${itensM.map(linhaItemHtml).join('')}</tbody>
@@ -7241,7 +7323,8 @@ function renderDesenhosRecebidos(){
           <button class="btn btn-sm danger" onclick="deletarDesenhoRecebido('${d.id}')" title="Excluir">🗑</button>
         </div>
       </div>
-      ${montagensDoD.length ? blocosMontagens : `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhuma montagem cadastrada neste equipamento</div>`}
+      ${blocoItensDiretos}
+      ${montagensDoD.length ? blocosMontagens : (itensDiretos.length ? '' : `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhuma montagem cadastrada neste equipamento</div>`)}
     </div>`;
   }).join('');
 }
