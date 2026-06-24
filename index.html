@@ -6898,7 +6898,7 @@ function _descendentesDe(nodeId){
 
 function adicionarSubMontagem(parentId){
   const novoId = _tempId();
-  _nosTemp.push({id:novoId, tipo:'montagem', parent_id:parentId, nome_montagem:'', numero_desenho:'', quantidade:1});
+  _nosTemp.push({id:novoId, tipo:'montagem', parent_id:parentId, nome_montagem:'', numero_desenho:'', material:'', quantidade:1});
   renderColunas();
 }
 
@@ -6954,11 +6954,11 @@ function renderColunas(){
     const filhos = _filhosDe(parentId);
     const ativoNestaColuna = _colunaPath[col]; // id do nó aberto a partir desta coluna, se houver
 
-    // O nó-pai desta coluna (null = direto no equipamento) define o label do topo
-    // e se a coluna pode ganhar sub-Montagem (só faz sentido dentro do equipamento
-    // ou de outra Montagem — dentro de um Item só cabem outros Itens/componentes).
+    // O nó-pai desta coluna (null = direto no equipamento) define o label do topo.
+    // Antes só dava pra criar Montagem dentro do equipamento ou de outra Montagem —
+    // agora Roger pediu pra ter exatamente as mesmas opções (Montagem/Comercial/
+    // Matéria-Prima) em QUALQUER nível, então +Montagem sempre aparece.
     const noPaiColuna = parentId===null ? null : _nosTemp.find(n=>n.id===parentId);
-    const podeTerMontagem = parentId===null || noPaiColuna?.tipo==='montagem';
     const labelTopo = col===0 ? '📦 Equipamento' : (noPaiColuna
       ? (noPaiColuna.tipo==='montagem' ? '📁 '+(noPaiColuna.nome_montagem||'Sem nome') : _iconeItemTipo(noPaiColuna.item_tipo)+' '+(noPaiColuna.denominacao||'Sem nome'))
       : 'Sem nome');
@@ -6970,11 +6970,13 @@ function renderColunas(){
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:13px;flex-shrink:0">📁</span>
             <input value="${(no.nome_montagem||'').replace(/"/g,'&quot;')}" data-no-nome-input="${no.id}" oninput="atualizarNo('${no.id}','nome_montagem',this.value)" onclick="event.stopPropagation()" placeholder="Nome da montagem" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
+            <button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
           </div>
           <div style="display:flex;align-items:center;gap:4px;padding-left:19px">
             <input value="${(no.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','numero_desenho',this.value)" onclick="event.stopPropagation()" placeholder="Nº desenho" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
-            <button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
-            <span style="font-size:11px;color:#558b2f;flex-shrink:0;font-weight:700" title="Clique na linha pra abrir">▶ abrir</span>
+            <input value="${(no.material||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','material',this.value)" onclick="event.stopPropagation()" placeholder="Material" style="width:62px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
+            <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" onclick="event.stopPropagation()" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
+            <span style="font-size:11px;color:#558b2f;flex-shrink:0;font-weight:700;white-space:nowrap" title="Clique na linha pra abrir">▶ abrir</span>
           </div>
         </div>`;
       }
@@ -7039,7 +7041,7 @@ function renderColunas(){
       <div style="padding:7px 10px;background:#eceff1;font-size:11px;font-weight:700;color:#37474f;border-bottom:1px solid #e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${labelTopo}">${labelTopo}</div>
       <div style="flex:1;overflow-y:auto">${linhas}</div>
       <div style="display:flex;gap:4px;padding:6px;border-top:1px solid #e0e0e0;background:#fafafa">
-        ${podeTerMontagem ? `<button class="btn btn-sm" onclick="adicionarSubMontagem(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">+ Montagem</button>` : ''}
+        <button class="btn btn-sm" onclick="adicionarSubMontagem(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">+ Montagem</button>
         <button class="btn btn-sm" onclick="adicionarItemEm(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">+ Item</button>
       </div>
     </div>`;
@@ -7081,35 +7083,25 @@ function _desPdvMudou(){
 }
 
 // Reconstrói recursivamente, a partir dos dados salvos no banco, a árvore completa de
-// montagens (em qualquer profundidade) e itens de um equipamento, no formato plano _nosTemp.
-// Itens também podem estar dentro de outros itens (acessórios/matéria-prima dentro de
-// um item Fabricar) — expandidos abaixo seguindo item_pai_id, mesmo padrão das montagens.
+// montagens e itens de um equipamento, no formato plano _nosTemp. Montagem e Item agora
+// podem ser pai um do outro em qualquer combinação e profundidade (Roger pediu as mesmas
+// opções — Montagem/Comercial/Matéria-Prima — disponíveis em todo nível) — por isso os
+// dois são expandidos JUNTOS, nível por nível, em vez de em duas passadas separadas.
 function _coletarArvoreDoEquipamento(desenhoId){
   const nos = [];
-  // Montagens raiz (ligadas direto ao equipamento)
-  let fronteira = montagensRecebidas.filter(m=>m.desenho_id===desenhoId && !m.montagem_pai_id);
-  fronteira.forEach(m=>nos.push({...m, tipo:'montagem', parent_id:null}));
-  // Expande nível por nível seguindo montagem_pai_id, até não achar mais filhos
-  let nivelAtual = fronteira;
-  while(nivelAtual.length){
-    const idsNivel = nivelAtual.map(m=>m.id);
-    const proximoNivel = montagensRecebidas.filter(m=>idsNivel.includes(m.montagem_pai_id));
-    proximoNivel.forEach(m=>nos.push({...m, tipo:'montagem', parent_id:m.montagem_pai_id}));
-    nivelAtual = proximoNivel;
-  }
-  const idsTodasMontagens = nos.map(n=>n.id);
-  // Itens "nível 0": direto no equipamento ou dentro de qualquer montagem da árvore
-  let itensNivelAtual = itensDesenhoRecebido.filter(i =>
-    (i.desenho_id===desenhoId && !i.item_pai_id) ||
-    (i.montagem_id && idsTodasMontagens.includes(i.montagem_id) && !i.item_pai_id)
-  );
-  itensNivelAtual.forEach(i => nos.push({...i, tipo:'item', parent_id: i.montagem_id||null, item_tipo: i.tipo||'fabricar'}));
-  // Expande nível por nível seguindo item_pai_id, até não achar mais filhos
-  while(itensNivelAtual.length){
-    const idsNivel = itensNivelAtual.map(i=>i.id);
-    const proximoNivel = itensDesenhoRecebido.filter(i=>idsNivel.includes(i.item_pai_id));
-    proximoNivel.forEach(i => nos.push({...i, tipo:'item', parent_id:i.item_pai_id, item_tipo:i.tipo||'fabricar'}));
-    itensNivelAtual = proximoNivel;
+  let nivelMontagens = montagensRecebidas.filter(m=>m.desenho_id===desenhoId && !m.montagem_pai_id && !m.item_pai_id);
+  let nivelItens = itensDesenhoRecebido.filter(i=>i.desenho_id===desenhoId && !i.montagem_id && !i.item_pai_id);
+  nivelMontagens.forEach(m=>nos.push({...m, tipo:'montagem', parent_id:null}));
+  nivelItens.forEach(i=>nos.push({...i, tipo:'item', parent_id:null, item_tipo:i.tipo||'fabricar'}));
+
+  while(nivelMontagens.length || nivelItens.length){
+    const idsNivel = [...nivelMontagens.map(m=>m.id), ...nivelItens.map(i=>i.id)];
+    const proxMontagens = montagensRecebidas.filter(m => idsNivel.includes(m.montagem_pai_id) || idsNivel.includes(m.item_pai_id));
+    const proxItens = itensDesenhoRecebido.filter(i => idsNivel.includes(i.montagem_id) || idsNivel.includes(i.item_pai_id));
+    proxMontagens.forEach(m=>nos.push({...m, tipo:'montagem', parent_id: m.montagem_pai_id||m.item_pai_id}));
+    proxItens.forEach(i=>nos.push({...i, tipo:'item', parent_id: i.montagem_id||i.item_pai_id, item_tipo:i.tipo||'fabricar'}));
+    nivelMontagens = proxMontagens;
+    nivelItens = proxItens;
   }
   return nos;
 }
@@ -7166,77 +7158,66 @@ async function salvarDesenhoRecebido(){
     let desenhoId = editId;
     if(editId){
       await api('PATCH','desenhos_recebidos',cabecalho,`?id=eq.${editId}`);
-      // Remove toda a árvore antiga deste equipamento (montagens em qualquer profundidade
-      // + itens em qualquer nível) e recria do zero com o estado atual das colunas.
+      // Remove toda a árvore antiga deste equipamento (montagens e itens em qualquer
+      // profundidade e em qualquer combinação — montagem dentro de item, item dentro
+      // de montagem, etc.) e recria do zero com o estado atual das colunas. Apaga por
+      // id, do nó mais profundo pro mais raso (não depende de qual FK específica liga
+      // cada um, então funciona independente de como a árvore está organizada).
       // Vínculos já feitos (ordem_id, item_compra_id) são preservados porque vieram
       // junto nos nós carregados em _coletarArvoreDoEquipamento.
       const arvoreAntiga = _coletarArvoreDoEquipamento(editId);
-      const idsMontagensAntigas = arvoreAntiga.filter(n=>n.tipo==='montagem').map(n=>n.id);
-      await api('DELETE','itens_desenho_recebido','',`?desenho_id=eq.${editId}`);
-      for(const mid of idsMontagensAntigas){
-        await api('DELETE','itens_desenho_recebido','',`?montagem_id=eq.${mid}`);
-      }
-      for(const mid of idsMontagensAntigas){
-        await api('DELETE','montagens_recebidas','',`?id=eq.${mid}`);
+      for(const n of [...arvoreAntiga].reverse()){
+        if(n.tipo==='montagem') await api('DELETE','montagens_recebidas','',`?id=eq.${n.id}`);
+        else await api('DELETE','itens_desenho_recebido','',`?id=eq.${n.id}`);
       }
     } else {
       const res = await api('POST','desenhos_recebidos',cabecalho);
       desenhoId = res?.[0]?.id;
     }
 
-    // Persiste a árvore em ordem topológica: cria as montagens nível por nível
-    // (raiz primeiro), guardando um mapa tempId→id-real-do-banco pra resolver os
-    // parent_id dos níveis mais profundos, que ainda apontam pra ids temporários.
-    const mapaIds = {}; // tempId (ou id real já existente) -> id real no banco
-    let restantes = _nosTemp.filter(n=>n.tipo==='montagem');
+    // Persiste a árvore em ordem topológica única: montagens e itens são resolvidos
+    // JUNTOS, nível por nível, guardando um mapa tempId→id-real-do-banco — porque agora
+    // um pode ser pai do outro em qualquer combinação (montagem dentro de item, item
+    // dentro de montagem), então não dá mais pra resolver "todas as montagens primeiro".
+    const mapaIds = {}; // tempId -> id real no banco
+    let restantes = _nosTemp.filter(n => n.tipo==='montagem' || (n.tipo==='item' && (n.denominacao||n.desenho_peca)));
     let progresso = true;
     while(restantes.length && progresso){
       progresso = false;
-      const proximaLeva = restantes.filter(m=>m.parent_id===null || mapaIds[m.parent_id]!==undefined);
-      for(const m of proximaLeva){
-        const parentResolvido = m.parent_id===null ? null : mapaIds[m.parent_id];
-        const res = await api('POST','montagens_recebidas',{
-          desenho_id: m.parent_id===null ? desenhoId : null,
-          montagem_pai_id: m.parent_id===null ? null : parentResolvido,
-          nome_montagem: m.nome_montagem||null,
-          numero_desenho: m.numero_desenho||null,
-          quantidade: Number(m.quantidade)||1
-        });
-        mapaIds[m.id] = res?.[0]?.id;
+      const proximaLeva = restantes.filter(n => n.parent_id===null || mapaIds[n.parent_id]!==undefined);
+      for(const n of proximaLeva){
+        const noPai = n.parent_id===null ? null : _nosTemp.find(x=>x.id===n.parent_id);
+        const parentResolvido = n.parent_id===null ? null : mapaIds[n.parent_id];
+        if(n.tipo==='montagem'){
+          const res = await api('POST','montagens_recebidas',{
+            desenho_id: n.parent_id===null ? desenhoId : null,
+            montagem_pai_id: (n.parent_id!==null && noPai?.tipo==='montagem') ? parentResolvido : null,
+            item_pai_id: (n.parent_id!==null && noPai?.tipo==='item') ? parentResolvido : null,
+            nome_montagem: n.nome_montagem||null,
+            numero_desenho: n.numero_desenho||null,
+            material: n.material||null,
+            quantidade: Number(n.quantidade)||1
+          });
+          mapaIds[n.id] = res?.[0]?.id;
+        } else {
+          const res = await api('POST','itens_desenho_recebido',{
+            desenho_id: n.parent_id===null ? desenhoId : null,
+            montagem_id: (n.parent_id!==null && noPai?.tipo==='montagem') ? parentResolvido : null,
+            item_pai_id: (n.parent_id!==null && noPai?.tipo==='item') ? parentResolvido : null,
+            item_numero: n.item_numero||null,
+            denominacao: n.denominacao||null,
+            desenho_peca: n.desenho_peca||null,
+            material: n.material||null,
+            quantidade: Number(n.quantidade)||1,
+            tipo: n.item_tipo||'fabricar',
+            ordem_id: n.ordem_id||null,
+            item_compra_id: n.item_compra_id||null
+          });
+          mapaIds[n.id] = res?.[0]?.id;
+        }
         progresso = true;
       }
-      restantes = restantes.filter(m=>mapaIds[m.id]===undefined);
-    }
-
-    // Itens — agora também podem ser pai de outros itens (item_pai_id), então
-    // precisam da MESMA resolução topológica nível-por-nível usada nas montagens:
-    // o pai (montagem OU outro item) precisa ter o id real resolvido antes do filho
-    // ser salvo. mapaIds é compartilhado com as montagens (chave = tempId, sem colisão).
-    let restantesItens = _nosTemp.filter(n=>n.tipo==='item' && (n.denominacao||n.desenho_peca));
-    let progressoItens = true;
-    while(restantesItens.length && progressoItens){
-      progressoItens = false;
-      const proximaLeva = restantesItens.filter(it => it.parent_id===null || mapaIds[it.parent_id]!==undefined);
-      for(const it of proximaLeva){
-        const noPai = it.parent_id===null ? null : _nosTemp.find(n=>n.id===it.parent_id);
-        const parentResolvido = it.parent_id===null ? null : mapaIds[it.parent_id];
-        const res = await api('POST','itens_desenho_recebido',{
-          desenho_id: it.parent_id===null ? desenhoId : null,
-          montagem_id: (it.parent_id!==null && noPai?.tipo==='montagem') ? parentResolvido : null,
-          item_pai_id: (it.parent_id!==null && noPai?.tipo==='item') ? parentResolvido : null,
-          item_numero: it.item_numero||null,
-          denominacao: it.denominacao||null,
-          desenho_peca: it.desenho_peca||null,
-          material: it.material||null,
-          quantidade: Number(it.quantidade)||1,
-          tipo: it.item_tipo||'fabricar',
-          ordem_id: it.ordem_id||null,
-          item_compra_id: it.item_compra_id||null
-        });
-        mapaIds[it.id] = res?.[0]?.id;
-        progressoItens = true;
-      }
-      restantesItens = restantesItens.filter(it=>mapaIds[it.id]===undefined);
+      restantes = restantes.filter(n=>mapaIds[n.id]===undefined);
     }
 
     showToast('Equipamento recebido salvo!');
@@ -7248,14 +7229,12 @@ async function salvarDesenhoRecebido(){
 async function deletarDesenhoRecebido(id){
   if(!confirm('Excluir este equipamento e toda a estrutura dele (montagens e itens)?')) return;
   try{
+    // Mesma lógica robusta do salvamento: apaga por id, do mais profundo pro mais
+    // raso, sem depender de qual FK específica liga cada nó.
     const arvore = _coletarArvoreDoEquipamento(id);
-    const idsMontagens = arvore.filter(n=>n.tipo==='montagem').map(n=>n.id);
-    await api('DELETE','itens_desenho_recebido','',`?desenho_id=eq.${id}`);
-    for(const mid of idsMontagens){
-      await api('DELETE','itens_desenho_recebido','',`?montagem_id=eq.${mid}`);
-    }
-    for(const mid of idsMontagens){
-      await api('DELETE','montagens_recebidas','',`?id=eq.${mid}`);
+    for(const n of [...arvore].reverse()){
+      if(n.tipo==='montagem') await api('DELETE','montagens_recebidas','',`?id=eq.${n.id}`);
+      else await api('DELETE','itens_desenho_recebido','',`?id=eq.${n.id}`);
     }
     await api('DELETE','desenhos_recebidos','',`?id=eq.${id}`);
     showToast('Excluído!');
@@ -7345,22 +7324,25 @@ function _statusComercial(it){
 }
 
 // Renderização recursiva da árvore salva (tela principal, só leitura + ações) —
-// indentação simples por profundidade, já que aqui não precisa de navegação por
-// colunas (é só consulta/acompanhamento do que já foi cadastrado).
-function _renderArvoreLeitura(parentId, profundidade, desenhoId){
-  const montagensFilhas = profundidade===0
-    ? montagensRecebidas.filter(m=>m.desenho_id===desenhoId && !m.montagem_pai_id)
-    : montagensRecebidas.filter(m=>m.montagem_pai_id===parentId);
-  const itensFilhos = profundidade===0
-    ? itensDesenhoRecebido.filter(i=>i.desenho_id===desenhoId && !i.montagem_id)
-    : itensDesenhoRecebido.filter(i=>i.montagem_id===parentId);
+// indentação simples por nível, já que aqui não precisa de navegação por colunas
+// (é só consulta/acompanhamento do que já foi cadastrado). Montagem e Item podem
+// ser pai um do outro em qualquer combinação/profundidade — por isso a busca de
+// filhos olha as duas FKs possíveis (montagem_pai_id/item_pai_id para montagem,
+// montagem_id/item_pai_id para item) em todo nível, recursão unificada.
+function _renderArvoreLeitura(parentId, indent, desenhoId){
+  const ehRaiz = parentId===null;
+  const montagensFilhas = ehRaiz
+    ? montagensRecebidas.filter(m=>m.desenho_id===desenhoId && !m.montagem_pai_id && !m.item_pai_id)
+    : montagensRecebidas.filter(m=>m.montagem_pai_id===parentId || m.item_pai_id===parentId);
+  const itensFilhos = ehRaiz
+    ? itensDesenhoRecebido.filter(i=>i.desenho_id===desenhoId && !i.montagem_id && !i.item_pai_id)
+    : itensDesenhoRecebido.filter(i=>i.montagem_id===parentId || i.item_pai_id===parentId);
 
   if(!montagensFilhas.length && !itensFilhos.length) return '';
 
-  const indent = profundidade*16;
-  // Cada item pode ter outros itens dentro dele (acessórios/matéria-prima dentro de
-  // um item Fabricar) — renderiza a própria linha e, recursivamente, as linhas dos
-  // filhos indentadas mais um nível, igual ao que já acontece com Montagens.
+  // Cada item ou montagem pode ter, dentro dele, tanto outros itens quanto outras
+  // montagens (mesmas opções disponíveis em qualquer nível) — por isso ambos chamam
+  // de volta esta mesma função pra desenhar o que tiver dentro deles.
   const linhaItemERecursivo = (it, indentAtual) => {
     const statusHtml = it.tipo==='fabricar'
       ? (it.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px">✅ OP criada</span>` : `<button class="btn btn-sm primary" onclick="criarOPdoItemDesenho('${it.id}')" style="font-size:11px;padding:3px 8px">🔧 Criar OP</button>`)
@@ -7372,15 +7354,13 @@ function _renderArvoreLeitura(parentId, profundidade, desenhoId){
       <td style="padding:6px 8px;font-size:11px;text-align:center">${it.quantidade||1}</td>
       <td style="padding:6px 8px;text-align:right">${statusHtml}</td>
     </tr>`;
-    const filhos = itensDesenhoRecebido.filter(c=>c.item_pai_id===it.id);
-    const linhasFilhas = filhos.map(c=>linhaItemERecursivo(c, indentAtual+16)).join('');
-    return linhaPropria + linhasFilhas;
+    return linhaPropria + _renderArvoreLeitura(it.id, indentAtual+16, desenhoId);
   };
   const linhasItens = itensFilhos.map(it=>linhaItemERecursivo(it, indent)).join('');
 
   const blocosMontagens = montagensFilhas.map(m=>`
-    <tr><td colspan="5" style="padding:6px 8px 6px ${8+indent}px;background:#f9fbe7;font-size:11px;font-weight:700;color:#827717">📁 ${m.nome_montagem||'Montagem sem nome'}${m.numero_desenho?' · '+m.numero_desenho:''}</td></tr>
-    ${_renderArvoreLeitura(m.id, profundidade+1, desenhoId)}
+    <tr><td colspan="5" style="padding:6px 8px 6px ${8+indent}px;background:#f9fbe7;font-size:11px;font-weight:700;color:#827717">📁 ${m.nome_montagem||'Montagem sem nome'}${m.numero_desenho?' · '+m.numero_desenho:''}${m.material?' · '+m.material:''}</td></tr>
+    ${_renderArvoreLeitura(m.id, indent+16, desenhoId)}
   `).join('');
 
   return linhasItens + blocosMontagens;
