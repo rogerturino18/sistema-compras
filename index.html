@@ -1662,7 +1662,6 @@ tr:hover td{background:#f9fbf9}
       <div class="form-group"><label>Data de Recebimento *</label><input type="date" id="des_data"></div>
       <div class="form-group"><label>Nome do Equipamento</label><input id="des_nome_equip" placeholder="Ex: Alimentador TRH800"></div>
       <div class="form-group"><label>Nº do Desenho Geral</label><input id="des_numero_geral" placeholder="Ex: 1-18961"></div>
-      <div class="form-group"><label>Projetista</label><input id="des_projetista" placeholder="Ex: Lucas"></div>
       <div class="form-group full"><label>Observação</label><input id="des_obs" placeholder="Opcional"></div>
     </div>
 
@@ -4934,10 +4933,25 @@ async function salvarPDV(){
     descricao:document.getElementById('fp_descricao').value.trim()
   };
   try{
+    let novoPdvId=editPDVId;
     if(editPDVId) await api('PATCH','pdvs',obj,`?id=eq.${editPDVId}`);
-    else await api('POST','pdvs',obj);
+    else { const res=await api('POST','pdvs',obj); novoPdvId=res?.[0]?.id; }
     showToast(editPDVId?'PDV atualizado!':'PDV cadastrado!');
     fecharModal('modalPDV'); await loadAll();
+    // Se o PDV foi criado a partir do modal de Desenho Recebido, volta pra lá
+    // já com o PDV novo selecionado, sem precisar reabrir nada manualmente.
+    if(window._criandoPdvParaDesenho && novoPdvId){
+      window._criandoPdvParaDesenho = false;
+      const selPDV = document.getElementById('des_pdv_sel');
+      if(selPDV){
+        selPDV.innerHTML = '<option value="">Selecione o PDV...</option>';
+        pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
+        const optNovo=document.createElement('option'); optNovo.value='__novo__'; optNovo.textContent='+ Criar novo PDV...'; selPDV.appendChild(optNovo);
+        selPDV.value = novoPdvId;
+        selPDV.dataset.lastValue = novoPdvId;
+        _desPdvMudou();
+      }
+    }
   }catch(e){showToast('Erro ao salvar','err');}
 }
 
@@ -6850,19 +6864,29 @@ function criarOPdaPeca(pecaId){
 let _montagensTemp = []; // [{id, nome_montagem, numero_desenho, material, quantidade, itens:[{id,item_numero,denominacao,desenho_peca,material,quantidade,tipo,ordem_id,item_compra_id}]}]
 
 function _desPdvMudou(){
+  const sel = document.getElementById('des_pdv_sel');
+  if(sel.value==='__novo__'){
+    // Volta o select pro valor anterior enquanto o PDV novo não é criado de fato —
+    // evita ficar "selecionado" numa opção que não é um PDV real.
+    sel.value = sel.dataset.lastValue||'';
+    window._criandoPdvParaDesenho = true;
+    abrirModalPDV(null);
+    return;
+  }
+  sel.dataset.lastValue = sel.value;
   // Ao escolher o PDV, sugere o nome do equipamento já cadastrado nele (se houver) —
   // só preenche se o campo ainda estiver vazio, pra não sobrescrever edição manual.
-  const pdvId = document.getElementById('des_pdv_sel').value;
-  const pdv = pdvs.find(p=>p.id===pdvId);
+  const pdv = pdvs.find(p=>p.id===sel.value);
   const campoEquip = document.getElementById('des_nome_equip');
   if(pdv?.equipamento && !campoEquip.value) campoEquip.value = pdv.equipamento;
 }
 
 function abrirModalDesenhoRecebido(desenhoId){
   const selPDV = document.getElementById('des_pdv_sel');
-  if(selPDV.options.length<=1){
-    pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
-  }
+  // Sempre repopula do zero (cobre o caso de um PDV novo ter sido criado desde a última abertura)
+  selPDV.innerHTML = '<option value="">Selecione o PDV...</option>';
+  pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent='PDV '+p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
+  const optNovo=document.createElement('option'); optNovo.value='__novo__'; optNovo.textContent='+ Criar novo PDV...'; selPDV.appendChild(optNovo);
   document.getElementById('modalDesenhoRecebido').dataset.editId = desenhoId||'';
 
   if(desenhoId){
@@ -6872,7 +6896,6 @@ function abrirModalDesenhoRecebido(desenhoId){
     document.getElementById('des_data').value = d?.data_recebimento||'';
     document.getElementById('des_nome_equip').value = d?.nome_equipamento||'';
     document.getElementById('des_numero_geral').value = d?.numero_geral||'';
-    document.getElementById('des_projetista').value = d?.projetista||'';
     document.getElementById('des_obs').value = d?.observacao||'';
     // Reconstrói o estado temporário de montagens+itens a partir dos dados carregados
     _montagensTemp = montagensRecebidas.filter(m=>m.desenho_id===desenhoId).map(m=>({
@@ -6885,16 +6908,26 @@ function abrirModalDesenhoRecebido(desenhoId){
     document.getElementById('des_data').value = hoje();
     document.getElementById('des_nome_equip').value='';
     document.getElementById('des_numero_geral').value='';
-    document.getElementById('des_projetista').value='';
     document.getElementById('des_obs').value='';
     _montagensTemp = [];
   }
   renderMontagensTemp();
+  selPDV.dataset.lastValue = selPDV.value;
   abrirModal('modalDesenhoRecebido');
 }
 
 function adicionarMontagem(){
-  _montagensTemp.push({id:null, nome_montagem:'', numero_desenho:'', material:'', quantidade:1, itens:[]});
+  const novaMontagem = {id:null, nome_montagem:'', numero_desenho:'', material:'', quantidade:1, itens:[]};
+  _montagensTemp.push(novaMontagem);
+  // Pergunta a quantidade de itens pra já criar as linhas vazias de uma vez,
+  // evitando clicar em "+ Item" repetidamente um por um.
+  const respostaQtd = prompt('Quantos itens essa montagem vai ter? (pode deixar em branco e adicionar depois)','');
+  const qtdItens = parseInt(respostaQtd);
+  if(qtdItens>0){
+    for(let i=0;i<qtdItens;i++){
+      novaMontagem.itens.push({id:null, item_numero:String(i+1).padStart(2,'0'), denominacao:'', desenho_peca:'', material:'', quantidade:1, tipo:'fabricar', ordem_id:null, item_compra_id:null});
+    }
+  }
   renderMontagensTemp();
 }
 
@@ -6988,7 +7021,6 @@ async function salvarDesenhoRecebido(){
     data_recebimento: data,
     nome_equipamento: document.getElementById('des_nome_equip').value.trim()||null,
     numero_geral: document.getElementById('des_numero_geral').value.trim()||null,
-    projetista: document.getElementById('des_projetista').value.trim()||null,
     observacao: document.getElementById('des_obs').value.trim()||null,
     criado_por: usuarioLogado?.nome||null
   };
@@ -7138,7 +7170,7 @@ function renderDesenhosRecebidos(){
   let lista = desenhosRecebidos.filter(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
     if(busca){
-      const texto=[pdv?.numero,pdv?.cliente,d.nome_equipamento,d.numero_geral,d.projetista].filter(Boolean).join(' | ').toLowerCase();
+      const texto=[pdv?.numero,pdv?.cliente,d.nome_equipamento,d.numero_geral].filter(Boolean).join(' | ').toLowerCase();
       if(!texto.includes(busca)) return false;
     }
     if(soPendentes && !temPendencia(d)) return false;
@@ -7202,7 +7234,7 @@ function renderDesenhosRecebidos(){
       <div style="background:#f5f5f5;padding:12px 16px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-weight:700;font-size:13px;color:#37474f">📐 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${d.nome_equipamento?' · '+d.nome_equipamento:''}${d.numero_geral?' · Desenho Geral Nº '+d.numero_geral:''}</div>
-          <div style="font-size:11px;color:#9e9e9e">Recebido em ${new Date(d.data_recebimento+'T12:00').toLocaleDateString('pt-BR')}${d.projetista?' · Projetista: '+d.projetista:''}</div>
+          <div style="font-size:11px;color:#9e9e9e">Recebido em ${new Date(d.data_recebimento+'T12:00').toLocaleDateString('pt-BR')}</div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-sm" onclick="abrirModalDesenhoRecebido('${d.id}')" title="Editar">✏️</button>
