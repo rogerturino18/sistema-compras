@@ -7465,7 +7465,11 @@ function _contarPendenciasSubarvore(no, filhosPorId){
       ((no.item_tipo==='comercial'||no.item_tipo==='materia_prima') && _statusComercial(no).pendente);
     if(pendente) n++;
   } else if(no.tipo==='montagem' && !no.ordem_id){
-    n++; // Montagem sem OP própria também conta como pendente, igual item Fabricar
+    // Só conta a própria montagem como pendente se ela tiver algo dentro — uma
+    // pasta vazia (organizacional, ainda sem nada cadastrado) não é uma
+    // pendência de produção, é só uma estrutura sem conteúdo ainda.
+    const temConteudo = (filhosPorId[no.id]||[]).length > 0;
+    if(temConteudo) n++;
   }
   (filhosPorId[no.id]||[]).forEach(f => n += _contarPendenciasSubarvore(f, filhosPorId));
   return n;
@@ -7600,12 +7604,17 @@ function renderDesenhosRecebidos(){
   const soPendentes = document.getElementById('desFiltroPendentes')?.checked||false;
 
   // Pendência: qualquer item OU montagem (em qualquer profundidade) deste
-  // equipamento ainda sem OP/compra — montagem sem ordem_id conta igual item Fabricar.
+  // equipamento ainda sem OP/compra — montagem sem ordem_id só conta se tiver
+  // algo dentro (item ou sub-montagem); uma pasta vazia não é uma pendência.
   const nosDoEquipamento = d => _coletarArvoreDoEquipamento(d.id);
-  const temPendencia = d => nosDoEquipamento(d).some(no=>{
-    if(no.tipo==='montagem') return !no.ordem_id;
-    return (no.item_tipo==='fabricar'&&!no.ordem_id) || ((no.item_tipo==='comercial'||no.item_tipo==='materia_prima')&&_statusComercial(no).pendente);
-  });
+  const temPendencia = d => {
+    const arvore = nosDoEquipamento(d);
+    const idsComFilhos = new Set(arvore.filter(n=>n.parent_id!==null).map(n=>n.parent_id));
+    return arvore.some(no=>{
+      if(no.tipo==='montagem') return !no.ordem_id && idsComFilhos.has(no.id);
+      return (no.item_tipo==='fabricar'&&!no.ordem_id) || ((no.item_tipo==='comercial'||no.item_tipo==='materia_prima')&&_statusComercial(no).pendente);
+    });
+  };
 
   let lista = desenhosRecebidos.filter(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
@@ -7623,14 +7632,18 @@ function renderDesenhosRecebidos(){
     return true;
   });
 
-  // Stats globais — Montagem sem OP conta junto com item Fabricar sem OP, já que
-  // agora as duas têm o mesmo botão "🔧 Criar OP" e o mesmo significado de pendência.
+  // Stats globais — Montagem sem OP conta junto com item Fabricar sem OP, mas só
+  // quando tem algo dentro (item ou sub-montagem); pasta vazia não conta.
   let totalFabricarPendente=0, totalComercialPendente=0;
   itensDesenhoRecebido.forEach(it=>{
     if(it.tipo==='fabricar'&&!it.ordem_id) totalFabricarPendente++;
     if((it.tipo==='comercial'||it.tipo==='materia_prima')&&_statusComercial(it).pendente) totalComercialPendente++;
   });
-  montagensRecebidas.forEach(m=>{ if(!m.ordem_id) totalFabricarPendente++; });
+  const idsMontagensComFilhos = new Set([
+    ...itensDesenhoRecebido.filter(i=>i.montagem_id).map(i=>i.montagem_id),
+    ...montagensRecebidas.filter(m=>m.montagem_pai_id).map(m=>m.montagem_pai_id)
+  ]);
+  montagensRecebidas.forEach(m=>{ if(!m.ordem_id && idsMontagensComFilhos.has(m.id)) totalFabricarPendente++; });
   const statsEl = document.getElementById('statsDesenhos');
   if(statsEl){
     statsEl.innerHTML = `
