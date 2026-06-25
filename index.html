@@ -1693,7 +1693,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalDesenhoRecebido')">Cancelar</button>
-    <button class="btn primary" onclick="salvarDesenhoRecebido()">💾 Salvar</button>
+    <button class="btn primary" id="btnSalvarDesenhoRecebido" onclick="salvarDesenhoRecebido()">💾 Salvar</button>
   </div>
 </div>
 </div>
@@ -2967,7 +2967,7 @@ tr:hover td{background:#f9fbf9}
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
     <button class="btn" onclick="fecharModal('modalOrdem')">Cancelar</button>
-    <button class="btn primary" onclick="salvarOrdem()">🔧 Criar Ordem</button>
+    <button class="btn primary" id="btnSalvarOrdem" onclick="salvarOrdem()">🔧 Criar Ordem</button>
   </div>
 </div>
 </div>
@@ -7167,11 +7167,22 @@ function abrirModalDesenhoRecebido(desenhoId){
   abrirModal('modalDesenhoRecebido');
 }
 
+// Trava simples contra clique duplo: sem isso, clicar "Salvar" mais de uma vez
+// rapidamente (ou achar que não respondeu e clicar de novo) dispara execuções
+// EM PARALELO desta função — cada uma recria a árvore inteira de forma independente,
+// sem saber da outra, duplicando tudo (essa foi uma causa real de duplicação).
+let _salvandoDesenhoRecebido = false;
 async function salvarDesenhoRecebido(){
+  if(_salvandoDesenhoRecebido) return;
+  _salvandoDesenhoRecebido = true;
+  const btnSalvar = document.getElementById('btnSalvarDesenhoRecebido');
+  const textoOriginalBtn = btnSalvar?.textContent;
+  if(btnSalvar){ btnSalvar.disabled = true; btnSalvar.textContent = '💾 Salvando...'; }
+
   const pdvId = document.getElementById('des_pdv_sel').value;
-  if(!pdvId){ showToast('Selecione o PDV — se ainda não existe, use "+ Criar novo PDV..." no próprio select','err',5000); return; }
+  if(!pdvId){ showToast('Selecione o PDV — se ainda não existe, use "+ Criar novo PDV..." no próprio select','err',5000); _salvandoDesenhoRecebido=false; if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent=textoOriginalBtn;} return; }
   const data = document.getElementById('des_data').value;
-  if(!data){ showToast('Informe a data de recebimento','err'); return; }
+  if(!data){ showToast('Informe a data de recebimento','err'); _salvandoDesenhoRecebido=false; if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent=textoOriginalBtn;} return; }
 
   const editId = document.getElementById('modalDesenhoRecebido').dataset.editId;
   const cabecalho = {
@@ -7237,7 +7248,8 @@ async function salvarDesenhoRecebido(){
             nome_montagem: n.nome_montagem||null,
             numero_desenho: n.numero_desenho||null,
             material: n.material||null,
-            quantidade: Number(n.quantidade)||1
+            quantidade: Number(n.quantidade)||1,
+            ordem_id: n.ordem_id||null
           });
           mapaIds[n.id] = res?.[0]?.id;
         } else {
@@ -7265,6 +7277,10 @@ async function salvarDesenhoRecebido(){
     fecharModal('modalDesenhoRecebido');
     await loadAll();
   }catch(e){ showToast('Erro ao salvar','err'); console.error(e); }
+  finally{
+    _salvandoDesenhoRecebido = false;
+    if(btnSalvar){ btnSalvar.disabled = false; btnSalvar.textContent = textoOriginalBtn; }
+  }
 }
 
 async function deletarDesenhoRecebido(id){
@@ -7283,21 +7299,25 @@ async function deletarDesenhoRecebido(id){
   }catch(e){ showToast('Erro','err'); }
 }
 
-// Sobe a árvore até achar o equipamento — usado por itens em qualquer profundidade
-// pra saber o PDV/equipamento de origem (pra criar OP ou item de compra). Item pode
-// estar dentro de outro item (item_pai_id) — sobe essa cadeia primeiro até achar o
-// item cujo pai já é o equipamento direto ou uma montagem, só então segue a lógica de sempre.
-function _equipamentoDoItem(item){
-  let atual = item;
-  while(atual && atual.item_pai_id){
-    atual = itensDesenhoRecebido.find(i=>i.id===atual.item_pai_id);
+// Sobe a árvore até achar o equipamento — usado por itens E montagens em qualquer
+// profundidade, pra saber o PDV/equipamento de origem (criar OP, item de compra).
+// Item e Montagem podem se alternar como pai um do outro várias vezes em sequência
+// (item dentro de montagem dentro de item dentro de montagem...) — por isso sobe
+// nó por nó, trocando de tabela conforme o tipo do pai, em vez de assumir só uma
+// alternância (forma antiga, que falhava em árvores com mais de uma troca).
+function _equipamentoDoNo(no, tipoNo){
+  let atual = no, tipoAtual = tipoNo;
+  while(atual){
+    if(atual.desenho_id) return desenhosRecebidos.find(d=>d.id===atual.desenho_id);
+    if(atual.item_pai_id){ atual = itensDesenhoRecebido.find(i=>i.id===atual.item_pai_id); tipoAtual='item'; continue; }
+    if(tipoAtual==='item' && atual.montagem_id){ atual = montagensRecebidas.find(m=>m.id===atual.montagem_id); tipoAtual='montagem'; continue; }
+    if(tipoAtual==='montagem' && atual.montagem_pai_id){ atual = montagensRecebidas.find(m=>m.id===atual.montagem_pai_id); tipoAtual='montagem'; continue; }
+    return null;
   }
-  if(!atual) return null;
-  if(atual.desenho_id) return desenhosRecebidos.find(d=>d.id===atual.desenho_id);
-  let m = montagensRecebidas.find(x=>x.id===atual.montagem_id);
-  while(m && m.montagem_pai_id){ m = montagensRecebidas.find(x=>x.id===m.montagem_pai_id); }
-  return m ? desenhosRecebidos.find(d=>d.id===m.desenho_id) : null;
+  return null;
 }
+function _equipamentoDoItem(item){ return _equipamentoDoNo(item, 'item'); }
+function _equipamentoDaMontagem(montagem){ return _equipamentoDoNo(montagem, 'montagem'); }
 
 // Cria a Ordem de Produção a partir de um item "Fabricar" — preenche os campos
 // manuais do modal de Nova Ordem (não depende de pecasProjeto) e, ao salvar,
@@ -7321,7 +7341,37 @@ function criarOPdoItemDesenho(itemId){
     let optManual = Array.from(selPeca.options).find(o=>o.value==='manual');
     if(!optManual){ optManual=document.createElement('option'); optManual.value='manual'; optManual.textContent='⚠️ Preenchimento manual'; selPeca.appendChild(optManual); }
     selPeca.value='manual';
+    // filtrarPecasPorPDV() (chamada acima) deixa o grupo de detalhes escondido por
+    // padrão — força a aparecer agora que os campos já estão preenchidos, senão o
+    // usuário vê só o PDV e a peça, sem nenhum dado visível do que está sendo criado.
+    document.getElementById('grp_ord_detalhes').style.display='block';
     document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId = itemId;
+  }, 150);
+}
+
+// Cria a Ordem de Produção a partir de uma Montagem — mesmo fluxo do item Fabricar,
+// só que usando os campos próprios da montagem (nome/numero_desenho/material/quantidade).
+function criarOPdaMontagem(montagemId){
+  const montagem = montagensRecebidas.find(m=>m.id===montagemId);
+  if(!montagem) return;
+  const desenho = _equipamentoDaMontagem(montagem);
+  abrirModalOrdem(null);
+  setTimeout(()=>{
+    const selPDV = document.getElementById('ord_pdv_sel');
+    if(selPDV && desenho?.pdv_id){
+      selPDV.value = desenho.pdv_id;
+      filtrarPecasPorPDV();
+    }
+    document.getElementById('ord_descricao').value = montagem.nome_montagem||'';
+    document.getElementById('ord_desenho').value = montagem.numero_desenho||'';
+    document.getElementById('ord_material').value = montagem.material||'';
+    document.getElementById('ord_qtd').value = montagem.quantidade||1;
+    const selPeca = document.getElementById('ord_produto');
+    let optManual = Array.from(selPeca.options).find(o=>o.value==='manual');
+    if(!optManual){ optManual=document.createElement('option'); optManual.value='manual'; optManual.textContent='⚠️ Preenchimento manual'; selPeca.appendChild(optManual); }
+    selPeca.value='manual';
+    document.getElementById('grp_ord_detalhes').style.display='block';
+    document.getElementById('modalOrdem').dataset.montagemOrigemId = montagemId;
   }, 150);
 }
 
@@ -7373,6 +7423,8 @@ function _contarPendenciasSubarvore(no, filhosPorId){
     const pendente = (no.item_tipo==='fabricar' && !no.ordem_id) ||
       ((no.item_tipo==='comercial'||no.item_tipo==='materia_prima') && _statusComercial(no).pendente);
     if(pendente) n++;
+  } else if(no.tipo==='montagem' && !no.ordem_id){
+    n++; // Montagem sem OP própria também conta como pendente, igual item Fabricar
   }
   (filhosPorId[no.id]||[]).forEach(f => n += _contarPendenciasSubarvore(f, filhosPorId));
   return n;
@@ -7464,12 +7516,18 @@ function _renderArvoreCascata(desenhoId, termoBusca){
     let linha;
     if(no.tipo==='montagem'){
       const pend = _contarPendenciasSubarvore(no, filhosPorId);
+      const statusMontagemHtml = no.ordem_id
+        ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>`
+        : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdaMontagem('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`;
       linha = `<div data-tipo-item="montagem" onclick="_toggleNoArvore('${no.id}')" class="arv-linha" style="padding:8px 12px 8px ${indentPx}px;cursor:pointer;border-bottom:1px solid #eee;background:${corDestaque||'#f9fbe7'}">
         <span style="font-size:10px;color:#9e9e9e;display:inline-block;transition:transform .15s;transform:rotate(${aberto?90:0}deg);flex-shrink:0">▶</span>
         <span style="font-size:13px;flex-shrink:0">📁</span>
         ${_badgeTipoNo('montagem')}
         <span style="font-size:12px;font-weight:700;color:#827717;min-width:0;overflow-wrap:anywhere">${destaca(no.nome_montagem||'Montagem sem nome')}${no.numero_desenho?' · '+destaca(no.numero_desenho):''}${no.material?' · '+destaca(no.material):''}</span>
-        ${pend>0 ? `<span style="margin-left:auto;font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;flex-shrink:0;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
+        <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+          ${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
+          ${statusMontagemHtml}
+        </span>
       </div>`;
     } else {
       const statusHtml = no.item_tipo==='fabricar'
@@ -7500,14 +7558,13 @@ function renderDesenhosRecebidos(){
   const busca = (document.getElementById('buscaDesenho')?.value||'').toLowerCase();
   const soPendentes = document.getElementById('desFiltroPendentes')?.checked||false;
 
-  // Pendência: qualquer item (em qualquer profundidade) deste equipamento ainda sem OP/compra
-  const itensDoEquipamento = d => {
-    const arvore = _coletarArvoreDoEquipamento(d.id);
-    return arvore.filter(n=>n.tipo==='item');
-  };
-  const temPendencia = d => itensDoEquipamento(d).some(it=>
-    (it.item_tipo==='fabricar'&&!it.ordem_id) || ((it.item_tipo==='comercial'||it.item_tipo==='materia_prima')&&_statusComercial(it).pendente)
-  );
+  // Pendência: qualquer item OU montagem (em qualquer profundidade) deste
+  // equipamento ainda sem OP/compra — montagem sem ordem_id conta igual item Fabricar.
+  const nosDoEquipamento = d => _coletarArvoreDoEquipamento(d.id);
+  const temPendencia = d => nosDoEquipamento(d).some(no=>{
+    if(no.tipo==='montagem') return !no.ordem_id;
+    return (no.item_tipo==='fabricar'&&!no.ordem_id) || ((no.item_tipo==='comercial'||no.item_tipo==='materia_prima')&&_statusComercial(no).pendente);
+  });
 
   let lista = desenhosRecebidos.filter(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
@@ -7525,12 +7582,14 @@ function renderDesenhosRecebidos(){
     return true;
   });
 
-  // Stats globais
+  // Stats globais — Montagem sem OP conta junto com item Fabricar sem OP, já que
+  // agora as duas têm o mesmo botão "🔧 Criar OP" e o mesmo significado de pendência.
   let totalFabricarPendente=0, totalComercialPendente=0;
   itensDesenhoRecebido.forEach(it=>{
     if(it.tipo==='fabricar'&&!it.ordem_id) totalFabricarPendente++;
     if((it.tipo==='comercial'||it.tipo==='materia_prima')&&_statusComercial(it).pendente) totalComercialPendente++;
   });
+  montagensRecebidas.forEach(m=>{ if(!m.ordem_id) totalFabricarPendente++; });
   const statsEl = document.getElementById('statsDesenhos');
   if(statsEl){
     statsEl.innerHTML = `
@@ -7583,6 +7642,7 @@ function renderDesenhosRecebidos(){
 function abrirModalOrdem(id){
   editOrdemId = id || null;
   delete document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId;
+  delete document.getElementById('modalOrdem').dataset.montagemOrigemId;
   const o = id ? ordens.find(x=>x.id===id) : null;
   document.getElementById('modalOrdemTitulo').textContent = id ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção';
   // Popula select de PDVs
@@ -7749,14 +7809,24 @@ function abrirLixeiraOrdens(){
   abrirModal('modalLixeiraOrdens');
 }
 
+// Mesma trava contra clique duplo aplicada em salvarDesenhoRecebido — clicar
+// "Criar Ordem" mais de uma vez rapidamente criaria múltiplas Ordens de Produção
+// em paralelo a partir do mesmo formulário.
+let _salvandoOrdem = false;
 async function salvarOrdem(){
+  if(_salvandoOrdem) return;
   const descricao=document.getElementById('ord_descricao').value.trim();
   if(!descricao){showToast('Informe a descrição da peça','err');return;}
+  _salvandoOrdem = true;
+  const btnSalvarOrdem = document.getElementById('btnSalvarOrdem');
+  const textoOriginalBtnOrdem = btnSalvarOrdem?.textContent;
+  if(btnSalvarOrdem){ btnSalvarOrdem.disabled = true; btnSalvarOrdem.textContent = '🔧 Salvando...'; }
   const pdvId=document.getElementById('ord_pdv_sel').value;
   const prodOpt=document.getElementById('ord_produto');
   const opt=prodOpt.options[prodOpt.selectedIndex];
   const pecaId=(opt&&opt.value&&opt.value!=='manual')?opt.value:null;
   const itemDesenhoOrigemId=document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId||null;
+  const montagemOrigemId=document.getElementById('modalOrdem').dataset.montagemOrigemId||null;
   const obj={
     pdv_id:pdvId||null,
     descricao,
@@ -7781,6 +7851,11 @@ async function salvarOrdem(){
       await api('PATCH','itens_desenho_recebido',{ordem_id:res[0].id},`?id=eq.${itemDesenhoOrigemId}`).catch(()=>{});
       delete document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId;
     }
+    // Mesma coisa, mas quando a origem foi uma Montagem (não um item).
+    if(montagemOrigemId && res?.[0]?.id){
+      await api('PATCH','montagens_recebidas',{ordem_id:res[0].id},`?id=eq.${montagemOrigemId}`).catch(()=>{});
+      delete document.getElementById('modalOrdem').dataset.montagemOrigemId;
+    }
     fecharModal('modalOrdem');
     await loadAll();
     if(res&&res[0]){
@@ -7790,6 +7865,10 @@ async function salvarOrdem(){
       }
     }
   }catch(e){showToast('Erro ao criar ordem','err');console.error(e);}
+  finally{
+    _salvandoOrdem = false;
+    if(btnSalvarOrdem){ btnSalvarOrdem.disabled = false; btnSalvarOrdem.textContent = textoOriginalBtnOrdem; }
+  }
 }
 
 // ===== GESTÃO DE IMPRESSÃO =====
