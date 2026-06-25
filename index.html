@@ -7185,6 +7185,7 @@ async function salvarDesenhoRecebido(){
   if(!data){ showToast('Informe a data de recebimento','err'); _salvandoDesenhoRecebido=false; if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent=textoOriginalBtn;} return; }
 
   const editId = document.getElementById('modalDesenhoRecebido').dataset.editId;
+  let assumiuLock = false;
   const cabecalho = {
     pdv_id: pdvId,
     data_recebimento: data,
@@ -7197,6 +7198,40 @@ async function salvarDesenhoRecebido(){
   try{
     let desenhoId = editId;
     if(editId){
+      // Lock de edição concorrente: tenta MARCAR o lock numa ÚNICA instrução
+      // condicional (PATCH com WHERE incluindo a condição do lock) — não um
+      // "verifica, depois marca" em duas chamadas separadas. Isso importa porque
+      // duas chamadas separadas têm uma brecha real: se duas abas chegarem quase
+      // juntas, AMBAS podem ver "sem lock" antes de qualquer uma marcar o seu —
+      // confirmei isso testando. Com uma única instrução condicional, o Postgres
+      // garante atomicamente que só uma sessão consegue a condição satisfeita;
+      // a outra recebe 0 linhas de volta e sabe que perdeu a corrida.
+      const agora = new Date();
+      const limiteExpiracao = new Date(agora.getTime() - 2*60*1000).toISOString();
+      const nomeAtual = usuarioLogado?.nome||'';
+      // Sem condição de "ou já é meu lock" aqui — pode parecer útil pra não
+      // autobloquear um resalvamento rápido, mas isso é EXATAMENTE a brecha que
+      // permite duas abas da MESMA pessoa furarem a proteção (pro servidor, são
+      // indistinguíveis: mesmo nome). Quem salvou por último já libera o lock no
+      // finally em poucos segundos — não precisa dessa exceção.
+      const filtroLock = `?id=eq.${editId}&or=(bloqueado_em.is.null,bloqueado_em.lt.${encodeURIComponent(limiteExpiracao)})`;
+      // Importante: se essa chamada FALHAR (rede instável, coluna ainda não criada
+      // no banco — Roger precisa rodar o SQL — etc.), isso NÃO pode ser tratado
+      // como "lock ocupado", senão toda falha de rede passaria a bloquear saves
+      // legítimos sem ninguém de fato concorrendo. Só bloqueia quando a chamada
+      // teve sucesso E retornou 0 linhas (a condição WHERE realmente não bateu —
+      // sinal de que outra sessão pegou o lock primeiro).
+      let resultadoLock;
+      try{ resultadoLock = await api('PATCH','desenhos_recebidos',{bloqueado_em:agora.toISOString(),bloqueado_por:nomeAtual||null}, filtroLock); }
+      catch(e){ console.warn('Lock de edição concorrente indisponível (coluna ainda não criada, ou falha de rede) — seguindo sem essa proteção extra desta vez.', e); resultadoLock = null; }
+      if(resultadoLock && resultadoLock.length===0){
+        const quemTem = await api('GET','desenhos_recebidos','',`?id=eq.${editId}&select=bloqueado_por`).catch(()=>[]);
+        const nomeQuemTem = quemTem?.[0]?.bloqueado_por || 'Outra pessoa';
+        showToast(`${nomeQuemTem} está salvando este equipamento agora. Aguarde um momento e tente de novo.`,'err',6000);
+        return;
+      }
+      assumiuLock = !!resultadoLock;
+
       await api('PATCH','desenhos_recebidos',cabecalho,`?id=eq.${editId}`);
       // Remove toda a árvore antiga deste equipamento (montagens e itens em qualquer
       // profundidade e em qualquer combinação — montagem dentro de item, item dentro
@@ -7278,6 +7313,12 @@ async function salvarDesenhoRecebido(){
     await loadAll();
   }catch(e){ showToast('Erro ao salvar','err'); console.error(e); }
   finally{
+    // Libera o lock — mas só se fomos nós que o pegamos. Se saímos antes disso
+    // (porque outra pessoa já estava com o lock), NUNCA limpa aqui, senão
+    // removeríamos a trava de quem está salvando de verdade agora.
+    if(assumiuLock && editId){
+      await api('PATCH','desenhos_recebidos',{bloqueado_em:null,bloqueado_por:null},`?id=eq.${editId}`).catch(()=>{});
+    }
     _salvandoDesenhoRecebido = false;
     if(btnSalvar){ btnSalvar.disabled = false; btnSalvar.textContent = textoOriginalBtn; }
   }
