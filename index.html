@@ -6948,6 +6948,37 @@ function removerNo(nodeId){
   renderColunas();
 }
 
+// Converte um nó entre Montagem e Item, preservando os campos em comum (nome/
+// denominação, nº desenho/desenho de peça, material, quantidade, OP já
+// vinculada). Útil quando uma peça real (fabricada/comercial/matéria-prima) foi
+// cadastrada como "pasta" (Montagem) por engano, ou vice-versa — sem precisar
+// apagar e recriar do zero, perdendo o que já tinha sido preenchido. Os filhos
+// (se tiver) continuam apontando pro mesmo id, então não se perdem — ao salvar,
+// o sistema decide automaticamente se o pai é montagem ou item com base no
+// tipo ATUAL do nó.
+function converterTipoNo(nodeId){
+  const no = _nosTemp.find(n=>n.id===nodeId);
+  if(!no) return;
+  if(no.tipo==='montagem'){
+    no.tipo = 'item';
+    no.denominacao = no.nome_montagem||'';
+    no.desenho_peca = no.numero_desenho||'';
+    no.item_tipo = 'fabricar';
+    delete no.nome_montagem;
+    delete no.numero_desenho;
+  } else {
+    if(no.item_compra_id && !confirm('Este item já está vinculado a um pedido na Lista de Compras. Convertê-lo em Montagem vai perder esse vínculo. Continuar mesmo assim?')) return;
+    no.tipo = 'montagem';
+    no.nome_montagem = no.denominacao||'';
+    no.numero_desenho = no.desenho_peca||'';
+    delete no.denominacao;
+    delete no.desenho_peca;
+    delete no.item_tipo;
+    delete no.item_compra_id;
+  }
+  renderColunas();
+}
+
 function atualizarNo(nodeId, campo, valor){
   const no = _nosTemp.find(n=>n.id===nodeId);
   if(no) no[campo] = valor;
@@ -6999,6 +7030,7 @@ function renderColunas(){
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:13px;flex-shrink:0">📁</span>
             <input value="${(no.nome_montagem||'').replace(/"/g,'&quot;')}" data-no-nome-input="${no.id}" oninput="atualizarNo('${no.id}','nome_montagem',this.value)" onclick="event.stopPropagation()" placeholder="Nome da montagem" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
+            <button onclick="event.stopPropagation();converterTipoNo('${no.id}')" style="background:none;border:none;color:#1565c0;cursor:pointer;font-size:12px;flex-shrink:0" title="Converter em Item (é uma peça real, não uma pasta)">🔄</button>
             <button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
           </div>
           <div style="display:flex;align-items:center;gap:4px;padding-left:19px">
@@ -7023,6 +7055,7 @@ function renderColunas(){
           <option value="comercial" ${no.item_tipo==='comercial'?'selected':''}>🛒 Comercial</option>
           <option value="materia_prima" ${no.item_tipo==='materia_prima'?'selected':''}>📐 Matéria-Prima</option>
         </select>`;
+      const botaoConverter = `<button onclick="event.stopPropagation();converterTipoNo('${no.id}')" style="background:none;border:none;color:#1565c0;cursor:pointer;font-size:12px;flex-shrink:0" title="Converter em Montagem (é uma pasta com coisas dentro, não uma peça)">🔄</button>`;
       const botaoRemover = `<button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>`;
 
       if(no.item_tipo==='comercial'){
@@ -7031,7 +7064,7 @@ function renderColunas(){
             <span style="font-size:12px">${iconeTipo}</span>
             <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Ex: Parafuso Sextavado M14x25" title="Ex: Parafuso Sextavado M14 x 25 — ou — Rolamento 22305 C/C SKF" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
             <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" onclick="event.stopPropagation()" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
-            ${botaoRemover}
+            ${botaoConverter}${botaoRemover}
           </div>
           <div style="display:flex;align-items:center;gap:4px">${seletorTipo}${linhaAbrir}</div>
         </div>`;
@@ -7041,7 +7074,7 @@ function renderColunas(){
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:12px">${iconeTipo}</span>
             <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Ex: Chapa de Aço Carbono" title="Ex: Chapa de Aço Carbono — ou — Barra Chata" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
-            ${botaoRemover}
+            ${botaoConverter}${botaoRemover}
           </div>
           <div style="display:flex;gap:3px">
             <input value="${(no.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','desenho_peca',this.value)" onclick="event.stopPropagation()" placeholder="Dimensões (Ex: 1/2x40x89)" style="flex:1;min-width:0;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
@@ -7055,7 +7088,7 @@ function renderColunas(){
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
           <span style="font-size:12px">${iconeTipo}</span>
           <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Denominação" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
-          ${botaoRemover}
+          ${botaoConverter}${botaoRemover}
         </div>
         <div style="display:flex;gap:3px">
           <input value="${(no.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','desenho_peca',this.value)" onclick="event.stopPropagation()" placeholder="Desenho/Padrão" style="flex:1;min-width:0;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
