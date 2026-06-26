@@ -1698,6 +1698,35 @@ tr:hover td{background:#f9fbf9}
 </div>
 </div>
 
+<!-- MODAL EDIÇÃO RÁPIDA (um único item ou montagem, sem reconstruir a árvore inteira) -->
+<div class="modal-bg" id="modalEdicaoRapida">
+<div class="modal" style="width:480px;max-width:96vw">
+  <div class="modal-header">
+    <h3 id="edrTitulo">Editar</h3>
+    <button class="modal-close" onclick="fecharModal('modalEdicaoRapida')">×</button>
+  </div>
+  <div style="padding:0 22px 18px">
+    <div class="form-group"><label id="edrLabelNome">Denominação *</label><input id="edr_nome" placeholder="Nome ou denominação"></div>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr 80px">
+      <div class="form-group"><label id="edrLabelDesenho">Desenho/Padrão</label><input id="edr_desenho"></div>
+      <div class="form-group"><label>Material</label><input id="edr_material"></div>
+      <div class="form-group"><label>Qtd</label><input id="edr_qtd" type="number" min="1" value="1"></div>
+    </div>
+    <div class="form-group" id="edrGrupoTipo"><label>Tipo</label>
+      <select id="edr_tipo">
+        <option value="fabricar">🔧 Fabricar</option>
+        <option value="comercial">🛒 Comercial</option>
+        <option value="materia_prima">📐 Matéria-Prima</option>
+      </select>
+    </div>
+  </div>
+  <div class="modal-actions" style="padding:0 22px 22px">
+    <button class="btn" onclick="fecharModal('modalEdicaoRapida')">Cancelar</button>
+    <button class="btn primary" id="btnSalvarEdicaoRapida" onclick="salvarEdicaoRapida()">💾 Salvar</button>
+  </div>
+</div>
+</div>
+
 
 <!-- MODAL ADICIONAR TEMPO MANUAL -->
 <div class="modal-bg" id="modalAdicionarTempo">
@@ -6909,7 +6938,17 @@ let _arvoreExpandidos = new Set();
 
 function _tempId(){ return 'tmp_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
 
-function _filhosDe(parentId){ return _nosTemp.filter(n=>n.parent_id===parentId); }
+// Filhos diretos de um nó (montagem ou item), ordenados alfabeticamente pelo
+// nome (Montagem usa nome_montagem, Item usa denominação) — antes a ordem
+// seguia a ordem de criação no banco, que ficava desorganizada conforme foi
+// sendo preenchido em sessões diferentes.
+function _filhosDe(parentId){
+  return _nosTemp.filter(n=>n.parent_id===parentId).sort((a,b)=>{
+    const nomeA = a.tipo==='montagem' ? (a.nome_montagem||'') : (a.denominacao||'');
+    const nomeB = b.tipo==='montagem' ? (b.nome_montagem||'') : (b.denominacao||'');
+    return nomeA.localeCompare(nomeB,'pt-BR');
+  });
+}
 
 // Ícone/cor por tipo de item — usado tanto na UI de colunas (edição) quanto na
 // árvore de leitura (tela principal). Centralizado aqui pra não repetir ternário
@@ -6956,31 +6995,67 @@ function removerNo(nodeId){
 // (se tiver) continuam apontando pro mesmo id, então não se perdem — ao salvar,
 // o sistema decide automaticamente se o pai é montagem ou item com base no
 // tipo ATUAL do nó.
-// Abre o modal de edição do equipamento já navegado direto até o nó clicado —
-// sem isso, corrigir um erro de digitação ou de classificação numa peça funda
-// na árvore exigia abrir o modal e clicar coluna por coluna até achar de novo.
-function editarNoNaArvore(desenhoId, noId){
-  abrirModalDesenhoRecebido(desenhoId);
-  // abrirModalDesenhoRecebido() é síncrona — _nosTemp já está populado aqui.
-  const caminho = [];
-  let atual = _nosTemp.find(n=>n.id===noId);
-  while(atual && atual.parent_id){
-    caminho.unshift(atual.parent_id);
-    atual = _nosTemp.find(n=>n.id===atual.parent_id);
-  }
-  _colunaPath = caminho;
-  renderColunas();
-  setTimeout(()=>{
-    const elColunas = document.getElementById('colunasArvore');
-    if(elColunas) elColunas.scrollLeft = elColunas.scrollWidth;
-    const elLinha = document.querySelector(`[data-no-id="${noId}"]`);
-    if(elLinha){
-      elLinha.scrollIntoView({behavior:'smooth', block:'center'});
-      elLinha.style.outline = '2px solid #ffb300';
-      setTimeout(()=>{ elLinha.style.outline=''; }, 2500);
-      elLinha.querySelector('input')?.focus();
+// Edição rápida de UM item ou montagem isolado, sem abrir/reconstruir a árvore
+// inteira do equipamento — antes, corrigir um erro de digitação ou de
+// classificação abria o modal completo navegado até o nó, mas a coluna sempre
+// mostra TODOS os itens daquele nível juntos (é assim que o modal de árvore
+// funciona), o que parecia "abrir tudo pra editar". Aqui só o item clicado.
+// Salva com um PATCH direto e pontual — muito mais rápido que resalvar tudo.
+function abrirEdicaoRapida(noId, tipo){
+  const no = tipo==='montagem' ? montagensRecebidas.find(m=>m.id===noId) : itensDesenhoRecebido.find(i=>i.id===noId);
+  if(!no) return;
+  const modal = document.getElementById('modalEdicaoRapida');
+  modal.dataset.noId = noId;
+  modal.dataset.tipo = tipo;
+  document.getElementById('edrTitulo').textContent = tipo==='montagem' ? 'Editar Montagem' : 'Editar Item';
+  document.getElementById('edrLabelNome').textContent = tipo==='montagem' ? 'Nome da montagem *' : 'Denominação *';
+  document.getElementById('edrLabelDesenho').textContent = tipo==='montagem' ? 'Nº Desenho' : 'Desenho/Padrão';
+  document.getElementById('edr_nome').value = tipo==='montagem' ? (no.nome_montagem||'') : (no.denominacao||'');
+  document.getElementById('edr_desenho').value = tipo==='montagem' ? (no.numero_desenho||'') : (no.desenho_peca||'');
+  document.getElementById('edr_material').value = no.material||'';
+  document.getElementById('edr_qtd').value = no.quantidade||1;
+  document.getElementById('edrGrupoTipo').style.display = tipo==='montagem' ? 'none' : 'block';
+  if(tipo!=='montagem') document.getElementById('edr_tipo').value = no.tipo||'fabricar';
+  abrirModal('modalEdicaoRapida');
+  setTimeout(()=>{ document.getElementById('edr_nome').focus(); document.getElementById('edr_nome').select(); }, 50);
+}
+
+async function salvarEdicaoRapida(){
+  const modal = document.getElementById('modalEdicaoRapida');
+  const noId = modal.dataset.noId, tipo = modal.dataset.tipo;
+  const nome = document.getElementById('edr_nome').value.trim();
+  if(!nome){ showToast('Preencha a denominação','err'); return; }
+  const btn = document.getElementById('btnSalvarEdicaoRapida');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true; btn.textContent = '💾 Salvando...';
+  try{
+    if(tipo==='montagem'){
+      const obj = {
+        nome_montagem: nome,
+        numero_desenho: document.getElementById('edr_desenho').value.trim()||null,
+        material: document.getElementById('edr_material').value.trim()||null,
+        quantidade: Number(document.getElementById('edr_qtd').value)||1
+      };
+      await api('PATCH','montagens_recebidas',obj,`?id=eq.${noId}`);
+      const no = montagensRecebidas.find(m=>m.id===noId);
+      if(no) Object.assign(no, obj);
+    } else {
+      const obj = {
+        denominacao: nome,
+        desenho_peca: document.getElementById('edr_desenho').value.trim()||null,
+        material: document.getElementById('edr_material').value.trim()||null,
+        quantidade: Number(document.getElementById('edr_qtd').value)||1,
+        tipo: document.getElementById('edr_tipo').value
+      };
+      await api('PATCH','itens_desenho_recebido',obj,`?id=eq.${noId}`);
+      const no = itensDesenhoRecebido.find(i=>i.id===noId);
+      if(no) Object.assign(no, obj);
     }
-  }, 80);
+    showToast('Salvo!');
+    fecharModal('modalEdicaoRapida');
+    renderDesenhosRecebidos();
+  }catch(e){ showToast('Erro ao salvar','err'); console.error(e); }
+  finally{ btn.disabled=false; btn.textContent=textoOriginal; }
 }
 
 function converterTipoNo(nodeId){
@@ -7176,6 +7251,24 @@ function _desPdvMudou(){
 // podem ser pai um do outro em qualquer combinação e profundidade (Roger pediu as mesmas
 // opções — Montagem/Comercial/Matéria-Prima — disponíveis em todo nível) — por isso os
 // dois são expandidos JUNTOS, nível por nível, em vez de em duas passadas separadas.
+// Agrupa os nós de uma árvore plana por profundidade (raiz=0, filhos diretos=1...).
+// Usado pra apagar do mais profundo pro mais raso COM SEGURANÇA mesmo sem
+// cascade configurado em todas as FKs antigas — mas em paralelo dentro de cada
+// nível, já que nós do mesmo nível nunca dependem um do outro pra exclusão.
+function _agruparPorProfundidade(arvore){
+  const porId = {}; arvore.forEach(n=>porId[n.id]=n);
+  const cache = {};
+  function calcProfundidade(no){
+    if(cache[no.id]!==undefined) return cache[no.id];
+    if(no.parent_id===null) return cache[no.id]=0;
+    const pai = porId[no.parent_id];
+    return cache[no.id] = pai ? calcProfundidade(pai)+1 : 0;
+  }
+  const grupos = {};
+  arvore.forEach(no=>{ const p=calcProfundidade(no); (grupos[p]=grupos[p]||[]).push(no); });
+  return grupos;
+}
+
 function _coletarArvoreDoEquipamento(desenhoId){
   const nos = [];
   let nivelMontagens = montagensRecebidas.filter(m=>m.desenho_id===desenhoId && !m.montagem_pai_id && !m.item_pai_id);
@@ -7313,9 +7406,12 @@ async function salvarDesenhoRecebido(){
       // Vínculos já feitos (ordem_id, item_compra_id) são preservados porque vieram
       // junto nos nós carregados em _coletarArvoreDoEquipamento.
       const arvoreAntiga = _coletarArvoreDoEquipamento(editId);
-      for(const n of [...arvoreAntiga].reverse()){
-        if(n.tipo==='montagem') await api('DELETE','montagens_recebidas','',`?id=eq.${n.id}`);
-        else await api('DELETE','itens_desenho_recebido','',`?id=eq.${n.id}`);
+      const gruposAntiga = _agruparPorProfundidade(arvoreAntiga);
+      for(const p of Object.keys(gruposAntiga).map(Number).sort((a,b)=>b-a)){
+        await Promise.all(gruposAntiga[p].map(n => n.tipo==='montagem'
+          ? api('DELETE','montagens_recebidas','',`?id=eq.${n.id}`)
+          : api('DELETE','itens_desenho_recebido','',`?id=eq.${n.id}`)
+        ));
       }
     } else {
       const res = await api('POST','desenhos_recebidos',cabecalho);
@@ -7332,7 +7428,11 @@ async function salvarDesenhoRecebido(){
     while(restantes.length && progresso){
       progresso = false;
       const proximaLeva = restantes.filter(n => n.parent_id===null || mapaIds[n.parent_id]!==undefined);
-      for(const n of proximaLeva){
+      // Dentro do MESMO nível, os nós não dependem um do outro — só dependem de
+      // níveis JÁ resolvidos antes. Por isso podem ser criados em PARALELO, não
+      // um por um. Essa era a causa real do "Salvando..." que demorava muito em
+      // equipamentos grandes: 150 nós = 150 idas-e-voltas sequenciais ao servidor.
+      await Promise.all(proximaLeva.map(async n => {
         const noPai = n.parent_id===null ? null : _nosTemp.find(x=>x.id===n.parent_id);
         const parentResolvido = n.parent_id===null ? null : mapaIds[n.parent_id];
         if(n.tipo==='montagem'){
@@ -7363,8 +7463,8 @@ async function salvarDesenhoRecebido(){
           });
           mapaIds[n.id] = res?.[0]?.id;
         }
-        progresso = true;
-      }
+      }));
+      if(proximaLeva.length) progresso = true;
       restantes = restantes.filter(n=>mapaIds[n.id]===undefined);
     }
 
@@ -7388,11 +7488,14 @@ async function deletarDesenhoRecebido(id){
   if(!confirm('Excluir este equipamento e toda a estrutura dele (montagens e itens)?')) return;
   try{
     // Mesma lógica robusta do salvamento: apaga por id, do mais profundo pro mais
-    // raso, sem depender de qual FK específica liga cada nó.
+    // raso (em paralelo dentro de cada nível), sem depender de qual FK específica liga cada nó.
     const arvore = _coletarArvoreDoEquipamento(id);
-    for(const n of [...arvore].reverse()){
-      if(n.tipo==='montagem') await api('DELETE','montagens_recebidas','',`?id=eq.${n.id}`);
-      else await api('DELETE','itens_desenho_recebido','',`?id=eq.${n.id}`);
+    const gruposExclusao = _agruparPorProfundidade(arvore);
+    for(const p of Object.keys(gruposExclusao).map(Number).sort((a,b)=>b-a)){
+      await Promise.all(gruposExclusao[p].map(n => n.tipo==='montagem'
+        ? api('DELETE','montagens_recebidas','',`?id=eq.${n.id}`)
+        : api('DELETE','itens_desenho_recebido','',`?id=eq.${n.id}`)
+      ));
     }
     await api('DELETE','desenhos_recebidos','',`?id=eq.${id}`);
     showToast('Excluído!');
@@ -7599,6 +7702,11 @@ function _renderArvoreCascata(desenhoId, termoBusca){
     const chave = n.parent_id===null ? 'raiz' : n.parent_id;
     (filhosPorId[chave] = filhosPorId[chave]||[]).push(n);
   });
+  // Ordena cada nível alfabeticamente (Montagem usa nome_montagem, Item usa
+  // denominação) — antes a ordem seguia a ordem de criação no banco, que ficava
+  // desorganizada conforme foi sendo preenchido em sessões diferentes.
+  const nomeDoNo = no => no.tipo==='montagem' ? (no.nome_montagem||'') : (no.denominacao||'');
+  Object.values(filhosPorId).forEach(lista => lista.sort((a,b)=>nomeDoNo(a).localeCompare(nomeDoNo(b),'pt-BR')));
 
   let idsMatch = new Set(), idsAbrir = new Set();
   if(termoBusca) ({idsMatch, idsAbrir} = _buscarNaArvore(arvore, termoBusca));
@@ -7631,7 +7739,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
         <span style="font-size:12px;font-weight:700;color:#827717;min-width:0;overflow-wrap:anywhere">${destaca(no.nome_montagem||'Montagem sem nome')}${no.numero_desenho?' · '+destaca(no.numero_desenho):''}${no.material?' · '+destaca(no.material):''}</span>
         <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
-          <button onclick="event.stopPropagation();editarNoNaArvore('${desenhoId}','${no.id}')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
+          <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','montagem')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
           ${statusMontagemHtml}
         </span>
       </div>`;
@@ -7649,7 +7757,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
         <span class="arv-campo">${destaca(no.material||'')}</span>
         <span class="arv-qtd">${no.quantidade||1}</span>
         <span class="arv-status" style="display:flex;align-items:center;gap:6px">
-          <button onclick="event.stopPropagation();editarNoNaArvore('${desenhoId}','${no.id}')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
+          <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','item')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
           ${statusHtml}
         </span>
       </div>`;
