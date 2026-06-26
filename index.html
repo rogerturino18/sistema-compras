@@ -7730,10 +7730,10 @@ function _renderArvoreCascata(desenhoId, termoBusca){
       ${_badgeTipoNo('montagem')}
       <span style="font-size:12px;font-weight:700;color:#827717;min-width:0;overflow-wrap:anywhere">${destaca(no.nome_montagem||'Montagem sem nome')}${no.numero_desenho?' · '+destaca(no.numero_desenho):''}${no.material?' · '+destaca(no.material):''}</span>
       <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
-        ${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
-        <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','montagem')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
-        ${statusMontagemHtml}
-        ${temFilhos ? `<span style="font-size:10px;color:#9e9e9e">▶</span>` : ''}
+        <span style="width:78px;text-align:right">${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}</span>
+        <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','montagem')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px;flex-shrink:0" title="Editar">✏️</button>
+        <span style="width:96px;text-align:right">${statusMontagemHtml}</span>
+        <span style="width:14px;flex-shrink:0;text-align:center;font-size:10px;color:#9e9e9e">${temFilhos ? '▶' : ''}</span>
       </span>
     </div>`;
   };
@@ -7752,9 +7752,9 @@ function _renderArvoreCascata(desenhoId, termoBusca){
       <span class="arv-campo">${destaca(no.material||'')}</span>
       <span class="arv-qtd">${no.quantidade||1}</span>
       <span class="arv-status" style="display:flex;align-items:center;gap:6px">
-        <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','item')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
+        <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','item')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px;flex-shrink:0" title="Editar">✏️</button>
         ${statusHtml}
-        ${temFilhos ? `<span style="font-size:10px;color:#9e9e9e">▶</span>` : ''}
+        <span style="width:14px;flex-shrink:0;text-align:center;font-size:10px;color:#9e9e9e">${temFilhos ? '▶' : ''}</span>
       </span>
     </div>`;
   };
