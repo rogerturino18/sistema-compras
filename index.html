@@ -6956,6 +6956,33 @@ function removerNo(nodeId){
 // (se tiver) continuam apontando pro mesmo id, então não se perdem — ao salvar,
 // o sistema decide automaticamente se o pai é montagem ou item com base no
 // tipo ATUAL do nó.
+// Abre o modal de edição do equipamento já navegado direto até o nó clicado —
+// sem isso, corrigir um erro de digitação ou de classificação numa peça funda
+// na árvore exigia abrir o modal e clicar coluna por coluna até achar de novo.
+function editarNoNaArvore(desenhoId, noId){
+  abrirModalDesenhoRecebido(desenhoId);
+  // abrirModalDesenhoRecebido() é síncrona — _nosTemp já está populado aqui.
+  const caminho = [];
+  let atual = _nosTemp.find(n=>n.id===noId);
+  while(atual && atual.parent_id){
+    caminho.unshift(atual.parent_id);
+    atual = _nosTemp.find(n=>n.id===atual.parent_id);
+  }
+  _colunaPath = caminho;
+  renderColunas();
+  setTimeout(()=>{
+    const elColunas = document.getElementById('colunasArvore');
+    if(elColunas) elColunas.scrollLeft = elColunas.scrollWidth;
+    const elLinha = document.querySelector(`[data-no-id="${noId}"]`);
+    if(elLinha){
+      elLinha.scrollIntoView({behavior:'smooth', block:'center'});
+      elLinha.style.outline = '2px solid #ffb300';
+      setTimeout(()=>{ elLinha.style.outline=''; }, 2500);
+      elLinha.querySelector('input')?.focus();
+    }
+  }, 80);
+}
+
 function converterTipoNo(nodeId){
   const no = _nosTemp.find(n=>n.id===nodeId);
   if(!no) return;
@@ -7026,7 +7053,7 @@ function renderColunas(){
     const linhas = filhos.map(no=>{
       if(no.tipo==='montagem'){
         const ativo = no.id===ativoNestaColuna;
-        return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativo?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+        return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativo?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:13px;flex-shrink:0">📁</span>
             <input value="${(no.nome_montagem||'').replace(/"/g,'&quot;')}" data-no-nome-input="${no.id}" oninput="atualizarNo('${no.id}','nome_montagem',this.value)" onclick="event.stopPropagation()" placeholder="Nome da montagem" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -7059,7 +7086,7 @@ function renderColunas(){
       const botaoRemover = `<button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>`;
 
       if(no.item_tipo==='comercial'){
-        return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+        return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:12px">${iconeTipo}</span>
             <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Ex: Parafuso Sextavado M14x25" title="Ex: Parafuso Sextavado M14 x 25 — ou — Rolamento 22305 C/C SKF" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -7070,7 +7097,7 @@ function renderColunas(){
         </div>`;
       }
       if(no.item_tipo==='materia_prima'){
-        return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+        return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:12px">${iconeTipo}</span>
             <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Ex: Chapa de Aço Carbono" title="Ex: Chapa de Aço Carbono — ou — Barra Chata" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -7084,7 +7111,7 @@ function renderColunas(){
           <div style="display:flex;align-items:center;gap:4px;margin-top:3px">${seletorTipo}${linhaAbrir}</div>
         </div>`;
       }
-      return `<div style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+      return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
           <span style="font-size:12px">${iconeTipo}</span>
           <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Denominação" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -7604,6 +7631,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
         <span style="font-size:12px;font-weight:700;color:#827717;min-width:0;overflow-wrap:anywhere">${destaca(no.nome_montagem||'Montagem sem nome')}${no.numero_desenho?' · '+destaca(no.numero_desenho):''}${no.material?' · '+destaca(no.material):''}</span>
         <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
+          <button onclick="event.stopPropagation();editarNoNaArvore('${desenhoId}','${no.id}')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
           ${statusMontagemHtml}
         </span>
       </div>`;
@@ -7620,7 +7648,10 @@ function _renderArvoreCascata(desenhoId, termoBusca){
         <span class="arv-campo">${destaca(no.desenho_peca||'')}</span>
         <span class="arv-campo">${destaca(no.material||'')}</span>
         <span class="arv-qtd">${no.quantidade||1}</span>
-        <span class="arv-status">${statusHtml}</span>
+        <span class="arv-status" style="display:flex;align-items:center;gap:6px">
+          <button onclick="event.stopPropagation();editarNoNaArvore('${desenhoId}','${no.id}')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
+          ${statusHtml}
+        </span>
       </div>`;
     }
     const filhosHtml = temFilhos ? `<div style="display:${aberto?'block':'none'}">${filhos.map(f=>renderNo(f,profundidade+1)).join('')}</div>` : '';
