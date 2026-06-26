@@ -6930,11 +6930,13 @@ let _nosTemp = [];
 // um por coluna já aberta. _colunaPath.length+1 colunas são exibidas no total.
 let _colunaPath = [];
 
-// Estado da árvore de LEITURA (tela principal, fora do modal de edição) — quais
-// montagens/itens o usuário deixou abertos manualmente (acordeão). Ignorado
-// enquanto há um termo de busca ativo, que força a abertura só do caminho até
-// os resultados encontrados.
-let _arvoreExpandidos = new Set();
+// Estado da árvore de LEITURA (tela principal, fora do modal de edição): qual
+// nível está sendo visto, por equipamento — null = mostrando a raiz. Trocamos
+// o modelo de "acordeão" (que misturava visualmente itens de níveis diferentes,
+// gerando ambiguidade sobre o que pertencia a quem) por uma navegação tipo
+// pasta: em qualquer momento só se vê o conteúdo de UM nível, sem indentação
+// acumulada confusa — igual o modal de edição já faz com as colunas.
+let _navegacaoArvore = {};
 
 function _tempId(){ return 'tmp_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
 
@@ -7660,18 +7662,19 @@ function _buscarNaArvore(arvore, termo){
   return {idsMatch, idsAbrir};
 }
 
-function _toggleNoArvore(id){
-  if(_arvoreExpandidos.has(id)) _arvoreExpandidos.delete(id);
-  else _arvoreExpandidos.add(id);
+// Navega pra dentro de um nó (mostra só o conteúdo dele) ou volta pra um nível
+// anterior — nodeId null volta pra raiz do equipamento.
+function _navegarArvore(desenhoId, nodeId){
+  _navegacaoArvore[desenhoId] = nodeId;
   renderDesenhosRecebidos();
 }
 
-function _expandirTudoEquip(desenhoId){
-  _coletarArvoreDoEquipamento(desenhoId).forEach(n=>_arvoreExpandidos.add(n.id));
-  renderDesenhosRecebidos();
-}
-function _recolherTudoEquip(desenhoId){
-  _coletarArvoreDoEquipamento(desenhoId).forEach(n=>_arvoreExpandidos.delete(n.id));
+// Usado pelo caminho clicável nos resultados de busca — limpa a busca e já
+// deixa a árvore navegada pro nível onde aquele resultado vive.
+function _irParaResultadoBusca(desenhoId, parentId){
+  const campoBusca = document.getElementById('buscaDesenho');
+  if(campoBusca) campoBusca.value = '';
+  _navegacaoArvore[desenhoId] = parentId;
   renderDesenhosRecebidos();
 }
 
@@ -7697,19 +7700,14 @@ function _renderArvoreCascata(desenhoId, termoBusca){
   const arvore = _coletarArvoreDoEquipamento(desenhoId);
   if(!arvore.length) return '';
 
+  const porId = {}; arvore.forEach(n=>porId[n.id]=n);
   const filhosPorId = {};
   arvore.forEach(n=>{
     const chave = n.parent_id===null ? 'raiz' : n.parent_id;
     (filhosPorId[chave] = filhosPorId[chave]||[]).push(n);
   });
-  // Ordena cada nível alfabeticamente (Montagem usa nome_montagem, Item usa
-  // denominação) — antes a ordem seguia a ordem de criação no banco, que ficava
-  // desorganizada conforme foi sendo preenchido em sessões diferentes.
-  const nomeDoNo = no => no.tipo==='montagem' ? (no.nome_montagem||'') : (no.denominacao||'');
+  const nomeDoNo = no => no.tipo==='montagem' ? (no.nome_montagem||'Sem nome') : (no.denominacao||'Sem nome');
   Object.values(filhosPorId).forEach(lista => lista.sort((a,b)=>nomeDoNo(a).localeCompare(nomeDoNo(b),'pt-BR')));
-
-  let idsMatch = new Set(), idsAbrir = new Set();
-  if(termoBusca) ({idsMatch, idsAbrir} = _buscarNaArvore(arvore, termoBusca));
 
   const destaca = texto => {
     if(!termoBusca || !texto) return texto||'';
@@ -7718,55 +7716,97 @@ function _renderArvoreCascata(desenhoId, termoBusca){
     return texto.slice(0,i) + '<mark style="background:#fff59d;border-radius:2px;padding:0 1px">' + texto.slice(i,i+termoBusca.length) + '</mark>' + texto.slice(i+termoBusca.length);
   };
 
-  const renderNo = (no, profundidade) => {
-    const filhos = filhosPorId[no.id]||[];
-    const temFilhos = filhos.length>0;
-    const ehMatch = idsMatch.has(no.id);
-    const aberto = termoBusca ? (idsAbrir.has(no.id) || ehMatch) : _arvoreExpandidos.has(no.id);
-    const indentPx = 14 + profundidade*20;
-    const corDestaque = ehMatch ? '#fff8e1' : null;
-
-    let linha;
-    if(no.tipo==='montagem'){
-      const pend = _contarPendenciasSubarvore(no, filhosPorId);
-      const statusMontagemHtml = no.ordem_id
-        ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>`
-        : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdaMontagem('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`;
-      linha = `<div data-tipo-item="montagem" onclick="_toggleNoArvore('${no.id}')" class="arv-linha" style="padding:8px 12px 8px ${indentPx}px;cursor:pointer;border-bottom:1px solid #eee;background:${corDestaque||'#f9fbe7'}">
-        <span style="font-size:10px;color:#9e9e9e;display:inline-block;transition:transform .15s;transform:rotate(${aberto?90:0}deg);flex-shrink:0">▶</span>
-        <span style="font-size:13px;flex-shrink:0">📁</span>
-        ${_badgeTipoNo('montagem')}
-        <span style="font-size:12px;font-weight:700;color:#827717;min-width:0;overflow-wrap:anywhere">${destaca(no.nome_montagem||'Montagem sem nome')}${no.numero_desenho?' · '+destaca(no.numero_desenho):''}${no.material?' · '+destaca(no.material):''}</span>
-        <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
-          ${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
-          <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','montagem')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
-          ${statusMontagemHtml}
-        </span>
-      </div>`;
-    } else {
-      const statusHtml = no.item_tipo==='fabricar'
-        ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`)
-        : _statusComercial(no).html;
-      linha = `<div data-tipo-item="${no.item_tipo}" onclick="${temFilhos?`_toggleNoArvore('${no.id}')`:''}" class="arv-linha" style="padding:7px 12px;padding-left:${indentPx}px;cursor:${temFilhos?'pointer':'default'};border-bottom:1px solid #f5f5f5;background:${corDestaque||'#fff'}">
-        ${temFilhos ? `<span style="font-size:10px;color:#9e9e9e;display:inline-block;transition:transform .15s;transform:rotate(${aberto?90:0}deg);flex-shrink:0">▶</span>` : `<span style="width:10px;flex-shrink:0"></span>`}
-        <div class="arv-denom-grupo">
-          ${_badgeTipoNo(no.item_tipo)}
-          <span style="font-size:12px;font-weight:600">${destaca(no.denominacao||'—')}</span>
-        </div>
-        <span class="arv-campo">${destaca(no.desenho_peca||'')}</span>
-        <span class="arv-campo">${destaca(no.material||'')}</span>
-        <span class="arv-qtd">${no.quantidade||1}</span>
-        <span class="arv-status" style="display:flex;align-items:center;gap:6px">
-          <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','item')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
-          ${statusHtml}
-        </span>
-      </div>`;
-    }
-    const filhosHtml = temFilhos ? `<div style="display:${aberto?'block':'none'}">${filhos.map(f=>renderNo(f,profundidade+1)).join('')}</div>` : '';
-    return linha + filhosHtml;
+  // Uma linha de Montagem ou Item, sempre no mesmo "nível visual" — sem
+  // indentação acumulada, porque agora cada nível é visto isoladamente (a
+  // navegação entre níveis é só o breadcrumb, não recuo na tela).
+  const linhaMontagem = no => {
+    const temFilhos = (filhosPorId[no.id]||[]).length>0;
+    const pend = _contarPendenciasSubarvore(no, filhosPorId);
+    const statusMontagemHtml = no.ordem_id
+      ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>`
+      : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdaMontagem('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`;
+    return `<div data-tipo-item="montagem" onclick="_navegarArvore('${desenhoId}','${no.id}')" class="arv-linha" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;background:#f9fbe7">
+      <span style="font-size:13px;flex-shrink:0">📁</span>
+      ${_badgeTipoNo('montagem')}
+      <span style="font-size:12px;font-weight:700;color:#827717;min-width:0;overflow-wrap:anywhere">${destaca(no.nome_montagem||'Montagem sem nome')}${no.numero_desenho?' · '+destaca(no.numero_desenho):''}${no.material?' · '+destaca(no.material):''}</span>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+        ${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}
+        <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','montagem')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
+        ${statusMontagemHtml}
+        ${temFilhos ? `<span style="font-size:10px;color:#9e9e9e">▶</span>` : ''}
+      </span>
+    </div>`;
   };
 
-  return (filhosPorId['raiz']||[]).map(n=>renderNo(n,0)).join('');
+  const linhaItem = no => {
+    const temFilhos = (filhosPorId[no.id]||[]).length>0;
+    const statusHtml = no.item_tipo==='fabricar'
+      ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`)
+      : _statusComercial(no).html;
+    return `<div data-tipo-item="${no.item_tipo}" onclick="${temFilhos?`_navegarArvore('${desenhoId}','${no.id}')`:''}" class="arv-linha" style="padding:7px 12px;cursor:${temFilhos?'pointer':'default'};border-bottom:1px solid #f5f5f5;background:#fff">
+      <div class="arv-denom-grupo">
+        ${_badgeTipoNo(no.item_tipo)}
+        <span style="font-size:12px;font-weight:600">${destaca(no.denominacao||'—')}</span>
+      </div>
+      <span class="arv-campo">${destaca(no.desenho_peca||'')}</span>
+      <span class="arv-campo">${destaca(no.material||'')}</span>
+      <span class="arv-qtd">${no.quantidade||1}</span>
+      <span class="arv-status" style="display:flex;align-items:center;gap:6px">
+        <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','item')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px" title="Editar">✏️</button>
+        ${statusHtml}
+        ${temFilhos ? `<span style="font-size:10px;color:#9e9e9e">▶</span>` : ''}
+      </span>
+    </div>`;
+  };
+
+  // Busca: em vez de tentar expandir caminhos dentro de um acordeão (que não
+  // existe mais nesse modelo), mostra os resultados batidos como uma lista
+  // direta, cada um com o caminho completo até ele — clicar leva direto pro
+  // nível que contém aquele resultado.
+  if(termoBusca){
+    const {idsMatch} = _buscarNaArvore(arvore, termoBusca);
+    const resultados = arvore.filter(n=>idsMatch.has(n.id));
+    if(!resultados.length) return `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhum resultado encontrado dentro deste equipamento</div>`;
+    return resultados.map(no=>{
+      const caminho = [];
+      let cursor = no.parent_id ? porId[no.parent_id] : null;
+      while(cursor){ caminho.unshift(cursor); cursor = cursor.parent_id ? porId[cursor.parent_id] : null; }
+      const caminhoTexto = ['📦 Equipamento', ...caminho.map(c=>nomeDoNo(c))].join(' › ');
+      const linhaHtml = no.tipo==='montagem' ? linhaMontagem(no) : linhaItem(no);
+      return `<div onclick="_irParaResultadoBusca('${desenhoId}',${no.parent_id?`'${no.parent_id}'`:'null'})" style="padding:4px 12px 0;font-size:10px;color:#1565c0;cursor:pointer;text-decoration:underline">${caminhoTexto}</div>${linhaHtml}`;
+    }).join('');
+  }
+
+  // Navegação normal (sem busca): mostra só o nível atual — null = raiz do equipamento.
+  const nodeAtualId = _navegacaoArvore[desenhoId] || null;
+  const nodeAtual = nodeAtualId ? porId[nodeAtualId] : null;
+  const filhosNivel = filhosPorId[nodeAtualId===null?'raiz':nodeAtualId] || [];
+  const montagensNivel = filhosNivel.filter(n=>n.tipo==='montagem');
+  const itensNivel = filhosNivel.filter(n=>n.tipo==='item');
+
+  // Breadcrumb: caminho da raiz até o nível atual, cada parte clicável pra voltar.
+  const caminhoAtual = [];
+  let cursorAtual = nodeAtual;
+  while(cursorAtual){ caminhoAtual.unshift(cursorAtual); cursorAtual = cursorAtual.parent_id ? porId[cursorAtual.parent_id] : null; }
+  const breadcrumbHtml = `<div style="display:flex;align-items:center;gap:4px;padding:8px 12px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;font-size:12px;flex-wrap:wrap">
+    <span onclick="_navegarArvore('${desenhoId}',null)" style="cursor:pointer;color:${nodeAtual?'#2e7d32':'#827717'};font-weight:700">📦 Equipamento</span>
+    ${caminhoAtual.map((no,i)=>`<span style="color:#bdbdbd">›</span><span onclick="_navegarArvore('${desenhoId}','${no.id}')" style="cursor:pointer;color:${i===caminhoAtual.length-1?'#827717':'#2e7d32'};font-weight:700">${no.tipo==='montagem'?'📁':_iconeItemTipo(no.item_tipo)} ${nomeDoNo(no)}</span>`).join('')}
+  </div>`;
+
+  if(!montagensNivel.length && !itensNivel.length){
+    return breadcrumbHtml + `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nada cadastrado aqui ainda</div>`;
+  }
+
+  let corpo = '';
+  if(montagensNivel.length){
+    corpo += `<div style="padding:5px 12px;font-size:10px;font-weight:700;color:#9e9e9e;text-transform:uppercase;background:#fafafa;border-bottom:1px solid #eee">📁 Montagens (${montagensNivel.length})</div>`;
+    corpo += montagensNivel.map(linhaMontagem).join('');
+  }
+  if(itensNivel.length){
+    corpo += `<div style="padding:5px 12px;font-size:10px;font-weight:700;color:#9e9e9e;text-transform:uppercase;background:#fafafa;border-bottom:1px solid #eee">${nodeAtual ? 'Itens diretos desta montagem' : 'Itens diretos do equipamento'} (${itensNivel.length})</div>`;
+    corpo += itensNivel.map(linhaItem).join('');
+  }
+  return breadcrumbHtml + corpo;
 }
 
 function renderDesenhosRecebidos(){
@@ -7824,6 +7864,12 @@ function renderDesenhosRecebidos(){
       <div class="stat yellow"><div class="stat-label">🛒 Aguardando compra</div><div class="stat-val">${totalComercialPendente}</div></div>`;
   }
 
+  // Preserva a posição do scroll de cada equipamento — sem isso, clicar pra
+  // abrir/fechar uma montagem reescreve o innerHTML inteiro e o scroll sempre
+  // volta pro topo, perdendo o lugar onde a pessoa estava olhando.
+  const scrollsSalvos = {};
+  div.querySelectorAll('[data-scroll-arv]').forEach(el=>{ scrollsSalvos[el.dataset.scrollArv] = el.scrollTop; });
+
   if(!lista.length){
     div.innerHTML = `<div class="empty" style="padding:32px;text-align:center">
       <div style="font-size:32px;margin-bottom:8px">📐</div>
@@ -7844,8 +7890,6 @@ function renderDesenhosRecebidos(){
           <div style="font-size:11px;color:#9e9e9e">Recebido em ${new Date(d.data_recebimento+'T12:00').toLocaleDateString('pt-BR')}</div>
         </div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-sm" onclick="_expandirTudoEquip('${d.id}')" title="Abrir todos os ramos">⊞ Expandir tudo</button>
-          <button class="btn btn-sm" onclick="_recolherTudoEquip('${d.id}')" title="Fechar todos os ramos">⊟ Recolher tudo</button>
           <button class="btn btn-sm" onclick="abrirModalDesenhoRecebido('${d.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm danger" onclick="deletarDesenhoRecebido('${d.id}')" title="Excluir">🗑</button>
         </div>
@@ -7859,10 +7903,15 @@ function renderDesenhosRecebidos(){
           <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;width:28px;text-align:center">Qtd</span>
           <span style="width:90px"></span>
         </div>
-        <div style="overflow-x:auto;max-height:560px;overflow-y:auto">${corpoArvore}</div>
+        <div data-scroll-arv="${d.id}" style="overflow-x:auto;max-height:560px;overflow-y:auto">${corpoArvore}</div>
       </div>` : `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhuma montagem ou item cadastrado neste equipamento</div>`}
     </div>`;
   }).join('');
+
+  div.querySelectorAll('[data-scroll-arv]').forEach(el=>{
+    const salvo = scrollsSalvos[el.dataset.scrollArv];
+    if(salvo) el.scrollTop = salvo;
+  });
 }
 
 function abrirModalOrdem(id){
