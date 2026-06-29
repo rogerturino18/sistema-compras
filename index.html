@@ -10843,6 +10843,42 @@ function _toggleDetalheSaida(dept){
   renderSaidas();
 }
 
+// Resolve a "chave" de agrupamento de uma movimentação de saída de forma
+// confiável: usa o pdv_id (referência real) quando disponível, já que o campo
+// de texto livre m.pdv pode variar entre movimentações do MESMO PDV (ex: "PDV
+// 68" numa vez, "Pdv 68" ou "PDV68" em outra) — o que fragmentava o mesmo PDV
+// em vários grupos diferentes na tela. Sem pdv_id (dados antigos, ou saída pra
+// departamento interno sem PDV), cai no texto livre normalizado.
+function _chaveGrupoSaida(m){
+  if(m.pdv_id){
+    const p = pdvs.find(x=>x.id===m.pdv_id);
+    if(p) return _numPdv(p)+(p.cliente?' — '+p.cliente:'');
+  }
+  const txt = (m.pdv||m.departamento||'').trim();
+  if(txt){
+    // Sem pdv_id, mas o texto livre pode conter um número de PDV reconhecível
+    // (ex: "PDV 68", "Pdv68", "68") — tenta casar com um PDV real cadastrado
+    // pelo número, assim saídas antigas (digitadas à mão, sem pdv_id) ainda
+    // caem no MESMO grupo das saídas novas (que já têm pdv_id de verdade).
+    const numMatch = txt.match(/(\d+)/);
+    if(numMatch){
+      const p = pdvs.find(x => String(x.numero||'').replace(/\D/g,'') === numMatch[1]);
+      if(p) return _numPdv(p)+(p.cliente?' — '+p.cliente:'');
+    }
+    return txt.replace(/PDV\s+PDV\s*/gi,'PDV ').replace(/\s+/g,' ').toUpperCase();
+  }
+  return 'SEM DEPARTAMENTO';
+}
+
+// Chave pra agrupar itens "iguais" no resumo mesmo que tenham cadastros
+// duplicados no estoque (IDs diferentes para a mesma peça) — agrupa pelo nome
+// e material normalizados, não pelo item_id.
+function _chaveNomeItem(item){
+  const nome = (item?.tipo_peca||item?.descricao||'Item removido').trim().toUpperCase().replace(/\s+/g,' ');
+  const mat = (item?.material||'').trim().toUpperCase().replace(/\s+/g,' ');
+  return nome+'|'+mat;
+}
+
 function renderSaidas(){
   const busca=(document.getElementById('buscaSaidas')?.value||'').toLowerCase();
   const dtDe=document.getElementById('saidaDtDe')?.value||'';
@@ -10853,10 +10889,10 @@ function renderSaidas(){
   let saidas=estoqueMov.filter(m=>m.tipo==='saida');
   if(dtDe) saidas=saidas.filter(m=>m.data>=dtDe);
   if(dtAte) saidas=saidas.filter(m=>m.data<=dtAte);
-  if(filtDept) saidas=saidas.filter(m=>m.pdv===filtDept);
+  if(filtDept) saidas=saidas.filter(m=>_chaveGrupoSaida(m)===filtDept);
   if(busca) saidas=saidas.filter(m=>{
     const item=estoqueItens.find(i=>i.id===m.item_id);
-    return (`${item?.tipo_peca||''} ${item?.descricao||''} ${item?.material||''} ${m.pdv||''} ${m.observacao||''}`).toLowerCase().includes(busca);
+    return (`${item?.tipo_peca||''} ${item?.descricao||''} ${item?.material||''} ${_chaveGrupoSaida(m)} ${m.observacao||''}`).toLowerCase().includes(busca);
   });
 
   // Stats
@@ -10865,7 +10901,7 @@ function renderSaidas(){
     const item=estoqueItens.find(i=>i.id===m.item_id);
     return acc+(m.valor_unitario||item?.valor_unitario||0)*m.quantidade;
   },0);
-  const depts=[...new Set(saidas.map(m=>m.pdv||'Sem departamento'))].length;
+  const depts=[...new Set(saidas.map(_chaveGrupoSaida))].length;
   const el=document.getElementById('statsSaidas');
   if(el) el.innerHTML=`
     <div class="stat"><div class="stat-label">Total de saídas</div><div class="stat-val">${totalSaidas}</div></div>
@@ -10876,20 +10912,20 @@ function renderSaidas(){
   if(!lista)return;
   if(!saidas.length){lista.innerHTML='<div class="empty">Nenhuma saída registrada</div>';return;}
 
-  // Agrupa por departamento
+  // Agrupa por departamento/PDV — chave confiável, não texto livre direto
   const grupos={};
   saidas.forEach(m=>{
-    const dept=m.pdv||'Sem departamento';
+    const dept=_chaveGrupoSaida(m);
     if(!grupos[dept])grupos[dept]=[];
     grupos[dept].push(m);
   });
 
-  // Atualiza filtro de departamentos
-  const allDepts=[...new Set(estoqueMov.filter(m=>m.tipo==='saida'&&m.pdv).map(m=>m.pdv))].sort();
+  // Atualiza filtro de departamentos (mesma chave confiável usada no agrupamento)
+  const allDepts=[...new Set(estoqueMov.filter(m=>m.tipo==='saida').map(_chaveGrupoSaida))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const sel=document.getElementById('filtroSaidaDept');
   if(sel){
     const cur=sel.value;
-    sel.innerHTML='<option value="">Todos os departamentos</option>'+allDepts.map(d=>`<option value="${d}"${d===cur?' selected':''}>${d}</option>`).join('');
+    sel.innerHTML='<option value="">Todos os PDVs/departamentos</option>'+allDepts.map(d=>`<option value="${d.replace(/"/g,'&quot;')}"${d===cur?' selected':''}>${d}</option>`).join('');
   }
 
   lista.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([dept,movs])=>{
@@ -10912,7 +10948,7 @@ function renderSaidas(){
         <td style="padding:7px 10px;font-size:12px;font-weight:600;color:#2e7d32">${valTotal>0?fmtVal(valTotal):'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${m.ordem||'—'}</td>
         <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${m.responsavel||'—'}</td>
-        <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${m.observacao||'—'}</td>
+        <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${(m.observacao||'—').replace(/PDV\s+PDV\s*/gi,'PDV ')}</td>
         <td style="padding:7px 4px">
           <button class="btn btn-sm danger" onclick="deletarMovEstoque('${m.id}')" title="Excluir">🗑</button>
         </td>
@@ -10922,11 +10958,14 @@ function renderSaidas(){
     // Resumo agregado por item dentro deste PDV/departamento — soma TODAS as
     // saídas históricas do mesmo item (ex: 1 disco + 2 discos + 3 discos = 6no
     // total), pra responder de cara "quanto desse item já foi pra esse PDV"
-    // sem precisar somar manualmente linha por linha.
+    // sem precisar somar manualmente linha por linha. Agrupa pelo NOME+MATERIAL
+    // normalizados (não pelo item_id) — se o mesmo item foi cadastrado mais de
+    // uma vez no estoque (IDs diferentes pra mesma peça), ainda assim soma tudo
+    // numa única linha, em vez de espalhar em linhas separadas.
     const resumoPorItem = {};
     movs.forEach(m=>{
       const item = estoqueItens.find(i=>i.id===m.item_id);
-      const chave = m.item_id||'sem_item';
+      const chave = _chaveNomeItem(item);
       if(!resumoPorItem[chave]) resumoPorItem[chave] = { nome: item?.tipo_peca||item?.descricao||'Item removido', material: item?.material||'', unidade: item?.unidade||'', qtd: 0, valor: 0, qtdMov: 0 };
       resumoPorItem[chave].qtd += Number(m.quantidade)||0;
       resumoPorItem[chave].valor += (m.valor_unitario||item?.valor_unitario||0)*(Number(m.quantidade)||0);
@@ -13270,7 +13309,7 @@ async function salvarRequisicao(){
         await api('POST','estoque_movimentacoes',{
           item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
           quantidade:it.qtd, unidade_saida:it.unidade, data:obj.data,
-          departamento:depto,
+          departamento:depto, pdv_id:pdvId,
           observacao:`Req. Nº ${numero} — ${isPdvDest&&pdv?_numPdv(pdv):depto}`,
           criado_por:usuarioLogado?.nome||null
         });
@@ -13380,7 +13419,7 @@ async function confirmarAprovacao(){
         item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
         quantidade:it.qtd, unidade_saida:it.unidade,
         data:r.data||new Date().toISOString().split('T')[0],
-        departamento:r.departamento,
+        departamento:r.departamento, pdv_id:r.pdv_id||null,
         observacao:`Req. Nº ${r.numero} — ${r.pdv_id?_numPdv(pdvs.find(p=>p.id===r.pdv_id)):r.departamento}`,
         criado_por:usuarioLogado?.nome||null
       });
