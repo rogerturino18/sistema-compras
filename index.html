@@ -555,7 +555,6 @@ tr:hover td{background:#f9fbf9}
   <div style="padding:6px 0">
     <div class="sbi" onclick="sbGo(11,'Estoque')">📦 Itens em Estoque</div>
     <div class="sbi" onclick="sbGo(16,'Movimentações de Estoque')">📋 Entradas e Saídas</div>
-    <div class="sbi" onclick="sbGo(30,'Distribuição por PDV')">📊 Distribuição por PDV</div>
     <div class="sbi" onclick="sbGo(17,'Requisições de Material')">📤 Requisições de Material</div>
     <div class="sbi" onclick="sbGo(18,'Departamentos')">🏢 Departamentos</div>
   </div>
@@ -1311,21 +1310,6 @@ tr:hover td{background:#f9fbf9}
       <tbody id="listaMovEstoque"></tbody>
     </table>
   </div>
-</div>
-
-<!-- TAB 30: DISTRIBUIÇÃO POR PDV (resumo agregado de saídas, por item, somando o histórico) -->
-<div class="panel" id="tab30">
-  <div style="margin-bottom:10px;font-size:12px;color:var(--gray)">📊 Quanto de cada item já saiu do estoque pra cada PDV/departamento — soma todas as saídas históricas (ex: 1+2+3 unidades enviadas em datas diferentes aparecem somadas em 6).</div>
-  <div class="stat-row" id="statsSaidas"></div>
-  <div class="toolbar">
-    <input type="text" id="buscaSaidas" placeholder="Buscar item, material, PDV..." oninput="renderSaidas()" style="flex:1;min-width:150px">
-    <select id="filtroSaidaDept" onchange="renderSaidas()">
-      <option value="">Todos os PDVs/departamentos</option>
-    </select>
-    <input type="date" id="saidaDtDe" onchange="renderSaidas()" title="Data de">
-    <input type="date" id="saidaDtAte" onchange="renderSaidas()" title="Data até">
-  </div>
-  <div id="listaSaidas"></div>
 </div>
 
 <!-- TAB 17: REQUISIÇÕES DE MATERIAL -->
@@ -10830,200 +10814,7 @@ async function registrarSaida(){
     showToast('Saída registrada!');
     limparFormSaida();
     await loadAll();
-    renderSaidas();
   }catch(e){showToast('Erro','err');console.error(e);}
-}
-
-// Quais grupos (PDV/departamento) estão com a lista detalhada de movimentações
-// aberta — por padrão fica fechado, mostrando só o resumo agregado por item.
-let _saidasDetalheAberto = new Set();
-function _toggleDetalheSaida(dept){
-  if(_saidasDetalheAberto.has(dept)) _saidasDetalheAberto.delete(dept);
-  else _saidasDetalheAberto.add(dept);
-  renderSaidas();
-}
-
-// Resolve a "chave" de agrupamento de uma movimentação de saída de forma
-// confiável: usa o pdv_id (referência real) quando disponível, já que o campo
-// de texto livre m.pdv pode variar entre movimentações do MESMO PDV (ex: "PDV
-// 68" numa vez, "Pdv 68" ou "PDV68" em outra) — o que fragmentava o mesmo PDV
-// em vários grupos diferentes na tela. Sem pdv_id (dados antigos, ou saída pra
-// departamento interno sem PDV), cai no texto livre normalizado.
-function _chaveGrupoSaida(m){
-  if(m.pdv_id){
-    const p = pdvs.find(x=>x.id===m.pdv_id);
-    if(p) return _numPdv(p)+(p.cliente?' — '+p.cliente:'');
-  }
-  const txt = (m.pdv||m.departamento||'').trim();
-  if(txt){
-    // Sem pdv_id, mas o texto livre pode conter um número de PDV reconhecível
-    // (ex: "PDV 68", "Pdv68", "68") — tenta casar com um PDV real cadastrado
-    // pelo número, assim saídas antigas (digitadas à mão, sem pdv_id) ainda
-    // caem no MESMO grupo das saídas novas (que já têm pdv_id de verdade).
-    const numMatch = txt.match(/(\d+)/);
-    if(numMatch){
-      const p = pdvs.find(x => String(x.numero||'').replace(/\D/g,'') === numMatch[1]);
-      if(p) return _numPdv(p)+(p.cliente?' — '+p.cliente:'');
-    }
-    return txt.replace(/PDV\s+PDV\s*/gi,'PDV ').replace(/\s+/g,' ').toUpperCase();
-  }
-  return 'SEM DEPARTAMENTO';
-}
-
-// Chave pra agrupar itens "iguais" no resumo mesmo que tenham cadastros
-// duplicados no estoque (IDs diferentes para a mesma peça) — agrupa pelo nome
-// e material normalizados, não pelo item_id.
-function _chaveNomeItem(item){
-  const nome = (item?.tipo_peca||item?.descricao||'Item removido').trim().toUpperCase().replace(/\s+/g,' ');
-  const mat = (item?.material||'').trim().toUpperCase().replace(/\s+/g,' ');
-  return nome+'|'+mat;
-}
-
-function renderSaidas(){
-  const busca=(document.getElementById('buscaSaidas')?.value||'').toLowerCase();
-  const dtDe=document.getElementById('saidaDtDe')?.value||'';
-  const dtAte=document.getElementById('saidaDtAte')?.value||'';
-  const filtDept=document.getElementById('filtroSaidaDept')?.value||'';
-
-  // Apenas movimentações de saída
-  let saidas=estoqueMov.filter(m=>m.tipo==='saida');
-  if(dtDe) saidas=saidas.filter(m=>m.data>=dtDe);
-  if(dtAte) saidas=saidas.filter(m=>m.data<=dtAte);
-  if(filtDept) saidas=saidas.filter(m=>_chaveGrupoSaida(m)===filtDept);
-  if(busca) saidas=saidas.filter(m=>{
-    const item=estoqueItens.find(i=>i.id===m.item_id);
-    return (`${item?.tipo_peca||''} ${item?.descricao||''} ${item?.material||''} ${_chaveGrupoSaida(m)} ${m.observacao||''}`).toLowerCase().includes(busca);
-  });
-
-  // Stats
-  const totalSaidas=saidas.length;
-  const valorTotal=saidas.reduce((acc,m)=>{
-    const item=estoqueItens.find(i=>i.id===m.item_id);
-    return acc+(m.valor_unitario||item?.valor_unitario||0)*m.quantidade;
-  },0);
-  const depts=[...new Set(saidas.map(_chaveGrupoSaida))].length;
-  const el=document.getElementById('statsSaidas');
-  if(el) el.innerHTML=`
-    <div class="stat"><div class="stat-label">Total de saídas</div><div class="stat-val">${totalSaidas}</div></div>
-    <div class="stat blue"><div class="stat-label">Valor total</div><div class="stat-val">${fmtVal(valorTotal)}</div></div>
-    <div class="stat"><div class="stat-label">Departamentos</div><div class="stat-val">${depts}</div></div>`;
-
-  const lista=document.getElementById('listaSaidas');
-  if(!lista)return;
-  if(!saidas.length){lista.innerHTML='<div class="empty">Nenhuma saída registrada</div>';return;}
-
-  // Agrupa por departamento/PDV — chave confiável, não texto livre direto
-  const grupos={};
-  saidas.forEach(m=>{
-    const dept=_chaveGrupoSaida(m);
-    if(!grupos[dept])grupos[dept]=[];
-    grupos[dept].push(m);
-  });
-
-  // Atualiza filtro de departamentos (mesma chave confiável usada no agrupamento)
-  const allDepts=[...new Set(estoqueMov.filter(m=>m.tipo==='saida').map(_chaveGrupoSaida))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  const sel=document.getElementById('filtroSaidaDept');
-  if(sel){
-    const cur=sel.value;
-    sel.innerHTML='<option value="">Todos os PDVs/departamentos</option>'+allDepts.map(d=>`<option value="${d.replace(/"/g,'&quot;')}"${d===cur?' selected':''}>${d}</option>`).join('');
-  }
-
-  lista.innerHTML=Object.entries(grupos).sort(([a],[b])=>a.localeCompare(b,'pt-BR')).map(([dept,movs])=>{
-    const valorDept=movs.reduce((acc,m)=>{
-      const item=estoqueItens.find(i=>i.id===m.item_id);
-      return acc+(m.valor_unitario||item?.valor_unitario||0)*m.quantidade;
-    },0);
-    const linhas=movs.sort((a,b)=>b.data?.localeCompare(a.data||'')||0).map(m=>{
-      const item=estoqueItens.find(i=>i.id===m.item_id);
-      const dtCurta=m.data?new Date(m.data+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
-      const valUnit=m.valor_unitario||item?.valor_unitario||0;
-      const valTotal=valUnit*m.quantidade;
-      return `<tr style="border-bottom:1px solid #f0f4f0">
-        <td style="padding:7px 10px;font-size:11px">${dtCurta}</td>
-        <td style="padding:7px 10px;font-weight:600;font-size:12px">${item?.tipo_peca||item?.descricao||'—'}</td>
-        <td style="padding:7px 10px;font-size:11px;color:var(--green)">${item?.material||'—'}</td>
-        <td style="padding:7px 10px;font-family:monospace;font-size:11px">${[item?.espessura,item?.medida1,item?.medida2].filter(Boolean).join(' × ')||'—'}</td>
-        <td style="padding:7px 10px;font-size:12px;font-weight:700;color:#e65100">${m.quantidade} ${item?.unidade||''}</td>
-        <td style="padding:7px 10px;font-size:12px">${valUnit?fmtVal(valUnit):'—'}</td>
-        <td style="padding:7px 10px;font-size:12px;font-weight:600;color:#2e7d32">${valTotal>0?fmtVal(valTotal):'—'}</td>
-        <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${m.ordem||'—'}</td>
-        <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${m.responsavel||'—'}</td>
-        <td style="padding:7px 10px;font-size:11px;color:var(--gray)">${(m.observacao||'—').replace(/PDV\s+PDV\s*/gi,'PDV ')}</td>
-        <td style="padding:7px 4px">
-          <button class="btn btn-sm danger" onclick="deletarMovEstoque('${m.id}')" title="Excluir">🗑</button>
-        </td>
-      </tr>`;
-    }).join('');
-
-    // Resumo agregado por item dentro deste PDV/departamento — soma TODAS as
-    // saídas históricas do mesmo item (ex: 1 disco + 2 discos + 3 discos = 6no
-    // total), pra responder de cara "quanto desse item já foi pra esse PDV"
-    // sem precisar somar manualmente linha por linha. Agrupa pelo NOME+MATERIAL
-    // normalizados (não pelo item_id) — se o mesmo item foi cadastrado mais de
-    // uma vez no estoque (IDs diferentes pra mesma peça), ainda assim soma tudo
-    // numa única linha, em vez de espalhar em linhas separadas.
-    const resumoPorItem = {};
-    movs.forEach(m=>{
-      const item = estoqueItens.find(i=>i.id===m.item_id);
-      const chave = _chaveNomeItem(item);
-      if(!resumoPorItem[chave]) resumoPorItem[chave] = { nome: item?.tipo_peca||item?.descricao||'Item removido', material: item?.material||'', unidade: item?.unidade||'', qtd: 0, valor: 0, qtdMov: 0 };
-      resumoPorItem[chave].qtd += Number(m.quantidade)||0;
-      resumoPorItem[chave].valor += (m.valor_unitario||item?.valor_unitario||0)*(Number(m.quantidade)||0);
-      resumoPorItem[chave].qtdMov++;
-    });
-    const linhasResumo = Object.values(resumoPorItem).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(r=>`
-      <tr style="border-bottom:1px solid #f0f4f0">
-        <td style="padding:6px 10px;font-weight:600;font-size:12px">${r.nome}</td>
-        <td style="padding:6px 10px;font-size:11px;color:var(--green)">${r.material||'—'}</td>
-        <td style="padding:6px 10px;font-size:12px;font-weight:700;color:#e65100">${r.qtd} ${r.unidade}</td>
-        <td style="padding:6px 10px;font-size:11px;color:var(--gray)">${r.qtdMov} saída${r.qtdMov!==1?'s':''}</td>
-        <td style="padding:6px 10px;font-size:12px;font-weight:600;color:#2e7d32">${r.valor>0?fmtVal(r.valor):'—'}</td>
-      </tr>`).join('');
-    const detalheAberto = _saidasDetalheAberto.has(dept);
-
-    return `<div style="margin-bottom:20px">
-      <div style="background:var(--green);color:#fff;padding:8px 14px;border-radius:10px 10px 0 0;display:flex;align-items:center;gap:12px">
-        <span style="font-weight:700;font-size:14px">📤 ${dept}</span>
-        <span style="font-size:12px;color:rgba(255,255,255,0.8)">${movs.length} saída${movs.length!==1?'s':''}</span>
-        ${valorDept>0?`<span style="margin-left:auto;font-weight:700;font-size:13px">Total: ${fmtVal(valorDept)}</span>`:''}
-      </div>
-      <div class="tbl-wrap" style="border:1px solid var(--border);border-top:none">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr style="background:#f5f7f5">
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Item</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Material</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Qtd total já enviada</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Movimentações</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Valor total</th>
-          </tr></thead>
-          <tbody>${linhasResumo}</tbody>
-        </table>
-      </div>
-      <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden">
-        <button onclick="_toggleDetalheSaida('${dept.replace(/'/g,"\\'")}')" style="width:100%;text-align:left;padding:8px 14px;background:#fafafa;border:none;cursor:pointer;font-size:11px;color:var(--gray);font-weight:600">
-          ${detalheAberto?'▼':'▶'} Ver cada movimentação individual (${movs.length})
-        </button>
-        ${detalheAberto ? `<div class="tbl-wrap">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr style="background:#f5f7f5">
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Data</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Item</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Material</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Medidas</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Qtd</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Val. Unit.</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Total</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Ordem</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Responsável</th>
-            <th style="padding:6px 10px;color:var(--green);font-size:10px;text-transform:uppercase">Obs</th>
-            <th></th>
-          </tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
-        </div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
 }
 
 async function deletarMovEstoque(id){
@@ -11032,7 +10823,6 @@ async function deletarMovEstoque(id){
     await api('DELETE','estoque_movimentacoes','',`?id=eq.${id}`);
     showToast('Movimentação excluída!');
     await loadAll();
-    renderSaidas();
   }catch(e){showToast('Erro','err');}
 }
 
@@ -11647,7 +11437,6 @@ function showTab(n){
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
   if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
   if(n===29){ carregarDadosEPI().then(()=>{ renderEPI(); renderFuncionariosEPI(); }); }
-  if(n===30) renderSaidas();
   if(n===25){
     (async()=>{
       if(!contasPagar.length||!contasReceber.length) await loadAll();
@@ -13722,36 +13511,57 @@ function renderDepartamentos(){
   if(!listaEl) return;
   if(!centros.length){listaEl.innerHTML='<div style="text-align:center;padding:40px;color:#bdbdbd">Nenhum centro de custo encontrado</div>';return;}
 
-  listaEl.innerHTML=centros.map(c=>`
-    <div onclick="abrirCentroCusto('${c.id}','${c.tipo}')" style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px 18px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow=''">
-      <div style="width:44px;height:44px;border-radius:10px;background:${c.cor};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${c.tipo==='pdv'?'📋':'🏢'}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:14px;color:#263238">${c.nome}</div>
-        <div style="font-size:12px;color:#546e7a;margin-top:2px">${c.cliente||c.tipo==='fixo'?`${c.tipo==='fixo'?'Departamento fixo':c.cliente}`:'—'}</div>
-      </div>
-      ${c.tipo==='pdv'?`
-        <div style="text-align:center;min-width:80px">
-          <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Total PDV</div>
-          <div style="font-size:14px;font-weight:700;color:${c.cor}">${fmtVal(c.total)}</div>
+  // Vista compacta agrupada, no mesmo estilo da Lista de Compras (seção com
+  // cabeçalho verde + tabela de linhas curtas), para a página não ficar extensa.
+  const pdvsList=centros.filter(c=>c.tipo==='pdv');
+  const fixosList=centros.filter(c=>c.tipo==='fixo');
+
+  const linhaCentro=c=>{
+    const nPDV=c.tipo==='pdv'?String(c.nome).replace(/PDV\s*/i,''):'';
+    const titulo=c.tipo==='pdv'?'PDV '+nPDV:c.nome;
+    const sub=c.tipo==='fixo'?'Departamento fixo':(c.cliente||'—');
+    return `<tr onclick="abrirCentroCusto('${c.id}','${c.tipo}')" style="cursor:pointer;border-bottom:1px solid #eeeeee" onmouseover="this.style.background='#f6faf6'" onmouseout="this.style.background=''" title="${(c.cliente||'').replace(/"/g,'')}">
+      <td style="padding:7px 12px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="width:26px;height:26px;border-radius:7px;background:${c.cor};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">${c.tipo==='pdv'?'📋':'🏢'}</span>
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:13px;color:#263238;line-height:1.15">${titulo}</div>
+            <div style="font-size:11px;color:#90a4ae;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div>
+          </div>
         </div>
-        <div style="text-align:center;min-width:70px">
-          <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Status</div>
-          <div style="font-size:12px;font-weight:600;color:#263238">${c.status||'—'}</div>
-        </div>`:``}
-      <div style="text-align:center;min-width:70px">
-        <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Materiais</div>
-        <div style="font-size:18px;font-weight:700;color:#1565c0">${c.matUsados}</div>
+      </td>
+      <td style="padding:7px 12px;text-align:center"><span style="background:#e3f2fd;color:#1565c0;padding:2px 9px;border-radius:8px;font-size:12px;font-weight:700" title="Materiais retirados">📦 ${c.matUsados}</span></td>
+      <td style="padding:7px 12px;text-align:center">${c.tipo==='pdv'?`<span style="background:#fff3e0;color:#e65100;padding:2px 9px;border-radius:8px;font-size:12px;font-weight:700" title="Ordens de produção">🔧 ${c.opsCount}</span>`:'<span style="color:#cfd8dc">—</span>'}</td>
+      <td style="padding:7px 12px;text-align:right;color:#9c27b0;font-weight:700;font-size:18px;width:40px">›</td>
+    </tr>`;
+  };
+
+  const secaoCentro=(titulo,emoji,arr)=>{
+    if(!arr.length) return '';
+    return `<div style="margin-bottom:18px">
+      <div style="background:var(--green);color:#fff;padding:8px 14px;border-radius:10px 10px 0 0;display:flex;align-items:center;gap:10px">
+        <span style="font-weight:700;font-size:14px">${emoji} ${titulo}</span>
+        <span style="margin-left:auto;background:rgba(255,255,255,0.2);padding:2px 9px;border-radius:8px;font-size:11px">${arr.length}</span>
       </div>
-      ${c.tipo==='pdv'?`
-      <div style="text-align:center;min-width:70px">
-        <div style="font-size:11px;color:#546e7a;font-weight:600;text-transform:uppercase">Ordens</div>
-        <div style="font-size:18px;font-weight:700;color:#e65100">${c.opsCount}</div>
-      </div>`:''}
-      <div style="color:#bdbdbd;font-size:18px">›</div>
-    </div>`).join('');
+      <div class="tbl-wrap" style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">
+          <thead><tr style="background:#f5f7f5">
+            <th style="padding:6px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:left">Centro de custo</th>
+            <th style="padding:6px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:center;width:120px">Materiais</th>
+            <th style="padding:6px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:center;width:110px">Ordens</th>
+            <th style="width:40px"></th>
+          </tr></thead>
+          <tbody>${arr.map(linhaCentro).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  };
+
+  listaEl.innerHTML=secaoCentro('PDVs','📋',pdvsList)+secaoCentro('Departamentos fixos','🏢',fixosList);
 }
 
 function abrirCentroCusto(id, tipo){
+  _ccMatAberto = new Set();
   _ccAtual={id,tipo};
   let titulo='', cor='#37474f';
   if(tipo==='pdv'){
@@ -13835,34 +13645,113 @@ function abrirCentroCusto(id, tipo){
   abrirModal('modalCentroCusto');
 }
 
+let _ccMatAberto = new Set();
+let _ccMatReqsCache = [];
+function _toggleCCMat(key){
+  if(_ccMatAberto.has(key)) _ccMatAberto.delete(key); else _ccMatAberto.add(key);
+  const el=document.getElementById('ccReqConteudo');
+  if(el) el.innerHTML=renderCCMateriais(_ccMatReqsCache);
+}
+
 function renderCCMateriais(reqs){
-  const atendidas=reqs.filter(r=>r.status==='Atendida');
-  if(!atendidas.length) return '<p style="color:#bdbdbd;padding:20px;text-align:center">Nenhum material retirado ainda.</p>';
-  let rows='';
+  _ccMatReqsCache = reqs||[];
+  const atendidas=(reqs||[]).filter(r=>r.status==='Atendida');
+
+  // Achata todos os itens retirados em movimentações individuais, buscando o
+  // valor unitário real no estoque pelo item_id (cada item de requisição
+  // guarda o item_id do estoque).
+  // Achata todos os itens retirados em movimentações individuais, buscando o
+  // valor unitário real no estoque pelo item_id (cada item de requisição
+  // guarda o item_id do estoque). Fallback: se o item vinculado não tiver
+  // valor cadastrado (ou for uma cópia duplicada sem valor), procura outra
+  // cópia do MESMO item (nome+material) que tenha valor_unitario preenchido.
+  const normV=s=>(s||'').trim().toUpperCase().replace(/\s+/g,' ');
+  const valorUnitDe=(it,est)=>{
+    if(est&&est.valor_unitario!=null&&Number(est.valor_unitario)>0) return Number(est.valor_unitario);
+    const nm=normV(it.descricao||est?.descricao||est?.tipo_peca);
+    const mat=normV(it.material||est?.material);
+    const alt=estoqueItens.find(i=>i.valor_unitario!=null&&Number(i.valor_unitario)>0&&normV(i.descricao||i.tipo_peca)===nm&&normV(i.material)===mat);
+    if(alt) return Number(alt.valor_unitario);
+    return est&&est.valor_unitario!=null?Number(est.valor_unitario):0;
+  };
+  const linhas=[];
   atendidas.forEach(r=>{
     const itArr=Array.isArray(r.itens)?r.itens:[];
     itArr.forEach(it=>{
-      rows+=`<tr style="border-bottom:1px solid #f5f5f5">
-        <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
-        <td style="padding:7px 10px;font-weight:600;font-size:13px">${it.descricao||'—'}</td>
-        <td style="padding:7px 10px;font-size:12px;color:var(--green)">${it.material||'—'}</td>
-        <td style="padding:7px 10px;font-weight:700;color:#1565c0;font-size:13px">${it.qtd||0} ${it.unidade||''}</td>
-        <td style="padding:7px 10px;font-size:12px;color:#546e7a">Req.Nº ${r.numero||'—'}</td>
-        <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${r.solicitante||'—'}</td>
-      </tr>`;
+      const est=estoqueItens.find(i=>i.id===it.item_id);
+      const vUnit=valorUnitDe(it,est);
+      const qtd=Number(it.qtd)||0;
+      linhas.push({
+        nome: it.descricao||est?.descricao||est?.tipo_peca||'—',
+        material: it.material||est?.material||'',
+        unidade: it.unidade||est?.unidade||'',
+        qtd, vUnit, total: qtd*vUnit,
+        data: r.data||'', reqNum: r.numero||'', solicitante: r.solicitante||''
+      });
     });
   });
-  return `<table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead><tr style="background:#f3e5f5">
-      <th style="padding:7px 10px;color:#1565c0;font-size:11px;text-align:left">Data</th>
-      <th style="padding:7px 10px;color:#1565c0;font-size:11px;text-align:left">Material</th>
-      <th style="padding:7px 10px;color:#1565c0;font-size:11px">Especificação</th>
-      <th style="padding:7px 10px;color:#1565c0;font-size:11px">Quantidade</th>
-      <th style="padding:7px 10px;color:#1565c0;font-size:11px">Requisição</th>
-      <th style="padding:7px 10px;color:#1565c0;font-size:11px">Solicitante</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+
+  if(!linhas.length) return '<p style="color:#bdbdbd;padding:20px;text-align:center">Nenhum material retirado ainda.</p>';
+
+  // Agrupa itens iguais (nome + material normalizados) somando quantidade e valor.
+  const norm=s=>(s||'').trim().toUpperCase().replace(/\s+/g,' ');
+  const grupos={};
+  linhas.forEach(l=>{
+    const key=norm(l.nome)+'|'+norm(l.material);
+    if(!grupos[key]) grupos[key]={key,nome:l.nome,material:l.material,unidade:l.unidade,totalQtd:0,totalVal:0,itens:[]};
+    grupos[key].totalQtd+=l.qtd;
+    grupos[key].totalVal+=l.total;
+    grupos[key].itens.push(l);
+  });
+  const lista=Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  const grandTotal=lista.reduce((s,g)=>s+g.totalVal,0);
+
+  const rows=lista.map(g=>{
+    const aberto=_ccMatAberto.has(g.key);
+    const keyEsc=g.key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const detalhe = aberto ? `<tr><td colspan="5" style="padding:0;background:#fafafa">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#eeeeee">
+          <th style="padding:5px 10px;font-size:10px;color:#757575;text-align:left">Data</th>
+          <th style="padding:5px 10px;font-size:10px;color:#757575;text-align:left">Qtd</th>
+          <th style="padding:5px 10px;font-size:10px;color:#757575;text-align:left">Val. Unit.</th>
+          <th style="padding:5px 10px;font-size:10px;color:#757575;text-align:left">Total</th>
+          <th style="padding:5px 10px;font-size:10px;color:#757575;text-align:left">Requisição</th>
+          <th style="padding:5px 10px;font-size:10px;color:#757575;text-align:left">Solicitante</th>
+        </tr></thead>
+        <tbody>${g.itens.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(l=>`
+          <tr style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:5px 10px;font-size:11px;color:#9e9e9e">${l.data?new Date(l.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+            <td style="padding:5px 10px;font-size:12px;font-weight:600;color:#1565c0">${l.qtd} ${l.unidade||''}</td>
+            <td style="padding:5px 10px;font-size:12px;color:#546e7a">${fmtVal(l.vUnit)}</td>
+            <td style="padding:5px 10px;font-size:12px;font-weight:600;color:#2e7d32">${fmtVal(l.total)}</td>
+            <td style="padding:5px 10px;font-size:11px;color:#546e7a">Req.Nº ${l.reqNum||'—'}</td>
+            <td style="padding:5px 10px;font-size:11px;color:#9e9e9e">${l.solicitante||'—'}</td>
+          </tr>`).join('')}</tbody>
+      </table></td></tr>` : '';
+    return `<tr style="border-bottom:1px solid #eeeeee;cursor:pointer" onclick="_toggleCCMat('${keyEsc}')" onmouseover="this.style.background='#faf6fc'" onmouseout="this.style.background=''">
+      <td style="padding:8px 10px;width:22px;color:#9c27b0;font-size:12px">${aberto?'▼':'▶'}</td>
+      <td style="padding:8px 10px;font-weight:600;font-size:13px;color:#263238">${g.nome}${g.material?` <span style="background:#e8f5e9;color:#2e7d32;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700">${g.material}</span>`:''}</td>
+      <td style="padding:8px 10px;font-weight:700;color:#1565c0;font-size:13px">${g.totalQtd} ${g.unidade||''}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#9e9e9e">${g.itens.length} mov.</td>
+      <td style="padding:8px 10px;font-weight:700;color:#2e7d32;font-size:13px;text-align:right">${fmtVal(g.totalVal)}</td>
+    </tr>${detalhe}`;
+  }).join('');
+
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <div style="background:#e8f5e9;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:800;color:#2e7d32">Total geral: ${fmtVal(grandTotal)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#f3e5f5">
+        <th style="width:22px"></th>
+        <th style="padding:7px 10px;color:#7b1fa2;font-size:11px;text-align:left">Material</th>
+        <th style="padding:7px 10px;color:#7b1fa2;font-size:11px;text-align:left">Qtd total</th>
+        <th style="padding:7px 10px;color:#7b1fa2;font-size:11px;text-align:left">Movimentações</th>
+        <th style="padding:7px 10px;color:#7b1fa2;font-size:11px;text-align:right">Valor total</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:8px;font-size:11px;color:#9e9e9e">💡 Clique em um material para abrir as movimentações individuais e ver as datas.</div>`;
 }
 
 function renderCCMovimentacoes(movs, pdv){
