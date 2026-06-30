@@ -587,6 +587,7 @@ tr:hover td{background:#f9fbf9}
     <div class="sbi" onclick="sbGo(28,'Estrutura de Equipamentos')">📐 Estrutura de Equipamentos</div>
     <div class="sbi" onclick="sbGo(5,'Ordens')">🔧 Ordens de Produção</div>
     <div class="sbi" onclick="sbGo(27,'Histórico de Tempos')">⏱️ Histórico de Tempos</div>
+    <div class="sbi" onclick="sbGo(31,'Custo de Produto')">💰 Custo de Produto</div>
   </div>
 </div>
 <div id="sbpanel_vendas" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
@@ -1654,6 +1655,54 @@ tr:hover td{background:#f9fbf9}
       </tr></thead>
       <tbody id="listaTempos"></tbody>
     </table>
+  </div>
+</div>
+
+<!-- TAB 31: CUSTO DE PRODUTO -->
+<div class="panel" id="tab31">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">💰 Custo de Produto</h2>
+      <div style="font-size:12px;color:var(--gray);margin-top:2px">Digite o número do desenho para puxar as horas trabalhadas e montar o custo da peça.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="custoTaxasAbrir()" title="Configurar R$/hora de cada máquina">⚙️ Taxas de máquina</button>
+      <button class="btn" onclick="custoSalvosAbrir()" title="Ver cálculos salvos">📋 Cálculos salvos</button>
+    </div>
+  </div>
+
+  <div class="toolbar" style="margin-bottom:14px">
+    <input type="text" id="custoDesenhoInput" placeholder="Número do desenho..." style="flex:1;min-width:180px;font-size:15px;font-family:monospace" onkeydown="if(event.key==='Enter')custoBuscarDesenho()">
+    <button class="btn primary" onclick="custoBuscarDesenho()">🔍 Buscar</button>
+  </div>
+
+  <div id="custoProdConteudo"></div>
+</div>
+
+<!-- Modal: taxas de R$/hora por máquina -->
+<div class="modal-bg" id="modalTaxasMaq">
+  <div class="modal" style="width:480px;max-width:96vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px">⚙️ Taxas de R$/hora por máquina</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalTaxasMaq')">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <div style="font-size:12px;color:var(--gray);margin-bottom:10px">Valor da hora de cada máquina/operação. Usado no cálculo de custo.</div>
+      <div id="listaTaxasMaq"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: cálculos de custo salvos -->
+<div class="modal-bg" id="modalCustosSalvos">
+  <div class="modal" style="width:680px;max-width:98vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px">📋 Cálculos de custo salvos</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalCustosSalvos')">✕</button>
+    </div>
+    <div style="padding:14px 16px;max-height:70vh;overflow-y:auto">
+      <div id="listaCustosSalvos"></div>
+    </div>
   </div>
 </div>
 
@@ -11436,6 +11485,7 @@ function showTab(n){
   if(n===23) {if(typeof renderDRE==='function') renderDRE();}
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
   if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
+  if(n===31) { if(typeof custoProdInit==='function') custoProdInit(); }
   if(n===29){ carregarDadosEPI().then(()=>{ renderEPI(); renderFuncionariosEPI(); }); }
   if(n===25){
     (async()=>{
@@ -11620,7 +11670,7 @@ const GRUPO_TABS = {
   compras:    [1,2],
   projetos:   [3],
   material:   [4],
-  producao:   [5,27],
+  producao:   [5,27,30],
   cotacoes:   [6,7],
   compint:    [9],
   envio:      [10],
@@ -13511,53 +13561,44 @@ function renderDepartamentos(){
   if(!listaEl) return;
   if(!centros.length){listaEl.innerHTML='<div style="text-align:center;padding:40px;color:#bdbdbd">Nenhum centro de custo encontrado</div>';return;}
 
-  // Vista compacta agrupada, no mesmo estilo da Lista de Compras (seção com
-  // cabeçalho verde + tabela de linhas curtas), para a página não ficar extensa.
-  const pdvsList=centros.filter(c=>c.tipo==='pdv');
-  const fixosList=centros.filter(c=>c.tipo==='fixo');
+  // Vista em cards compactos, no mesmo estilo dos cards da Lista de Compras:
+  // grid denso (minmax 130px), card colorido pela cor do centro, número/nome
+  // em destaque, cliente e contadores de materiais e ordens.
+  const ordenados=centros.slice().sort((a,b)=>{
+    if(a.tipo!==b.tipo) return a.tipo==='pdv'?-1:1; // PDVs primeiro, fixos depois
+    if(a.tipo==='pdv'){
+      const na=parseInt(String(a.nome).replace(/\D/g,''))||0;
+      const nb=parseInt(String(b.nome).replace(/\D/g,''))||0;
+      return na-nb;
+    }
+    return a.nome.localeCompare(b.nome,'pt-BR');
+  });
 
-  const linhaCentro=c=>{
+  listaEl.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;padding:4px">${ordenados.map(c=>{
     const nPDV=c.tipo==='pdv'?String(c.nome).replace(/PDV\s*/i,''):'';
-    const titulo=c.tipo==='pdv'?'PDV '+nPDV:c.nome;
-    const sub=c.tipo==='fixo'?'Departamento fixo':(c.cliente||'—');
-    return `<tr onclick="abrirCentroCusto('${c.id}','${c.tipo}')" style="cursor:pointer;border-bottom:1px solid #eeeeee" onmouseover="this.style.background='#f6faf6'" onmouseout="this.style.background=''" title="${(c.cliente||'').replace(/"/g,'')}">
-      <td style="padding:7px 12px">
-        <div style="display:flex;align-items:center;gap:9px">
-          <span style="width:26px;height:26px;border-radius:7px;background:${c.cor};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">${c.tipo==='pdv'?'📋':'🏢'}</span>
-          <div style="min-width:0">
-            <div style="font-weight:700;font-size:13px;color:#263238;line-height:1.15">${titulo}</div>
-            <div style="font-size:11px;color:#90a4ae;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div>
-          </div>
-        </div>
-      </td>
-      <td style="padding:7px 12px;text-align:center"><span style="background:#e3f2fd;color:#1565c0;padding:2px 9px;border-radius:8px;font-size:12px;font-weight:700" title="Materiais retirados">📦 ${c.matUsados}</span></td>
-      <td style="padding:7px 12px;text-align:center">${c.tipo==='pdv'?`<span style="background:#fff3e0;color:#e65100;padding:2px 9px;border-radius:8px;font-size:12px;font-weight:700" title="Ordens de produção">🔧 ${c.opsCount}</span>`:'<span style="color:#cfd8dc">—</span>'}</td>
-      <td style="padding:7px 12px;text-align:right;color:#9c27b0;font-weight:700;font-size:18px;width:40px">›</td>
-    </tr>`;
-  };
-
-  const secaoCentro=(titulo,emoji,arr)=>{
-    if(!arr.length) return '';
-    return `<div style="margin-bottom:18px">
-      <div style="background:var(--green);color:#fff;padding:8px 14px;border-radius:10px 10px 0 0;display:flex;align-items:center;gap:10px">
-        <span style="font-weight:700;font-size:14px">${emoji} ${titulo}</span>
-        <span style="margin-left:auto;background:rgba(255,255,255,0.2);padding:2px 9px;border-radius:8px;font-size:11px">${arr.length}</span>
-      </div>
-      <div class="tbl-wrap" style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">
-          <thead><tr style="background:#f5f7f5">
-            <th style="padding:6px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:left">Centro de custo</th>
-            <th style="padding:6px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:center;width:120px">Materiais</th>
-            <th style="padding:6px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:center;width:110px">Ordens</th>
-            <th style="width:40px"></th>
-          </tr></thead>
-          <tbody>${arr.map(linhaCentro).join('')}</tbody>
-        </table>
+    const bg=c.cor||'#263238';
+    const numero=c.tipo==='pdv'?(nPDV||'—'):'';
+    const nomeFixo=c.tipo==='fixo'?c.nome:'';
+    const sub=c.tipo==='fixo'?'Departamento fixo':(c.cliente||'');
+    return `<div onclick="abrirCentroCusto('${c.id}','${c.tipo}')" title="${(c.cliente||c.nome||'').replace(/"/g,'')}"
+      style="background:${bg};border-radius:16px;padding:14px 10px;cursor:pointer;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:118px;box-shadow:0 4px 14px rgba(0,0,0,0.18);
+        transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden;
+        border:2px solid rgba(255,255,255,0.12)"
+      onmouseover="this.style.transform='scale(1.06)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'"
+      onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(0,0,0,0.18)'">
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${c.tipo==='pdv'?'PDV':'🏢 Depto'}</div>
+      ${c.tipo==='pdv'
+        ?`<div style="font-size:26px;font-weight:900;color:#fff;line-height:1">${numero}</div>`
+        :`<div style="font-size:15px;font-weight:800;color:#fff;line-height:1.1;text-align:center;max-width:110px">${nomeFixo}</div>`}
+      ${sub?`<div style="font-size:9px;color:rgba(255,255,255,0.65);margin-top:4px;text-align:center;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub.substring(0,20)}</div>`:''}
+      <div style="display:flex;gap:5px;margin-top:9px;flex-wrap:wrap;justify-content:center">
+        <span style="background:rgba(255,255,255,0.22);color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700" title="Materiais retirados">📦 ${c.matUsados}</span>
+        ${c.tipo==='pdv'?`<span style="background:rgba(255,255,255,0.22);color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700" title="Ordens de produção">🔧 ${c.opsCount}</span>`:''}
       </div>
     </div>`;
-  };
-
-  listaEl.innerHTML=secaoCentro('PDVs','📋',pdvsList)+secaoCentro('Departamentos fixos','🏢',fixosList);
+  }).join('')}</div>`;
 }
 
 function abrirCentroCusto(id, tipo){
@@ -15728,6 +15769,381 @@ async function salvarTempoManual(){
   }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
 }
 // ===== FIM HISTÓRICO DE TEMPOS =====
+// ===== CUSTO DE PRODUTO =====
+let custoTaxasMaq=[], custosProduto=[], custoAtual=null, custoProdTabelasOk=true;
+
+function custoBRL(v){return 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function custoNum(v){const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?0:n;}
+function custoFmtMin(m){const h=Math.floor(m/60);return (h>0?h+'h ':'')+String(Math.round(m%60)).padStart(2,'0')+'min';}
+
+function getTaxaMaq(nome){
+  const t=(custoTaxasMaq||[]).find(x=>String(x.maquina).toUpperCase()===String(nome).toUpperCase());
+  return t?(Number(t.valor_hora)||0):0;
+}
+
+async function custoCarregarDados(){
+  try{
+    const [tx,sv]=await Promise.all([
+      api('GET','custo_taxas_maquina','','?order=maquina.asc').catch(()=>null),
+      api('GET','custos_produto','','?order=created_at.desc').catch(()=>null)
+    ]);
+    custoProdTabelasOk=(tx!==null && sv!==null);
+    if(tx) custoTaxasMaq=tx;
+    if(sv) custosProduto=sv;
+  }catch(e){ console.warn('[custo] carregar',e); custoProdTabelasOk=false; }
+}
+
+function custoBannerSQL(){
+  return `<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:16px;color:#795548">
+    <div style="font-weight:700;margin-bottom:6px">⚠️ Tabelas do módulo ainda não criadas</div>
+    <div style="font-size:13px;margin-bottom:8px">Rode este SQL no Supabase para ativar o módulo:</div>
+    <pre style="background:#263238;color:#aed581;padding:12px;border-radius:8px;font-size:11px;overflow-x:auto;white-space:pre-wrap">create table if not exists custo_taxas_maquina (
+  id uuid primary key default gen_random_uuid(),
+  maquina text not null,
+  valor_hora numeric default 0,
+  created_at timestamptz default now()
+);
+alter table custo_taxas_maquina disable row level security;
+
+create table if not exists custos_produto (
+  id uuid primary key default gen_random_uuid(),
+  desenho text, descricao text,
+  quantidade numeric default 1,
+  peso_peca numeric default 0,
+  dados jsonb,
+  custo_total numeric default 0,
+  custo_peca numeric default 0,
+  margem numeric default 0,
+  preco_venda numeric default 0,
+  created_at timestamptz default now(),
+  created_by text
+);
+alter table custos_produto disable row level security;</pre>
+  </div>`;
+}
+
+async function custoProdInit(){
+  await custoCarregarDados();
+  const el=document.getElementById('custoProdConteudo');
+  if(!el) return;
+  if(custoAtual){ custoRenderForm(); return; }
+  el.innerHTML = custoProdTabelasOk
+    ? '<div style="text-align:center;padding:48px 20px;color:#bdbdbd"><div style="font-size:42px">💰</div><div style="margin-top:8px">Digite um número de desenho acima para começar.</div></div>'
+    : custoBannerSQL();
+}
+
+function custoBuscarDesenho(){
+  const raw=(document.getElementById('custoDesenhoInput')?.value||'').trim();
+  const el=document.getElementById('custoProdConteudo');
+  if(!raw){ showToast('Digite um número de desenho','err'); return; }
+  if(!custoProdTabelasOk){ el.innerHTML=custoBannerSQL(); return; }
+  const norm=s=>String(s||'').trim().toUpperCase().replace(/\s+/g,'');
+  const alvo=norm(raw);
+  const ords=(ordens||[]).filter(o=>norm(o.desenho)===alvo);
+  if(!ords.length){
+    el.innerHTML='<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:16px;color:#e65100">Nenhuma ordem encontrada para o desenho <b>'+raw.replace(/</g,'&lt;')+'</b>. Confira o número — ele precisa existir em Ordens de Produção.</div>';
+    return;
+  }
+  const ids=ords.map(o=>o.id);
+  const porMaq={};
+  (temposOP||[]).forEach(t=>{
+    if(!ids.includes(t.ordem_id)) return;
+    if(!t.operacao||t.operacao==='REPROCESSAR'||!t.duracao_minutos) return;
+    porMaq[t.operacao]=(porMaq[t.operacao]||0)+(t.duracao_minutos||0);
+  });
+  const horas=Object.entries(porMaq).sort((a,b)=>b[1]-a[1]).map(([maquina,minutos])=>({maquina,minutos,valorHora:getTaxaMaq(maquina)}));
+  const qtdTot=ords.reduce((s,o)=>s+(Number(o.quantidade)||1),0)||1;
+  const pesoO=ords.find(o=>o.peso)?.peso||0;
+  custoAtual={
+    desenho:raw, descricao:ords[0].descricao||ords[0].desenho||raw,
+    ordensIds:ids, numOrdens:ords.length,
+    qtd:qtdTot, pesoPeca:Number(pesoO)||0,
+    horas, mp:[], tt:{rkg:0}, acess:[], emb:{valor:0,c:0,l:0,a:0,ratear:false},
+    margem:0, editId:null
+  };
+  custoRenderForm();
+}
+
+function custoSec(emoji,titulo,inner,extraHead){
+  return `<div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;margin-bottom:14px;overflow:hidden">
+    <div style="background:#f5f7f5;padding:9px 14px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px">
+      <span style="font-weight:700;font-size:13px;color:#37474f">${emoji} ${titulo}</span>
+      ${extraHead||''}
+    </div>
+    <div style="padding:12px 14px">${inner}</div>
+  </div>`;
+}
+
+function custoMPHtml(){
+  if(!custoAtual.mp.length) return '<div style="font-size:12px;color:#bdbdbd;padding:4px 0">Nenhuma matéria-prima adicionada.</div>';
+  return custoAtual.mp.map((m,i)=>`<div class="cst-mp-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+    <input class="cst-mp-desc" value="${(m.desc||'').replace(/"/g,'&quot;')}" placeholder="Descrição do material" style="flex:2;min-width:130px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px">
+    <input class="cst-mp-qtd" value="${m.qtd||''}" placeholder="Qtd" oninput="custoRecalc()" style="width:64px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right">
+    <input class="cst-mp-valor" value="${m.valor||''}" placeholder="Valor un." oninput="custoRecalc()" style="width:96px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right">
+    <span class="cst-mp-sub" style="width:96px;text-align:right;font-weight:600;color:#2e7d32;font-size:13px">R$ 0,00</span>
+    <button onclick="custoDelMP(${i})" title="Remover" style="background:none;border:none;cursor:pointer;color:#e53935;font-size:15px">🗑️</button>
+  </div>`).join('');
+}
+
+function custoAcessHtml(){
+  if(!custoAtual.acess.length) return '<div style="font-size:12px;color:#bdbdbd;padding:4px 0">Nenhum acessório adicionado.</div>';
+  return custoAtual.acess.map((a,i)=>`<div class="cst-acess-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+    <input class="cst-acess-desc" value="${(a.desc||'').replace(/"/g,'&quot;')}" placeholder="Descrição do acessório" style="flex:2;min-width:140px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px">
+    <input class="cst-acess-valor" value="${a.valor||''}" placeholder="Valor" oninput="custoRecalc()" style="width:110px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right">
+    <button onclick="custoDelAcess(${i})" title="Remover" style="background:none;border:none;cursor:pointer;color:#e53935;font-size:15px">🗑️</button>
+  </div>`).join('');
+}
+
+function custoRenderForm(){
+  const c=custoAtual; if(!c) return;
+  const el=document.getElementById('custoProdConteudo'); if(!el) return;
+
+  const horasHtml = c.horas.length ? `
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="border-bottom:2px solid #eee;color:#90a4ae;font-size:11px;text-transform:uppercase">
+        <th style="text-align:left;padding:6px 8px">Máquina</th>
+        <th style="text-align:right;padding:6px 8px">Tempo total</th>
+        <th style="text-align:right;padding:6px 8px">R$/hora</th>
+        <th style="text-align:right;padding:6px 8px">Subtotal</th>
+      </tr></thead>
+      <tbody>${c.horas.map((h,i)=>`<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:7px 8px;font-weight:600;color:#37474f">${h.maquina}</td>
+        <td style="padding:7px 8px;text-align:right;color:#546e7a">${custoFmtMin(h.minutos)}</td>
+        <td style="padding:7px 8px;text-align:right"><input class="cst-hora-rate" data-idx="${i}" value="${h.valorHora||''}" placeholder="0,00" oninput="custoRecalc()" style="width:90px;padding:5px 7px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right"></td>
+        <td class="cst-hora-sub" data-idx="${i}" style="padding:7px 8px;text-align:right;font-weight:600;color:#2e7d32">R$ 0,00</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div style="font-size:11px;color:#90a4ae;margin-top:8px">As horas vêm do Histórico de Tempos (${c.numOrdens} ordem${c.numOrdens!==1?'ns':''} deste desenho). Ajuste o R$/hora aqui ou defina padrões em ⚙️ Taxas de máquina.</div>`
+    : '<div style="font-size:12px;color:#e65100;padding:4px 0">⚠️ Nenhum tempo registrado para este desenho no Histórico de Tempos.</div>';
+
+  el.innerHTML = `
+    <div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:1px">Desenho</div>
+        <div style="font-size:22px;font-weight:800;font-family:monospace">${c.desenho.replace(/</g,'&lt;')}</div>
+        <div style="font-size:12px;opacity:.9;margin-top:2px">${(c.descricao||'').replace(/</g,'&lt;')}</div>
+      </div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap">
+        <div><div style="font-size:10px;opacity:.8;text-transform:uppercase">Qtd peças (rateio)</div><input id="cst_qtd" value="${c.qtd||1}" oninput="custoRecalc()" style="width:90px;padding:6px 8px;border:none;border-radius:7px;font-size:14px;text-align:right;font-weight:700;margin-top:3px"></div>
+        <div><div style="font-size:10px;opacity:.8;text-transform:uppercase">Peso da peça (kg)</div><input id="cst_peso" value="${c.pesoPeca||''}" placeholder="0,000" oninput="custoRecalc()" style="width:90px;padding:6px 8px;border:none;border-radius:7px;font-size:14px;text-align:right;font-weight:700;margin-top:3px"></div>
+      </div>
+    </div>
+
+    ${custoSec('⏱️','Horas trabalhadas (por máquina)',horasHtml)}
+
+    ${custoSec('🧱','Matéria-prima <span style=\"font-weight:400;color:#90a4ae;font-size:11px\">(por peça)</span>',
+      `<div id="cst_mp_lista">${custoMPHtml()}</div>
+       <button class="btn" onclick="custoAddMP()" style="margin-top:6px;font-size:12px">+ Adicionar material</button>`)}
+
+    ${custoSec('🔥','Tratamento térmico <span style=\"font-weight:400;color:#90a4ae;font-size:11px\">(por peça)</span>',
+      `<div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:#90a4ae">Peso da peça (kg)</div><div id="cst_tt_peso_disp" style="font-weight:700;font-size:15px;color:#37474f;padding-top:4px">${(c.pesoPeca||0).toLocaleString('pt-BR',{maximumFractionDigits:3})} kg</div></div>
+        <div style="font-size:18px;color:#cfd8dc;padding-bottom:4px">×</div>
+        <div><div style="font-size:11px;color:#90a4ae">R$ por kg</div><input id="cst_tt_rkg" value="${c.tt.rkg||''}" placeholder="0,00" oninput="custoRecalc()" style="width:100px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right;margin-top:3px"></div>
+        <div style="font-size:18px;color:#cfd8dc;padding-bottom:4px">=</div>
+        <div><div style="font-size:11px;color:#90a4ae">Subtotal</div><div id="cst_tt_sub" style="font-weight:700;font-size:15px;color:#2e7d32;padding-top:4px">R$ 0,00</div></div>
+      </div>
+      <div style="font-size:11px;color:#90a4ae;margin-top:6px">O peso é puxado da ordem; altere no cabeçalho se precisar.</div>`)}
+
+    ${custoSec('🔩','Acessórios comerciais <span style=\"font-weight:400;color:#90a4ae;font-size:11px\">(por peça)</span>',
+      `<div id="cst_acess_lista">${custoAcessHtml()}</div>
+       <button class="btn" onclick="custoAddAcess()" style="margin-top:6px;font-size:12px">+ Adicionar acessório</button>`)}
+
+    ${custoSec('📦','Embalagem (caixa de madeira)',
+      `<div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:#90a4ae">Valor da embalagem</div><input id="cst_emb_valor" value="${c.emb.valor||''}" placeholder="0,00" oninput="custoRecalc()" style="width:110px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right;margin-top:3px"></div>
+        <div style="border-left:1px solid #eee;padding-left:14px">
+          <div style="font-size:11px;color:#90a4ae">Dimensões da caixa (cm) — informativo</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
+            <input id="cst_emb_c" value="${c.emb.c||''}" placeholder="Compr." style="width:72px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right">
+            <span style="color:#cfd8dc">×</span>
+            <input id="cst_emb_l" value="${c.emb.l||''}" placeholder="Larg." style="width:72px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right">
+            <span style="color:#cfd8dc">×</span>
+            <input id="cst_emb_a" value="${c.emb.a||''}" placeholder="Alt." style="width:72px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right">
+          </div>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#546e7a;margin-top:10px;cursor:pointer">
+        <input type="checkbox" id="cst_emb_ratear" ${c.emb.ratear?'checked':''} onchange="custoRecalc()"> Ratear o valor pelo lote (÷ qtd de peças)
+      </label>`)}
+
+    ${custoSec('📈','Margem e preço de venda',
+      `<div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:#90a4ae">Margem (%)</div><input id="cst_margem" value="${c.margem||''}" placeholder="0" oninput="custoRecalc()" style="width:90px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right;margin-top:3px"></div>
+        <div><div style="font-size:11px;color:#90a4ae">Preço de venda sugerido (por peça)</div><div id="cst_preco_venda" style="font-weight:800;font-size:18px;color:#0d47a1;padding-top:4px">R$ 0,00</div></div>
+      </div>`)}
+
+    <div style="background:#e8f5e9;border:2px solid #2e7d32;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;gap:26px;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:#558b2f;text-transform:uppercase;letter-spacing:1px">Custo por peça</div><div id="cst_tot_peca" style="font-size:26px;font-weight:900;color:#1b5e20;line-height:1.1">R$ 0,00</div></div>
+        <div><div style="font-size:11px;color:#558b2f;text-transform:uppercase;letter-spacing:1px">Custo do lote (${c.qtd||1}×)</div><div id="cst_tot_lote" style="font-size:20px;font-weight:700;color:#388e3c;padding-top:5px">R$ 0,00</div></div>
+      </div>
+      <button class="btn primary" onclick="custoSalvar()" style="font-size:14px;padding:10px 20px">💾 ${c.editId?'Atualizar':'Salvar'} cálculo</button>
+    </div>`;
+
+  custoRecalc();
+}
+
+function custoLerDOM(){
+  if(!custoAtual) return;
+  const g=id=>{const e=document.getElementById(id);return e?custoNum(e.value):0;};
+  custoAtual.qtd=Math.max(g('cst_qtd'),0)||1;
+  custoAtual.pesoPeca=g('cst_peso');
+  custoAtual.tt.rkg=g('cst_tt_rkg');
+  custoAtual.emb.valor=g('cst_emb_valor');
+  custoAtual.emb.c=g('cst_emb_c'); custoAtual.emb.l=g('cst_emb_l'); custoAtual.emb.a=g('cst_emb_a');
+  const rt=document.getElementById('cst_emb_ratear'); custoAtual.emb.ratear=rt?rt.checked:false;
+  custoAtual.margem=g('cst_margem');
+  document.querySelectorAll('.cst-hora-rate').forEach(inp=>{const i=+inp.dataset.idx; if(custoAtual.horas[i]) custoAtual.horas[i].valorHora=custoNum(inp.value);});
+  custoAtual.mp=[...document.querySelectorAll('.cst-mp-row')].map(r=>({desc:r.querySelector('.cst-mp-desc').value,qtd:custoNum(r.querySelector('.cst-mp-qtd').value),valor:custoNum(r.querySelector('.cst-mp-valor').value)}));
+  custoAtual.acess=[...document.querySelectorAll('.cst-acess-row')].map(r=>({desc:r.querySelector('.cst-acess-desc').value,valor:custoNum(r.querySelector('.cst-acess-valor').value)}));
+}
+
+function custoCalcular(){
+  const c=custoAtual, qtd=c.qtd||1;
+  const horasTotal=c.horas.reduce((s,h)=>s+(h.minutos/60)*(h.valorHora||0),0);
+  const horasPeca=horasTotal/qtd;
+  const mpPeca=c.mp.reduce((s,m)=>s+(m.qtd||0)*(m.valor||0),0);
+  const ttPeca=(c.pesoPeca||0)*(c.tt.rkg||0);
+  const acessPeca=c.acess.reduce((s,a)=>s+(a.valor||0),0);
+  const embPeca=c.emb.ratear?((c.emb.valor||0)/qtd):(c.emb.valor||0);
+  const custoPeca=horasPeca+mpPeca+ttPeca+acessPeca+embPeca;
+  return {horasTotal,horasPeca,mpPeca,ttPeca,acessPeca,embPeca,custoPeca,custoLote:custoPeca*qtd,precoVenda:custoPeca*(1+(c.margem||0)/100),qtd};
+}
+
+function custoRecalc(){
+  if(!custoAtual) return;
+  custoLerDOM();
+  const r=custoCalcular();
+  // subtotais de horas
+  document.querySelectorAll('.cst-hora-sub').forEach(td=>{const i=+td.dataset.idx,h=custoAtual.horas[i]; if(h) td.textContent=custoBRL((h.minutos/60)*(h.valorHora||0));});
+  // subtotais de MP
+  document.querySelectorAll('.cst-mp-row').forEach(row=>{const q=custoNum(row.querySelector('.cst-mp-qtd').value),v=custoNum(row.querySelector('.cst-mp-valor').value);row.querySelector('.cst-mp-sub').textContent=custoBRL(q*v);});
+  // tratamento térmico
+  const ttDisp=document.getElementById('cst_tt_peso_disp'); if(ttDisp) ttDisp.textContent=(custoAtual.pesoPeca||0).toLocaleString('pt-BR',{maximumFractionDigits:3})+' kg';
+  const ttSub=document.getElementById('cst_tt_sub'); if(ttSub) ttSub.textContent=custoBRL(r.ttPeca);
+  // totais
+  const set=(id,val)=>{const e=document.getElementById(id); if(e) e.textContent=val;};
+  set('cst_tot_peca',custoBRL(r.custoPeca));
+  set('cst_tot_lote',custoBRL(r.custoLote));
+  set('cst_preco_venda',custoBRL(r.precoVenda));
+  const lbl=document.querySelector('#cst_tot_lote'); // label do lote já mostra qtd no render
+}
+
+function custoAddMP(){ custoLerDOM(); custoAtual.mp.push({desc:'',qtd:1,valor:0}); document.getElementById('cst_mp_lista').innerHTML=custoMPHtml(); custoRecalc(); }
+function custoDelMP(i){ custoLerDOM(); custoAtual.mp.splice(i,1); document.getElementById('cst_mp_lista').innerHTML=custoMPHtml(); custoRecalc(); }
+function custoAddAcess(){ custoLerDOM(); custoAtual.acess.push({desc:'',valor:0}); document.getElementById('cst_acess_lista').innerHTML=custoAcessHtml(); custoRecalc(); }
+function custoDelAcess(i){ custoLerDOM(); custoAtual.acess.splice(i,1); document.getElementById('cst_acess_lista').innerHTML=custoAcessHtml(); custoRecalc(); }
+
+async function custoSalvar(){
+  if(!custoAtual){ return; }
+  if(!custoProdTabelasOk){ showToast('Crie as tabelas primeiro (veja o aviso)','err'); return; }
+  custoLerDOM();
+  const r=custoCalcular();
+  const payload={
+    desenho:custoAtual.desenho, descricao:custoAtual.descricao,
+    quantidade:custoAtual.qtd, peso_peca:custoAtual.pesoPeca,
+    dados:{horas:custoAtual.horas, mp:custoAtual.mp, tt:custoAtual.tt, acess:custoAtual.acess, emb:custoAtual.emb, ordensIds:custoAtual.ordensIds, calc:r},
+    custo_total:r.custoLote, custo_peca:r.custoPeca, margem:custoAtual.margem, preco_venda:r.precoVenda,
+    created_by:(typeof usuarioLogado!=='undefined'&&usuarioLogado)?(usuarioLogado.nome||usuarioLogado.email||''):''
+  };
+  try{
+    if(custoAtual.editId){
+      const upd={...payload}; delete upd.created_by;
+      await api('PATCH','custos_produto',upd,`?id=eq.${custoAtual.editId}`);
+      showToast('✅ Cálculo atualizado!');
+    }else{
+      const res=await api('POST','custos_produto',payload);
+      if(Array.isArray(res)&&res[0]) custoAtual.editId=res[0].id;
+      showToast('✅ Cálculo salvo!');
+    }
+    await custoCarregarDados();
+    custoRenderForm();
+  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
+}
+
+// ---- Taxas de máquina ----
+function custoTaxasAbrir(){
+  custoTaxasRender();
+  abrirModal('modalTaxasMaq');
+}
+function custoTaxasRender(){
+  const cont=document.getElementById('listaTaxasMaq'); if(!cont) return;
+  if(!custoProdTabelasOk){ cont.innerHTML=custoBannerSQL(); return; }
+  // máquinas conhecidas = operações do histórico + as já cadastradas
+  const doHist=[...new Set((temposOP||[]).map(t=>t.operacao).filter(o=>o&&o!=='REPROCESSAR'))];
+  const cadastr=custoTaxasMaq.map(t=>t.maquina);
+  const todas=[...new Set([...doHist,...cadastr])].sort();
+  if(!todas.length){ cont.innerHTML='<div style="font-size:12px;color:#bdbdbd">Nenhuma máquina encontrada no Histórico de Tempos ainda.</div>'; return; }
+  cont.innerHTML=todas.map(m=>{
+    const t=custoTaxasMaq.find(x=>String(x.maquina).toUpperCase()===String(m).toUpperCase());
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
+      <span style="flex:1;font-weight:600;font-size:13px;color:#37474f">${m}</span>
+      <span style="color:#90a4ae;font-size:12px">R$/h</span>
+      <input value="${t?(t.valor_hora||''):''}" placeholder="0,00" data-maq="${m.replace(/"/g,'&quot;')}" onchange="custoTaxaSalvar(this)" style="width:100px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right">
+    </div>`;
+  }).join('');
+}
+async function custoTaxaSalvar(inp){
+  const maquina=inp.dataset.maq, valor=custoNum(inp.value);
+  try{
+    const ex=custoTaxasMaq.find(x=>String(x.maquina).toUpperCase()===String(maquina).toUpperCase());
+    if(ex){ await api('PATCH','custo_taxas_maquina',{valor_hora:valor},`?id=eq.${ex.id}`); ex.valor_hora=valor; }
+    else{ const res=await api('POST','custo_taxas_maquina',{maquina,valor_hora:valor}); if(Array.isArray(res)&&res[0]) custoTaxasMaq.push(res[0]); }
+    showToast('Taxa salva: '+maquina);
+    // se houver cálculo aberto, atualiza a taxa daquela máquina
+    if(custoAtual){ custoAtual.horas.forEach(h=>{ if(String(h.maquina).toUpperCase()===String(maquina).toUpperCase()) h.valorHora=valor; }); custoRenderForm(); }
+  }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
+}
+
+// ---- Cálculos salvos ----
+function custoSalvosAbrir(){
+  custoSalvosRender();
+  abrirModal('modalCustosSalvos');
+}
+function custoSalvosRender(){
+  const cont=document.getElementById('listaCustosSalvos'); if(!cont) return;
+  if(!custoProdTabelasOk){ cont.innerHTML=custoBannerSQL(); return; }
+  if(!custosProduto.length){ cont.innerHTML='<div style="font-size:13px;color:#bdbdbd;text-align:center;padding:20px">Nenhum cálculo salvo ainda.</div>'; return; }
+  cont.innerHTML=custosProduto.map(c=>{
+    const dt=c.created_at?new Date(c.created_at).toLocaleDateString('pt-BR'):'';
+    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="min-width:0;cursor:pointer" onclick="custoAbrirSalvo('${c.id}')">
+        <div style="font-weight:700;font-size:14px;color:#263238;font-family:monospace">${(c.desenho||'—')}</div>
+        <div style="font-size:11px;color:#90a4ae;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(c.descricao||'').replace(/</g,'&lt;')} • ${dt}</div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-weight:800;color:#1b5e20;font-size:15px">${custoBRL(c.custo_peca)}</div>
+        <div style="font-size:10px;color:#90a4ae">por peça</div>
+      </div>
+      <button onclick="custoDelSalvo('${c.id}')" title="Excluir" style="background:none;border:none;cursor:pointer;color:#e53935;font-size:16px">🗑️</button>
+    </div>`;
+  }).join('');
+}
+function custoAbrirSalvo(id){
+  const c=custosProduto.find(x=>x.id===id); if(!c) return;
+  const d=c.dados||{};
+  custoAtual={
+    desenho:c.desenho, descricao:c.descricao, ordensIds:d.ordensIds||[], numOrdens:(d.ordensIds||[]).length,
+    qtd:Number(c.quantidade)||1, pesoPeca:Number(c.peso_peca)||0,
+    horas:d.horas||[], mp:d.mp||[], tt:d.tt||{rkg:0}, acess:d.acess||[],
+    emb:d.emb||{valor:0,c:0,l:0,a:0,ratear:false}, margem:Number(c.margem)||0, editId:c.id
+  };
+  fecharModal('modalCustosSalvos');
+  sbGo(31,'Custo de Produto');
+  setTimeout(custoRenderForm,60);
+}
+async function custoDelSalvo(id){
+  if(!confirm('Excluir este cálculo salvo?')) return;
+  try{
+    await api('DELETE','custos_produto','',`?id=eq.${id}`);
+    custosProduto=custosProduto.filter(x=>x.id!==id);
+    custoSalvosRender();
+    showToast('Cálculo excluído');
+  }catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+// ===== FIM CUSTO DE PRODUTO =====
+
 async function importarCPdePlanilha(input){
   const file=input.files?.[0]; input.value='';
   if(!file) return;
