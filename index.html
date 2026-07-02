@@ -1847,14 +1847,14 @@ tr:hover td{background:#f9fbf9}
 <div class="modal-bg" id="modalAdicionarTempo">
 <div class="modal" style="max-width:560px">
   <div class="modal-header">
-    <h3>⏱️ Adicionar Tempo Manual</h3>
+    <h3 id="at_modalTitulo">⏱️ Adicionar Tempo Manual</h3>
     <div class="modal-header-actions">
       <button class="modal-header-btn" onclick="fecharModal('modalAdicionarTempo')">✕</button>
     </div>
   </div>
   <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:20px">
 
-    <div style="background:#e3f2fd;border-left:4px solid #1565c0;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;color:#1565c0">
+    <div id="at_modalHint" style="background:#e3f2fd;border-left:4px solid #1565c0;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;color:#1565c0">
       💡 Use para registrar tempos históricos de desenhos/peças anteriores e montar seu banco de dados de tempos.
     </div>
 
@@ -4179,7 +4179,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-02 · build 10';
+const APP_BUILD='2026-07-02 · build 11';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -14025,6 +14025,10 @@ function gerarConteudoRelatorio(ordemId){
       ${o.terceirizado_obs?`<div style="margin-top:10px;font-size:12px;color:#546e7a;background:#fff;border-radius:6px;padding:8px 10px">📝 ${o.terceirizado_obs}</div>`:''}
     </div>`:''}
 
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:700;font-size:13px;color:#37474f">Operações / tempos</div>
+      <button class="btn primary btn-sm" onclick="adicionarOperacaoNaOrdem('${ordemId}')" title="Adicionar outra máquina/operação a esta ordem">➕ Adicionar operação</button>
+    </div>
     ${tops.length?`<div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
       <thead><tr style="background:#f5f7f5">
@@ -15746,17 +15750,38 @@ function exportarExcelTempos(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='historico_tempos_'+new Date().toISOString().substring(0,10)+'.xls';a.click();
 }
+let _tempoOrdemAlvo=null;
 function abrirModalAdicionarTempo(){
+  _tempoOrdemAlvo=null;
   // Limpa campos
   ['at_desenho','at_descricao','at_operador','at_obs','at_ini','at_fim','at_minutos'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('at_operacao').value='';
   document.getElementById('at_tempoLabel').textContent='';
+  // restaura desenho/descrição editáveis e textos padrão
+  ['at_desenho','at_descricao'].forEach(id=>{const el=document.getElementById(id); if(el){el.readOnly=false; el.style.background='';}});
+  const tit=document.getElementById('at_modalTitulo'); if(tit) tit.textContent='⏱️ Adicionar Tempo Manual';
+  const hint=document.getElementById('at_modalHint'); if(hint) hint.innerHTML='💡 Use para registrar tempos históricos de desenhos/peças anteriores e montar seu banco de dados de tempos.';
   // Preenche operador com usuário logado
   const opEl=document.getElementById('at_operador');
   if(opEl&&usuarioLogado?.nome) opEl.value=usuarioLogado.nome;
   abrirModal('modalAdicionarTempo');
+}
+
+// Adiciona outra operação/máquina a uma ordem já existente (peça que passa
+// por vários processos). Reaproveita o modal de tempo, travando desenho/peça.
+function adicionarOperacaoNaOrdem(ordemId){
+  const o=ordens.find(x=>x.id===ordemId);
+  if(!o){ showToast('Ordem não encontrada','err'); return; }
+  abrirModalAdicionarTempo();
+  _tempoOrdemAlvo=ordemId;
+  const dEl=document.getElementById('at_desenho'), descEl=document.getElementById('at_descricao');
+  if(dEl){ dEl.value=o.desenho||''; dEl.readOnly=true; dEl.style.background='#f0f0f0'; }
+  if(descEl){ descEl.value=o.descricao||''; descEl.readOnly=true; descEl.style.background='#f0f0f0'; }
+  const tit=document.getElementById('at_modalTitulo'); if(tit) tit.textContent=`➕ Nova operação — Ordem Nº ${o.numero||''}`;
+  const hint=document.getElementById('at_modalHint'); if(hint) hint.innerHTML=`💡 Adicionando outra máquina/operação à ordem <b>Nº ${o.numero||''} — ${(o.descricao||'').replace(/</g,'&lt;')}</b>. Escolha a operação, o operador e o tempo.`;
+  setTimeout(()=>document.getElementById('at_operacao')?.focus(),80);
 }
 
 function _calcTempManual(){
@@ -15799,8 +15824,10 @@ async function salvarTempoManual(){
   if(!minutos&&!fim){ showToast('Informe o tempo em minutos ou data/hora final','err'); return; }
 
   try{
-    // Verifica se já existe ordem com esse desenho, senão cria uma "histórica"
-    let ordem=ordens.find(o=>o.desenho&&o.desenho.trim().toLowerCase()===desenho.toLowerCase());
+    // Se veio do detalhe de uma ordem específica, usa ela direto.
+    let ordem = _tempoOrdemAlvo ? ordens.find(o=>o.id===_tempoOrdemAlvo) : null;
+    // Senão, verifica se já existe ordem com esse desenho, senão cria uma "histórica"
+    if(!ordem) ordem=ordens.find(o=>o.desenho&&o.desenho.trim().toLowerCase()===desenho.toLowerCase());
     if(!ordem){
       // Cria ordem histórica
       const res=await api('POST','ordens_producao',{
@@ -15834,6 +15861,14 @@ async function salvarTempoManual(){
     await loadAll();
     fecharModal('modalAdicionarTempo');
     showToast(`✅ Tempo salvo! ${desenho} — ${operacao} — ${Math.floor((duracaoMin||0)/60)}h${String((duracaoMin||0)%60).padStart(2,'0')}min`);
+    // Se o detalhe da ordem estiver aberto, atualiza na hora
+    const modalDet=document.getElementById('modalRelatorioOrdem');
+    if(modalDet && modalDet.classList.contains('open')){
+      const oid=modalDet.dataset?.ordemId||_tempoOrdemAlvo;
+      const cont=document.getElementById('relatorioOrdemConteudo');
+      if(oid && cont) cont.innerHTML=gerarConteudoRelatorio(oid);
+    }
+    _tempoOrdemAlvo=null;
     renderHistoricoTempos();
   }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
 }
