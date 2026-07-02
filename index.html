@@ -9447,7 +9447,7 @@ const DASH_GRUPOS = [
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
    subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Entrada NF-e',icon:'📥',tab:24}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
-   subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27}]},
+   subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32}]},
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
    subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12}]},
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
@@ -11500,7 +11500,7 @@ function showTab(n){
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
   });
-  for(let i=0;i<=30;i++){
+  for(let i=0;i<=40;i++){
     const p=document.getElementById('tab'+i);
     if(p) p.classList.toggle('active',i===n);
   }
@@ -11742,7 +11742,7 @@ const GRUPO_TABS = {
   compras:    [1,2],
   projetos:   [3],
   material:   [4],
-  producao:   [5,27,30],
+  producao:   [5,27,28,31,32],
   cotacoes:   [6,7],
   compint:    [9],
   envio:      [10],
@@ -11767,7 +11767,7 @@ const TAB_GRUPO_SIDEBAR = {
   // sbpanel_projetos: Projetos/PDVs(3), Lista de Material(4)
   3:'projetos',4:'projetos',
   // sbpanel_producao: Ordens(5), Histórico de Tempos(27)
-  5:'producao',27:'producao',28:'producao',
+  5:'producao',27:'producao',28:'producao',31:'producao',32:'producao',
   // sbpanel_vendas: Clientes(14), PDV(13), Fiscal/NF-e(12)
   12:'vendas',13:'vendas',14:'vendas',
   // sbpanel_financeiro: Contas a Pagar(19), Contas a Receber(20), Fluxo de Caixa(21),
