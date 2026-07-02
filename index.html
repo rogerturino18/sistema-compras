@@ -522,6 +522,7 @@ tr:hover td{background:#f9fbf9}
   <div class="user-menu-item" id="menuBtnUsuarios" onclick="abrirGestaoUsuarios()" style="display:none">👥 Gestão de Usuários</div>
   <div class="user-menu-item" id="menuBtnBemVindo" onclick="dispararEmailBemVindo()" style="display:none">📧 E-mail de boas-vindas</div>
   <div class="user-menu-item danger" onclick="fazerLogout()">🚪 Sair</div>
+  <div style="padding:8px 14px;font-size:10px;color:#b0bec5;border-top:1px solid #eee;text-align:center" id="appVersaoLabel">versão —</div>
 </div>
 
 <div class="tabs" style="display:none"></div>
@@ -1341,7 +1342,7 @@ tr:hover td{background:#f9fbf9}
     <table>
       <thead><tr>
         <th>Nº</th><th>Data</th><th>Departamento</th><th>PDV</th>
-        <th>Itens</th><th>Solicitante</th><th>Observação</th><th>Status</th>
+        <th>Itens</th><th>Solicitante</th><th>Usuário</th><th>Observação</th><th>Status</th>
         <th style="width:110px">Ações</th>
       </tr></thead>
       <tbody id="listaRequisicoes"></tbody>
@@ -2467,7 +2468,7 @@ tr:hover td{background:#f9fbf9}
           </div>
           <div style="flex:1;min-width:140px">
             <label style="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;display:block;margin-bottom:4px">Solicitante</label>
-            <input id="req_solicitante" type="text" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
+            <input id="req_solicitante" type="text" placeholder="Quem precisou do material" style="width:100%;padding:8px 10px;border:1px solid #ce93d8;border-radius:8px;font-size:13px">
           </div>
           <div style="flex:0 0 130px">
             <label style="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;display:block;margin-bottom:4px">Data</label>
@@ -4186,6 +4187,12 @@ async function exportarExcelEPI(){
 let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[], desenhosRecebidos=[], montagensRecebidas=[], itensDesenhoRecebido=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
+
+// Carimbo de build — usado para conferir rapidamente qual versão está no ar
+// (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
+const APP_BUILD='2026-07-02 · build 6';
+try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
+(function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
 
 function sortBy(col){
@@ -13030,7 +13037,7 @@ function renderRequisicoes(){
   if(fSt) lista=lista.filter(r=>r.status===fSt);
   if(fDp) lista=lista.filter(r=>r.departamento===fDp);
 
-  if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma requisição</td></tr>`;return;}
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma requisição</td></tr>`;return;}
 
   tbody.innerHTML=lista.map(r=>{
     const itArr=Array.isArray(r.itens)?r.itens:[];
@@ -13042,6 +13049,7 @@ function renderRequisicoes(){
       <td style="padding:7px 10px;font-size:12px">${(r.pdv_nome||'—').replace(/PDV\s+PDV\s*/gi,'PDV ')}</td>
       <td style="padding:7px 10px;font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${itArr.map(i=>i.descricao||'').join(', ')}">${resumo||'—'} <span style="color:#9e9e9e">(${itArr.length} item${itArr.length!==1?'s':''})</span></td>
       <td style="padding:7px 10px;font-size:12px">${r.solicitante||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px;color:#7b1fa2" title="Usuário que fez a requisição">${r.criado_por||'—'}</td>
       <td style="padding:7px 10px;font-size:12px;color:#546e7a">${(r.observacao||'—').replace(/PDV\s+PDV\s*/gi,'PDV ')}</td>
       <td style="padding:7px 10px">${reqStatusBadge(r.status)}</td>
       <td style="padding:7px 6px;white-space:nowrap">
@@ -13059,7 +13067,7 @@ function abrirModalReq(id){
   document.getElementById('modalReqTitulo').textContent=id?`Requisição Nº ${r?.numero||''}`:'Nova Requisição de Material';
   document.getElementById('req_numero').value=r?.numero||(maxNum+1);
   if(document.getElementById('req_depto')) document.getElementById('req_depto').value=r?.departamento||'';
-  document.getElementById('req_solicitante').value=r?.solicitante||usuarioLogado?.nome||'';
+  document.getElementById('req_solicitante').value=r?.solicitante||'';
   document.getElementById('req_obs').value=r?.observacao||'';
   document.getElementById('req_data').value=r?.data||new Date().toISOString().split('T')[0];
   // Populate unified destino select with PDVs
@@ -13209,7 +13217,7 @@ async function salvarRequisicao(){
   try{
     // Save requisition
     let savedId = editReqId;
-    if(editReqId) await api('PATCH','requisicoes_material',obj,`?id=eq.${editReqId}`);
+    if(editReqId){ const patchObj={...obj}; delete patchObj.criado_por; await api('PATCH','requisicoes_material',patchObj,`?id=eq.${editReqId}`); }
     else {
       const res = await api('POST','requisicoes_material',obj);
       if(res&&res[0]) savedId = res[0].id;
@@ -13277,10 +13285,10 @@ function verRequisicao(id){
 
 function exportarExcelReq(){
   if(!requisicoes.length){showToast('Nenhuma requisição','err');return;}
-  const rows=[['Nº','Data','Departamento','PDV','Itens','Qtd Total','Solicitante','Observação','Status']];
+  const rows=[['Nº','Data','Departamento','PDV','Itens','Qtd Total','Solicitante','Usuário','Observação','Status']];
   requisicoes.forEach(r=>{
     const itArr=Array.isArray(r.itens)?r.itens:[];
-    rows.push([r.numero||'',r.data||'',r.departamento||'',r.pdv_nome||'',itArr.map(i=>i.descricao||'').join('; '),itArr.reduce((s,i)=>s+(i.qtd||0),0),r.solicitante||'',r.observacao||'',r.status||'']);
+    rows.push([r.numero||'',r.data||'',r.departamento||'',r.pdv_nome||'',itArr.map(i=>i.descricao||'').join('; '),itArr.reduce((s,i)=>s+(i.qtd||0),0),r.solicitante||'',r.criado_por||'',r.observacao||'',r.status||'']);
   });
   const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='requisicoes_material.xls';a.click();
