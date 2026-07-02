@@ -588,6 +588,7 @@ tr:hover td{background:#f9fbf9}
     <div class="sbi" onclick="sbGo(5,'Ordens')">🔧 Ordens de Produção</div>
     <div class="sbi" onclick="sbGo(27,'Histórico de Tempos')">⏱️ Histórico de Tempos</div>
     <div class="sbi" onclick="sbGo(31,'Custo de Produto')">💰 Custo de Produto</div>
+    <div class="sbi" onclick="sbGo(32,'Pesos de Itens')">⚖️ Pesos de Itens</div>
   </div>
 </div>
 <div id="sbpanel_vendas" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
@@ -1702,6 +1703,74 @@ tr:hover td{background:#f9fbf9}
     </div>
     <div style="padding:14px 16px;max-height:70vh;overflow-y:auto">
       <div id="listaCustosSalvos"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 32: PESOS DE ITENS -->
+<div class="panel" id="tab32">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">⚖️ Pesos de Itens</h2>
+      <div style="font-size:12px;color:var(--gray);margin-top:2px">Registro de pesos das peças por cliente.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="pesoAbrirModal()">+ Novo item</button>
+      <button class="btn" onclick="document.getElementById('pesoImportInput').click()" title="Importar planilha (NOME DA PEÇA, DES., CLIENTE, PESO)">📥 Importar planilha</button>
+      <button class="btn" onclick="exportarPesos()">📊 Excel</button>
+      <input type="file" id="pesoImportInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarPesos(this)">
+    </div>
+  </div>
+
+  <div id="statsPesos" style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap"></div>
+
+  <div class="toolbar" style="margin-bottom:12px">
+    <input type="text" id="buscaPesos" placeholder="🔍 Buscar peça, desenho, cliente..." oninput="renderPesos()" style="flex:1;min-width:180px">
+    <select id="filtroPesoCliente" onchange="renderPesos()" style="min-width:180px"><option value="">Todos os clientes</option></select>
+  </div>
+
+  <div class="tbl-wrap" style="border:1px solid var(--border);border-radius:10px;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px">
+      <thead><tr style="background:#f5f7f5">
+        <th style="padding:8px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:left">Nome da peça</th>
+        <th style="padding:8px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:left;width:110px">Desenho</th>
+        <th style="padding:8px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:left;width:150px">Cliente</th>
+        <th style="padding:8px 12px;color:var(--green);font-size:10px;text-transform:uppercase;text-align:right;width:110px">Peso (kg)</th>
+        <th style="width:80px"></th>
+      </tr></thead>
+      <tbody id="listaPesos"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL: PESO DE ITEM -->
+<div class="modal-bg" id="modalPeso">
+  <div class="modal" style="width:460px;max-width:96vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px" id="modalPesoTitulo">⚖️ Novo item</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalPeso')">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <input type="hidden" id="peso_id">
+      <label style="font-size:12px;color:#546e7a;font-weight:600">Nome da peça *</label>
+      <input type="text" id="peso_nome" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;margin:4px 0 12px">
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="font-size:12px;color:#546e7a;font-weight:600">Desenho</label>
+          <input type="text" id="peso_desenho" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;margin:4px 0 12px;font-family:monospace">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px;color:#546e7a;font-weight:600">Peso (kg)</label>
+          <input type="text" id="peso_valor" placeholder="0,000" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;margin:4px 0 12px;text-align:right">
+        </div>
+      </div>
+      <label style="font-size:12px;color:#546e7a;font-weight:600">Cliente</label>
+      <input type="text" id="peso_cliente" list="pesoClientesList" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;margin:4px 0 4px">
+      <datalist id="pesoClientesList"></datalist>
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="fecharModal('modalPeso')">Cancelar</button>
+      <button class="btn primary" onclick="pesoSalvar()">💾 Salvar</button>
     </div>
   </div>
 </div>
@@ -9385,6 +9454,8 @@ const DASH_GRUPOS = [
    subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
    subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18}]},
+  {id:'epi',        label:'Controle EPI', icon:'🦺', color:'linear-gradient(135deg,#ef6c00,#e65100)', directTab:29,
+   subs:[{label:'Controle EPI',icon:'🦺',tab:29}]},
 ];
 
 let _dashGrupoAtivo = null;
@@ -9427,7 +9498,7 @@ function renderHomeTiles(){
   const tilesHtml=grupos.map(g=>`
     <div class="tile tile-md dash-main-tile" id="tile_grp_${g.id}"
       style="background:${g.color};position:relative"
-      onclick="dashToggleGrupo('${g.id}')">
+      onclick="${g.directTab?`fecharHomeScreen();sbGo(${g.directTab},'${g.label}')`:`dashToggleGrupo('${g.id}')`}">
       ${bdgGrupo(g)}
       <div class="tile-icon" style="font-size:42px">${g.icon}</div>
       <div class="tile-label" style="font-size:16px;font-weight:800">${g.label}</div>
@@ -11486,6 +11557,7 @@ function showTab(n){
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
   if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
   if(n===31) { if(typeof custoProdInit==='function') custoProdInit(); }
+  if(n===32) { if(typeof pesosInit==='function') pesosInit(); }
   if(n===29){ carregarDadosEPI().then(()=>{ renderEPI(); renderFuncionariosEPI(); }); }
   if(n===25){
     (async()=>{
@@ -16143,6 +16215,204 @@ async function custoDelSalvo(id){
   }catch(e){ showToast('Erro: '+e.message,'err'); }
 }
 // ===== FIM CUSTO DE PRODUTO =====
+// ===== PESOS DE ITENS =====
+let pesosItens=[], pesosTabelaOk=true;
+
+function pesosNum(v){ if(v===null||v===undefined||v==='') return null; const n=parseFloat(String(v).replace(/\./g,'').replace(',','.')); return isNaN(n)?(isNaN(parseFloat(v))?null:parseFloat(v)):n; }
+function pesoFmt(v){ return v==null||v===''?'—':Number(v).toLocaleString('pt-BR',{maximumFractionDigits:3})+' kg'; }
+
+async function pesosInit(){
+  try{
+    const r=await api('GET','pesos_itens','','?order=nome_peca.asc').catch(()=>null);
+    pesosTabelaOk=(r!==null);
+    if(r) pesosItens=r;
+  }catch(e){ console.warn('[pesos] load',e); pesosTabelaOk=false; }
+  pesosPopularClientes();
+  renderPesos();
+}
+
+function pesosBannerSQL(){
+  return `<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:16px;color:#795548">
+    <div style="font-weight:700;margin-bottom:6px">⚠️ Tabela do módulo ainda não criada</div>
+    <div style="font-size:13px;margin-bottom:8px">Rode este SQL no Supabase para ativar o módulo:</div>
+    <pre style="background:#263238;color:#aed581;padding:12px;border-radius:8px;font-size:11px;overflow-x:auto;white-space:pre-wrap">create table if not exists pesos_itens (
+  id uuid primary key default gen_random_uuid(),
+  nome_peca text not null,
+  desenho text,
+  cliente text,
+  peso numeric,
+  created_at timestamptz default now()
+);
+alter table pesos_itens disable row level security;</pre>
+  </div>`;
+}
+
+function pesosPopularClientes(){
+  const cli=[...new Set(pesosItens.map(p=>p.cliente).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const sel=document.getElementById('filtroPesoCliente');
+  if(sel){ const atual=sel.value; sel.innerHTML='<option value="">Todos os clientes</option>'+cli.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join(''); sel.value=atual; }
+  const dl=document.getElementById('pesoClientesList');
+  if(dl) dl.innerHTML=cli.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');
+}
+
+function renderPesos(){
+  const tb=document.getElementById('listaPesos'), st=document.getElementById('statsPesos');
+  if(!tb) return;
+  if(!pesosTabelaOk){ tb.innerHTML=''; if(st) st.innerHTML=pesosBannerSQL(); return; }
+
+  const busca=(document.getElementById('buscaPesos')?.value||'').trim().toLowerCase();
+  const fCli=document.getElementById('filtroPesoCliente')?.value||'';
+  let lista=pesosItens.slice();
+  if(fCli) lista=lista.filter(p=>(p.cliente||'')===fCli);
+  if(busca) lista=lista.filter(p=>((p.nome_peca||'')+' '+(p.desenho||'')+' '+(p.cliente||'')).toLowerCase().includes(busca));
+
+  const nCli=new Set(pesosItens.map(p=>p.cliente).filter(Boolean)).size;
+  const comDes=pesosItens.filter(p=>p.desenho).length;
+  if(st) st.innerHTML=[
+    ['Itens cadastrados', pesosItens.length, '#1565c0'],
+    ['Clientes', nCli, '#00695c'],
+    ['Com desenho', comDes, '#2e7d32'],
+    ['Exibindo', lista.length, '#6a1b9a']
+  ].map(([l,v,c])=>`<div style="background:#fff;border:1px solid #e0e0e0;border-left:4px solid ${c};border-radius:10px;padding:8px 14px;min-width:110px">
+      <div style="font-size:10px;color:#90a4ae;text-transform:uppercase;letter-spacing:.5px">${l}</div>
+      <div style="font-size:20px;font-weight:800;color:${c}">${v}</div></div>`).join('');
+
+  if(!lista.length){ tb.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center;color:#bdbdbd">Nenhum item encontrado.</td></tr>'; return; }
+
+  // limite de render para performance com muitos registros
+  const LIM=400;
+  const exibe=lista.slice(0,LIM);
+  tb.innerHTML=exibe.map(p=>`<tr style="border-bottom:1px solid #f0f0f0">
+    <td style="padding:7px 12px;font-weight:600;color:#37474f">${(p.nome_peca||'').replace(/</g,'&lt;')}</td>
+    <td style="padding:7px 12px;font-family:monospace;color:#1565c0">${p.desenho?String(p.desenho).replace(/</g,'&lt;'):'<span style=\"color:#cfd8dc\">—</span>'}</td>
+    <td style="padding:7px 12px;color:#546e7a">${p.cliente?String(p.cliente).replace(/</g,'&lt;'):'<span style=\"color:#cfd8dc\">—</span>'}</td>
+    <td style="padding:7px 12px;text-align:right;font-weight:600;color:#2e7d32">${pesoFmt(p.peso)}</td>
+    <td style="padding:7px 12px;text-align:right;white-space:nowrap">
+      <button onclick="pesoAbrirModal('${p.id}')" title="Editar" style="background:none;border:none;cursor:pointer;font-size:15px">✏️</button>
+      <button onclick="pesoDeletar('${p.id}')" title="Excluir" style="background:none;border:none;cursor:pointer;color:#e53935;font-size:15px">🗑️</button>
+    </td>
+  </tr>`).join('') + (lista.length>LIM?`<tr><td colspan="5" style="padding:12px;text-align:center;color:#90a4ae;font-size:12px">Exibindo os primeiros ${LIM} de ${lista.length}. Use a busca ou o filtro de cliente para refinar.</td></tr>`:'');
+}
+
+function pesoAbrirModal(id){
+  const p=id?pesosItens.find(x=>x.id===id):null;
+  document.getElementById('modalPesoTitulo').textContent=p?'✏️ Editar item':'⚖️ Novo item';
+  document.getElementById('peso_id').value=p?p.id:'';
+  document.getElementById('peso_nome').value=p?(p.nome_peca||''):'';
+  document.getElementById('peso_desenho').value=p?(p.desenho||''):'';
+  document.getElementById('peso_valor').value=p&&p.peso!=null?String(p.peso).replace('.',','):'';
+  document.getElementById('peso_cliente').value=p?(p.cliente||''):'';
+  pesosPopularClientes();
+  abrirModal('modalPeso');
+  setTimeout(()=>document.getElementById('peso_nome').focus(),80);
+}
+
+async function pesoSalvar(){
+  if(!pesosTabelaOk){ showToast('Crie a tabela primeiro (veja o aviso)','err'); return; }
+  const nome=document.getElementById('peso_nome').value.trim();
+  if(!nome){ showToast('Informe o nome da peça','err'); return; }
+  const payload={
+    nome_peca:nome,
+    desenho:document.getElementById('peso_desenho').value.trim()||null,
+    cliente:document.getElementById('peso_cliente').value.trim()||null,
+    peso:pesosNum(document.getElementById('peso_valor').value)
+  };
+  const id=document.getElementById('peso_id').value;
+  try{
+    if(id){
+      await api('PATCH','pesos_itens',payload,`?id=eq.${id}`);
+      const i=pesosItens.findIndex(x=>x.id===id); if(i>=0) pesosItens[i]={...pesosItens[i],...payload};
+      showToast('Item atualizado!');
+    }else{
+      const res=await api('POST','pesos_itens',payload);
+      if(Array.isArray(res)&&res[0]) pesosItens.push(res[0]);
+      showToast('Item cadastrado!');
+    }
+    fecharModal('modalPeso');
+    pesosPopularClientes();
+    renderPesos();
+  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
+}
+
+async function pesoDeletar(id){
+  const p=pesosItens.find(x=>x.id===id); if(!p) return;
+  if(!confirm(`Excluir "${p.nome_peca}"?`)) return;
+  try{
+    await api('DELETE','pesos_itens','',`?id=eq.${id}`);
+    pesosItens=pesosItens.filter(x=>x.id!==id);
+    pesosPopularClientes(); renderPesos();
+    showToast('Item excluído');
+  }catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+async function importarPesos(input){
+  const file=input.files?.[0]; input.value='';
+  if(!file) return;
+  if(!pesosTabelaOk){ showToast('Crie a tabela primeiro (veja o aviso)','err'); return; }
+  try{
+    if(typeof XLSX==='undefined'){
+      showToast('⏳ Carregando leitor de planilha...');
+      await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    }
+    const data=new Uint8Array(await file.arrayBuffer());
+    const wb=XLSX.read(data,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+    if(!rows.length){ showToast('Planilha vazia','err'); return; }
+    // localiza colunas pelo cabeçalho
+    const head=(rows[0]||[]).map(h=>String(h||'').trim().toUpperCase());
+    const idx=(...termos)=>head.findIndex(h=>termos.some(t=>h.includes(t)));
+    let ci={nome:idx('NOME'), des:idx('DES'), cli:idx('CLIENTE'), peso:idx('PESO')};
+    // fallback posicional (NOME, DES, CLIENTE, PESO)
+    if(ci.nome<0) ci.nome=0; if(ci.des<0) ci.des=1; if(ci.cli<0) ci.cli=2; if(ci.peso<0) ci.peso=3;
+    const registros=[];
+    for(let i=1;i<rows.length;i++){
+      const r=rows[i]; if(!r) continue;
+      const nome=r[ci.nome]!=null?String(r[ci.nome]).trim():'';
+      if(!nome) continue;
+      registros.push({
+        nome_peca:nome,
+        desenho:r[ci.des]!=null&&String(r[ci.des]).trim()!==''?String(r[ci.des]).trim():null,
+        cliente:r[ci.cli]!=null&&String(r[ci.cli]).trim()!==''?String(r[ci.cli]).trim():null,
+        peso:pesosNum(r[ci.peso])
+      });
+    }
+    if(!registros.length){ showToast('Nenhuma linha válida encontrada','err'); return; }
+    const substituir=pesosItens.length>0 && confirm(`Encontrados ${registros.length} itens na planilha.\n\nHá ${pesosItens.length} itens já cadastrados.\n\n• OK = APAGAR os atuais e importar os novos\n• Cancelar = ADICIONAR aos existentes (mantém os atuais)`);
+    if(substituir){
+      showToast('⏳ Apagando itens atuais...');
+      await api('DELETE','pesos_itens','',`?id=not.is.null`);
+      pesosItens=[];
+    }
+    // insere em lotes
+    showToast('⏳ Importando '+registros.length+' itens...');
+    const chunk=300; let ok=0;
+    for(let i=0;i<registros.length;i+=chunk){
+      const parte=registros.slice(i,i+chunk);
+      const res=await api('POST','pesos_itens',parte);
+      if(Array.isArray(res)) pesosItens.push(...res);
+      ok+=parte.length;
+    }
+    pesosPopularClientes(); renderPesos();
+    showToast(`✅ ${ok} itens importados!`);
+  }catch(e){ showToast('Erro na importação: '+e.message,'err'); console.error(e); }
+}
+
+async function exportarPesos(){
+  try{
+    if(typeof XLSX==='undefined'){
+      await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    }
+    const rows=[['NOME DA PEÇA','DES.','CLIENTE','PESO']];
+    pesosItens.forEach(p=>rows.push([p.nome_peca||'', p.desenho||'', p.cliente||'', p.peso!=null?p.peso:'']));
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Pesos');
+    XLSX.writeFile(wb,'pesos_itens_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  }catch(e){ showToast('Erro ao exportar: '+e.message,'err'); }
+}
+// ===== FIM PESOS DE ITENS =====
+
 
 async function importarCPdePlanilha(input){
   const file=input.files?.[0]; input.value='';
