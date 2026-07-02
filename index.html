@@ -4179,7 +4179,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-02 · build 11';
+const APP_BUILD='2026-07-02 · build 12';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -15753,6 +15753,7 @@ function exportarExcelTempos(){
 let _tempoOrdemAlvo=null;
 function abrirModalAdicionarTempo(){
   _tempoOrdemAlvo=null;
+  const _m=document.getElementById('modalAdicionarTempo'); if(_m) _m.style.removeProperty('z-index');
   // Limpa campos
   ['at_desenho','at_descricao','at_operador','at_obs','at_ini','at_fim','at_minutos'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
@@ -15781,6 +15782,8 @@ function adicionarOperacaoNaOrdem(ordemId){
   if(descEl){ descEl.value=o.descricao||''; descEl.readOnly=true; descEl.style.background='#f0f0f0'; }
   const tit=document.getElementById('at_modalTitulo'); if(tit) tit.textContent=`➕ Nova operação — Ordem Nº ${o.numero||''}`;
   const hint=document.getElementById('at_modalHint'); if(hint) hint.innerHTML=`💡 Adicionando outra máquina/operação à ordem <b>Nº ${o.numero||''} — ${(o.descricao||'').replace(/</g,'&lt;')}</b>. Escolha a operação, o operador e o tempo.`;
+  // Fica acima do modal de detalhe da ordem (ambos usam z-index 500!important)
+  const mAdd=document.getElementById('modalAdicionarTempo'); if(mAdd) mAdd.style.setProperty('z-index','600','important');
   setTimeout(()=>document.getElementById('at_operacao')?.focus(),80);
 }
 
