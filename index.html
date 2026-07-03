@@ -4179,7 +4179,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-02 · build 12';
+const APP_BUILD='2026-07-02 · build 13';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -6935,6 +6935,24 @@ function parseLocalDate(val){
   return new Date(y,mo-1,d,h,mi,0,0);
 }
 
+// ===== Horário como "hora de parede" (o que o usuário digita = o que aparece) =====
+// Evita o deslocamento causado por datetime-local ↔ toISOString (UTC).
+function tsParaSalvar(dtLocalStr){ // "2025-07-29T16:00" -> "2025-07-29T16:00:00"
+  if(!dtLocalStr) return null;
+  return dtLocalStr.length===16 ? dtLocalStr+':00' : dtLocalStr;
+}
+function dateParaNaive(d){ const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+function tsExibir(s){ // valor salvo -> "dd/mm/aa hh:mm"
+  if(!s) return '—';
+  const c=String(s).replace('Z','').replace(/[+-]\d{2}:\d{2}$/,'');
+  const [dp,tp]=c.split('T'); const [y,mo,d]=dp.split('-'); const [h,mi]=(tp||'00:00').split(':');
+  return `${d}/${mo}/${String(y).slice(2)} ${h}:${mi}`;
+}
+function tsParaInput(s){ // valor salvo -> valor do datetime-local
+  if(!s) return '';
+  return String(s).replace('Z','').replace(/[+-]\d{2}:\d{2}$/,'').slice(0,16);
+}
+
 // Formata Date para datetime-local input
 function fmtDatetimeLocal(dt){
   if(!dt) return '';
@@ -6970,7 +6988,7 @@ async function concluirOperacao(ordemId, operacao){
   const tempo=temposOP.find(t=>t.ordem_id===ordemId&&t.operacao===operacao&&t.dt_hr_inicial&&!t.dt_hr_final);
   if(!tempo){showToast('Operação não encontrada','err');return;}
   try{
-    await api('PATCH','tempos_op',{dt_hr_final:new Date().toISOString()},`?id=eq.${tempo.id}`);
+    await api('PATCH','tempos_op',{dt_hr_final:dateParaNaive(new Date())},`?id=eq.${tempo.id}`);
     showToast('Operação concluída!');
     await loadAll();
   }catch(e){showToast('Erro','err');}
@@ -13969,7 +13987,7 @@ function gerarConteudoRelatorio(ordemId){
   const tops=temposOP.filter(t=>t.ordem_id===ordemId&&t.operacao&&t.operacao!=='REPROCESSAR').sort((a,b)=>new Date(a.dt_hr_inicial||0)-new Date(b.dt_hr_inicial||0));
   const totalMin=tops.reduce((acc,t)=>acc+(t.duracao_minutos||0),0);
   const totalH=Math.floor(totalMin/60), totalM=totalMin%60;
-  const fmtDt=dt=>dt?new Date(dt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const fmtDt=dt=>tsExibir(dt);
   const fmtDur=t=>{
     if(t.duracao_minutos){const h=Math.floor(t.duracao_minutos/60),m=t.duracao_minutos%60;return `${h}h ${String(m).padStart(2,'0')}min`;}
     if(t.dt_hr_inicial&&t.dt_hr_final){return calcularHorasUteis(new Date(t.dt_hr_inicial),new Date(t.dt_hr_final)).texto;}
@@ -14083,14 +14101,8 @@ async function deletarTempoOp(tempoId){
 async function editarTempoOp(tempoId){
   const t = temposOP.find(x=>x.id===tempoId);
   if(!t){showToast('Registro não encontrado','err');return;}
-  const fmtInput = dt => {
-    if(!dt) return '';
-    const d = new Date(dt);
-    const pad = n => String(n).padStart(2,'0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-  const iniVal = fmtInput(t.dt_hr_inicial);
-  const fimVal = fmtInput(t.dt_hr_final);
+  const iniVal = tsParaInput(t.dt_hr_inicial);
+  const fimVal = tsParaInput(t.dt_hr_final);
   const html = `
     <div style="background:#fff;border-radius:14px;padding:24px;width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
       <div style="font-size:15px;font-weight:700;margin-bottom:16px;color:#263238">✏️ Editar Operação — ${t.operacao||''}</div>
@@ -14132,13 +14144,13 @@ async function confirmarEditarTempoOp(tempoId){
   const obs = document.getElementById('editTempoObs')?.value.trim();
   if(!ini){showToast('Informe a data/hora de início','err');return;}
   const obj = {
-    dt_hr_inicial: ini ? new Date(ini).toISOString() : null,
-    dt_hr_final: fim ? new Date(fim).toISOString() : null,
+    dt_hr_inicial: ini ? tsParaSalvar(ini) : null,
+    dt_hr_final: fim ? tsParaSalvar(fim) : null,
     operador: oper||null,
     observacao: obs||null
   };
   if(ini && fim){
-    const diffMs = new Date(fim) - new Date(ini);
+    const diffMs = parseLocalDate(fim) - parseLocalDate(ini);
     if(diffMs > 0) obj.duracao_minutos = Math.round(diffMs/60000);
   }
   try{
@@ -15855,8 +15867,8 @@ async function salvarTempoManual(){
       ordem_id: ordem.id,
       operacao,
       operador,
-      dt_hr_inicial: ini?new Date(ini).toISOString():null,
-      dt_hr_final: fim?new Date(fim).toISOString():ini?(new Date(new Date(ini).getTime()+duracaoMin*60000)).toISOString():new Date().toISOString(),
+      dt_hr_inicial: tsParaSalvar(ini),
+      dt_hr_final: fim?tsParaSalvar(fim):(ini?dateParaNaive(new Date(parseLocalDate(ini).getTime()+duracaoMin*60000)):dateParaNaive(new Date())),
       duracao_minutos: duracaoMin||null,
       observacao: obs||'Inserido manualmente'
     });
