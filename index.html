@@ -4233,7 +4233,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 19';
+const APP_BUILD='2026-07-11 · build 20';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -16683,25 +16683,25 @@ function abrirAlertaMinimo(){
   abrirModal('modalAlertaMinimo');
 }
 
-// monta uma "tabela" monospace (Telegram usa <pre> como fonte fixa)
-function _tabelaMinimoTG(lista){
-  const nm=s=>{s=(s||'').toString().toUpperCase(); return s.length>18?s.slice(0,17)+'…':s;};
-  const head='ITEM'.padEnd(18)+'SALDO'.padStart(6)+'MÍN'.padStart(6);
-  const linhas=lista.map(l=>nm(l.item.descricao||l.item.tipo_peca).padEnd(18)+String(l.saldo).padStart(6)+String(l.min).padStart(6));
-  return `<pre>${head}\n${'-'.repeat(30)}\n${linhas.join('\n')}</pre>`;
+// Cada item: nome COMPLETO (em negrito, quebra sozinho na tela) + linha clara de saldo/mínimo
+function _formatoMinimoTG(lista){
+  return lista.map(l=>{
+    const nome=(l.item.descricao||l.item.tipo_peca||'').toString().toUpperCase();
+    const un=l.item.unidade||'';
+    return `<b>${nome}</b>\n▪️ saldo <b>${l.saldo}${un?' '+un:''}</b> · mínimo <b>${l.min}</b>`;
+  }).join('\n\n');
 }
 
 async function enviarAlertaEstoqueTelegram(auto){
   const lista=itensAbaixoMinimo();
   if(!lista.length){ if(!auto) showToast('Nenhum item abaixo do mínimo'); return; }
-  const extra=lista.length>40?`\n<i>… e mais ${lista.length-40} itens</i>`:'';
-  const txt=`⚠️ <b>Estoque abaixo do mínimo</b> — ${lista.length} ${lista.length===1?'item':'itens'}\n${_tabelaMinimoTG(lista.slice(0,40))}${extra}`;
+  const extra=lista.length>40?`\n\n<i>… e mais ${lista.length-40} itens</i>`:'';
+  const txt=`⚠️ <b>Estoque abaixo do mínimo</b> — ${lista.length} ${lista.length===1?'item':'itens'}\n\n${_formatoMinimoTG(lista.slice(0,40))}${extra}`;
   const ok=await enviarTelegram(txt);
   if(ok&&!auto) showToast('📲 Alerta enviado no Telegram!');
 }
 
 // alerta automático: dispara quando a peça CRUZA para baixo do mínimo
-// (recebe a quantidade que saiu para detectar o cruzamento e evitar repetir)
 async function checarAlertaItem(itemId, qtdSaiu){
   const i=(estoqueItens||[]).find(x=>x.id===itemId); if(!i) return;
   const min=Number(i.estoque_minimo)||0; if(min<=0) return;
@@ -16709,7 +16709,7 @@ async function checarAlertaItem(itemId, qtdSaiu){
   if(saldo>=min) return;                         // ainda acima do mínimo
   const saldoAntes = saldo + (Number(qtdSaiu)||0);
   if(qtdSaiu && saldoAntes < min) return;         // já estava abaixo antes — não repete
-  await enviarTelegram(`⚠️ <b>Estoque mínimo atingido</b>\n${_tabelaMinimoTG([{item:i,saldo,min}])}`);
+  await enviarTelegram(`⚠️ <b>Estoque mínimo atingido</b>\n\n${_formatoMinimoTG([{item:i,saldo,min}])}`);
 }
 // ===== FIM ALERTA DE ESTOQUE MÍNIMO =====
 
