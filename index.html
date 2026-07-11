@@ -4188,7 +4188,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-04 · build 14';
+const APP_BUILD='2026-07-11 · build 16';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -6684,7 +6684,7 @@ function renderOrdens(){
     return `<div style="margin-bottom:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
       <div style="background:#f5f5f5;padding:10px 14px;font-weight:700;font-size:13px;color:#37474f;border-bottom:1px solid #e0e0e0">
         📋 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${pdv?.equipamento?' · '+pdv.equipamento:''}
-        <span style="float:right;font-weight:400;color:#9e9e9e">${ordensGrupo.length} ordem${ordensGrupo.length!==1?'ns':''}</span>
+        <span style="float:right;font-weight:400;color:#9e9e9e">${ordensGrupo.length} ${ordensGrupo.length!==1?'ordens':'ordem'}</span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
@@ -10469,18 +10469,18 @@ function removerCategoriaEstoque(idx){
 }
 
 function exportarExcelEstoque(){
-  const lista = estCatAtual
-    ? estoqueItens.filter(i=>(i.tipo_peca||i.localizacao||'Outros')===estCatAtual)
-    : estoqueItens;
-  if(!lista.length){showToast('Nenhum item para exportar','err');return;}
-  const rows=[['Código','Tipo','Material','NCM','Espessura','Medida1','Medida2','Diâmetro','Comprimento','Saldo','Unidade','Custo Unit.','Preço Venda','Peso Unit.','Localização']];
+  const lista = estoqueItens;  // exporta TODOS os itens (todas as categorias)
+  if(!lista.length){showToast('Nenhum item no estoque','err');return;}
+  const limpa=c=>String(c==null?'':c).replace(/[\t\r\n]/g,' ');
+  const rows=[['Código','Categoria','Descrição','Material','NCM','Saldo','Unidade','Custo Unit.','Preço Venda','Peso Unit.','Barracão']];
   lista.forEach(i=>{
     const mov=estoqueMov.filter(m=>m.item_id===i.id);
     const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-    rows.push([i.codigo||'',i.tipo_peca||i.descricao||'',i.material||'',i.ncm||'',i.espessura||'',i.medida1||'',i.medida2||'',i.diametro_ext||'',i.comprimento||'',saldo,i.unidade||'',i.valor_unitario||'',i.preco_venda||'',i.peso_unitario||'',i.localizacao||'']);
+    rows.push([i.codigo||'', i.categoria||'Matéria Prima', i.tipo_peca||i.descricao||'', i.material||'', i.ncm||'', saldo, i.unidade||'', i.valor_unitario||'', i.preco_venda||'', i.peso_unitario||'', i.localizacao||''].map(limpa));
   });
   const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`estoque_${estCatAtual||'todos'}.xls`;a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='estoque_completo.xls';a.click();
+  showToast(`✅ ${lista.length} itens exportados!`);
 }
 
 function showEstoqueSub(sub){ estSubAtual=sub; renderEstoque(); }
@@ -15693,15 +15693,19 @@ function renderHistoricoTempos(){
     // Operadores únicos
     const operadores=[...new Set(tops.map(t=>t.operador).filter(Boolean))];
 
-    // Tempo total (soma duracao_minutos de tempos concluídos)
-    const totalMin=tops.filter(t=>t.duracao_minutos).reduce((s,t)=>s+(t.duracao_minutos||0),0);
+    // Tempo total (soma duracao_minutos; se faltar, calcula pelas datas)
+    const totalMin=tops.reduce((s,t)=>{
+      if(t.duracao_minutos) return s+(Number(t.duracao_minutos)||0);
+      if(t.dt_hr_inicial&&t.dt_hr_final) return s+calcularHorasUteis(parseLocalDate(tsParaInput(t.dt_hr_inicial)),parseLocalDate(tsParaInput(t.dt_hr_final))).minutos;
+      return s;
+    },0);
     const h=Math.floor(totalMin/60), m=totalMin%60;
     const tempoTotal=totalMin>0?`${h}h ${String(m).padStart(2,'0')}min`:'—';
 
-    // Status da ordem
-    const temReal=tops.filter(t=>t.operacao!=='REPROCESSAR');
-    const concluida=temReal.length>0&&temReal.every(t=>t.dt_hr_final)&&!tops.some(t=>!t.operacao);
-    const emAndamento=tops.some(t=>t.dt_hr_inicial&&!t.dt_hr_final);
+    // Status da ordem (ignora "somente histórico", igual ao kanban)
+    const temReal=tops.filter(t=>t.operacao!=='REPROCESSAR'&&!t.historico_only);
+    const concluida=temReal.length>0&&temReal.every(t=>t.dt_hr_final);
+    const emAndamento=temReal.some(t=>t.dt_hr_inicial&&!t.dt_hr_final);
 
     return {
       ordemId, ordem:o, pdv, tops, topsFilt,
