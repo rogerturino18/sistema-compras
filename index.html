@@ -4233,7 +4233,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 18';
+const APP_BUILD='2026-07-11 · build 19';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -9843,11 +9843,16 @@ function renderEstoque(){
       ? `<span style="font-size:10px;font-weight:700;background:${corBarracao.bg};color:${corBarracao.cor};padding:2px 8px;border-radius:10px;white-space:nowrap">${i.localizacao}</span>`
       : `<span style="font-size:11px;color:#bdbdbd">—</span>`;
 
+    const _movsItem = estoqueMov.filter(m=>m.item_id===i.id).map(m=>m.data).filter(Boolean).sort();
+    const _ultData = _movsItem.length ? _movsItem[_movsItem.length-1] : (i.atualizado_em||i.created_at||null);
+    const ultimaMovFmt = _ultData ? new Date((String(_ultData).includes('T')?_ultData:_ultData+'T12:00')).toLocaleDateString('pt-BR') : '—';
+
     return `<tr style="border-bottom:1px solid #f0f4f0" onmouseover="this.style.background='#fafbfa'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#1565c0;white-space:nowrap">${i.codigo||'—'}${i.origem_fiscal?' <span title="Código conciliado com a contabilidade" style="font-family:sans-serif;background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;vertical-align:middle">✓ fiscal</span>':''}</td>
       <td style="padding:8px 10px;font-weight:600;font-size:12px;max-width:200px">
         <div>${titulo}</div>
         <div style="font-size:10px;color:${catColor};font-weight:600;margin-top:1px">${catLabel}</div>
+        <div style="font-size:10px;color:#90a4ae;margin-top:1px">🕑 últ. mov: ${ultimaMovFmt}</div>
         ${i.nota_fiscal?`<div style="font-size:10px;color:#9e9e9e">NF: ${i.nota_fiscal}</div>`:''}
       </td>
       <td style="padding:8px 10px;font-size:12px;color:var(--green)">${i.material||'—'}</td>
@@ -11006,7 +11011,7 @@ async function registrarSaida(){
     showToast('Saída registrada!');
     limparFormSaida();
     await loadAll();
-    if(typeof checarAlertaItem==='function') checarAlertaItem(itemId);
+    if(typeof checarAlertaItem==='function') checarAlertaItem(itemId, qtd);
   }catch(e){showToast('Erro','err');console.error(e);}
 }
 
@@ -13318,6 +13323,9 @@ async function salvarRequisicao(){
     }
     fecharModal('modalReq');
     await loadAll();
+    if(obj.status==='Atendida' && typeof checarAlertaItem==='function'){
+      for(const it of reqItensLocal) checarAlertaItem(it.item_id, it.qtd);
+    }
   }catch(e){showToast('Erro ao salvar requisição','err');console.error(e);}
 }
 
@@ -16675,24 +16683,33 @@ function abrirAlertaMinimo(){
   abrirModal('modalAlertaMinimo');
 }
 
+// monta uma "tabela" monospace (Telegram usa <pre> como fonte fixa)
+function _tabelaMinimoTG(lista){
+  const nm=s=>{s=(s||'').toString().toUpperCase(); return s.length>18?s.slice(0,17)+'…':s;};
+  const head='ITEM'.padEnd(18)+'SALDO'.padStart(6)+'MÍN'.padStart(6);
+  const linhas=lista.map(l=>nm(l.item.descricao||l.item.tipo_peca).padEnd(18)+String(l.saldo).padStart(6)+String(l.min).padStart(6));
+  return `<pre>${head}\n${'-'.repeat(30)}\n${linhas.join('\n')}</pre>`;
+}
+
 async function enviarAlertaEstoqueTelegram(auto){
   const lista=itensAbaixoMinimo();
   if(!lista.length){ if(!auto) showToast('Nenhum item abaixo do mínimo'); return; }
-  const linhas=lista.slice(0,40).map(l=>`• <b>${(l.item.descricao||l.item.tipo_peca||'')}</b> (${l.item.codigo||'s/cód'}) — saldo ${l.saldo} / mín ${l.min}`);
-  const extra=lista.length>40?`\n… e mais ${lista.length-40} itens`:'';
-  const txt=`⚠️ <b>SL Óleos — Estoque abaixo do mínimo</b> (${lista.length})\n\n${linhas.join('\n')}${extra}`;
+  const extra=lista.length>40?`\n<i>… e mais ${lista.length-40} itens</i>`:'';
+  const txt=`⚠️ <b>Estoque abaixo do mínimo</b> — ${lista.length} ${lista.length===1?'item':'itens'}\n${_tabelaMinimoTG(lista.slice(0,40))}${extra}`;
   const ok=await enviarTelegram(txt);
   if(ok&&!auto) showToast('📲 Alerta enviado no Telegram!');
 }
 
-// alerta automático quando uma peça cruza pra baixo do mínimo após uma saída
-async function checarAlertaItem(itemId){
+// alerta automático: dispara quando a peça CRUZA para baixo do mínimo
+// (recebe a quantidade que saiu para detectar o cruzamento e evitar repetir)
+async function checarAlertaItem(itemId, qtdSaiu){
   const i=(estoqueItens||[]).find(x=>x.id===itemId); if(!i) return;
   const min=Number(i.estoque_minimo)||0; if(min<=0) return;
   const saldo=_saldoAtualEstoqueItem(i);
-  if(saldo<min){
-    await enviarTelegram(`⚠️ <b>SL Óleos</b> — <b>${(i.descricao||i.tipo_peca||'')}</b> (${i.codigo||'s/cód'}) atingiu o estoque mínimo.\nSaldo atual: <b>${saldo} ${i.unidade||''}</b> (mínimo ${min}).`);
-  }
+  if(saldo>=min) return;                         // ainda acima do mínimo
+  const saldoAntes = saldo + (Number(qtdSaiu)||0);
+  if(qtdSaiu && saldoAntes < min) return;         // já estava abaixo antes — não repete
+  await enviarTelegram(`⚠️ <b>Estoque mínimo atingido</b>\n${_tabelaMinimoTG([{item:i,saldo,min}])}`);
 }
 // ===== FIM ALERTA DE ESTOQUE MÍNIMO =====
 
