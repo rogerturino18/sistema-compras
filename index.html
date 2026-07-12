@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 26';
+const APP_BUILD='2026-07-11 · build 27';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -7820,6 +7820,38 @@ async function adicionarItemAListaCompras(itemId){
   }catch(e){ showToast('Erro ao adicionar à Lista de Compras','err'); console.error(e); }
 }
 
+// Adiciona o MATERIAL de um item/montagem "Fabricar" à Lista de Compras (a barra,
+// chapa, etc. que será usada para fabricar a peça). Botão manual, sob demanda.
+async function adicionarMaterialAListaCompras(noId, tipoNo){
+  const isMont = tipoNo==='montagem';
+  const no = isMont ? montagensRecebidas.find(m=>m.id===noId) : itensDesenhoRecebido.find(i=>i.id===noId);
+  if(!no){ return; }
+  if(!no.material){ showToast('Este item não tem material definido','err'); return; }
+  const desenho = isMont ? _equipamentoDaMontagem(no) : _equipamentoDoItem(no);
+  const pdv = pdvs.find(p=>p.id===desenho?.pdv_id);
+  const nomePeca = isMont ? (no.nome_montagem||'') : (no.denominacao||'');
+  const numDes = isMont ? (no.numero_desenho||'') : (no.desenho_peca||'');
+  try{
+    const res = await api('POST','itens',{
+      pdv: pdv?('PDV '+pdv.numero):null,
+      cliente: pdv?.cliente||null,
+      equipamento: desenho?.nome_equipamento||null,
+      descritivo: nomePeca ? `${no.material} — p/ ${nomePeca}` : no.material,
+      desenho: numDes||null,
+      material: no.material,
+      qtd: Number(no.quantidade)||1,
+      categoria: 'Matéria Prima'
+    });
+    const novoId = res?.[0]?.id;
+    if(novoId){
+      const tabela = isMont ? 'montagens_recebidas' : 'itens_desenho_recebido';
+      await api('PATCH',tabela,{material_compra_id:novoId},`?id=eq.${noId}`);
+    }
+    showToast('📋 Material adicionado à Lista de Compras!');
+    await loadAll();
+  }catch(e){ showToast('Erro ao adicionar material: '+e.message,'err'); console.error(e); }
+}
+
 // Status real de um item comercial, consultando a Lista de Compras de verdade
 function _statusComercial(it){
   if(!it.item_compra_id) return {pendente:true, html:`<button class="btn btn-sm" onclick="adicionarItemAListaCompras('${it.id}')" style="font-size:11px;padding:3px 8px;background:#fff3e0;border-color:#ffcc80;color:#e65100">📋 Adicionar à Lista de Compras</button>`};
@@ -7930,9 +7962,17 @@ function _renderArvoreCascata(desenhoId, termoBusca){
   // Uma linha de Montagem ou Item, sempre no mesmo "nível visual" — sem
   // indentação acumulada, porque agora cada nível é visto isoladamente (a
   // navegação entre níveis é só o breadcrumb, não recuo na tela).
+  // Botão para jogar o MATERIAL de um item/montagem Fabricar na Lista de Compras.
+  const _btnMaterialCompra = (no, tipoNo) => {
+    if(!no.material) return '';
+    if(no.material_compra_id) return `<span style="color:#2e7d32;font-weight:700;font-size:10px;white-space:nowrap" title="Material já na Lista de Compras">✅ Material na lista</span>`;
+    return `<button class="btn btn-sm" onclick="event.stopPropagation();adicionarMaterialAListaCompras('${no.id}','${tipoNo}')" style="font-size:10px;padding:3px 8px;background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32;white-space:nowrap" title="Adicionar o material à Lista de Compras">📋 Comprar material</button>`;
+  };
+
   const linhaMontagem = no => {
     const temFilhos = (filhosPorId[no.id]||[]).length>0;
     const pend = _contarPendenciasSubarvore(no, filhosPorId);
+    const _btnMat = _btnMaterialCompra(no,'montagem');
     const statusMontagemHtml = no.ordem_id
       ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>`
       : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdaMontagem('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`;
@@ -7946,6 +7986,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
       </span>
       <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
         <span style="width:78px;text-align:right">${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}</span>
+        ${_btnMat}
         <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','montagem')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px;flex-shrink:0" title="Editar">✏️</button>
         <span style="width:96px;text-align:right">${statusMontagemHtml}</span>
         <span style="width:14px;flex-shrink:0;text-align:center;font-size:10px;color:#9e9e9e">${temFilhos ? '▶' : ''}</span>
@@ -7968,6 +8009,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
       <span class="arv-qtd">${no.quantidade||1}</span>
       <span class="arv-status" style="display:flex;align-items:center;gap:6px">
         <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','item')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px;flex-shrink:0" title="Editar">✏️</button>
+        ${no.item_tipo==='fabricar'?_btnMaterialCompra(no,'item'):''}
         ${statusHtml}
         <span style="width:14px;flex-shrink:0;text-align:center;font-size:10px;color:#9e9e9e">${temFilhos ? '▶' : ''}</span>
       </span>
