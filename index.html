@@ -91,10 +91,10 @@ tr:hover td{background:#f9fbf9}
 .modal-body{padding:22px}
 .modal h3{font-size:15px;font-weight:700;margin-bottom:16px;color:var(--green);border-bottom:2px solid var(--green-pale);padding-bottom:8px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group{display:flex;flex-direction:column;gap:4px;min-width:0}
 .form-group.full{grid-column:1/-1}
 .form-group label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
-.form-group input,.form-group select,.form-group textarea{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--dark);background:#fff}
+.form-group input,.form-group select,.form-group textarea{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--dark);background:#fff;width:100%;box-sizing:border-box;max-width:100%}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--green)}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #f0f4f0}
 .compare-item{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 24';
+const APP_BUILD='2026-07-11 · build 26';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -8057,6 +8057,15 @@ function renderDesenhosRecebidos(){
     }
     if(soPendentes && !temPendencia(d)) return false;
     return true;
+  });
+
+  // Ordena por número de PDV (crescente); desempate pelo nome do equipamento
+  lista.sort((a,b)=>{
+    const pa=pdvs.find(p=>p.id===a.pdv_id), pb=pdvs.find(p=>p.id===b.pdv_id);
+    const na=parseInt(String(pa?.numero||'').replace(/\D/g,''))||0;
+    const nb=parseInt(String(pb?.numero||'').replace(/\D/g,''))||0;
+    if(na!==nb) return na-nb;
+    return String(a.nome_equipamento||'').localeCompare(String(b.nome_equipamento||''),'pt-BR');
   });
 
   // Stats globais — Montagem sem OP conta junto com item Fabricar sem OP, mas só
