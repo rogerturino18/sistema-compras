@@ -4249,7 +4249,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 22';
+const APP_BUILD='2026-07-11 · build 23';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -10555,19 +10555,28 @@ function removerCategoriaEstoque(idx){
   showToast(`Categoria "${nome}" removida!`);
 }
 
-function exportarExcelEstoque(){
+async function exportarExcelEstoque(){
   const lista = estoqueItens;  // exporta TODOS os itens (todas as categorias)
   if(!lista.length){showToast('Nenhum item no estoque','err');return;}
-  const limpa=c=>String(c==null?'':c).replace(/[\t\r\n]/g,' ');
-  const rows=[['Código','Categoria','Descrição','Material','NCM','Saldo','Unidade','Custo Unit.','Preço Venda','Peso Unit.','Barracão']];
-  lista.forEach(i=>{
-    const mov=estoqueMov.filter(m=>m.item_id===i.id);
-    const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-    rows.push([i.codigo||'', i.categoria||'Matéria Prima', i.tipo_peca||i.descricao||'', i.material||'', i.ncm||'', saldo, i.unidade||'', i.valor_unitario||'', i.preco_venda||'', i.peso_unitario||'', i.localizacao||''].map(limpa));
-  });
-  const blob=new Blob([rows.map(r=>r.join('\t')).join('\n')],{type:'text/tab-separated-values'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='estoque_completo.xls';a.click();
-  showToast(`✅ ${lista.length} itens exportados!`);
+  try{
+    if(typeof XLSX==='undefined'){
+      showToast('⏳ Preparando planilha...');
+      await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    }
+    const num=v=>{ const n=parseFloat(v); return isNaN(n)?'':n; };
+    const rows=[['Código','Categoria','Descrição','Material','NCM','Saldo','Unidade','Custo Unit.','Preço Venda','Peso Unit.','Barracão']];
+    lista.forEach(i=>{
+      const mov=estoqueMov.filter(m=>m.item_id===i.id);
+      const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
+      rows.push([i.codigo||'', i.categoria||'Matéria Prima', i.tipo_peca||i.descricao||'', i.material||'', i.ncm||'', saldo, i.unidade||'', num(i.valor_unitario), num(i.preco_venda), num(i.peso_unitario), i.localizacao||'']);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:12},{wch:20},{wch:44},{wch:16},{wch:10},{wch:8},{wch:8},{wch:11},{wch:11},{wch:10},{wch:12}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Estoque');
+    XLSX.writeFile(wb,'estoque_completo_'+new Date().toISOString().split('T')[0]+'.xlsx');
+    showToast(`✅ ${lista.length} itens exportados!`);
+  }catch(e){ showToast('Erro ao exportar: '+e.message,'err'); console.error(e); }
 }
 
 function showEstoqueSub(sub){ estSubAtual=sub; renderEstoque(); }
