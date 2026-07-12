@@ -795,6 +795,7 @@ tr:hover td{background:#f9fbf9}
     </select>
     <button class="btn primary" onclick="isPerfilSimplificadoCI()?abrirModalCISimples(null):abrirModalCI(null)">+ Nova solicitação</button>
     <button class="btn" onclick="exportarExcel('compras_internas')" style="white-space:nowrap">📊 Excel</button>
+    <button class="btn" onclick="enviarDigestComprasTelegram(false)" style="white-space:nowrap" title="Enviar as urgentes pendentes no Telegram agora">📲 Urgentes no Telegram</button>
   </div>
   <div class="tbl-wrap">
     <table><thead id="theadCI"><tr>
@@ -4249,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 23';
+const APP_BUILD='2026-07-11 · build 24';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -4408,7 +4409,7 @@ async function loadAll(){
     renderAll();
     verificarLembretes();
     renderHomeTiles();
-    if(typeof carregarConfigTelegram==='function') carregarConfigTelegram();
+    if(typeof carregarConfigTelegram==='function') carregarConfigTelegram().then(()=>{ if(typeof checarDigestDiario==='function') checarDigestDiario(); });
     // Verifica requisições pendentes de aprovação sempre que os dados carregam
     setTimeout(()=>{ if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes(); }, 200);
   } catch(e){ console.error(e); showToast('Erro ao carregar dados','err'); }
@@ -16754,6 +16755,45 @@ async function checarAlertaItem(itemId, qtdSaiu){
   await enviarTelegram(`⚠️ <b>Estoque mínimo atingido</b>\n\n${_formatoMinimoTG([{item:i,saldo,min}])}`);
 }
 // ===== FIM ALERTA DE ESTOQUE MÍNIMO =====
+
+// ===== DIGEST DIÁRIO — COMPRAS INTERNAS URGENTES PENDENTES =====
+function comprasUrgentesPendentes(){
+  return (comprasInternas||[]).filter(i=>i.prioridade==='urgente' && !i.comprado);
+}
+
+async function enviarDigestComprasTelegram(auto){
+  const lista=comprasUrgentesPendentes();
+  if(!lista.length){ if(!auto) showToast('Nenhuma compra urgente pendente'); return false; }
+  const linhas=lista.slice(0,50).map(i=>{
+    const q=i.quantidade?` (${i.quantidade})`:'';
+    const quem=i.solicitado_por?` — ${i.solicitado_por}`:'';
+    return `🔴 <b>${(i.descricao||'—').toString()}</b>${q}${quem}`;
+  });
+  const extra=lista.length>50?`\n\n<i>… e mais ${lista.length-50}</i>`:'';
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  const txt=`🛒 <b>Compras Internas URGENTES pendentes</b> — ${lista.length}\n<i>${hoje}</i>\n\n${linhas.join('\n')}${extra}`;
+  const ok=await enviarTelegram(txt);
+  if(ok&&!auto) showToast('📲 Enviado no Telegram!');
+  return ok;
+}
+
+// Uma vez por dia: no primeiro acesso do dia, envia o digest e registra a data.
+async function checarDigestDiario(){
+  try{
+    if(!telegramCfg.token||!telegramCfg.chatId) return;
+    if(!comprasUrgentesPendentes().length) return;
+    const hoje=new Date().toISOString().split('T')[0];
+    const r=await api('GET','app_config','','?chave=eq.sl_digest_compras').catch(()=>null);
+    const ultimo = r&&r[0] ? r[0].valor : null;
+    if(ultimo===hoje) return;                       // já enviou hoje
+    const ok=await enviarDigestComprasTelegram(true);
+    if(ok){
+      if(r&&r[0]) await api('PATCH','app_config',{valor:hoje,atualizado:new Date().toISOString()},'?chave=eq.sl_digest_compras');
+      else await api('POST','app_config',{chave:'sl_digest_compras',valor:hoje});
+    }
+  }catch(e){ console.warn('[digest] ',e); }
+}
+// ===== FIM DIGEST DIÁRIO =====
 
 
 async function importarCPdePlanilha(input){
