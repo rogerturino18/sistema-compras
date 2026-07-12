@@ -894,7 +894,6 @@ tr:hover td{background:#f9fbf9}
         <button class="btn" onclick="abrirGerenciarCategorias()" style="font-size:12px" title="Adicionar ou editar categorias">🏷️ Categorias</button>
         <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
-        <button class="btn" onclick="document.getElementById('inputNFe').click()" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:12px">📄 NF-e XML</button>
         <button class="btn" onclick="abrirAlertaMinimo()" id="btnAlertaMinimo" style="font-size:12px" title="Itens abaixo do estoque mínimo">⚠️ Estoque mínimo</button>
         <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
       </div>
@@ -946,7 +945,24 @@ tr:hover td{background:#f9fbf9}
         <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Categoria do Item</label>
         <select id="estMovCategoria" style="width:100%;padding:8px 10px;border:2px solid #a5d6a7;border-radius:8px;font-size:13px;background:#fff"></select>
       </div>
-      <div style="margin-bottom:10px">
+      <!-- Barracão de destino — só na entrada -->
+      <div id="estMovBarracaoDiv" style="margin-bottom:10px;display:none">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Barracão de destino</label>
+        <select id="estMovBarracao" style="width:100%;padding:8px 10px;border:2px solid #90caf9;border-radius:8px;font-size:13px;background:#fff">
+          <option value="Barracão 1">Barracão 1</option>
+          <option value="Barracão 2">Barracão 2</option>
+        </select>
+      </div>
+      <!-- Tipo de entrada — só na entrada -->
+      <div id="estMovTipoEntradaDiv" style="margin-bottom:10px;display:none">
+        <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Tipo de entrada</label>
+        <select id="estMovTipoEntrada" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <option value="compra">🛒 Compra sem nota</option>
+          <option value="ajuste">🔧 Ajuste manual de estoque</option>
+        </select>
+        <div style="font-size:10px;color:#90a4ae;margin-top:4px">Entrada com nota é feita na aba <b>Entrada NF-e</b> (grupo Compras).</div>
+      </div>
+      <div id="estMovDeptoDiv" style="margin-bottom:10px">
         <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Departamento / PDV</label>
         <select id="estMovDepto" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
           <option value="">Selecionar (opcional)</option>
@@ -4233,7 +4249,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 20';
+const APP_BUILD='2026-07-11 · build 22';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -9560,7 +9576,10 @@ function renderHomeTiles(){
   const perms=getPermissoesUsuario(usuarioLogado);
   const tabsP=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
   const podeVer=(tab)=>!tabsP||tab===0||tabsP.includes(tab);
-  const grupos=DASH_GRUPOS.filter(g=>g.subs.some(s=>podeVer(s.tab)));
+  // Módulos ocultos do dashboard/sidebar (ex.: Financeiro, não usado no momento)
+  const MODULOS_OCULTOS = ['financeiro'];
+  const grupos=DASH_GRUPOS.filter(g=>!MODULOS_OCULTOS.includes(g.id) && g.subs.some(s=>podeVer(s.tab)));
+  MODULOS_OCULTOS.forEach(id=>{ const ic=document.getElementById('sbico_'+id); if(ic) ic.style.display='none'; });
 
   function bdgGrupo(g){ const t=g.subs.reduce((s,sb)=>s+(bMap[sb.tab]||0),0); return t>0?'<div class="tile-badge">'+t+'</div>':''; }
 
@@ -9893,17 +9912,23 @@ function abrirEstMovRapido(itemId, tipo){
   document.getElementById('estMovObs').value = '';
   document.getElementById('estMovDepto').value = '';
 
-  // Categoria — só na entrada
+  // Categoria — não usada na nova entrada (o item já tem categoria)
   const catDiv = document.getElementById('estMovCategoriaDiv');
-  const catSel = document.getElementById('estMovCategoria');
-  if(catDiv && catSel){
-    if(tipo==='entrada'){
-      catDiv.style.display='block';
-      const cats = getCatsEstoque();
-      catSel.innerHTML = cats.map(c=>`<option value="${c}" ${c===(item.categoria||'Matéria Prima')?'selected':''}>${c}</option>`).join('');
-    } else {
-      catDiv.style.display='none';
-    }
+  if(catDiv) catDiv.style.display='none';
+
+  // Entrada: mostra Barracão + Tipo de entrada, esconde Departamento/PDV
+  const barrDiv=document.getElementById('estMovBarracaoDiv');
+  const tipoEntDiv=document.getElementById('estMovTipoEntradaDiv');
+  const deptoDiv=document.getElementById('estMovDeptoDiv');
+  if(tipo==='entrada'){
+    if(barrDiv){ barrDiv.style.display='block'; const b=document.getElementById('estMovBarracao'); if(b) b.value=(item.localizacao==='Barracão 2'?'Barracão 2':'Barracão 1'); }
+    if(tipoEntDiv){ tipoEntDiv.style.display='block'; const t=document.getElementById('estMovTipoEntrada'); if(t) t.value='compra'; }
+    if(deptoDiv) deptoDiv.style.display='none';
+    document.getElementById('estMovPdvDiv').style.display='none';
+  } else {
+    if(barrDiv) barrDiv.style.display='none';
+    if(tipoEntDiv) tipoEntDiv.style.display='none';
+    if(deptoDiv) deptoDiv.style.display='block';
   }
 
   // PDV selector — preenche com pdvs cadastrados
@@ -9964,27 +9989,35 @@ async function confirmarEstMov(){
   const obsFinal = obs || pdvLabel || null;
   const deptoFinal = pdvObj ? 'PDV' : depto;
 
+  // Entrada: tipo (compra sem nota / ajuste) e barracão de destino
+  const tipoEntrada = document.getElementById('estMovTipoEntrada')?.value || 'compra';
+  const barracao = document.getElementById('estMovBarracao')?.value || null;
+  let subtipoMov, obsEntrada = obsFinal;
+  if(estMovTipo==='entrada'){
+    subtipoMov = tipoEntrada==='ajuste' ? 'ajuste' : 'compra';
+    const rotulo = tipoEntrada==='ajuste' ? 'Ajuste manual' : 'Compra sem nota';
+    obsEntrada = obs ? `${rotulo} — ${obs}` : rotulo;
+  } else {
+    subtipoMov = 'producao';
+  }
+
   try{
     await api('POST','estoque_movimentacoes',{
       item_id: estMovItemId,
       tipo: estMovTipo,
-      subtipo: estMovTipo==='saida'?'producao':'compra',
+      subtipo: subtipoMov,
       quantidade: qtd,
       unidade_saida: und,
       data: new Date().toISOString().split('T')[0],
-      departamento: deptoFinal||null,
-      pdv_id: pdvId||null,
-      observacao: obsFinal||null,
+      departamento: estMovTipo==='entrada'?null:(deptoFinal||null),
+      pdv_id: estMovTipo==='entrada'?null:(pdvId||null),
+      observacao: estMovTipo==='entrada'?obsEntrada:(obsFinal||null),
       criado_por: usuarioLogado?.nome||null
     });
 
-    // Na entrada: atualiza a categoria do item se foi selecionada diferente
-    if(estMovTipo==='entrada'){
-      const catSel = document.getElementById('estMovCategoria');
-      const novaCategoria = catSel?.value;
-      if(novaCategoria && novaCategoria !== (item?.categoria||'Matéria Prima')){
-        await api('PATCH','estoque_itens',{categoria:novaCategoria},`?id=eq.${estMovItemId}`);
-      }
+    // Na entrada: atualiza o barracão do item se mudou
+    if(estMovTipo==='entrada' && barracao && barracao !== item?.localizacao){
+      await api('PATCH','estoque_itens',{localizacao:barracao},`?id=eq.${estMovItemId}`);
     }
 
     showToast(estMovTipo==='entrada'?`✅ Entrada de ${qtd} ${und} registrada!`:`✅ Saída de ${qtd} ${und}${pdvLabel?' para '+pdvLabel:''} registrada!`);
