@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 27';
+const APP_BUILD='2026-07-11 · build 28';
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -7802,7 +7802,7 @@ async function adicionarItemAListaCompras(itemId){
   const pdv = pdvs.find(p=>p.id===desenho?.pdv_id);
   try{
     const res = await api('POST','itens',{
-      pdv: pdv?('PDV '+pdv.numero):null,
+      pdv: pdv?pdv.numero:null,
       cliente: pdv?.cliente||null,
       equipamento: desenho?.nome_equipamento||null,
       descritivo: item.denominacao||null,
@@ -7833,7 +7833,7 @@ async function adicionarMaterialAListaCompras(noId, tipoNo){
   const numDes = isMont ? (no.numero_desenho||'') : (no.desenho_peca||'');
   try{
     const res = await api('POST','itens',{
-      pdv: pdv?('PDV '+pdv.numero):null,
+      pdv: pdv?pdv.numero:null,
       cliente: pdv?.cliente||null,
       equipamento: desenho?.nome_equipamento||null,
       descritivo: nomePeca ? `${no.material} — p/ ${nomePeca}` : no.material,
