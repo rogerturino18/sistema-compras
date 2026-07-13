@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 30';
+const APP_BUILD='2026-07-11 · build 31';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -6234,6 +6234,7 @@ function renderCI(){
       <td>${i.categoria||'—'}</td>
       <td>${i.quantidade||0} ${i.unidade||''}</td>
       <td style="white-space:nowrap">
+        <button class="btn btn-sm ${i.comprado?'':'primary'}" style="font-size:10px;padding:3px 6px" onclick="toggleCI('${i.id}',${i.comprado})" title="${i.comprado?'Desmarcar comprado':'Marcar comprado'}">${i.comprado?'↩':'✓'}</button>
         <button class="btn btn-sm" onclick="abrirModalCISimples('${i.id}')" title="Editar">✏️</button>
         <button class="btn btn-sm danger" onclick="deletarCI('${i.id}')" title="Excluir">🗑</button>
       </td>
@@ -13275,8 +13276,8 @@ function abrirModalReq(id){
     const deptoGroup=[...selDest.querySelectorAll('optgroup')].find(g=>g.label.includes('Departamentos'));
     if(deptoGroup){
       departamentos.forEach(d=>{
-        if(!['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO'].includes(d.nome)){
-          if(![...deptoGroup.options].some(o=>o.value==='depto:'+d.nome)){
+        if(d.nome && !['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO'].includes(d.nome)){
+          if(![...deptoGroup.querySelectorAll('option')].some(o=>o.value==='depto:'+d.nome)){
             const o=document.createElement('option');o.value='depto:'+d.nome;o.textContent=d.nome;deptoGroup.appendChild(o);
           }
         }
@@ -13785,10 +13786,10 @@ function renderDepartamentos(){
   if(!filtTipo||filtTipo==='fixo'){
     const todos=[...DEPTOS_FIXOS,...departamentos.map(d=>({...d,tipo:'fixo'}))];
     todos.forEach(d=>{
-      if(busca&&!d.nome.toLowerCase().includes(busca)) return;
+      if(busca&&!(d.nome||'').toLowerCase().includes(busca)) return;
       const reqs=requisicoes.filter(r=>r.departamento===d.nome&&!r.pdv_id&&r.status==='Atendida');
       const matUsados=reqs.reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
-      centros.push({id:d.id,tipo:'fixo',nome:d.nome,cor:d.cor||getCor(d.nome),matUsados,opsCount:0,reqs});
+      centros.push({id:d.id,tipo:'fixo',nome:d.nome||'(sem nome)',cor:d.cor||getCor(d.nome),matUsados,opsCount:0,reqs,custom:departamentos.some(dd=>dd.id===d.id)});
     });
   }
 
@@ -13832,7 +13833,7 @@ function renderDepartamentos(){
       const nb=parseInt(String(b.nome).replace(/\D/g,''))||0;
       return na-nb;
     }
-    return a.nome.localeCompare(b.nome,'pt-BR');
+    return (a.nome||'').localeCompare(b.nome||'','pt-BR');
   });
 
   listaEl.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;padding:4px">${ordenados.map(c=>{
@@ -13849,6 +13850,7 @@ function renderDepartamentos(){
         border:2px solid rgba(255,255,255,0.12)"
       onmouseover="this.style.transform='scale(1.06)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'"
       onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(0,0,0,0.18)'">
+      ${c.custom?`<button onclick="event.stopPropagation();deletarDepartamento('${c.id}')" title="Excluir departamento" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.35);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center">🗑</button>`:''}
       <div style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${c.tipo==='pdv'?'PDV':'🏢 Depto'}</div>
       ${c.tipo==='pdv'
         ?`<div style="font-size:26px;font-weight:900;color:#fff;line-height:1">${numero}</div>`
