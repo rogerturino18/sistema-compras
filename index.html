@@ -4250,7 +4250,10 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 28';
+const APP_BUILD='2026-07-11 · build 30';
+// Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
+const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
+const moduloOculto = id => MODULOS_OCULTOS.includes(id);
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
@@ -4461,14 +4464,14 @@ function renderDashboard(){
   if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,tab:10});
   const semCotacao=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado);
   if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,tab:6});
-  // Financial alerts
-  if(typeof contasPagar!=='undefined'){
+  // Financial alerts — só se o módulo Financeiro não estiver oculto
+  if(!moduloOculto('financeiro') && typeof contasPagar!=='undefined'){
     const cpVencidas=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento));
     if(cpVencidas.length) notifs.push({tipo:'red',icon:'📤',msg:`${cpVencidas.length} conta(s) a pagar VENCIDA(S) — ${fmtMoeda(cpVencidas.reduce((s,c)=>s+(c.valor||0),0))}`,tab:19});
     const cpHoje=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&c.vencimento===hoje());
     if(cpHoje.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${cpHoje.length} conta(s) a pagar vencem HOJE`,tab:19});
   }
-  if(typeof contasReceber!=='undefined'){
+  if(!moduloOculto('financeiro') && typeof contasReceber!=='undefined'){
     const crVencidas=contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada'&&isVencida(c.vencimento));
     if(crVencidas.length) notifs.push({tipo:'yellow',icon:'📥',msg:`${crVencidas.length} conta(s) a receber VENCIDA(S) — ${fmtMoeda(crVencidas.reduce((s,c)=>s+(c.valor||0),0))}`,tab:20});
   }
@@ -7836,7 +7839,7 @@ async function adicionarMaterialAListaCompras(noId, tipoNo){
       pdv: pdv?pdv.numero:null,
       cliente: pdv?.cliente||null,
       equipamento: desenho?.nome_equipamento||null,
-      descritivo: nomePeca ? `${no.material} — p/ ${nomePeca}` : no.material,
+      descritivo: nomePeca || no.material,
       desenho: numDes||null,
       material: no.material,
       qtd: Number(no.quantidade)||1,
@@ -9628,8 +9631,7 @@ function renderHomeTiles(){
   const perms=getPermissoesUsuario(usuarioLogado);
   const tabsP=(!usuarioLogado||isAprovador())?null:perms.map(p=>{const m=MODULOS_SISTEMA.find(x=>x.id===p);return m?m.tab:null;}).filter(t=>t!==null);
   const podeVer=(tab)=>!tabsP||tab===0||tabsP.includes(tab);
-  // Módulos ocultos do dashboard/sidebar (ex.: Financeiro, não usado no momento)
-  const MODULOS_OCULTOS = ['financeiro'];
+  // Módulos ocultos do dashboard/sidebar (usa a constante global MODULOS_OCULTOS)
   const grupos=DASH_GRUPOS.filter(g=>!MODULOS_OCULTOS.includes(g.id) && g.subs.some(s=>podeVer(s.tab)));
   MODULOS_OCULTOS.forEach(id=>{ const ic=document.getElementById('sbico_'+id); if(ic) ic.style.display='none'; });
 
@@ -11996,7 +11998,7 @@ function aplicarPermissoes(){
   // 3. Oculta cards do dashboard sem permissão
   document.querySelectorAll('[data-modulo]').forEach(el=>{
     const mod=el.getAttribute('data-modulo');
-    el.style.display = perms.includes(mod) ? '' : 'none';
+    el.style.display = (!moduloOculto(mod) && perms.includes(mod)) ? '' : 'none';
   });
 
   // 4. Oculta/mostra botões da barra de navegação mobile (mobnav_*)
