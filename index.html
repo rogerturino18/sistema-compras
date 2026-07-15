@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-14 · build 35';
+const APP_BUILD='2026-07-15 · build 36';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -6663,6 +6663,7 @@ function renderOrdens(){
 
   // Status de cada ordem
   const statusOrdem=o=>{
+    if(o.status==='concluido') return 'concluido';   // finalização explícita (ex.: retorno do terceirizado)
     if(o.status==='terceirizado') return 'terceirizado';
     const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t));
     const placeholder=temposOP.filter(t=>t.ordem_id===o.id&&!temposReais(t));
@@ -9837,7 +9838,11 @@ function renderEstoque(){
     const cat=i.categoria||'Matéria Prima';
     if(estCatAtual&&cat!==estCatAtual) return false;
     if(filtMat&&i.material!==filtMat) return false;
-    if(filtBarr&&i.localizacao!==filtBarr) return false;
+    if(filtBarr){
+      const sb=(typeof saldoBarracoes==='function')?saldoBarracoes(i):{b1:0,b2:0};
+      if(filtBarr==='Barracão 1' && sb.b1===0) return false;
+      if(filtBarr==='Barracão 2' && sb.b2===0) return false;
+    }
     if(busca&&!(i.descricao+i.material+i.codigo+i.ncm+i.categoria+'').toLowerCase().includes(busca)) return false;
     // Ocultar itens com saldo zero
     if(estOcultarZero){
@@ -9927,10 +9932,10 @@ function renderEstoque(){
     // Selo do barracão — mesma informação que hoje só dava pra ver filtrando ou
     // clicando em transferir; agora aparece direto na linha de cada item.
     const _sb = (typeof saldoBarracoes==='function') ? saldoBarracoes(i) : {b1:0,b2:0};
-    const _b1chip = `<span style="font-size:10px;font-weight:700;background:#e3f2fd;color:#1565c0;padding:2px 7px;border-radius:10px;white-space:nowrap">B1: ${_sb.b1}</span>`;
-    const _b2chip = `<span style="font-size:10px;font-weight:700;background:#f3e5f5;color:#7b1fa2;padding:2px 7px;border-radius:10px;white-space:nowrap">B2: ${_sb.b2}</span>`;
+    const _b1chip = `<span style="font-size:10px;font-weight:700;background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;white-space:nowrap">Barracão 1: ${_sb.b1}</span>`;
+    const _b2chip = `<span style="font-size:10px;font-weight:700;background:#f3e5f5;color:#7b1fa2;padding:2px 8px;border-radius:10px;white-space:nowrap">Barracão 2: ${_sb.b2}</span>`;
     let badgeBarracao;
-    if(_sb.b1!==0 && _sb.b2!==0) badgeBarracao = `<span style="display:inline-flex;gap:4px">${_b1chip}${_b2chip}</span>`;
+    if(_sb.b1!==0 && _sb.b2!==0) badgeBarracao = `<span style="display:inline-flex;flex-direction:column;gap:3px;align-items:flex-start">${_b1chip}${_b2chip}</span>`;
     else if(_sb.b2!==0) badgeBarracao = _b2chip;
     else if(_sb.b1!==0) badgeBarracao = _b1chip;
     else {
