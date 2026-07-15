@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-14 · build 34';
+const APP_BUILD='2026-07-14 · build 35';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9926,10 +9926,19 @@ function renderEstoque(){
 
     // Selo do barracão — mesma informação que hoje só dava pra ver filtrando ou
     // clicando em transferir; agora aparece direto na linha de cada item.
-    const corBarracao = i.localizacao==='Barracão 1' ? {bg:'#e3f2fd',cor:'#1565c0'} : i.localizacao==='Barracão 2' ? {bg:'#f3e5f5',cor:'#7b1fa2'} : null;
-    const badgeBarracao = corBarracao
-      ? `<span style="font-size:10px;font-weight:700;background:${corBarracao.bg};color:${corBarracao.cor};padding:2px 8px;border-radius:10px;white-space:nowrap">${i.localizacao}</span>`
-      : `<span style="font-size:11px;color:#bdbdbd">—</span>`;
+    const _sb = (typeof saldoBarracoes==='function') ? saldoBarracoes(i) : {b1:0,b2:0};
+    const _b1chip = `<span style="font-size:10px;font-weight:700;background:#e3f2fd;color:#1565c0;padding:2px 7px;border-radius:10px;white-space:nowrap">B1: ${_sb.b1}</span>`;
+    const _b2chip = `<span style="font-size:10px;font-weight:700;background:#f3e5f5;color:#7b1fa2;padding:2px 7px;border-radius:10px;white-space:nowrap">B2: ${_sb.b2}</span>`;
+    let badgeBarracao;
+    if(_sb.b1!==0 && _sb.b2!==0) badgeBarracao = `<span style="display:inline-flex;gap:4px">${_b1chip}${_b2chip}</span>`;
+    else if(_sb.b2!==0) badgeBarracao = _b2chip;
+    else if(_sb.b1!==0) badgeBarracao = _b1chip;
+    else {
+      const corBarracao = i.localizacao==='Barracão 1' ? {bg:'#e3f2fd',cor:'#1565c0'} : i.localizacao==='Barracão 2' ? {bg:'#f3e5f5',cor:'#7b1fa2'} : null;
+      badgeBarracao = corBarracao
+        ? `<span style="font-size:10px;font-weight:700;background:${corBarracao.bg};color:${corBarracao.cor};padding:2px 8px;border-radius:10px;white-space:nowrap">${i.localizacao}</span>`
+        : `<span style="font-size:11px;color:#bdbdbd">—</span>`;
+    }
 
     const _movsItem = estoqueMov.filter(m=>m.item_id===i.id).map(m=>m.data).filter(Boolean).sort();
     const _ultData = _movsItem.length ? _movsItem[_movsItem.length-1] : (i.atualizado_em||i.created_at||null);
@@ -9990,12 +9999,22 @@ function abrirEstMovRapido(itemId, tipo){
   const tipoEntDiv=document.getElementById('estMovTipoEntradaDiv');
   const deptoDiv=document.getElementById('estMovDeptoDiv');
   if(tipo==='entrada'){
-    if(barrDiv){ barrDiv.style.display='block'; const b=document.getElementById('estMovBarracao'); if(b) b.value=(item.localizacao==='Barracão 2'?'Barracão 2':'Barracão 1'); }
+    if(barrDiv){ barrDiv.style.display='block'; barrDiv.querySelector('label').textContent='Barracão de destino'; const b=document.getElementById('estMovBarracao'); if(b){ b.innerHTML='<option value="Barracão 1">Barracão 1</option><option value="Barracão 2">Barracão 2</option>'; b.value=(item.localizacao==='Barracão 2'?'Barracão 2':'Barracão 1'); } }
     if(tipoEntDiv){ tipoEntDiv.style.display='block'; const t=document.getElementById('estMovTipoEntrada'); if(t) t.value='compra'; }
     if(deptoDiv) deptoDiv.style.display='none';
     document.getElementById('estMovPdvDiv').style.display='none';
   } else {
-    if(barrDiv) barrDiv.style.display='none';
+    // Saída: escolhe de qual barracão sair (mostra o saldo de cada um)
+    if(barrDiv){
+      barrDiv.style.display='block';
+      const sb=(typeof saldoBarracoes==='function')?saldoBarracoes(item):{b1:0,b2:0};
+      barrDiv.querySelector('label').textContent='Sair do barracão';
+      const b=document.getElementById('estMovBarracao');
+      if(b){
+        b.innerHTML=`<option value="Barracão 1">Barracão 1 (saldo ${sb.b1})</option><option value="Barracão 2">Barracão 2 (saldo ${sb.b2})</option>`;
+        b.value = sb.b1>0 ? 'Barracão 1' : (sb.b2>0 ? 'Barracão 2' : 'Barracão 1');
+      }
+    }
     if(tipoEntDiv) tipoEntDiv.style.display='none';
     if(deptoDiv) deptoDiv.style.display='block';
   }
@@ -10077,17 +10096,13 @@ async function confirmarEstMov(){
       subtipo: subtipoMov,
       quantidade: qtd,
       unidade_saida: und,
+      barracao: barracao || null,
       data: new Date().toISOString().split('T')[0],
       departamento: estMovTipo==='entrada'?null:(deptoFinal||null),
       pdv_id: estMovTipo==='entrada'?null:(pdvId||null),
       observacao: estMovTipo==='entrada'?obsEntrada:(obsFinal||null),
       criado_por: usuarioLogado?.nome||null
     });
-
-    // Na entrada: atualiza o barracão do item se mudou
-    if(estMovTipo==='entrada' && barracao && barracao !== item?.localizacao){
-      await api('PATCH','estoque_itens',{localizacao:barracao},`?id=eq.${estMovItemId}`);
-    }
 
     showToast(estMovTipo==='entrada'?`✅ Entrada de ${qtd} ${und} registrada!`:`✅ Saída de ${qtd} ${und}${pdvLabel?' para '+pdvLabel:''} registrada!`);
     fecharEstMovRapido();
@@ -10104,6 +10119,21 @@ function _saldoAtualEstoqueItem(item){
   return (item.qtd_inicial||0)
     + mov.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.quantidade,0)
     - mov.filter(m=>m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0);
+}
+
+// Saldo separado por barracão. O saldo inicial e movimentações antigas (sem
+// barracão gravado) são atribuídos ao barracão atual do item (melhor palpite).
+function saldoBarracoes(item){
+  const r={b1:0,b2:0};
+  if(!item) return r;
+  const loc = item.localizacao==='Barracão 2' ? 'b2' : 'b1';
+  r[loc] += Number(item.qtd_inicial)||0;
+  (estoqueMov||[]).filter(m=>m.item_id===item.id).forEach(m=>{
+    const delta = (m.tipo==='entrada'?1:-1)*(Number(m.quantidade)||0);
+    const bar = m.barracao==='Barracão 2' ? 'b2' : (m.barracao==='Barracão 1' ? 'b1' : loc);
+    r[bar]+=delta;
+  });
+  return r;
 }
 
 function abrirModalEstoque(sub, id){
