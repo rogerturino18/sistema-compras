@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-14 · build 33';
+const APP_BUILD='2026-07-14 · build 34';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4426,7 +4426,7 @@ async function loadAll(){
     renderAll();
     verificarLembretes();
     renderHomeTiles();
-    if(typeof carregarConfigTelegram==='function') carregarConfigTelegram().then(()=>{ if(typeof checarDigestDiario==='function') checarDigestDiario(); });
+    if(typeof carregarConfigTelegram==='function') carregarConfigTelegram().then(()=>{ if(typeof checarDigestDiario==='function') checarDigestDiario(); if(typeof checarDigestMinimoDiario==='function') checarDigestMinimoDiario(); });
     // Verifica requisições pendentes de aprovação sempre que os dados carregam
     setTimeout(()=>{ if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes(); }, 200);
   } catch(e){ console.error(e); showToast('Erro ao carregar dados','err'); }
@@ -16861,6 +16861,21 @@ async function checarDigestDiario(){
       else await api('POST','app_config',{chave:'sl_digest_compras',valor:hoje});
     }
   }catch(e){ console.warn('[digest] ',e); }
+}
+
+// Uma vez por dia: envia a lista de itens abaixo do estoque mínimo (pra não esquecer de comprar)
+async function checarDigestMinimoDiario(){
+  try{
+    if(!telegramCfg.token||!telegramCfg.chatId) return;
+    if(!itensAbaixoMinimo().length) return;
+    const hoje=new Date().toISOString().split('T')[0];
+    const r=await api('GET','app_config','','?chave=eq.sl_digest_minimo').catch(()=>null);
+    const ultimo = r&&r[0] ? r[0].valor : null;
+    if(ultimo===hoje) return;                       // já enviou hoje
+    await enviarAlertaEstoqueTelegram(true);
+    if(r&&r[0]) await api('PATCH','app_config',{valor:hoje,atualizado:new Date().toISOString()},'?chave=eq.sl_digest_minimo');
+    else await api('POST','app_config',{chave:'sl_digest_minimo',valor:hoje});
+  }catch(e){ console.warn('[digest-min] ',e); }
 }
 // ===== FIM DIGEST DIÁRIO =====
 
