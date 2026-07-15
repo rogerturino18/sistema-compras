@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-11 · build 31';
+const APP_BUILD='2026-07-14 · build 32';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -10619,14 +10619,14 @@ async function exportarExcelEstoque(){
       await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
     }
     const num=v=>{ const n=parseFloat(v); return isNaN(n)?'':n; };
-    const rows=[['Código','Categoria','Descrição','Material','NCM','Saldo','Unidade','Custo Unit.','Preço Venda','Peso Unit.','Barracão']];
+    const rows=[['Origem','Código','Categoria','Descrição','Material','NCM','Saldo','Unidade','Custo Unit.','Preço Venda','Peso Unit.','Barracão']];
     lista.forEach(i=>{
       const mov=estoqueMov.filter(m=>m.item_id===i.id);
       const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-      rows.push([i.codigo||'', i.categoria||'Matéria Prima', i.tipo_peca||i.descricao||'', i.material||'', i.ncm||'', saldo, i.unidade||'', num(i.valor_unitario), num(i.preco_venda), num(i.peso_unitario), i.localizacao||'']);
+      rows.push([i.origem_fiscal?'Fiscal':'App', i.codigo||'', i.categoria||'Matéria Prima', i.tipo_peca||i.descricao||'', i.material||'', i.ncm||'', saldo, i.unidade||'', num(i.valor_unitario), num(i.preco_venda), num(i.peso_unitario), i.localizacao||'']);
     });
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:12},{wch:20},{wch:44},{wch:16},{wch:10},{wch:8},{wch:8},{wch:11},{wch:11},{wch:10},{wch:12}];
+    ws['!cols']=[{wch:8},{wch:12},{wch:20},{wch:44},{wch:16},{wch:10},{wch:8},{wch:8},{wch:11},{wch:11},{wch:10},{wch:12}];
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'Estoque');
     XLSX.writeFile(wb,'estoque_completo_'+new Date().toISOString().split('T')[0]+'.xlsx');
