@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-14 · build 32';
+const APP_BUILD='2026-07-14 · build 33';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4366,6 +4366,20 @@ async function api(method,table,data=null,filter=''){
   return text?JSON.parse(text):[];
 }
 
+// Busca TODOS os registros de uma tabela, paginando (Supabase corta em 1000 por requisição)
+async function apiAll(table, query=''){
+  const all=[]; let offset=0; const pageSize=1000;
+  for(let guard=0; guard<200; guard++){
+    const sep=query.includes('?')?'&':'?';
+    const page=await api('GET', table, null, `${query}${sep}limit=${pageSize}&offset=${offset}`);
+    if(!Array.isArray(page)) break;
+    all.push(...page);
+    if(page.length<pageSize) break;
+    offset+=pageSize;
+  }
+  return all;
+}
+
 // Atualiza só dados financeiros — muito mais rápido que loadAll()
 async function loadFinanceiro(){
   try{
@@ -4392,8 +4406,8 @@ async function loadAll(){
       api('GET','setores_pdv','','?order=created_at.asc').catch(()=>[]),
       api('GET','pecas_projeto','','?order=created_at.asc').catch(()=>[]),
       api('GET','sessoes_trabalho','','?order=iniciado_em.desc').catch(()=>[]),
-      api('GET','estoque_itens','','?order=descricao.asc').catch(()=>[]),
-      api('GET','estoque_movimentacoes','','?order=data.desc').catch(()=>[]),
+      apiAll('estoque_itens','?order=descricao.asc').catch(()=>[]),
+      apiAll('estoque_movimentacoes','?order=data.desc').catch(()=>[]),
       api('GET','clientes_fiscal','','?order=nome.asc').catch(()=>[]),
       api('GET','notas_fiscais','','?order=created_at.desc').catch(()=>[]),
       api('GET','clientes','','?order=nome.asc').catch(()=>[]),
