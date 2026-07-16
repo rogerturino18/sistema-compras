@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-15 · build 36';
+const APP_BUILD='2026-07-15 · build 37';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9903,7 +9903,22 @@ function renderEstoque(){
   const rodape = document.getElementById('estRodape');
   if(!tbody) return;
 
-  if(!lista.length){
+  // Expande cada item em uma linha por barracão onde tem saldo.
+  // Mesmo item em 2 barracões => 2 linhas (como se fossem 2 itens, 1 em cada).
+  const linhas=[];
+  lista.forEach(i=>{
+    const sb=(typeof saldoBarracoes==='function')?saldoBarracoes(i):{b1:0,b2:0};
+    const parts=[];
+    if(sb.b1!==0) parts.push({barracao:'Barracão 1', saldo:sb.b1});
+    if(sb.b2!==0) parts.push({barracao:'Barracão 2', saldo:sb.b2});
+    if(!parts.length) parts.push({barracao:i.localizacao||null, saldo:(typeof _saldoAtualEstoqueItem==='function'?_saldoAtualEstoqueItem(i):0)});
+    parts.forEach(pt=>{
+      if(filtBarr && pt.barracao!==filtBarr) return;
+      linhas.push({it:i, barracao:pt.barracao, saldoBarr:Math.round(pt.saldo)});
+    });
+  });
+
+  if(!linhas.length){
     tbody.innerHTML='';
     if(vazio) vazio.style.display='block';
     if(rodape) rodape.textContent='';
@@ -9911,10 +9926,7 @@ function renderEstoque(){
   }
   if(vazio) vazio.style.display='none';
 
-  tbody.innerHTML = lista.map(i=>{
-    const mov = estoqueMov.filter(m=>m.item_id===i.id);
-    const saldoRaw = mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-    const saldo = Math.round(saldoRaw);
+  tbody.innerHTML = linhas.map(({it:i, barracao:_barr, saldoBarr:saldo})=>{
     const saldoColor = saldo<=0 ? 'color:#c62828;font-weight:700' : 'color:#2e7d32;font-weight:700';
 
     // Monta dimensões
@@ -9931,19 +9943,10 @@ function renderEstoque(){
 
     // Selo do barracão — mesma informação que hoje só dava pra ver filtrando ou
     // clicando em transferir; agora aparece direto na linha de cada item.
-    const _sb = (typeof saldoBarracoes==='function') ? saldoBarracoes(i) : {b1:0,b2:0};
-    const _b1chip = `<span style="font-size:10px;font-weight:700;background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;white-space:nowrap">Barracão 1: ${_sb.b1}</span>`;
-    const _b2chip = `<span style="font-size:10px;font-weight:700;background:#f3e5f5;color:#7b1fa2;padding:2px 8px;border-radius:10px;white-space:nowrap">Barracão 2: ${_sb.b2}</span>`;
-    let badgeBarracao;
-    if(_sb.b1!==0 && _sb.b2!==0) badgeBarracao = `<span style="display:inline-flex;flex-direction:column;gap:3px;align-items:flex-start">${_b1chip}${_b2chip}</span>`;
-    else if(_sb.b2!==0) badgeBarracao = _b2chip;
-    else if(_sb.b1!==0) badgeBarracao = _b1chip;
-    else {
-      const corBarracao = i.localizacao==='Barracão 1' ? {bg:'#e3f2fd',cor:'#1565c0'} : i.localizacao==='Barracão 2' ? {bg:'#f3e5f5',cor:'#7b1fa2'} : null;
-      badgeBarracao = corBarracao
-        ? `<span style="font-size:10px;font-weight:700;background:${corBarracao.bg};color:${corBarracao.cor};padding:2px 8px;border-radius:10px;white-space:nowrap">${i.localizacao}</span>`
-        : `<span style="font-size:11px;color:#bdbdbd">—</span>`;
-    }
+    const corBarracao = _barr==='Barracão 1' ? {bg:'#e3f2fd',cor:'#1565c0'} : _barr==='Barracão 2' ? {bg:'#f3e5f5',cor:'#7b1fa2'} : null;
+    const badgeBarracao = corBarracao
+      ? `<span style="font-size:10px;font-weight:700;background:${corBarracao.bg};color:${corBarracao.cor};padding:2px 8px;border-radius:10px;white-space:nowrap">${_barr}</span>`
+      : `<span style="font-size:11px;color:#bdbdbd">—</span>`;
 
     const _movsItem = estoqueMov.filter(m=>m.item_id===i.id).map(m=>m.data).filter(Boolean).sort();
     const _ultData = _movsItem.length ? _movsItem[_movsItem.length-1] : (i.atualizado_em||i.created_at||null);
