@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-15 · build 37';
+const APP_BUILD='2026-07-15 · build 39';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9742,7 +9742,7 @@ function dashToggleGrupo(gId){
 // ===== ESTOQUE =====
 let estCatAtual = null; // categoria selecionada no filtro lateral
 let estOrdemRecentes = false;
-let estOcultarZero = false;
+let estOcultarZero = (()=>{ try{ return localStorage.getItem('sl_ocultar_zero')==='1'; }catch(e){ return false; } })();
 let estSortCol='descricao';
 let estSortDir=1;
 
@@ -9772,30 +9772,30 @@ function toggleOrdemEstoque(){
   renderEstoque();
 }
 
+function _aplicarBtnOcultarZero(){
+  const btn = document.getElementById('btnEstOcultar0');
+  if(!btn) return;
+  if(estOcultarZero){
+    btn.textContent = '🚫 Mostrando Ativos';
+    btn.style.background = '#e65100'; btn.style.color = '#fff'; btn.style.borderColor = '#e65100';
+    btn.title = 'Itens com saldo zero estão ocultos — clique para mostrar todos';
+  } else {
+    btn.textContent = '👁 Ocultar Zero';
+    btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
+    btn.title = 'Ocultar itens com saldo zero';
+  }
+}
 function toggleOcultarZero(){
   estOcultarZero = !estOcultarZero;
-  const btn = document.getElementById('btnEstOcultar0');
-  if(btn){
-    if(estOcultarZero){
-      btn.textContent = '🚫 Mostrando Ativos';
-      btn.style.background = '#e65100';
-      btn.style.color = '#fff';
-      btn.style.borderColor = '#e65100';
-      btn.title = 'Itens com saldo zero estão ocultos — clique para mostrar todos';
-    } else {
-      btn.textContent = '👁 Ocultar Zero';
-      btn.style.background = '';
-      btn.style.color = '';
-      btn.style.borderColor = '';
-      btn.title = 'Ocultar itens com saldo zero';
-    }
-  }
+  try{ localStorage.setItem('sl_ocultar_zero', estOcultarZero?'1':'0'); }catch(e){}
+  _aplicarBtnOcultarZero();
   renderEstoque();
 }
 let estMovItemId = null, estMovTipo = null;
 
 function renderEstoque(){
   if(typeof atualizarBadgeMinimo==='function') setTimeout(atualizarBadgeMinimo,0);
+  if(typeof _aplicarBtnOcultarZero==='function') _aplicarBtnOcultarZero();
   // Categorias dinâmicas (localStorage) + categorias em uso nos itens
   const CATS_FIXAS = getCatsEstoque();
   const catsUsadas = [...new Set(estoqueItens.map(i => i.categoria||'Matéria Prima'))];
@@ -9969,7 +9969,7 @@ function renderEstoque(){
       <td style="padding:8px 10px;white-space:nowrap">${badgeBarracao}</td>
       <td style="padding:8px 8px;white-space:nowrap">
         <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirEstMovRapido('${i.id}','entrada')" title="Registrar Entrada">📥 Entrada</button>
-        <button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="transferirBarracao('${i.id}','${i.localizacao||''}')" title="Transferir barracão">🔄</button>
+        <button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="transferirBarracao('${i.id}','${_barr||''}',${saldo})" title="Transferir quantidade para o outro barracão">🔄</button>
         <button class="btn btn-sm" onclick="abrirModalEstoque('mp','${i.id}')" title="Editar">✏️</button>
         <button class="btn btn-sm danger" onclick="deletarEstoqueItem('${i.id}')" title="Excluir">🗑</button>
       </td>
@@ -13129,14 +13129,25 @@ async function reprocessarOrdem(ordemId){
 
 
 
-function transferirBarracao(itemId, localAtual){
-  const outro = localAtual === 'Barracão 1' ? 'Barracão 2' : 'Barracão 1';
+async function transferirBarracao(itemId, origem, saldoOrigem){
   const item = estoqueItens.find(i=>i.id===itemId);
   if(!item) return;
-  if(!confirm('Transferir "' + (item.tipo_peca||item.descricao||'item') + '" de ' + (localAtual||'sem local') + ' para ' + outro + '?')) return;
-  api('PATCH','estoque_itens',{localizacao:outro},'?id=eq.'+itemId)
-    .then(()=>{ showToast('Transferido para ' + outro + '!'); loadAll().then(()=>{ estCatAtual=outro; renderEstoque(); }); })
-    .catch(()=>showToast('Erro ao transferir','err'));
+  const destino = origem === 'Barracão 1' ? 'Barracão 2' : 'Barracão 1';
+  const nome = item.tipo_peca||item.descricao||'item';
+  const max = Number(saldoOrigem)||0;
+  const resp = prompt(`Transferir quantos de "${nome}"\nde ${origem||'sem local'} → ${destino}?\n(disponível: ${max})`, max>0?String(max):'');
+  if(resp===null) return;
+  const qtd = parseFloat(String(resp).replace(',','.'));
+  if(!qtd || qtd<=0){ showToast('Quantidade inválida','err'); return; }
+  if(qtd>max){ showToast(`Só há ${max} em ${origem}`,'err'); return; }
+  const hoje=new Date().toISOString().split('T')[0];
+  try{
+    // Saída do barracão de origem + Entrada no barracão de destino (mantém o saldo total)
+    await api('POST','estoque_movimentacoes',{ item_id:itemId, tipo:'saida', subtipo:'transferencia', quantidade:qtd, barracao:origem, data:hoje, observacao:`Transferência ${origem} → ${destino}`, criado_por:usuarioLogado?.nome||null });
+    await api('POST','estoque_movimentacoes',{ item_id:itemId, tipo:'entrada', subtipo:'transferencia', quantidade:qtd, barracao:destino, data:hoje, observacao:`Transferência ${origem} → ${destino}`, criado_por:usuarioLogado?.nome||null });
+    showToast(`✅ ${qtd} transferido de ${origem} para ${destino}!`);
+    await loadAll(); renderEstoque();
+  }catch(e){ showToast('Erro ao transferir: '+e.message,'err'); console.error(e); }
 }
 
 // ===== MOVIMENTAÇÕES DE ESTOQUE =====
