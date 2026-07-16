@@ -4250,7 +4250,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-15 · build 39';
+const APP_BUILD='2026-07-16 · build 40';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9970,7 +9970,7 @@ function renderEstoque(){
       <td style="padding:8px 8px;white-space:nowrap">
         <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirEstMovRapido('${i.id}','entrada')" title="Registrar Entrada">📥 Entrada</button>
         <button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="transferirBarracao('${i.id}','${_barr||''}',${saldo})" title="Transferir quantidade para o outro barracão">🔄</button>
-        <button class="btn btn-sm" onclick="abrirModalEstoque('mp','${i.id}')" title="Editar">✏️</button>
+        <button class="btn btn-sm" onclick="abrirModalEstoque('mp','${i.id}','${_barr||''}')" title="Editar">✏️</button>
         <button class="btn btn-sm danger" onclick="deletarEstoqueItem('${i.id}')" title="Excluir">🗑</button>
       </td>
     </tr>`;
@@ -10144,10 +10144,14 @@ function saldoBarracoes(item){
   return r;
 }
 
-function abrirModalEstoque(sub, id){
+let editEstoqueBarracao = null, editEstoqueSaldoBarrAntes = null;
+function abrirModalEstoque(sub, id, barracao){
   editEstoqueId = id;
   estSubAtual = sub;
   const item = id ? estoqueItens.find(i=>i.id===id) : null;
+  // Barracão da linha clicada (quando o item está dividido em 2 barracões).
+  editEstoqueBarracao = (barracao==='Barracão 1'||barracao==='Barracão 2') ? barracao : null;
+  editEstoqueSaldoBarrAntes = null;
   const titleEl=document.getElementById('modalEstoqueTitulo')||document.getElementById('modalEstTitulo'); if(titleEl) titleEl.textContent = id ? 'Editar Item' : 'Novo Item de Estoque';
   const tipo = sub==='mp' ? 'materia_prima' : 'produto_final';
   document.getElementById('est_tipo_hidden').value = tipo;
@@ -10162,16 +10166,26 @@ function abrirModalEstoque(sub, id){
   // qtd_inicial puro — senão o campo mostra um número diferente do que a tabela
   // exibe, e editar aqui pensando que é o saldo real bagunça a conta (era
   // exatamente esse o bug: tabela mostrava 20, aqui aparecia 2).
-  set('est_qtd', item ? _saldoAtualEstoqueItem(item) : 0);
+  // Se a linha era de um barracão específico, mostra o saldo DAQUELE barracão
+  // (a lista divide por barracão; o editar tem que bater com a linha clicada).
+  let saldoMostrar = item ? _saldoAtualEstoqueItem(item) : 0;
+  if(item && editEstoqueBarracao && typeof saldoBarracoes==='function'){
+    const sb = saldoBarracoes(item);
+    saldoMostrar = editEstoqueBarracao==='Barracão 2' ? sb.b2 : sb.b1;
+    editEstoqueSaldoBarrAntes = saldoMostrar;
+  }
+  set('est_qtd', saldoMostrar);
   const ajudaQtd = document.getElementById('est_qtd_ajuda');
-  if(ajudaQtd) ajudaQtd.textContent = item ? 'Mudar este número registra um ajuste de Entrada/Saída com a diferença — não apaga o histórico de movimentações já feitas.' : '';
+  if(ajudaQtd) ajudaQtd.textContent = !item ? '' : (editEstoqueBarracao
+    ? `Saldo no ${editEstoqueBarracao}. Mudar este número registra um ajuste nesse barracão — não apaga o histórico.`
+    : 'Mudar este número registra um ajuste de Entrada/Saída com a diferença — não apaga o histórico de movimentações já feitas.');
   set('est_valor', item?.valor_unitario);
   set('est_preco_venda', item?.preco_venda);
   set('est_peso', item?.peso_unitario);
   set('est_minimo', item?.estoque_minimo);
   set('est_nf', item?.nota_fiscal);
   set('est_obs', item?.observacao);
-  if(document.getElementById('est_local')) document.getElementById('est_local').value = item?.localizacao||'Barracão 1';
+  if(document.getElementById('est_local')) document.getElementById('est_local').value = editEstoqueBarracao || item?.localizacao || 'Barracão 1';
   if(document.getElementById('est_und')) document.getElementById('est_und').value = item?.unidade||'PC';
   // Campos de barra roscada — persistem no item (preco_metro, comprimento_mm); a detecção
   // de "é barra roscada cortada" é sempre automática (descrição + comprimento<1000mm)
@@ -10383,7 +10397,7 @@ async function salvarEstoque(){
     codigo: codigoFinal,
     ncm: document.getElementById('est_ncm')?.value.trim()||null,
     material: toUp(document.getElementById('est_mat').value),
-    localizacao: document.getElementById('est_local').value,
+    localizacao: (editEstoqueBarracao && itemOriginal) ? (itemOriginal.localizacao||document.getElementById('est_local').value) : document.getElementById('est_local').value,
     qtd_inicial: qtdInicialFinal,
     unidade,
     valor_unitario: parseFloat(document.getElementById('est_valor').value)||null,
@@ -10404,19 +10418,25 @@ async function salvarEstoque(){
       // Se o saldo digitado é diferente do saldo que o item tinha antes desta
       // edição, registra a diferença como um ajuste — visível no histórico de
       // movimentações, igual uma Entrada ou Saída normal.
-      const saldoAntes = _saldoAtualEstoqueItem(itemOriginal);
+      // Se a edição foi na linha de um barracão específico, o ajuste é sobre o
+      // saldo DAQUELE barracão (e a movimentação registra o barracão).
+      const saldoAntes = (editEstoqueBarracao && editEstoqueSaldoBarrAntes!==null)
+        ? editEstoqueSaldoBarrAntes
+        : _saldoAtualEstoqueItem(itemOriginal);
       const diferenca = novoSaldoDigitado - saldoAntes;
       if(diferenca !== 0){
+        const ondeTxt = editEstoqueBarracao ? ` no ${editEstoqueBarracao}` : '';
         await api('POST','estoque_movimentacoes',{
           item_id: editEstoqueId,
           tipo: diferenca>0?'entrada':'saida',
           subtipo: 'ajuste',
           quantidade: Math.abs(diferenca),
           unidade_saida: unidade,
+          barracao: editEstoqueBarracao || null,
           data: new Date().toISOString().split('T')[0],
           departamento: null,
           pdv_id: null,
-          observacao: `Ajuste manual via edição do item (saldo de ${saldoAntes} para ${novoSaldoDigitado})`,
+          observacao: `Ajuste manual via edição do item${ondeTxt} (saldo de ${saldoAntes} para ${novoSaldoDigitado})`,
           criado_por: usuarioLogado?.nome||null
         });
       }
