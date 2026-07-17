@@ -15,8 +15,13 @@
     }
   }catch(e){}
 })();
+// Evita que a tela de login pisque ao atualizar quando a sessão já existe.
+try{
+  if(sessionStorage.getItem('sl_usuario')) document.documentElement.classList.add('sessao-salva');
+}catch(e){}
 </script>
 <style>.modo-cotacao #loginBg,.modo-cotacao .login-bg,.modo-cotacao #homeScreen,.modo-cotacao #appContent,.modo-cotacao .app-content{display:none!important}
+.sessao-salva #loginBg{display:none!important}
 .modo-cotacao #fornecedorFormBg{display:block!important}</style>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -569,7 +574,7 @@ tr:hover td{background:#f9fbf9}
     <div class="sbi" onclick="sbGo(24,'Entrada NF-e')">🧾 Entrada NF-e</div>
     <div class="sbi" onclick="sbGo(2,'Fornecedores')">🏢 Fornecedores</div>
     <div class="sbi" onclick="sbGo(7,'Comparar Orçamentos')">📊 Comparar Orçamentos</div>
-    <div style="font-size:10px;font-weight:600;color:#9e9e9e;text-transform:uppercase;padding:8px 14px 2px">Interno</div>
+    <div style="font-size:10px;font-weight:600;color:#9e9e9e;text-transform:uppercase;padding:8px 14px 2px">Processos internos</div>
     <div class="sbi" onclick="sbGo(9,'Compras Internas')">🛒 Compras Internas</div>
     <div class="sbi" onclick="sbGo(10,'Enviar Cotação')">📧 Enviar Cotação</div>
     <div class="sbi" onclick="sbGo(15,'Pedido de Compra')">📋 Pedido de Compra</div>
@@ -2046,10 +2051,10 @@ tr:hover td{background:#f9fbf9}
         <input type="text" id="nfeChaveInput" placeholder="Cole a chave de acesso (44 dígitos)..." maxlength="44"
           style="flex:1;padding:9px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-family:monospace"
           oninput="this.value=this.value.replace(/\D/g,'')"
-          onkeydown="if(event.key==='Enter') buscarNFePorChave()">
-        <button class="btn" onclick="buscarNFePorChave()" style="background:#1565c0;color:#fff;border-color:#1565c0;white-space:nowrap">🔍 Buscar NF-e</button>
+          onkeydown="if(event.key==='Enter') buscarPorChaveNFe()">
+        <button class="btn" onclick="buscarPorChaveNFe()" style="background:#1565c0;color:#fff;border-color:#1565c0;white-space:nowrap">🔍 Buscar NF-e</button>
       </div>
-      <button onclick="forceSyncFC()" style="padding:8px 14px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" title="Sincronizar dados com o servidor para todos os usuários">🔄 Sincronizar</button>
+      <button class="btn" onclick="abrirOpcoesNFe()" style="background:#546e7a;color:#fff;border-color:#546e7a;white-space:nowrap">⚙️ Opções NF-e</button>
     </div>
   </div>
 
@@ -2057,7 +2062,7 @@ tr:hover td{background:#f9fbf9}
   <div class="stat-row" id="statsNFe" style="margin-bottom:16px"></div>
 
   <!-- Status do backend -->
-  <div id="nfeStatusBar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;font-size:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#f8f9f8;border:1px solid var(--border)">
+  <div id="nfeStatusBar" style="display:none" aria-hidden="true">
     <span id="nfeStatusBadge">⏳ Verificando backend...</span>
     <span style="color:#9e9e9e">|</span>
     <span>NSU atual: <b id="nfeNSUAtual">—</b></span>
@@ -4250,7 +4255,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-16 · build 40';
+const APP_BUILD='2026-07-17 · build 43';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4281,6 +4286,7 @@ async function fazerLogin(){
     if(!res||!res.length){showLoginError('E-mail ou senha incorretos');return;}
     usuarioLogado=res[0];
     sessionStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
+    document.documentElement.classList.add('sessao-salva');
     document.getElementById('loginBg').style.display='none';
     document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
     document.getElementById('userName').textContent=usuarioLogado.nome;
@@ -4301,6 +4307,7 @@ function showLoginError(msg){
 
 function fazerLogout(){
   sessionStorage.removeItem('sl_usuario');
+  document.documentElement.classList.remove('sessao-salva');
   usuarioLogado=null;
   document.getElementById('loginBg').style.display='flex';
   document.getElementById('loginEmail').value='';
@@ -9610,6 +9617,8 @@ const DASH_GRUPOS = [
    subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
    subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18}]},
+  {id:'entrada_nfe', label:'Entrada NF-e', icon:'🧾', color:'linear-gradient(135deg,#00838f,#00695c)', directTab:24,
+   subs:[{label:'Entrada NF-e',icon:'🧾',tab:24}]},
   {id:'epi',        label:'Controle EPI', icon:'🦺', color:'linear-gradient(135deg,#ef6c00,#e65100)', directTab:29,
    subs:[{label:'Controle EPI',icon:'🦺',tab:29}]},
 ];
@@ -9667,7 +9676,7 @@ function renderHomeTiles(){
   // auto-fit + minmax deixa o navegador decidir quantos cards cabem por linha em
   // qualquer tamanho de tela, e justify-content:center evita "buracos" na última linha.
   div.innerHTML=
-    `<div id="dashMainGrid" style="display:flex;flex-wrap:wrap;gap:18px;justify-content:center;align-content:flex-start;align-self:stretch;width:100%;max-width:700px;margin:0 auto;transition:opacity 0.3s;box-sizing:border-box">`+tilesHtml+'</div>'
+    `<div id="dashMainGrid" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-content:flex-start;align-self:stretch;width:100%;max-width:1160px;margin:0 auto;transition:opacity 0.3s;box-sizing:border-box">`+tilesHtml+'</div>'
     +'<div id="dashSubGrid" style="display:none;flex-direction:column;align-items:center;align-self:stretch;gap:12px;width:100%;max-width:800px;margin:0 auto;box-sizing:border-box">'
       +'<div style="display:flex;align-items:center;gap:12px;width:100%;position:sticky;top:0;z-index:5;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px);padding:8px;border-radius:12px;margin:-8px -8px 0">'
         +'<button onclick="dashFecharSub()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:10px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:700;flex-shrink:0">← Voltar</button>'
@@ -12372,12 +12381,8 @@ function showToast(msg,type='ok',duracao=3000){
 
 // Verificar sessão ao carregar
 window.addEventListener('load',()=>{
-  // Safety: ensure login is visible first
   const loginEl=document.getElementById('loginBg');
   const appEl=document.getElementById('appContent');
-  if(loginEl) loginEl.style.display='flex';
-  if(appEl) appEl.style.display='none';
-  
   const saved=sessionStorage.getItem('sl_usuario');
   if(saved){
     try{
@@ -12397,10 +12402,12 @@ window.addEventListener('load',()=>{
       }).catch(()=>loadAll());
     }catch(e){
       sessionStorage.removeItem('sl_usuario');
+      document.documentElement.classList.remove('sessao-salva');
       if(appEl) appEl.style.display='none';
       if(loginEl) loginEl.style.display='flex';
     }
   } else {
+    document.documentElement.classList.remove('sessao-salva');
     if(appEl) appEl.style.display='none';
     if(loginEl) loginEl.style.display='flex';
   }
@@ -20049,6 +20056,26 @@ function getNFeBackendConfig(){
   }catch(e){return {};}
 }
 
+// Mantém os recursos técnicos fora da tela principal, mas acessíveis quando necessários.
+function abrirOpcoesNFe(){
+  document.getElementById('modalOpcoesNFe')?.remove();
+  const div=document.createElement('div');
+  div.id='modalOpcoesNFe';
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  div.innerHTML=`<div style="background:#fff;border-radius:14px;width:420px;max-width:100%;box-shadow:0 18px 48px rgba(0,0,0,.25);overflow:hidden">
+    <div style="padding:18px 20px;background:#263238;color:#fff;display:flex;align-items:center;justify-content:space-between">
+      <b>⚙️ Opções NF-e</b><button onclick="document.getElementById('modalOpcoesNFe').remove()" style="border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer">×</button>
+    </div>
+    <div style="padding:18px 20px">
+      <p style="margin:0 0 14px;color:#546e7a;font-size:13px">Use estas opções somente quando precisar consultar ou configurar a integração.</p>
+      <button id="btnBuscarNovasNfe" onclick="buscarNFeSEFAZ();document.getElementById('modalOpcoesNFe')?.remove()" style="width:100%;padding:11px;margin-bottom:9px;border:0;border-radius:8px;background:#1565c0;color:#fff;font-weight:700;cursor:pointer">🔍 Buscar notas novas</button>
+      <button onclick="if(confirm('Buscar o histórico pode importar várias notas antigas. Deseja continuar?')){document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe()}" style="width:100%;padding:11px;margin-bottom:9px;border:1px solid #ef6c00;border-radius:8px;background:#fff3e0;color:#e65100;font-weight:700;cursor:pointer">📥 Buscar histórico</button>
+      <button onclick="document.getElementById('modalOpcoesNFe')?.remove();abrirModalNFeConfig()" style="width:100%;padding:10px;border:1px solid #cfd8dc;border-radius:8px;background:#fff;color:#37474f;font-weight:700;cursor:pointer">⚙️ Configurar conexão</button>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
+}
+
 function nfeAtualizarStatus(msg, tipo, respDetalhe){
   const badge = document.getElementById('nfeStatusBadge');
   const nsu   = document.getElementById('nfeNSUAtual');
@@ -20186,7 +20213,7 @@ async function diagnosticoNFeSEFAZ(){
 }
 
 async function buscarPorChaveNFe(){
-  const chave = prompt('Cole a chave de acesso da NF-e (44 dígitos):','');
+  const chave = document.getElementById('nfeChaveInput')?.value.trim() || prompt('Cole a chave de acesso da NF-e (44 dígitos):','');
   if(!chave) return;
   const chaveLimpa = chave.replace(/\D/g,'');
   if(chaveLimpa.length!==44){ showToast('Chave inválida — deve ter 44 dígitos','err'); return; }
