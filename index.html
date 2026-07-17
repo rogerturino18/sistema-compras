@@ -21009,7 +21009,7 @@ function salvarConfigNFe(){
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px">
               <div>
                 <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Und. Faturamento *</label>
-                <select id="undfat_${it.id}" onchange="onUndFatChange_${it.id}()"
+                <select id="undfat_${it.id}" onchange="alterarUndCotacao('${it.id}')"
                   style="width:100%;padding:9px 10px;border:2px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600;color:#263238;background:#fff">
                   ${['PC','KG','METRO','BARRA','UN','CX','M²','PAR','L','TON'].map(u=>`<option ${undPedido===u?'selected':''}>${u}</option>`).join('')}
                 </select>
@@ -21017,25 +21017,25 @@ function salvarConfigNFe(){
               <div id="bloco_qtdfat_${it.id}">
                 <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Qtd. Faturamento *</label>
                 <input type="number" id="qtdfat_${it.id}" step="0.001" min="0" value="${it.qtd||1}"
-                  oninput="calcTotal_${it.id}()"
+                  oninput="atualizarTotalCotacao('${it.id}')"
                   style="width:100%;padding:9px 10px;border:2px solid #a5d6a7;border-radius:8px;font-size:14px;font-weight:600;color:#263238">
               </div>
               <div>
                 <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">Valor Unit. (R$) *</label>
                 <input type="number" id="preco_${it.id}" step="0.01" min="0" placeholder="0,00"
-                  oninput="calcTotal_${it.id}()"
+                  oninput="atualizarTotalCotacao('${it.id}')"
                   style="width:100%;padding:9px 10px;border:2px solid #a5d6a7;border-radius:8px;font-size:15px;font-weight:700;color:#2e7d32;text-align:right">
               </div>
               <div>
                 <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">ICMS %</label>
                 <input type="number" id="icms_${it.id}" step="0.01" min="0" max="100" placeholder="12"
-                  oninput="calcTotal_${it.id}()"
+                  oninput="atualizarTotalCotacao('${it.id}')"
                   style="width:100%;padding:9px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;color:#263238">
               </div>
               <div>
                 <label style="font-size:10px;font-weight:700;color:#546e7a;display:block;margin-bottom:4px;text-transform:uppercase">IPI %</label>
                 <input type="number" id="ipi_${it.id}" step="0.01" min="0" max="100" placeholder="0"
-                  oninput="calcTotal_${it.id}()"
+                  oninput="atualizarTotalCotacao('${it.id}')"
                   style="width:100%;padding:9px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;color:#263238">
               </div>
               <div>
@@ -21062,40 +21062,7 @@ function salvarConfigNFe(){
                 style="width:100%;padding:9px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;color:#263238">
             </div>
           </div>
-          <script>
-            function calcTotal_${it.id}(){
-              const p=parseFloat(document.getElementById('preco_${it.id}')?.value)||0;
-              const q=parseFloat(document.getElementById('qtdfat_${it.id}')?.value)||0;
-              const icms=parseFloat(document.getElementById('icms_${it.id}')?.value)||0;
-              const ipi=parseFloat(document.getElementById('ipi_${it.id}')?.value)||0;
-              const und=document.getElementById('undfat_${it.id}')?.value||'PC';
-              const mercTot=p*q;
-              const ipiVal=mercTot*(ipi/100);
-              const total=mercTot+ipiVal;
-              const tEl=document.getElementById('total_${it.id}');
-              const rEl=document.getElementById('resumo_${it.id}');
-              if(p&&q){
-                tEl.textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-                rEl.innerHTML=q+' '+und+' × R$ '+p.toLocaleString('pt-BR',{minimumFractionDigits:2})+'/'+und
-                  +(icms?' | ICMS '+icms+'%':'')
-                  +(ipi?' | IPI '+ipi+'% = R$ '+ipiVal.toLocaleString('pt-BR',{minimumFractionDigits:2}):'');
-              } else {
-                tEl.textContent='R$ —';
-                rEl.textContent='Preencha o valor unitário e quantidade para calcular';
-              }
-              calcTotalGeral();
-            }
-            function onUndFatChange_${it.id}(){
-              const und=document.getElementById('undfat_${it.id}')?.value;
-              const qtdEl=document.getElementById('qtdfat_${it.id}');
-              if(und==='KG'){
-                // Se mudar para KG, sugere o peso teórico do item se disponível
-                const pesoTeorico=${JSON.stringify(it.peso||null)};
-                if(pesoTeorico&&qtdEl) qtdEl.value=pesoTeorico;
-              }
-              calcTotal_${it.id}();
-            }
-          <\/script>`;
+          `;
         }).join('')}
 
         <!-- Total geral -->
@@ -21164,24 +21131,46 @@ function salvarConfigNFe(){
       </button>
       <p style="text-align:center;font-size:11px;color:#9e9e9e;margin-top:12px">* Campos obrigatórios · Seus dados serão usados somente para esta cotação</p>
 
-      <script>
-        function calcTotalGeral(){
-          let semIpi=0, comIpi=0;
-          ${(itensList||[]).map(it=>`
-            const p_${it.id.replace(/-/g,'_')}=parseFloat(document.getElementById('preco_${it.id}')?.value)||0;
-            const q_${it.id.replace(/-/g,'_')}=parseFloat(document.getElementById('qtdfat_${it.id}')?.value)||0;
-            const ipi_${it.id.replace(/-/g,'_')}=parseFloat(document.getElementById('ipi_${it.id}')?.value)||0;
-            const merc_${it.id.replace(/-/g,'_')}=p_${it.id.replace(/-/g,'_')}*q_${it.id.replace(/-/g,'_')};
-            semIpi+=merc_${it.id.replace(/-/g,'_')};
-            comIpi+=merc_${it.id.replace(/-/g,'_')}*(1+ipi_${it.id.replace(/-/g,'_')}/100);
-          `).join('')}
-          const fmt=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-          document.getElementById('totalSemIpi').textContent=fmt(semIpi);
-          document.getElementById('totalGeral').textContent=fmt(comIpi);
-        }
-      <\/script>`;
+      `;
 
-      el.innerHTML=`
+      /* A segunda versão antiga do formulário começava aqui. Ela sobrescrevia
+         o formulário completo acima e fazia o envio gravar quantidades erradas. */
+      window.atualizarTotalCotacao=function(id){
+        const p=parseFloat(document.getElementById('preco_'+id)?.value)||0;
+        const q=parseFloat(document.getElementById('qtdfat_'+id)?.value)||0;
+        const icms=parseFloat(document.getElementById('icms_'+id)?.value)||0;
+        const ipi=parseFloat(document.getElementById('ipi_'+id)?.value)||0;
+        const und=document.getElementById('undfat_'+id)?.value||'PC';
+        const mercTot=p*q, ipiVal=mercTot*(ipi/100), total=mercTot+ipiVal;
+        const tEl=document.getElementById('total_'+id), rEl=document.getElementById('resumo_'+id);
+        if(p&&q){
+          tEl.textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+          rEl.textContent=q+' '+und+' × R$ '+p.toLocaleString('pt-BR',{minimumFractionDigits:2})+'/'+und+(icms?' | ICMS '+icms+'%':'')+(ipi?' | IPI '+ipi+'% = R$ '+ipiVal.toLocaleString('pt-BR',{minimumFractionDigits:2}):'');
+        }else{ tEl.textContent='R$ —'; rEl.textContent='Preencha o valor unitário e quantidade para calcular'; }
+        window.calcularTotalGeralCotacao();
+      };
+      window.alterarUndCotacao=function(id){
+        const und=document.getElementById('undfat_'+id)?.value;
+        const qtdEl=document.getElementById('qtdfat_'+id);
+        const item=(itensList||[]).find(x=>x.id===id);
+        if(und==='KG'&&item?.peso&&qtdEl) qtdEl.value=item.peso;
+        window.atualizarTotalCotacao(id);
+      };
+      window.calcularTotalGeralCotacao=function(){
+        let semIpi=0, comIpi=0;
+        (itensList||[]).forEach(it=>{
+          const p=parseFloat(document.getElementById('preco_'+it.id)?.value)||0;
+          const q=parseFloat(document.getElementById('qtdfat_'+it.id)?.value)||0;
+          const ipi=parseFloat(document.getElementById('ipi_'+it.id)?.value)||0;
+          const merc=p*q; semIpi+=merc; comIpi+=merc*(1+ipi/100);
+        });
+        const fmt=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+        document.getElementById('totalSemIpi').textContent=fmt(semIpi);
+        document.getElementById('totalGeral').textContent=fmt(comIpi);
+      };
+
+      /* Código legado removido: mantido abaixo apenas até o fim deste bloco. */
+      /*
         <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px">
           <h2 style="color:#2e7d32;font-size:18px;margin-bottom:4px">📋 Solicitação de Cotação</h2>
           <p style="color:#546e7a;font-size:13px">Olá, <b>${forn}</b>! Por favor, informe os preços para os itens abaixo.</p>
@@ -21290,6 +21279,7 @@ function salvarConfigNFe(){
           ✅ Enviar Cotação
         </button>
         <p style="text-align:center;font-size:11px;color:#9e9e9e;margin-top:12px">* Campo obrigatório</p>`;
+      */
 
       // Função de arquivo
       window.handleArquivoCotacao=function(file){
