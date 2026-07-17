@@ -569,12 +569,10 @@ tr:hover td{background:#f9fbf9}
 <div id="sbpanel_compras" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1);overflow-y:auto">
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🛒 Compras</div>
   <div style="padding:6px 0">
-    <div style="font-size:10px;font-weight:600;color:#9e9e9e;text-transform:uppercase;padding:6px 14px 2px">Matéria Prima</div>
     <div class="sbi" onclick="sbGo(1,'Lista de Compras')">📋 Lista de Compras</div>
     <div class="sbi" onclick="sbGo(24,'Entrada NF-e')">🧾 Entrada NF-e</div>
     <div class="sbi" onclick="sbGo(2,'Fornecedores')">🏢 Fornecedores</div>
     <div class="sbi" onclick="sbGo(7,'Comparar Orçamentos')">📊 Comparar Orçamentos</div>
-    <div style="font-size:10px;font-weight:600;color:#9e9e9e;text-transform:uppercase;padding:8px 14px 2px">Processos internos</div>
     <div class="sbi" onclick="sbGo(9,'Compras Internas')">🛒 Compras Internas</div>
     <div class="sbi" onclick="sbGo(10,'Enviar Cotação')">📧 Enviar Cotação</div>
     <div class="sbi" onclick="sbGo(15,'Pedido de Compra')">📋 Pedido de Compra</div>
@@ -4255,7 +4253,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-17 · build 43';
+const APP_BUILD='2026-07-17 · build 44';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
