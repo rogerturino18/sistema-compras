@@ -4253,7 +4253,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-18 · build 48';
+const APP_BUILD='2026-07-18 · build 49';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4291,9 +4291,6 @@ async function fazerLogin(){
     mostrarApp(); // mostra app (sem dados ainda)
     await loadAll(); // carrega dados
     // Após dados carregados, re-renderiza tiles e dashboard com dados reais — padrão para TODOS os usuários
-    if(typeof abrirHomeScreen==='function'){
-      abrirHomeScreen();
-    }
   }catch(e){showLoginError('Erro ao conectar. Tente novamente.');console.error(e);}
 }
 
@@ -9581,7 +9578,8 @@ function abrirHomeScreen(){
   atualizarRelogio();
   if(homeInterval) clearInterval(homeInterval);
   homeInterval=setInterval(atualizarRelogio,1000);
-  renderHomeTiles();
+  // Mantém o grupo de cards aberto durante atualizações assíncronas.
+  if(!_dashGrupoAtivo) renderHomeTiles();
   // Só inicia slideshow se ainda não estiver rodando (evita troca de papel de parede ao reabrir)
   if(!wallpaperInterval) iniciarSlideshow();
 }
