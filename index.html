@@ -4253,7 +4253,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-18 · build 46';
+const APP_BUILD='2026-07-18 · build 48';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4430,7 +4430,9 @@ async function loadAll(){
     ]);
     renderAll();
     verificarLembretes();
-    renderHomeTiles();
+    // Não reconstrói os cards enquanto o usuário abre um grupo na dashboard.
+    // Isso evitava que um carregamento assíncrono cancelasse um clique em andamento.
+    if(!_dashGrupoAtivo) renderHomeTiles();
     if(typeof carregarConfigTelegram==='function') carregarConfigTelegram().then(()=>{ if(typeof checarDigestDiario==='function') checarDigestDiario(); if(typeof checarDigestMinimoDiario==='function') checarDigestMinimoDiario(); });
     // Verifica requisições pendentes de aprovação sempre que os dados carregam
     setTimeout(()=>{ if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes(); }, 200);
@@ -7257,6 +7259,23 @@ function abrirEdicaoRapida(noId, tipo){
   setTimeout(()=>{ document.getElementById('edr_nome').focus(); document.getElementById('edr_nome').select(); }, 50);
 }
 
+// Mantém a quantidade da OP igual à da peça de origem, mas somente antes de a
+// produção começar. Depois de haver apontamentos, a OP vira um registro de
+// produção e precisa ser ajustada conscientemente pelo responsável.
+async function sincronizarQuantidadeOPVinculada(no, novaQuantidade, quantidadeAnterior){
+  if(!no?.ordem_id || Number(quantidadeAnterior||1)===Number(novaQuantidade||1)) return false;
+  const ordem = ordens.find(o=>o.id===no.ordem_id);
+  if(!ordem) return false;
+  const possuiApontamentos = temposOP.some(t=>t.ordem_id===ordem.id && t.operacao && t.operacao!=='REPROCESSAR');
+  if(ordem.status==='concluido' || ordem.status==='terceirizado' || possuiApontamentos){
+    showToast('Peça atualizada. A OP já tem produção registrada e não foi alterada automaticamente.');
+    return false;
+  }
+  await api('PATCH','ordens_producao',{quantidade:Number(novaQuantidade)||1},`?id=eq.${ordem.id}`);
+  ordem.quantidade=Number(novaQuantidade)||1;
+  return true;
+}
+
 async function salvarEdicaoRapida(){
   const modal = document.getElementById('modalEdicaoRapida');
   const noId = modal.dataset.noId, tipo = modal.dataset.tipo;
@@ -7273,9 +7292,13 @@ async function salvarEdicaoRapida(){
         material: document.getElementById('edr_material').value.trim()||null,
         quantidade: Number(document.getElementById('edr_qtd').value)||1
       };
-      await api('PATCH','montagens_recebidas',obj,`?id=eq.${noId}`);
       const no = montagensRecebidas.find(m=>m.id===noId);
-      if(no) Object.assign(no, obj);
+      const quantidadeAnterior = no?.quantidade;
+      await api('PATCH','montagens_recebidas',obj,`?id=eq.${noId}`);
+      if(no){
+        Object.assign(no, obj);
+        await sincronizarQuantidadeOPVinculada(no,obj.quantidade,quantidadeAnterior);
+      }
     } else {
       const obj = {
         denominacao: nome,
@@ -7284,9 +7307,13 @@ async function salvarEdicaoRapida(){
         quantidade: Number(document.getElementById('edr_qtd').value)||1,
         tipo: document.getElementById('edr_tipo').value
       };
-      await api('PATCH','itens_desenho_recebido',obj,`?id=eq.${noId}`);
       const no = itensDesenhoRecebido.find(i=>i.id===noId);
-      if(no) Object.assign(no, obj);
+      const quantidadeAnterior = no?.quantidade;
+      await api('PATCH','itens_desenho_recebido',obj,`?id=eq.${noId}`);
+      if(no){
+        Object.assign(no, obj);
+        await sincronizarQuantidadeOPVinculada(no,obj.quantidade,quantidadeAnterior);
+      }
     }
     showToast('Salvo!');
     fecharModal('modalEdicaoRapida');
@@ -9562,6 +9589,9 @@ function abrirHomeScreen(){
 function fecharHomeScreen(){
   document.getElementById('homeScreen').classList.remove('open');
   if(homeInterval){clearInterval(homeInterval);homeInterval=null;}
+  // Ao sair para um módulo, a próxima abertura sempre começa limpa.
+  _dashGrupoAtivo=null;
+  _dashTransicao++;
 }
 
 function iniciarSlideshow(){
@@ -9630,6 +9660,7 @@ const DASH_GRUPOS = [
 ];
 
 let _dashGrupoAtivo = null;
+let _dashTransicao = 0;
 
 function renderHomeTiles(){
   const div=document.getElementById('homeTiles');
@@ -9700,6 +9731,7 @@ function renderHomeTiles(){
 
 function dashFecharSub(){
   _dashGrupoAtivo=null;
+  _dashTransicao++;
   const mg=document.getElementById('dashMainGrid');
   const sg=document.getElementById('dashSubGrid');
   if(mg){mg.style.display='flex';mg.style.opacity='1';document.querySelectorAll('.dash-main-tile').forEach(t=>{t.classList.remove('dim','active');});}
@@ -9709,8 +9741,11 @@ function dashFecharSub(){
 function dashToggleGrupo(gId){
   const g=DASH_GRUPOS.find(x=>x.id===gId);
   if(!g) return;
-  if(_dashGrupoAtivo===gId){dashFecharSub();return;}
+  // O botão Voltar é a forma explícita de fechar. Ignora cliques repetidos
+  // no mesmo card durante a animação, em vez de voltar à tela inicial.
+  if(_dashGrupoAtivo===gId) return;
   _dashGrupoAtivo=gId;
+  const transicao=++_dashTransicao;
 
   const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado).length;
   const ciPend=comprasInternas.filter(i=>!i.comprado).length;
@@ -9732,8 +9767,10 @@ function dashToggleGrupo(gId){
   const st=document.getElementById('dashSubTitle');
 
   setTimeout(()=>{
+    if(transicao!==_dashTransicao) return;
     if(mg){mg.style.opacity='0';}
     setTimeout(()=>{
+      if(transicao!==_dashTransicao) return;
       if(mg) mg.style.display='none';
       if(st) st.textContent=g.icon+' '+g.label;
       sr.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
@@ -9748,8 +9785,8 @@ function dashToggleGrupo(gId){
         </div>`;
       }).join('');
       if(sg){sg.style.display='flex';}
-    },200);
-  },150);
+    },120);
+  },80);
 }
 
 
