@@ -4249,7 +4249,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-18 · build 52';
+const APP_BUILD='2026-07-18 · build 53';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -10007,7 +10007,6 @@ function renderEstoque(){
     return `<tr style="border-bottom:1px solid #f0f4f0" onmouseover="this.style.background='#fafbfa'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px;font-weight:600;font-size:12px;max-width:200px">
         <div>${titulo}</div>
-        <div style="font-size:10px;color:${catColor};font-weight:600;margin-top:1px">${catLabel}</div>
       </td>
       <td style="padding:8px 10px;${saldoColor};white-space:nowrap">${saldo} ${i.unidade||''}</td>
       <td style="padding:8px 10px">${statusEstoque}</td>
