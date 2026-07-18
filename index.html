@@ -4253,7 +4253,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-18 · build 49';
+const APP_BUILD='2026-07-18 · build 50';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4302,6 +4302,7 @@ function showLoginError(msg){
 
 function fazerLogout(){
   sessionStorage.removeItem('sl_usuario');
+  sessionStorage.removeItem('sl_aba_atual');
   document.documentElement.classList.remove('sessao-salva');
   usuarioLogado=null;
   document.getElementById('loginBg').style.display='flex';
@@ -9571,6 +9572,7 @@ let homeInterval=null, wallpaperInterval=null, wallpaperIdx=0;
 
 function abrirHomeScreen(){
   const home=document.getElementById('homeScreen');
+  try{ sessionStorage.setItem('sl_aba_atual','0'); }catch(e){}
   home.classList.add('open');
   // Remove classe de loading — conteúdo pode aparecer por baixo
   document.getElementById('appContent')?.classList.remove('loading-home');
@@ -11793,6 +11795,8 @@ function showTab(n){
     showToast('Sem permissão para acessar este módulo','err');
     return;
   }
+  // Guarda a última tela somente enquanto esta sessão do navegador estiver aberta.
+  try{ sessionStorage.setItem('sl_aba_atual',String(n)); }catch(e){}
   document.querySelectorAll('.tab').forEach(t=>{
     const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
     if(match) t.classList.toggle('active',parseInt(match[1])===n);
@@ -12331,9 +12335,16 @@ function mostrarApp(){
   } else {
     document.querySelectorAll('.tab').forEach(t=>t.style.display='flex');
   }
-  document.getElementById('appContent')?.classList.add('loading-home');
-  showTab(0);
-  if(typeof abrirHomeScreen==='function') abrirHomeScreen();
+  const abaSalva=Number(sessionStorage.getItem('sl_aba_atual'));
+  const restaurarAba=Number.isInteger(abaSalva)&&abaSalva>0&&!!document.getElementById('tab'+abaSalva);
+  if(restaurarAba){
+    document.getElementById('appContent')?.classList.remove('loading-home');
+    showTab(abaSalva);
+  } else {
+    document.getElementById('appContent')?.classList.add('loading-home');
+    showTab(0);
+    if(typeof abrirHomeScreen==='function') abrirHomeScreen();
+  }
   iniciarVerificacaoLembretes();
 }
 function toggleGrupoPDV(id){
