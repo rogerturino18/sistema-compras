@@ -904,18 +904,14 @@ tr:hover td{background:#f9fbf9}
 
       <!-- Tabela -->
       <div style="flex:1;overflow:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
           <thead>
             <tr id="estThead" style="background:#f0f4f0;position:sticky;top:0;z-index:2">
-              <th onclick="estOrdenarPor('codigo')" style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por código">Código <span id="estSortIco_codigo"></span></th>
-              <th onclick="estOrdenarPor('descricao')" style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer" title="Ordenar por tipo/descrição">Tipo <span id="estSortIco_descricao"></span></th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase">Material</th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">NCM</th>
+              <th onclick="estOrdenarPor('descricao')" style="padding:8px 10px;text-align:left;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer" title="Ordenar por descrição">Item <span id="estSortIco_descricao"></span></th>
               <th onclick="estOrdenarPor('saldo')" style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por saldo">Saldo <span id="estSortIco_saldo"></span></th>
-              <th onclick="estOrdenarPor('custo')" style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por custo">Custo Unit. <span id="estSortIco_custo"></span></th>
-              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Preço Venda</th>
-              <th onclick="estOrdenarPor('peso')" style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por peso">Peso Unit. <span id="estSortIco_peso"></span></th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Status</th>
               <th onclick="estOrdenarPor('barracao')" style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;cursor:pointer" title="Ordenar por barracão">Barracão <span id="estSortIco_barracao"></span></th>
+              <th style="padding:8px 10px;color:var(--green);font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap">Última movimentação</th>
               <th style="width:120px"></th>
             </tr>
           </thead>
@@ -4253,7 +4249,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-18 · build 51';
+const APP_BUILD='2026-07-18 · build 52';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -10001,22 +9997,22 @@ function renderEstoque(){
     const _movsItem = estoqueMov.filter(m=>m.item_id===i.id).map(m=>m.data).filter(Boolean).sort();
     const _ultData = _movsItem.length ? _movsItem[_movsItem.length-1] : (i.atualizado_em||i.created_at||null);
     const ultimaMovFmt = _ultData ? new Date((String(_ultData).includes('T')?_ultData:_ultData+'T12:00')).toLocaleDateString('pt-BR') : '—';
+    const minimo = Number(i.estoque_minimo)||0;
+    const statusEstoque = saldo<=0
+      ? '<span style="font-size:10px;font-weight:700;background:#ffebee;color:#c62828;padding:3px 8px;border-radius:10px;white-space:nowrap">Sem estoque</span>'
+      : (minimo>0 && saldo<minimo
+        ? '<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:3px 8px;border-radius:10px;white-space:nowrap">Abaixo do mínimo</span>'
+        : '<span style="font-size:10px;font-weight:700;background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:10px;white-space:nowrap">Regular</span>');
 
     return `<tr style="border-bottom:1px solid #f0f4f0" onmouseover="this.style.background='#fafbfa'" onmouseout="this.style.background=''">
-      <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#1565c0;white-space:nowrap">${i.codigo||'—'}${i.origem_fiscal?' <span title="Código conciliado com a contabilidade" style="font-family:sans-serif;background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;vertical-align:middle">✓ fiscal</span>':''}</td>
       <td style="padding:8px 10px;font-weight:600;font-size:12px;max-width:200px">
         <div>${titulo}</div>
         <div style="font-size:10px;color:${catColor};font-weight:600;margin-top:1px">${catLabel}</div>
-        <div style="font-size:10px;color:#90a4ae;margin-top:1px">🕑 últ. mov: ${ultimaMovFmt}</div>
-        ${i.nota_fiscal?`<div style="font-size:10px;color:#9e9e9e">NF: ${i.nota_fiscal}</div>`:''}
       </td>
-      <td style="padding:8px 10px;font-size:12px;color:var(--green)">${i.material||'—'}</td>
-      <td style="padding:8px 10px;font-family:monospace;font-size:11px">${i.ncm||'—'}</td>
       <td style="padding:8px 10px;${saldoColor};white-space:nowrap">${saldo} ${i.unidade||''}</td>
-      <td style="padding:8px 10px;font-size:12px">${i.valor_unitario?fmtVal(i.valor_unitario):'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#1565c0;font-weight:${i.preco_venda?'600':'400'}">${i.preco_venda?fmtVal(i.preco_venda):'—'}</td>
-      <td style="padding:8px 10px;font-size:12px">${i.peso_unitario?i.peso_unitario+' kg':'—'}</td>
+      <td style="padding:8px 10px">${statusEstoque}</td>
       <td style="padding:8px 10px;white-space:nowrap">${badgeBarracao}</td>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;color:#546e7a">${ultimaMovFmt}</td>
       <td style="padding:8px 8px;white-space:nowrap">
         <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirEstMovRapido('${i.id}','entrada')" title="Registrar Entrada">📥 Entrada</button>
         <button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="transferirBarracao('${i.id}','${_barr||''}',${saldo})" title="Transferir quantidade para o outro barracão">🔄</button>
