@@ -420,6 +420,46 @@ tr:hover td{background:#f9fbf9}
 /* Offset main content for sidebar */
 .app-content .tabs + * { margin-left:0 }
 
+/* ===== VISUAL INDUSTRIAL PROFISSIONAL — DASHBOARD E NAVEGAÇÃO ===== */
+/* Esta camada altera somente apresentação. Os fluxos, dados e botões mantêm
+   os mesmos IDs e comportamentos do sistema original. */
+.home-screen{background:radial-gradient(circle at 18% 14%,#31564d 0%,#1f3634 34%,#172829 68%,#111c1e 100%)}
+.home-bg,.home-bg-next{display:none!important}
+.home-overlay{background:linear-gradient(135deg,rgba(5,16,18,0.12),rgba(5,16,18,0.38))}
+.home-header{max-width:1320px;width:100%;margin:0 auto;padding:30px 44px 0}
+.home-greeting{font-size:32px;font-weight:300;letter-spacing:0;text-shadow:none}
+.home-greeting span{color:#b9dfb7}
+.home-time{font-size:13px;letter-spacing:.2px;text-shadow:none;color:rgba(255,255,255,.72)}
+.home-enter-btn{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.26)!important;border-radius:8px!important;box-shadow:none!important}
+.home-enter-btn:hover{background:rgba(255,255,255,.14)!important}
+.home-tiles{max-width:1320px;margin:0 auto;padding:22px 44px 52px}
+.tile{border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.11);backdrop-filter:none}
+.tile::before{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0) 52%)}
+.tile:hover{box-shadow:0 16px 34px rgba(0,0,0,.28);filter:brightness(1.08)}
+.tile-icon{filter:none}
+.tile-label{text-shadow:none;letter-spacing:.1px}
+.home-dots{opacity:.65}
+
+#dashMainGrid{gap:18px!important}
+#dashMainGrid .dash-main-tile{min-width:168px;min-height:168px;justify-content:space-between!important;padding:20px!important}
+#dashMainGrid .dash-main-tile[data-dashboard-group="compras"]{background:linear-gradient(145deg,#254b68,#1a354b)!important}
+#dashMainGrid .dash-main-tile[data-dashboard-group="producao"]{background:linear-gradient(145deg,#3d634d,#264333)!important}
+#dashMainGrid .dash-main-tile[data-dashboard-group="vendas"]{background:linear-gradient(145deg,#5a496d,#382e49)!important}
+#dashMainGrid .dash-main-tile[data-dashboard-group="estoque"]{background:linear-gradient(145deg,#315c5c,#1f3e41)!important}
+#dashMainGrid .dash-main-tile[data-dashboard-group="epi"]{background:linear-gradient(145deg,#735034,#4d331f)!important}
+#dashSubGrid{max-width:920px!important}
+#dashSubGrid .tile{border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+
+#mainSidebar{background:linear-gradient(180deg,#1d2d32,#152126)!important;box-shadow:2px 0 16px rgba(0,0,0,.18);padding-top:12px!important;gap:6px!important}
+.header{background:linear-gradient(90deg,#245442,#1c3f35)!important;box-shadow:0 2px 12px rgba(17,40,34,.24)}
+.header-logo{border-radius:10px!important;background:rgba(255,255,255,.96)!important}
+.sb-icon{border-radius:8px!important}
+.sb-icon.active{background:#2f6b5d!important;box-shadow:inset 3px 0 0 #b9dfb7!important}
+.sb-icon:hover{background:rgba(185,223,183,.13)!important}
+[id^="sbpanel_"]{box-shadow:8px 0 26px rgba(16,31,34,.18)!important;border-right:1px solid #dce4dc!important}
+.sbi{padding:10px 16px!important}
+.sbi.active{background:#eef7ef!important;color:#216045!important;border-left-color:#4f9470!important}
+
 
 
 
@@ -4249,7 +4289,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-18 · build 53';
+const APP_BUILD='2026-07-18 · build 54';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9694,7 +9734,7 @@ function renderHomeTiles(){
   function bdgGrupo(g){ const t=g.subs.reduce((s,sb)=>s+(bMap[sb.tab]||0),0); return t>0?'<div class="tile-badge">'+t+'</div>':''; }
 
   const tilesHtml=grupos.map(g=>`
-    <div class="tile tile-md dash-main-tile" id="tile_grp_${g.id}"
+    <div class="tile tile-md dash-main-tile" id="tile_grp_${g.id}" data-dashboard-group="${g.id}"
       style="background:${g.color};position:relative"
       onclick="${g.directTab?`fecharHomeScreen();sbGo(${g.directTab},'${g.label}')`:`dashToggleGrupo('${g.id}')`}">
       ${bdgGrupo(g)}
