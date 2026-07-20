@@ -423,9 +423,9 @@ tr:hover td{background:#f9fbf9}
 /* ===== VISUAL INDUSTRIAL PROFISSIONAL — DASHBOARD E NAVEGAÇÃO ===== */
 /* Esta camada altera somente apresentação. Os fluxos, dados e botões mantêm
    os mesmos IDs e comportamentos do sistema original. */
-.home-screen{background:radial-gradient(circle at 18% 14%,#31564d 0%,#1f3634 34%,#172829 68%,#111c1e 100%)}
-.home-bg,.home-bg-next{display:none!important}
-.home-overlay{background:linear-gradient(135deg,rgba(5,16,18,0.12),rgba(5,16,18,0.38))}
+.home-screen{background:#172829}
+.home-bg,.home-bg-next{display:block!important}
+.home-overlay{background:linear-gradient(to bottom,rgba(0,0,0,0.45) 0%,rgba(0,0,0,0.25) 40%,rgba(0,0,0,0.65) 100%)}
 .home-header{max-width:1320px;width:100%;margin:0 auto;padding:30px 44px 0}
 .home-greeting{font-size:32px;font-weight:300;letter-spacing:0;text-shadow:none}
 .home-greeting span{color:#b9dfb7}
@@ -448,7 +448,12 @@ tr:hover td{background:#f9fbf9}
 #dashMainGrid .dash-main-tile[data-dashboard-group="estoque"]{background:linear-gradient(145deg,#315c5c,#1f3e41)!important}
 #dashMainGrid .dash-main-tile[data-dashboard-group="epi"]{background:linear-gradient(145deg,#735034,#4d331f)!important}
 #dashSubGrid{max-width:920px!important}
-#dashSubGrid .tile{border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+#dashSubGrid .tile{border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.2)}
+#dashSubRow .dash-sub-tile{min-width:168px;min-height:168px;height:168px!important;width:auto!important;justify-content:space-between!important;padding:20px!important}
+#dashSubRow .dash-sub-tile[data-dashboard-group="compras"]{background:linear-gradient(145deg,#254b68,#1a354b)!important}
+#dashSubRow .dash-sub-tile[data-dashboard-group="producao"]{background:linear-gradient(145deg,#3d634d,#264333)!important}
+#dashSubRow .dash-sub-tile[data-dashboard-group="vendas"]{background:linear-gradient(145deg,#5a496d,#382e49)!important}
+#dashSubRow .dash-sub-tile[data-dashboard-group="estoque"]{background:linear-gradient(145deg,#315c5c,#1f3e41)!important}
 
 #mainSidebar{background:linear-gradient(180deg,#1d2d32,#152126)!important;box-shadow:2px 0 16px rgba(0,0,0,.18);padding-top:12px!important;gap:6px!important}
 .header{background:linear-gradient(90deg,#245442,#1c3f35)!important;box-shadow:0 2px 12px rgba(17,40,34,.24)}
@@ -4289,7 +4294,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-18 · build 54';
+const APP_BUILD='2026-07-20 · build 55';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9809,7 +9814,7 @@ function dashToggleGrupo(gId){
       if(st) st.textContent=g.icon+' '+g.label;
       sr.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
         const bdg=bMap[s.tab]>0?'<div class="tile-badge" style="font-size:10px;padding:1px 6px;top:8px;right:8px">'+bMap[s.tab]+'</div>':'';
-        return `<div class="tile tile-sm" style="background:${g.color};position:relative;width:100%;height:140px;cursor:pointer;transition:transform 0.2s,filter 0.2s"
+        return `<div class="tile tile-md dash-sub-tile" data-dashboard-group="${g.id}" style="background:${g.color};position:relative;cursor:pointer;transition:transform 0.2s,filter 0.2s"
           onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
           onmouseover="this.style.transform='translateY(-4px) scale(1.04)';this.style.filter='brightness(1.15)'"
           onmouseout="this.style.transform='';this.style.filter=''">
@@ -10037,12 +10042,9 @@ function renderEstoque(){
     const _movsItem = estoqueMov.filter(m=>m.item_id===i.id).map(m=>m.data).filter(Boolean).sort();
     const _ultData = _movsItem.length ? _movsItem[_movsItem.length-1] : (i.atualizado_em||i.created_at||null);
     const ultimaMovFmt = _ultData ? new Date((String(_ultData).includes('T')?_ultData:_ultData+'T12:00')).toLocaleDateString('pt-BR') : '—';
-    const minimo = Number(i.estoque_minimo)||0;
     const statusEstoque = saldo<=0
       ? '<span style="font-size:10px;font-weight:700;background:#ffebee;color:#c62828;padding:3px 8px;border-radius:10px;white-space:nowrap">Sem estoque</span>'
-      : (minimo>0 && saldo<minimo
-        ? '<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:3px 8px;border-radius:10px;white-space:nowrap">Abaixo do mínimo</span>'
-        : '<span style="font-size:10px;font-weight:700;background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:10px;white-space:nowrap">Regular</span>');
+      : '';
 
     return `<tr style="border-bottom:1px solid #f0f4f0" onmouseover="this.style.background='#fafbfa'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px;font-weight:600;font-size:12px;max-width:200px">
