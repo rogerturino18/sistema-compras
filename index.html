@@ -1551,7 +1551,7 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
       <thead><tr>
         <th>Nº</th><th>Data</th><th>Departamento</th><th>PDV</th>
         <th>Itens</th><th>Solicitante</th><th>Usuário</th><th>Observação</th><th>Status</th>
-        <th style="width:110px">Ações</th>
+        <th style="width:150px">Ações</th>
       </tr></thead>
       <tbody id="listaRequisicoes"></tbody>
     </table>
@@ -4435,7 +4435,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 72';
+const APP_BUILD='2026-07-20 · build 73';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -13500,8 +13500,8 @@ function renderMovEstoque(){
       <td style="padding:7px 10px;font-size:12px;white-space:nowrap">${dtFmt}</td>
       <td style="padding:7px 10px">
         ${isEntrada
-          ?'<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">📥 Entrada</span>'
-          :'<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">📤 Saída</span>'}
+          ?'<span style="display:inline-flex;align-items:center;min-height:22px;line-height:1;background:#e8f5e9;color:#2e7d32;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700">Entrada</span>'
+          :'<span style="display:inline-flex;align-items:center;min-height:22px;line-height:1;background:#fff3e0;color:#e65100;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700">Saída</span>'}
       </td>
       <td style="padding:7px 10px;font-weight:600;font-size:12px">${nome}</td>
       <td style="padding:7px 10px;font-size:12px;color:var(--green)">${mat}</td>
@@ -13576,6 +13576,8 @@ function renderRequisicoes(){
   tbody.innerHTML=lista.map(r=>{
     const itArr=Array.isArray(r.itens)?r.itens:[];
     const resumo=itArr.slice(0,2).map(it=>it.descricao||it.nome||'').filter(Boolean).join(', ')+(itArr.length>2?` +${itArr.length-2}`:'');
+    const podeAlterar=['Aguardando Aprovação','Aberta','Cancelada'].includes(r.status);
+    const estiloBloqueado=podeAlterar?'':'opacity:.42;filter:grayscale(1)';
     return `<tr>
       <td style="padding:7px 10px;font-weight:700;color:#4a148c">Nº ${r.numero||'—'}</td>
       <td style="padding:7px 10px;font-size:12px">${r.data?new Date(r.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
@@ -13588,7 +13590,8 @@ function renderRequisicoes(){
       <td style="padding:7px 10px">${reqStatusBadge(r.status)}</td>
       <td style="padding:7px 6px;white-space:nowrap">
         <button class="btn btn-sm" onclick="verRequisicao('${r.id}')" title="Ver detalhes">🔍</button>
-        ${(r.status==='Aguardando Aprovação'||r.status==='Aberta')?`<button class="btn btn-sm" onclick="abrirModalReq('${r.id}')" title="Editar requisição">✏️</button>`:''}
+        <button class="btn btn-sm" style="${estiloBloqueado}" onclick="abrirModalReq('${r.id}')" title="${podeAlterar?'Editar requisição':'Bloqueado: esta requisição já movimentou o estoque'}">✏️</button>
+        <button class="btn btn-sm danger" style="${estiloBloqueado}" onclick="excluirRequisicao('${r.id}')" title="${podeAlterar?'Excluir requisição':'Bloqueado: esta requisição já movimentou o estoque'}">🗑</button>
         ${r.status==='Aguardando Aprovação'&&isAprovador()?`<button class="btn btn-sm" style="background:#4a148c;color:#fff;border-color:#4a148c" onclick="aprovarRequisicao('${r.id}')" title="Aprovar">✅ Aprovar</button>`:''}${(r.status==='Aguardando Aprovação'||r.status==='Aberta')?`<button class="btn btn-sm danger" onclick="cancelarRequisicao('${r.id}')" title="Recusar">❌</button>`:''}
       </td>
     </tr>`;
@@ -13815,6 +13818,21 @@ async function cancelarRequisicao(id){
     showToast('Requisição cancelada!');
     await loadAll();
   }catch(e){showToast('Erro','err');}
+}
+
+async function excluirRequisicao(id){
+  const r=requisicoes.find(x=>x.id===id);
+  if(!r){showToast('Requisição não encontrada','err');return;}
+  if(!['Aguardando Aprovação','Aberta','Cancelada'].includes(r.status)){
+    showToast('Esta requisição já movimentou o estoque e não pode ser excluída. Para corrigir, faça uma nova movimentação de estoque; assim o histórico permanece correto.','err',6500);
+    return;
+  }
+  if(!confirm(`Excluir definitivamente a requisição Nº ${r.numero||'—'}? Esta ação não movimenta o estoque.`))return;
+  try{
+    await api('DELETE','requisicoes_material','',`?id=eq.${id}`);
+    showToast(`Requisição Nº ${r.numero||'—'} excluída.`);
+    await loadAll();
+  }catch(e){showToast('Erro ao excluir requisição','err');console.error(e);}
 }
 
 function verRequisicao(id){
