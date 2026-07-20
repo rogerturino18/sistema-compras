@@ -595,6 +595,13 @@ body{padding-top:70px}
 /* ===== ESTRUTURA INTERNA — NAVEGAÇÃO PROFISSIONAL =====
    Reorganiza visualmente o aplicativo inteiro; não altera cliques nem dados. */
 #appContent{background:linear-gradient(135deg,#f5f8f6 0%,#eef4f0 100%);min-height:100vh}
+/* Central de Pendências: atalho flutuante com aparência de ferramenta do sistema. */
+#btnCentralPendencias{width:auto!important;height:46px!important;min-width:46px!important;padding:0 15px 0 11px!important;border:1px solid rgba(255,255,255,.34)!important;border-radius:14px!important;background:rgba(20,55,47,.94)!important;color:#fff!important;box-shadow:0 10px 26px rgba(14,45,38,.28)!important;backdrop-filter:blur(10px);font:700 12px/1 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:.1px;gap:8px;overflow:visible}
+#btnCentralPendencias:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px rgba(14,45,38,.36)!important;background:#174f41!important}
+#btnCentralPendencias .central-icon{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:9px;background:rgba(211,177,91,.16);color:#f4d77d}
+#btnCentralPendencias .central-label{white-space:nowrap}
+#btnCentralPendencias .central-count{position:absolute;top:-7px;right:-7px;min-width:19px;height:19px;padding:0 4px;border-radius:10px;background:#d94d4d;color:#fff;border:2px solid #f5f8f6;font:800 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+@media(max-width:640px){#btnCentralPendencias{right:14px!important;bottom:14px!important;padding:0!important;width:46px!important}#btnCentralPendencias .central-label{display:none}}
 #mainSidebar{width:176px!important;align-items:stretch!important;padding:14px 10px!important;gap:5px!important;background:linear-gradient(180deg,#173c32,#102b25)!important;box-shadow:4px 0 18px rgba(15,45,36,.14)!important}
 #mainSidebar .sb-icon{width:100%!important;height:44px!important;padding:0 12px!important;justify-content:flex-start!important;gap:11px!important;border-radius:8px!important;color:rgba(255,255,255,.74)!important;font-size:19px!important}
 #mainSidebar .sb-icon .sb-tip{position:static!important;transform:none!important;opacity:1!important;background:transparent!important;border:none!important;padding:0!important;color:inherit!important;font-family:"Aptos","Segoe UI",sans-serif!important;font-size:12px!important;font-weight:650!important;letter-spacing:.01em!important;line-height:1!important}
@@ -4461,7 +4468,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 81';
+const APP_BUILD='2026-07-20 · build 82';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4927,7 +4934,7 @@ function atualizarAcessoCentralPendencias(){
   const titulo=total?`Central de Pendências — ${total} alerta(s)`:'Central de Pendências';
   btn.title=titulo;
   btn.setAttribute('aria-label',titulo);
-  btn.innerHTML=`✦${total?`<span style="position:absolute;top:-4px;right:-4px;min-width:19px;height:19px;padding:0 4px;border-radius:10px;background:#ef5350;color:#fff;border:2px solid #fff;font-size:10px;font-weight:800;line-height:15px">${total>99?'99+':total}</span>`:''}`;
+  btn.innerHTML=`<span class="central-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2Z"/><path d="m18.5 15 .7 1.8L21 17.5l-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></svg></span><span class="central-label">Pendências</span>${total?`<span class="central-count">${total>99?'99+':total}</span>`:''}`;
 }
 
 function isRecente(dt,dias){
