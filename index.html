@@ -522,7 +522,7 @@ body{padding-top:70px}
 .header-logo::before{content:'';position:absolute;inset:2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 76'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='12' y1='8' x2='55' y2='70' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%2387d438'/%3E%3Cstop offset='.52' stop-color='%2300aa43'/%3E%3Cstop offset='1' stop-color='%2300783c'/%3E%3C/linearGradient%3E%3ClinearGradient id='y' x1='15' y1='34' x2='37' y2='65' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%23fff36a'/%3E%3Cstop offset='1' stop-color='%23e2bc18'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M34 3C22 17 10 31 10 46c0 15 11 27 25 27 16 0 27-12 27-28C62 30 48 15 34 3Z'/%3E%3Cpath fill='url(%23y)' d='M27 25C18 35 14 42 14 50c0 10 7 18 17 18 8 0 14-5 16-12-9-5-15-16-20-31Z'/%3E%3Cpath fill='%23fff' d='M37 17c1 19 15 24 13 39-1 7-5 12-11 15 8-10 8-18 2-29-5-9-7-16-4-25Z' opacity='.96'/%3E%3C/svg%3E") center/contain no-repeat!important;filter:drop-shadow(0 2px 2px rgba(0,0,0,.18))}
 .header-text h1{font-size:17px!important;font-weight:750!important;letter-spacing:-.02em}
 .header-text p{font-size:11px!important;letter-spacing:.01em}
-.user-menu{top:72px!important}
+#userMenu.user-menu{top:72px!important}
 #mainSidebar,[id^="sbpanel_"]{top:70px!important}
 .panel{padding-top:86px!important}
 
@@ -4435,7 +4435,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 73';
+const APP_BUILD='2026-07-20 · build 75';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -6986,8 +6986,9 @@ function renderOrdens(){
 // nunca "solto" em outra parte da tela.
 function _posicionarMenuEtapa(menu, elementoClicado){
   const rect = elementoClicado.getBoundingClientRect();
-  menu.style.right='auto'; // a classe .user-menu tem right:16px fixo (pensado para o menu do usuário);
-                            // sem isso, o menu ficava esticado entre o left definido e o right:16px da classe
+  // Este menu reaproveita a aparência de .user-menu, mas precisa ficar junto
+  // da célula clicada; não pode herdar o topo fixo do menu do usuário.
+  menu.style.setProperty('right','auto','important');
   document.body.appendChild(menu);
   const menuW = menu.offsetWidth || 240;
   const menuH = menu.offsetHeight || 50;
@@ -6996,8 +6997,8 @@ function _posicionarMenuEtapa(menu, elementoClicado){
   if(left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
   if(left < 8) left = 8;
   if(top + menuH > window.innerHeight - 8) top = rect.top - menuH - 4; // abre pra cima se não couber embaixo
-  menu.style.left = left + 'px';
-  menu.style.top = top + 'px';
+  menu.style.setProperty('left',left + 'px','important');
+  menu.style.setProperty('top',top + 'px','important');
 }
 
 function abrirMenuEtapaOrdem(event, ordemId, operacao){
@@ -9844,6 +9845,19 @@ const DASH_GRUPOS = [
 
 let _dashGrupoAtivo = null;
 let _dashTransicao = 0;
+let _dashSubTimer = null;
+
+function dashCancelarFechamentoSub(){
+  if(_dashSubTimer){ clearTimeout(_dashSubTimer); _dashSubTimer=null; }
+}
+
+function dashAgendarFechamentoSub(){
+  dashCancelarFechamentoSub();
+  const grupoAberto=_dashGrupoAtivo;
+  _dashSubTimer=setTimeout(()=>{
+    if(_dashGrupoAtivo===grupoAberto) dashFecharSub();
+  },5000);
+}
 
 function renderHomeTiles(){
   const div=document.getElementById('homeTiles');
@@ -9913,6 +9927,7 @@ function renderHomeTiles(){
 }
 
 function dashFecharSub(){
+  dashCancelarFechamentoSub();
   _dashGrupoAtivo=null;
   _dashTransicao++;
   const mg=document.getElementById('dashMainGrid');
@@ -9927,6 +9942,7 @@ function dashToggleGrupo(gId){
   // O botão Voltar é a forma explícita de fechar. Ignora cliques repetidos
   // no mesmo card durante a animação, em vez de voltar à tela inicial.
   if(_dashGrupoAtivo===gId) return;
+  dashCancelarFechamentoSub();
   _dashGrupoAtivo=gId;
   const transicao=++_dashTransicao;
 
@@ -9959,7 +9975,7 @@ function dashToggleGrupo(gId){
       sr.innerHTML=g.subs.filter(s=>podeVer(s.tab)).map(s=>{
         const bdg=bMap[s.tab]>0?'<div class="tile-badge" style="font-size:10px;padding:1px 6px;top:8px;right:8px">'+bMap[s.tab]+'</div>':'';
         return `<div class="tile tile-md dash-sub-tile" data-dashboard-group="${g.id}" style="background:${g.color};position:relative;cursor:pointer;transition:transform 0.2s,filter 0.2s"
-          onclick="fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
+          onclick="dashCancelarFechamentoSub();fecharHomeScreen();sbGo(${s.tab},'${s.label}')"
           onmouseover="this.style.transform='translateY(-4px) scale(1.04)';this.style.filter='brightness(1.15)'"
           onmouseout="this.style.transform='';this.style.filter=''">
           ${bdg}
@@ -9968,6 +9984,7 @@ function dashToggleGrupo(gId){
         </div>`;
       }).join('');
       if(sg){sg.style.display='flex';}
+      dashAgendarFechamentoSub();
     },120);
   },80);
 }
