@@ -602,6 +602,11 @@ body{padding-top:70px}
 #mainSidebar > div[style*="height:1px"]{width:calc(100% - 14px)!important;margin:5px 7px!important;background:rgba(255,255,255,.13)!important}
 [id^="sbpanel_"]{left:176px!important;width:286px!important;box-shadow:10px 0 28px rgba(18,50,40,.16)!important}
 .panel{margin-left:176px!important;padding:32px 34px 34px 34px!important;min-height:calc(100vh - 70px)}
+@media(min-width:821px){
+  /* Com o submenu lateral aberto, reserva a largura dele para que nenhuma
+     tabela fique escondida atrás do painel de opções. */
+  body.sb-submenu-open .panel{margin-left:462px!important;transition:margin-left .2s ease}
+}
 .panel > *:not(.kanban-wrap):not(#listaCardsCompras):not(#vistaCardsCompras){max-width:1380px!important}
 .panel h2{font-family:"Aptos Display","Segoe UI",sans-serif;font-size:25px!important;letter-spacing:-.035em;color:#1f4035!important;margin-bottom:7px!important}
 .section-title{font-size:12px!important;font-weight:750!important;color:#526962!important;letter-spacing:.1em!important}
@@ -922,7 +927,7 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
     </label>
     <button class="btn" onclick="exportarExcel('ordens')" style="white-space:nowrap">📊 Excel</button>
     <button class="btn" onclick="abrirGestaoImpressao()" style="white-space:nowrap;background:#e3f2fd;border-color:#90caf9;color:#1565c0">🖨️ Gestão de Impressão</button>
-    <button class="btn" id="btnLixeiraOrdens" onclick="abrirLixeiraOrdens()" style="white-space:nowrap;background:#fce4ec;border-color:#f8bbd0;color:#ad1457">🗑️ Lixeira</button>
+    <button class="btn" id="btnLixeiraOrdens" onclick="abrirLixeiraOrdens()" style="display:none;white-space:nowrap;background:#fce4ec;border-color:#f8bbd0;color:#ad1457">🗑️ Lixeira</button>
     <button class="btn primary" onclick="abrirModalOrdem(null)">+ Nova Ordem</button>
   </div>
   <div id="listaOrdens"></div>
@@ -4435,7 +4440,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 75';
+const APP_BUILD='2026-07-20 · build 79';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -6809,11 +6814,13 @@ function renderOrdens(){
     pdvs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.numero+(p.cliente?' — '+p.cliente:'');selPDV.appendChild(o);});
   }
 
-  // Atualiza contador da Lixeira no botão da toolbar
+  // A Lixeira só fica disponível quando existe ao menos uma ordem excluída.
   const btnLix=document.getElementById('btnLixeiraOrdens');
   if(btnLix){
     const nLix=ordens.filter(o=>o.excluida_em).length;
-    btnLix.innerHTML = nLix>0 ? `🗑️ Lixeira (${nLix})` : '🗑️ Lixeira';
+    btnLix.style.display=nLix>0?'':'none';
+    btnLix.hidden=nLix===0;
+    btnLix.innerHTML=`🗑️ Lixeira (${nLix})`;
   }
 
   const temposReais=t=>t.operacao&&t.operacao!=='REPROCESSAR'&&!t.historico_only;
@@ -8724,6 +8731,20 @@ function toggleSelecionarTodasOrdens(cb){
   atualizarContadorImpressao();
 }
 
+// Logo vetorial embutido: não depende de imagem externa nem de tempo de carregamento
+// e, por isso, permanece visível mesmo quando há duas ordens na mesma folha.
+function logoOrdemProducaoSVG(){
+  return `<svg viewBox="0 0 64 76" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SL Óleos" style="width:34px;height:40px;display:block;margin:0 auto">
+    <defs>
+      <linearGradient id="opVerde" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8ed13c"/><stop offset=".52" stop-color="#12af45"/><stop offset="1" stop-color="#007e3b"/></linearGradient>
+      <linearGradient id="opAmarelo" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff36b"/><stop offset="1" stop-color="#e5bd16"/></linearGradient>
+    </defs>
+    <path d="M32 2C17 18 9 31 9 45c0 16 10 28 24 28 18 0 28-14 22-31C51 28 41 13 32 2Z" fill="url(#opVerde)"/>
+    <path d="M27 25C18 35 15 43 15 50c0 10 7 17 16 17 9 0 16-7 16-16 0-9-8-18-20-26Z" fill="url(#opAmarelo)"/>
+    <path d="M37 14c-4 11-3 19 4 28 5 6 6 13 1 20 9-8 10-19 4-28-7-10-8-15-9-20Z" fill="#fff" opacity=".93"/>
+  </svg>`;
+}
+
 function imprimirOrdensSelecionadas(){
   const ids=[...document.querySelectorAll('.gi_check:checked')].map(c=>c.value);
   if(!ids.length){showToast('Selecione ao menos uma ordem','err');return;}
@@ -8761,8 +8782,8 @@ function imprimirOrdensSelecionadas(){
   </colgroup>
   <tr>
     <td rowspan="4" style="width:55px;text-align:center;padding:4px;border:1px solid #000;background:#f5f5f5">
-      <div style="font-weight:900;font-size:13px;color:#1b5e20;letter-spacing:-1px">SL</div>
-      <div style="font-weight:700;font-size:7px;color:#2e7d32">ÓLEOS</div>
+      ${logoOrdemProducaoSVG()}
+      <div style="font-weight:800;font-size:6px;color:#1b5e20;letter-spacing:.2px;margin-top:1px">SL ÓLEOS</div>
     </td>
     <td colspan="3" style="text-align:center;font-size:15px;font-weight:700;padding:5px;letter-spacing:1px;border:1px solid #000">ORDEM DE PRODUÇÃO</td>
     <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">Nº DA ORDEM</td>
@@ -12696,7 +12717,23 @@ window.addEventListener('load',()=>{
 });
 
 // ===== SIDEBAR =====
+function sbCancelarRecolhimento(){
+  if(window._sbAutoCloseTimer){
+    clearTimeout(window._sbAutoCloseTimer);
+    window._sbAutoCloseTimer=null;
+  }
+}
+
+function sbAgendarRecolhimento(group){
+  sbCancelarRecolhimento();
+  window._sbAutoCloseTimer=setTimeout(function(){
+    if(window._sbOpenGroup===group) sbCloseAll();
+  },5000);
+}
+
 function sbCloseAll(){
+  sbCancelarRecolhimento();
+  document.body.classList.remove('sb-submenu-open');
   ['compras','projetos','producao','vendas','estoque','financeiro'].forEach(function(g){
     var p=document.getElementById('sbpanel_'+g);
     if(p) p.style.display='none';
@@ -12719,6 +12756,7 @@ function sbToggle(group){
   if(!panel) return;
   panel.style.display='block';
   window._sbOpenGroup=group;
+  document.body.classList.add('sb-submenu-open');
   var ov=document.getElementById('sb_overlay');
   if(ov) ov.style.display='block';
   var ico=document.getElementById('sbico_'+group);
@@ -12727,6 +12765,7 @@ function sbToggle(group){
   var mobMap={'compras':'mobnav_comp','projetos':'mobnav_comp','producao':'mobnav_prod','vendas':'mobnav_vend','estoque':'mobnav_est','financeiro':'mobnav_fin'};
   var mobBtn=document.getElementById(mobMap[group]||'');
   if(mobBtn) mobBtn.classList.add('active');
+  sbAgendarRecolhimento(group);
 }
 
 function sbGo(tab, name){
