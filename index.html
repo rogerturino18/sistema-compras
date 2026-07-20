@@ -802,6 +802,10 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
   <div class="stat-row" id="dashStats"></div>
   <div class="grid2">
     <div>
+      <div class="card" style="border-left:3px solid #6a1b9a">
+        <h3 style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>✨ Central de Pendências</span><button class="btn btn-sm" onclick="abrirCentralPendencias()" style="color:#6a1b9a;border-color:#ce93d8">Abrir análise</button></h3>
+        <div id="dashCentralPendencias"><div class="empty">Analisando prioridades…</div></div>
+      </div>
       <div class="card">
         <h3>🔔 Notificações</h3>
         <div id="dashNotifs"><div class="empty">Nenhuma notificação</div></div>
@@ -3388,6 +3392,26 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
 </div>
 </div>
 
+<!-- CENTRAL DE PENDÊNCIAS — modo de leitura; a IA conversacional será conectada ao backend futuramente. -->
+<div class="modal-bg" id="modalCentralPendencias">
+<div class="modal" style="max-width:830px">
+  <div class="modal-header">
+    <h3>✨ Central de Pendências</h3>
+    <button class="modal-header-btn" onclick="fecharModal('modalCentralPendencias')">✕</button>
+  </div>
+  <div style="padding:0 22px 22px">
+    <div style="margin:14px 0 12px;padding:11px 13px;border-left:4px solid #6a1b9a;background:#faf5ff;color:#4a148c;font-size:12px;line-height:1.45">
+      Esta primeira etapa é somente de leitura: ela cruza os dados do sistema e destaca situações que merecem atenção. Nenhuma informação é alterada automaticamente.
+    </div>
+    <div id="centralPendenciasResumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div id="centralPendenciasLista"></div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;color:#607d8b;font-size:12px">
+      Próxima etapa: permitir perguntas como “o que está parado no terceirizado?” usando IA protegida no backend.
+    </div>
+  </div>
+</div>
+</div>
+
 <!-- MODAL GESTÃO DE IMPRESSÃO -->
 <div class="modal-bg" id="modalGestaoImpressao">
 <div class="modal" style="max-width:680px">
@@ -4440,7 +4464,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 79';
+const APP_BUILD='2026-07-20 · build 80';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4778,8 +4802,108 @@ function renderDashboard(){
         <span class="badge ${priorCor[i.prioridade]||'badge-gray'}" style="flex-shrink:0">${i.prioridade||'normal'}</span>
         <span style="flex:1;font-size:12px;margin:0 8px">${i.descricao||'—'}${i.categoria?' <span style="color:var(--gray);font-size:11px">— '+i.categoria+'</span>':''}</span>
         <span style="font-size:11px;color:var(--gray)">${i.solicitado_por||''}</span>
-      </div>`).join(''):'<div class="empty">Nenhuma solicitação pendente ✅</div>';
+    </div>`).join(''):'<div class="empty">Nenhuma solicitação pendente ✅</div>';
   }
+
+  renderResumoCentralPendencias();
+}
+
+function _centralDiasDesde(data){
+  if(!data) return null;
+  const texto=String(data);
+  const d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(texto)?texto+'T12:00:00':texto);
+  if(Number.isNaN(d.getTime())) return null;
+  return Math.max(0,Math.floor((Date.now()-d.getTime())/86400000));
+}
+
+function _centralEsc(texto){
+  return String(texto??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Regras iniciais da Central. Todas são de leitura e ficam no navegador;
+// futuramente a IA do backend poderá explicar e priorizar essas mesmas situações.
+function analisarPendencias(){
+  const pendencias=[];
+  const adicionar=(nivel,icone,titulo,detalhe,tab)=>pendencias.push({nivel,icone,titulo,detalhe,tab});
+
+  const abaixo=(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]);
+  if(abaixo.length){
+    const exemplos=abaixo.slice(0,3).map(x=>`${x.item.descricao||x.item.tipo_peca||'Item'} (${x.saldo}/${x.min})`).join(' · ');
+    adicionar('critica','⚠️',`${abaixo.length} item(ns) abaixo do estoque mínimo`,exemplos+(abaixo.length>3?` · +${abaixo.length-3} outro(s)`:'') ,11);
+  }
+
+  const urgentes=(comprasInternas||[]).filter(i=>i.prioridade==='urgente'&&!i.comprado);
+  if(urgentes.length){
+    const exemplos=urgentes.slice(0,3).map(i=>i.descricao||'Compra interna').join(' · ');
+    adicionar('critica','🛒',`${urgentes.length} compra(s) interna(s) urgente(s) pendente(s)`,exemplos+(urgentes.length>3?` · +${urgentes.length-3} outra(s)`:'') ,9);
+  }
+
+  (ordens||[]).filter(o=>!o.excluida_em&&o.status==='terceirizado').forEach(o=>{
+    const dias=_centralDiasDesde(o.terceirizado_data||o.updated_at||o.dt_abertura);
+    const prazo=Number(o.terceirizado_prazo)||7;
+    if(dias!==null&&dias>=prazo){
+      adicionar('critica','🚚',`Ordem Nº ${o.numero||'—'} está no terceirizado há ${dias} dia(s)`,`${o.descricao||'Sem descrição'}${o.terceirizado_nome?' · '+o.terceirizado_nome:''} · prazo configurado: ${prazo} dia(s)`,5);
+    }
+  });
+
+  const aguardando=(ordens||[]).filter(o=>{
+    if(o.excluida_em||!['aguardando','aberta','pendente'].includes(String(o.status||'').toLowerCase())) return false;
+    const dias=_centralDiasDesde(o.dt_abertura||o.created_at);
+    const teveInicio=(temposOP||[]).some(t=>t.ordem_id===o.id&&t.operacao&&t.operacao!=='REPROCESSAR');
+    return dias!==null&&dias>=7&&!teveInicio;
+  });
+  if(aguardando.length){
+    const exemplos=aguardando.slice(0,3).map(o=>`Nº ${o.numero||'—'} — ${o.descricao||'Sem descrição'}`).join(' · ');
+    adicionar('atencao','🔧',`${aguardando.length} ordem(ns) sem início de produção há 7+ dias`,exemplos+(aguardando.length>3?` · +${aguardando.length-3} outra(s)`:'') ,5);
+  }
+
+  const reqAprovacao=(requisicoes||[]).filter(r=>r.status==='Aguardando Aprovação');
+  if(reqAprovacao.length){
+    adicionar('atencao','📤',`${reqAprovacao.length} requisição(ões) aguardando aprovação`,'Verifique se as solicitações já podem ser liberadas para retirada.',17);
+  }
+
+  const ordem={critica:0,atencao:1};
+  return pendencias.sort((a,b)=>(ordem[a.nivel]??9)-(ordem[b.nivel]??9));
+}
+
+function renderResumoCentralPendencias(){
+  const el=document.getElementById('dashCentralPendencias');
+  if(!el) return;
+  const lista=analisarPendencias();
+  const criticas=lista.filter(p=>p.nivel==='critica').length;
+  el.innerHTML=lista.length?`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span class="badge ${criticas?'badge-red':'badge-yellow'}">${lista.length} ponto(s) de atenção</span>
+      <span style="font-size:12px;color:#607d8b">${criticas?criticas+' crítico(s)':'sem alertas críticos'}</span>
+    </div>
+    ${lista.slice(0,2).map(p=>`<div style="font-size:12px;padding:6px 0;border-top:1px solid #f0f0f0"><b>${p.icone} ${_centralEsc(p.titulo)}</b></div>`).join('')}
+    ${lista.length>2?`<div style="font-size:11px;color:#607d8b;margin-top:6px">+ ${lista.length-2} outra(s) situação(ões)</div>`:''}
+  `:'<div class="empty">✅ Nenhuma pendência identificada pelas regras atuais.</div>';
+}
+
+function abrirCentralPendencias(){
+  const lista=analisarPendencias();
+  const resumo=document.getElementById('centralPendenciasResumo');
+  const div=document.getElementById('centralPendenciasLista');
+  if(!resumo||!div) return;
+  const criticas=lista.filter(p=>p.nivel==='critica').length;
+  const atencao=lista.filter(p=>p.nivel==='atencao').length;
+  resumo.innerHTML=`<div class="badge badge-red" style="padding:7px 11px">${criticas} crítico(s)</div><div class="badge badge-yellow" style="padding:7px 11px">${atencao} atenção</div><div class="badge badge-blue" style="padding:7px 11px">${lista.length} pendência(s)</div>`;
+  div.innerHTML=lista.length?lista.map(p=>{
+    const cor=p.nivel==='critica'?'#c62828':'#d48806';
+    const fundo=p.nivel==='critica'?'#fff7f7':'#fffaf0';
+    return `<div style="display:flex;align-items:flex-start;gap:12px;padding:13px;margin-bottom:8px;border:1px solid ${p.nivel==='critica'?'#ffcdd2':'#ffe0a3'};background:${fundo};border-radius:9px">
+      <div style="font-size:21px;line-height:1">${p.icone}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:${cor}">${_centralEsc(p.titulo)}</div><div style="font-size:12px;color:#546e7a;margin-top:4px;line-height:1.4">${_centralEsc(p.detalhe)}</div></div>
+      <button class="btn btn-sm" onclick="abrirPendenciaTab(${p.tab})" style="white-space:nowrap">Ver →</button>
+    </div>`;
+  }).join(''):'<div class="empty" style="padding:30px">✅ Nenhuma pendência encontrada pelas regras atuais.</div>';
+  abrirModal('modalCentralPendencias');
+}
+
+function abrirPendenciaTab(tab){
+  fecharModal('modalCentralPendencias');
+  showTab(tab);
 }
 
 function isRecente(dt,dias){
