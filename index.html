@@ -511,6 +511,46 @@ tr:hover td{background:#f7faf8}
 .sb-icon.active{background:#2b715a!important}
 [id^="sbpanel_"]{background:#fff!important}
 
+/* ===== MARCA E ACESSO — SL ÓLEOS =====
+   Somente apresentação: não modifica login, sessão ou navegação. */
+body{padding-top:70px}
+.header{height:70px;padding:0 28px;gap:15px}
+.header-logo{width:54px!important;height:54px!important;border-radius:12px!important;overflow:hidden;position:relative;background:transparent!important;box-shadow:none!important}
+.header-logo img{opacity:0!important;width:1px!important;height:1px!important}
+.header-logo::before{content:'';position:absolute;inset:0;background:url('sl-oleos-logo-transparente.png') center/185% auto no-repeat}
+.header-text h1{font-size:17px!important;font-weight:750!important;letter-spacing:-.02em}
+.header-text p{font-size:11px!important;letter-spacing:.01em}
+.user-menu{top:72px!important}
+#mainSidebar,[id^="sbpanel_"]{top:70px!important}
+.panel{padding-top:86px!important}
+
+.login-bg{padding:28px;background:radial-gradient(circle at 10% 12%,rgba(119,182,102,.20),transparent 30%),radial-gradient(circle at 92% 88%,rgba(201,138,24,.16),transparent 32%),linear-gradient(125deg,#102923 0%,#1b4c3f 55%,#14332d 100%)}
+.login-bg::before,.login-bg::after{content:'';position:absolute;border-radius:50%;pointer-events:none}
+.login-bg::before{width:420px;height:420px;right:-120px;top:-130px;border:1px solid rgba(255,255,255,.09);box-shadow:0 0 0 72px rgba(255,255,255,.025),0 0 0 144px rgba(255,255,255,.018)}
+.login-bg::after{width:260px;height:260px;left:-90px;bottom:-100px;background:rgba(201,138,24,.11)}
+.login-box{position:relative;z-index:1;width:min(940px,100%);max-width:940px;min-height:500px;padding:0;display:grid;grid-template-columns:minmax(300px,.94fr) minmax(350px,1.06fr);grid-template-rows:1fr auto;overflow:hidden;border-radius:18px;background:#fff;border:1px solid rgba(255,255,255,.2);box-shadow:0 28px 70px rgba(0,0,0,.34)}
+.login-logo{grid-row:1 / span 2;margin:0;padding:58px 48px 48px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;position:relative;overflow:hidden;background:linear-gradient(145deg,#1c4e3d,#276b52)}
+.login-logo::before{content:'';display:block;width:100%;height:245px;background:url('sl-oleos-logo-transparente.png') center/contain no-repeat;filter:drop-shadow(0 10px 18px rgba(0,0,0,.22))}
+.login-logo::after{content:'GESTÃO DE COMPRAS, PRODUÇÃO E ESTOQUE';margin-top:24px;color:rgba(255,255,255,.72);font-size:11px;font-weight:700;letter-spacing:.15em;line-height:1.6}
+.login-logo .logo-circle,.login-logo h1,.login-logo p{display:none!important}
+.login-form{padding:58px 58px 48px;align-self:end}
+.login-form::before{content:'Acesso ao sistema';display:block;color:#1f2d2b;font-size:25px;font-weight:750;letter-spacing:-.03em;margin-bottom:8px}
+.login-form::after{content:'Informe suas credenciais para continuar.';display:block;position:absolute;top:101px;color:#61716e;font-size:13px}
+.login-form .form-group{margin-bottom:18px}
+.login-form label{font-size:11px;color:#587069;letter-spacing:.08em;margin-bottom:7px}
+.login-form input{min-height:46px;border:1px solid #d9e4de;border-radius:8px;padding:12px 14px;background:#fbfdfc;font-size:14px}
+.login-form input:focus{border-color:#4f9470;box-shadow:0 0 0 4px rgba(79,148,112,.14);background:#fff}
+.login-btn{min-height:46px;border-radius:8px;margin-top:10px;background:linear-gradient(90deg,#1c4e3d,#276b52);box-shadow:0 8px 18px rgba(39,107,82,.22);letter-spacing:.01em}
+.login-btn:hover{background:linear-gradient(90deg,#173f31,#215d48);transform:translateY(-1px)}
+.login-error{grid-column:2;grid-row:2;margin:-24px 58px 24px;padding:10px 12px;border-radius:7px;align-self:end}
+
+@media(max-width:720px){
+  body{padding-top:64px}
+  .header{height:64px;padding:0 16px}.header-logo{width:46px!important;height:46px!important}.header-text p{display:none}
+  #mainSidebar,[id^="sbpanel_"]{top:64px!important}.panel{padding-top:78px!important}
+  .login-bg{padding:16px}.login-box{display:flex;flex-direction:column;min-height:0;border-radius:14px}.login-logo{min-height:190px;padding:24px 30px;justify-content:center}.login-logo::before{height:120px}.login-logo::after{margin-top:8px;font-size:9px}.login-form{padding:32px 28px 28px}.login-form::before{font-size:21px}.login-form::after{top:auto;position:relative;margin:-4px 0 24px}.login-error{margin:0 28px 16px;order:3}
+}
+
 
 
 
@@ -4340,7 +4380,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 56';
+const APP_BUILD='2026-07-20 · build 57';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
