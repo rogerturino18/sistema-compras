@@ -1049,7 +1049,6 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
 
 
 
-</div><!-- fix tab10 balance -->
 <!-- TAB 11: ESTOQUE -->
 <div class="panel" id="tab11">
 
@@ -4100,6 +4099,7 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
   </div>
 </div>
 </div>
+</div><!-- #appContent -->
 <script>
 const SB_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6a3Fjd3NyYWN2b3NkaHFrbWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjQwMTMsImV4cCI6MjA5MzEwMDAxM30.wRmRXfU9kGtPodxKC6tD69VoDlBNI7Su5DGqLYDBe9U';
@@ -4437,7 +4437,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 64';
+const APP_BUILD='2026-07-20 · build 66';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -11975,11 +11975,18 @@ function showTab(n){
     showToast('Sem permissão para acessar este módulo','err');
     return;
   }
-  // Garante que apenas a tela selecionada permaneça visível.
-  // Evita que uma aba anterior ocupe espaço acima da nova tela.
-  document.querySelectorAll('.panel.active').forEach(p=>p.classList.remove('active'));
+  // Fecha cada tela também pelo estilo direto. Isso evita que uma tela
+  // antiga permaneça ocupando altura mesmo se tiver recebido a classe active.
   const painelSelecionado=document.getElementById('tab'+n);
-  if(painelSelecionado) painelSelecionado.classList.add('active');
+  if(!painelSelecionado){
+    showToast('Tela não encontrada','err');
+    return;
+  }
+  document.querySelectorAll('#appContent > .panel').forEach(p=>{
+    const ativo=p===painelSelecionado;
+    p.classList.toggle('active',ativo);
+    p.style.display=ativo?'block':'none';
+  });
   try{ window.scrollTo({top:0,left:0,behavior:'auto'}); }catch(e){ window.scrollTo(0,0); }
   // Verifica permissão (exceto tab 0 = dashboard)
   if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
