@@ -465,6 +465,52 @@ tr:hover td{background:#f9fbf9}
 .sbi{padding:10px 16px!important}
 .sbi.active{background:#eef7ef!important;color:#216045!important;border-left-color:#4f9470!important}
 
+/* ===== BASE GLOBAL — SISTEMA INDUSTRIAL PROFISSIONAL =====
+   Padroniza a aparência de todas as áreas sem alterar HTML funcional,
+   IDs, eventos ou qualquer comunicação com o banco. */
+:root{
+  --green:#276b52;--green-light:#4f9470;--green-pale:#edf6f0;--green-dark:#1c4e3d;
+  --yellow:#c98a18;--dark:#1f2d2b;--gray:#61716e;--bg:#f4f7f5;--white:#fff;--border:#dbe5df;
+}
+body{font-family:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;letter-spacing:.01em;background:var(--bg)}
+.header{background:linear-gradient(90deg,#1c4e3d,#276b52)!important;box-shadow:0 2px 14px rgba(19,57,44,.22)}
+.header-text h1{font-size:15px;letter-spacing:.01em}
+.header-text p{font-size:10px;color:rgba(255,255,255,.76)}
+.panel{background:var(--bg)}
+.panel > *:not(.kanban-wrap):not(#listaCardsCompras):not(#vistaCardsCompras){max-width:1320px}
+.section-title{color:#53645f;letter-spacing:.08em;font-size:11px}
+.stat-row{gap:12px;margin-bottom:18px}
+.stat{border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;box-shadow:0 2px 8px rgba(31,58,48,.055);padding:14px 16px}
+.stat:hover{box-shadow:0 6px 16px rgba(31,58,48,.09)}
+.stat-label{letter-spacing:.07em;color:#687874}
+.stat-val{letter-spacing:-.02em}
+.toolbar{gap:10px;margin-bottom:16px}
+.toolbar input,.toolbar select,.form-group input,.form-group select,.form-group textarea{border-color:#d3dfd8;border-radius:7px;min-height:36px;box-shadow:0 1px 2px rgba(31,58,48,.025)}
+.toolbar input:focus,.toolbar select:focus,.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#4f9470;box-shadow:0 0 0 3px rgba(79,148,112,.13)}
+.btn{border-color:#d1ddd6;border-radius:7px;font-weight:600;min-height:34px;padding:7px 13px;box-shadow:0 1px 2px rgba(31,58,48,.035)}
+.btn:hover{background:#edf6f0;border-color:#b9d2c3}
+.btn.primary{background:#276b52;border-color:#276b52;box-shadow:0 2px 5px rgba(39,107,82,.18)}
+.btn.primary:hover{background:#1c4e3d;border-color:#1c4e3d}
+.btn-sm{min-height:28px;padding:4px 9px}
+.card{border-color:var(--border);border-radius:10px;box-shadow:0 2px 8px rgba(31,58,48,.05)}
+.card h3{color:#276b52}
+.tbl-wrap{border-color:var(--border);border-radius:10px;box-shadow:0 2px 8px rgba(31,58,48,.04)}
+th{background:#edf6f0;color:#276b52;border-bottom-color:#d5e5dc;letter-spacing:.06em;padding:10px 12px}
+th[onclick]:hover{background:#e1f0e6}
+td{border-bottom-color:#edf1ef;padding:9px 12px}
+tr:hover td{background:#f7faf8}
+.badge,.forn-tag{border-radius:6px;font-weight:700}
+.modal{border-radius:12px;box-shadow:0 18px 48px rgba(16,42,34,.25)}
+.modal-header{background:linear-gradient(90deg,#1c4e3d,#276b52);border-radius:12px 12px 0 0;padding:15px 22px}
+.modal h3{color:#276b52;border-bottom-color:#dbece2}
+.compare-item,.forn-card{border-color:var(--border);border-radius:10px;box-shadow:0 2px 7px rgba(31,58,48,.04)}
+.compare-header{background:#f7faf8}
+.compare-header:hover{background:#edf6f0}
+.toast{background:#276b52;border-radius:8px;box-shadow:0 10px 24px rgba(16,42,34,.22)}
+#mainSidebar{background:linear-gradient(180deg,#1b2d31,#152327)!important;border-right:1px solid rgba(255,255,255,.06)}
+.sb-icon.active{background:#2b715a!important}
+[id^="sbpanel_"]{background:#fff!important}
+
 
 
 
@@ -4294,7 +4340,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 55';
+const APP_BUILD='2026-07-20 · build 56';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
