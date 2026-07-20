@@ -1080,7 +1080,7 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
           <option value="Barracão 2">Barracão 2</option>
         </select>
         <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
-        <button id="btnEstOrdem" class="btn" onclick="toggleOrdemEstoque()" style="font-size:12px;white-space:nowrap" title="Alternar ordenação">🕐 Recentes</button>
+        <button id="btnEstOrdem" class="btn" onclick="toggleOrdemEstoque()" style="font-size:12px;white-space:nowrap" title="Ordenar pela data da última movimentação">🕐 Última movimentação</button>
         <button id="btnEstOcultar0" class="btn" onclick="toggleOcultarZero()" style="font-size:12px;white-space:nowrap" title="Ocultar itens com saldo zero">👁 Ocultar Zero</button>
         <button class="btn" onclick="abrirGerenciarCategorias()" style="font-size:12px" title="Adicionar ou editar categorias">🏷️ Categorias</button>
         <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
@@ -2283,8 +2283,6 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
     </table>
   </div>
 </div>
-</div><!-- end appContent -->
-
 <!-- MODAL GESTÃO DE USUÁRIOS (admin only) -->
 <div class="modal-bg" id="modalGestaoUsuarios">
 <div class="modal" style="width:700px;max-width:98vw">
@@ -4437,7 +4435,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 68';
+const APP_BUILD='2026-07-20 · build 72';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9995,12 +9993,12 @@ function toggleOrdemEstoque(){
   const btn = document.getElementById('btnEstOrdem');
   if(btn){
     if(estOrdemRecentes){
-      btn.textContent = '🕐 Recentes';
+      btn.textContent = '🕐 Mais recentes';
       btn.style.background = '#1565c0';
       btn.style.color = '#fff';
       btn.style.borderColor = '#1565c0';
     } else {
-      btn.textContent = '🔤 A→Z';
+      btn.textContent = '🕐 Última movimentação';
       btn.style.background = '';
       btn.style.color = '';
       btn.style.borderColor = '';
@@ -10082,11 +10080,7 @@ function renderEstoque(){
     }
     if(busca&&!(i.descricao+i.material+i.codigo+i.ncm+i.categoria+'').toLowerCase().includes(busca)) return false;
     // Ocultar itens com saldo zero
-    if(estOcultarZero){
-      const movItem=estoqueMov.filter(m=>m.item_id===i.id);
-      const saldo=movItem.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-      if(Math.round(saldo)<=0) return false;
-    }
+    if(estOcultarZero && _saldoAtualEstoqueItem(i)<=0) return false;
     return true;
   });
 
@@ -10096,10 +10090,19 @@ function renderEstoque(){
 
   // Ordenação
   if(estOrdemRecentes){
-    lista.sort((a,b)=>{ const da=a.created_at||a.id||''; const db=b.created_at||b.id||''; return db.localeCompare(da); });
+    // Ordena pelo último lançamento de estoque do item, não pela data em que
+    // o cadastro foi criado. Assim as últimas entradas aparecem no topo.
+    const ultimaDataMov=i=>{
+      const datas=estoqueMov.filter(m=>m.item_id===i.id)
+        .map(m=>String(m.data||m.created_at||''))
+        .filter(Boolean)
+        .sort();
+      return datas.length?datas[datas.length-1]:String(i.atualizado_em||i.created_at||'');
+    };
+    lista.sort((a,b)=>ultimaDataMov(b).localeCompare(ultimaDataMov(a)));
   } else {
     // Calcular saldo para ordenação
-    const calcSaldo=i=>{ const mv=estoqueMov.filter(m=>m.item_id===i.id); return (i.qtd_inicial||0)+mv.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.quantidade,0)-mv.filter(m=>m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0); };
+    const calcSaldo=i=>_saldoAtualEstoqueItem(i);
     lista.sort((a,b)=>{
       let va,vb;
       if(estSortCol==='saldo'){ va=calcSaldo(a); vb=calcSaldo(b); return (va-vb)*estSortDir; }
@@ -10120,11 +10123,7 @@ function renderEstoque(){
 
   // Stats
   const totalItens = estoqueItens.length;
-  const valorTotal = estoqueItens.reduce((acc,i)=>{
-    const mov = estoqueMov.filter(m=>m.item_id===i.id);
-    const saldo = mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-    return acc + saldo*(i.valor_unitario||0);
-  },0);
+  const valorTotal = estoqueItens.reduce((acc,i)=>acc+_saldoAtualEstoqueItem(i)*(Number(i.valor_unitario)||0),0);
   const semCodigo = estoqueItens.filter(i=>!i.codigo).length;
   const cats2 = [...new Set(estoqueItens.map(i=>i.categoria||'Matéria Prima').filter(Boolean))].length;
   const statsEl = document.getElementById('statsEstoque');
@@ -10154,6 +10153,13 @@ function renderEstoque(){
       linhas.push({it:i, barracao:pt.barracao, saldoBarr:Math.round(pt.saldo)});
     });
   });
+
+  // A tabela mostra uma linha para cada barracão. Portanto a ordenação por
+  // saldo precisa acontecer depois dessa separação, usando o saldo da própria
+  // linha — e não o saldo total do item.
+  if(!estOrdemRecentes && estSortCol==='saldo'){
+    linhas.sort((a,b)=>(a.saldoBarr-b.saldoBarr)*estSortDir);
+  }
 
   if(!linhas.length){
     tbody.innerHTML='';
@@ -10356,10 +10362,9 @@ async function confirmarEstMov(){
 // pra nunca mais haver divergência entre o que a tabela mostra e o que o modal edita.
 function _saldoAtualEstoqueItem(item){
   if(!item) return 0;
-  const mov = estoqueMov.filter(m=>m.item_id===item.id);
-  return (item.qtd_inicial||0)
-    + mov.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+m.quantidade,0)
-    - mov.filter(m=>m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0);
+  const inicial=Number(item.qtd_inicial)||0;
+  return inicial+(estoqueMov||[]).filter(m=>m.item_id===item.id)
+    .reduce((saldo,m)=>saldo+(m.tipo==='entrada'?1:-1)*(Number(m.quantidade)||0),0);
 }
 
 // Saldo separado por barracão. O saldo inicial e movimentações antigas (sem
@@ -11982,10 +11987,20 @@ function showTab(n){
     showToast('Tela não encontrada','err');
     return;
   }
-  document.querySelectorAll('#appContent > .panel').forEach(p=>{
+  const appContent=document.getElementById('appContent');
+  // Uma navegação para módulo sempre sai da dashboard. Isto impede que a
+  // camada da home esconda a aba escolhida após um clique rápido no menu.
+  if(n!==0){
+    document.getElementById('homeScreen')?.classList.remove('open');
+    appContent?.classList.remove('loading-home');
+  }
+  // Usa todos os painéis dentro do aplicativo e força o estilo direto.
+  // Alguns navegadores mantinham o display anterior em telas de estoque,
+  // deixando o menu ativo com o conteúdo aparentemente em branco.
+  (appContent?.querySelectorAll('.panel')||[]).forEach(p=>{
     const ativo=p===painelSelecionado;
     p.classList.toggle('active',ativo);
-    p.style.display=ativo?'block':'none';
+    p.style.setProperty('display',ativo?'block':'none','important');
   });
   try{ window.scrollTo({top:0,left:0,behavior:'auto'}); }catch(e){ window.scrollTo(0,0); }
   // Verifica permissão (exceto tab 0 = dashboard)
