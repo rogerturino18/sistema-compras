@@ -4437,7 +4437,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 63';
+const APP_BUILD='2026-07-20 · build 64';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -11971,6 +11971,16 @@ async function cancelarNFe(ref,id){
 function fmtVal(v){return v!=null&&v!==0?'R$ '+Number(v).toFixed(2):'—';}
 function fmtDt(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('pt-BR');}catch{return d.substring(0,10);}}
 function showTab(n){
+  if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
+    showToast('Sem permissão para acessar este módulo','err');
+    return;
+  }
+  // Garante que apenas a tela selecionada permaneça visível.
+  // Evita que uma aba anterior ocupe espaço acima da nova tela.
+  document.querySelectorAll('.panel.active').forEach(p=>p.classList.remove('active'));
+  const painelSelecionado=document.getElementById('tab'+n);
+  if(painelSelecionado) painelSelecionado.classList.add('active');
+  try{ window.scrollTo({top:0,left:0,behavior:'auto'}); }catch(e){ window.scrollTo(0,0); }
   // Verifica permissão (exceto tab 0 = dashboard)
   if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
     showToast('Sem permissão para acessar este módulo','err');
