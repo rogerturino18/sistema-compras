@@ -519,7 +519,7 @@ body{padding-top:70px}
 .header{height:70px;padding:0 28px;gap:15px}
 .header-logo{width:54px!important;height:54px!important;border-radius:12px!important;overflow:hidden;position:relative;background:transparent!important;box-shadow:none!important}
 .header-logo img{opacity:0!important;width:1px!important;height:1px!important}
-.header-logo::before{content:'';position:absolute;inset:0;background:var(--sl-symbol) center/170% auto no-repeat}
+.header-logo::before{content:'';position:absolute;inset:2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 76'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='12' y1='8' x2='55' y2='70' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%2387d438'/%3E%3Cstop offset='.52' stop-color='%2300aa43'/%3E%3Cstop offset='1' stop-color='%2300783c'/%3E%3C/linearGradient%3E%3ClinearGradient id='y' x1='15' y1='34' x2='37' y2='65' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%23fff36a'/%3E%3Cstop offset='1' stop-color='%23e2bc18'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M34 3C22 17 10 31 10 46c0 15 11 27 25 27 16 0 27-12 27-28C62 30 48 15 34 3Z'/%3E%3Cpath fill='url(%23y)' d='M27 25C18 35 14 42 14 50c0 10 7 18 17 18 8 0 14-5 16-12-9-5-15-16-20-31Z'/%3E%3Cpath fill='%23fff' d='M37 17c1 19 15 24 13 39-1 7-5 12-11 15 8-10 8-18 2-29-5-9-7-16-4-25Z' opacity='.96'/%3E%3C/svg%3E") center/contain no-repeat!important;filter:drop-shadow(0 2px 2px rgba(0,0,0,.18))}
 .header-text h1{font-size:17px!important;font-weight:750!important;letter-spacing:-.02em}
 .header-text p{font-size:11px!important;letter-spacing:.01em}
 .user-menu{top:72px!important}
@@ -2748,7 +2748,7 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
       <!-- Rodapé -->
       <div style="display:flex;justify-content:space-between;padding:12px 20px;border-top:1px solid #e0e0e0;background:#f9f4ff">
         <button class="btn" onclick="fecharModal('modalReq')">Cancelar</button>
-        <button style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarRequisicao()">💾 Salvar e Baixar Estoque</button>
+        <button id="btnSalvarReq" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer" onclick="salvarRequisicao()">💾 Salvar e Baixar Estoque</button>
       </div>
     </div>
   </div>
@@ -4437,7 +4437,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 66';
+const APP_BUILD='2026-07-20 · build 68';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -13573,6 +13573,7 @@ function renderRequisicoes(){
       <td style="padding:7px 10px">${reqStatusBadge(r.status)}</td>
       <td style="padding:7px 6px;white-space:nowrap">
         <button class="btn btn-sm" onclick="verRequisicao('${r.id}')" title="Ver detalhes">🔍</button>
+        ${(r.status==='Aguardando Aprovação'||r.status==='Aberta')?`<button class="btn btn-sm" onclick="abrirModalReq('${r.id}')" title="Editar requisição">✏️</button>`:''}
         ${r.status==='Aguardando Aprovação'&&isAprovador()?`<button class="btn btn-sm" style="background:#4a148c;color:#fff;border-color:#4a148c" onclick="aprovarRequisicao('${r.id}')" title="Aprovar">✅ Aprovar</button>`:''}${(r.status==='Aguardando Aprovação'||r.status==='Aberta')?`<button class="btn btn-sm danger" onclick="cancelarRequisicao('${r.id}')" title="Recusar">❌</button>`:''}
       </td>
     </tr>`;
@@ -13582,6 +13583,11 @@ function renderRequisicoes(){
 function abrirModalReq(id){
   editReqId=id; reqItensLocal=[];
   const r=id?requisicoes.find(x=>x.id===id):null;
+  if(id&&!r){showToast('Requisição não encontrada','err');return;}
+  if(r&&r.status!=='Aguardando Aprovação'&&r.status!=='Aberta'){
+    showToast('Esta requisição já movimentou o estoque e não pode ser editada. Faça uma nova correção de estoque para preservar o histórico.','err',6000);
+    return;
+  }
   const maxNum=requisicoes.length?Math.max(...requisicoes.map(x=>x.numero||0)):0;
   document.getElementById('modalReqTitulo').textContent=id?`Requisição Nº ${r?.numero||''}`:'Nova Requisição de Material';
   document.getElementById('req_numero').value=r?.numero||(maxNum+1);
@@ -13629,6 +13635,17 @@ function abrirModalReq(id){
     else selDest.value='';
   }
   reqItensLocal=Array.isArray(r?.itens)?JSON.parse(JSON.stringify(r.itens)):[];
+  // Ao editar, atualiza o saldo exibido com o estoque real de agora, e não com o saldo salvo anteriormente.
+  reqItensLocal.forEach(it=>{
+    const item=estoqueItens.find(x=>x.id===it.item_id);
+    if(!item)return;
+    const saldo=estoqueMov.filter(m=>m.item_id===it.item_id)
+      .reduce((s,m)=>s+(m.tipo==='entrada'?Number(m.quantidade||0):-Number(m.quantidade||0)),Number(item.qtd_inicial||0));
+    it.saldo_atual=saldo;
+    it.unidade=it.unidade||item.unidade||'PC';
+  });
+  const btnSalvar=document.getElementById('btnSalvarReq');
+  if(btnSalvar) btnSalvar.textContent=id?'💾 Salvar alterações':'💾 Salvar e Baixar Estoque';
   renderReqItens();
   abrirModal('modalReq');
 }
@@ -13721,9 +13738,14 @@ async function salvarRequisicao(){
   // Debug: log usuarioLogado para identificar campos disponíveis
   console.log('[Req] usuarioLogado:', JSON.stringify({email:usuarioLogado?.email, perfil:usuarioLogado?.perfil, cargo:usuarioLogado?.cargo, is_admin:usuarioLogado?.is_admin, nome:usuarioLogado?.nome}));
   console.log('[Req] isAprovador():', isAprovador());
+  const reqOriginal=editReqId?requisicoes.find(x=>x.id===editReqId):null;
+  if(editReqId&&(!reqOriginal||!['Aberta','Aguardando Aprovação'].includes(reqOriginal.status))){
+    showToast('Esta requisição não pode mais ser editada porque o estoque já foi movimentado.','err',6000);
+    return;
+  }
   const ehAprovador=isAprovador();
   const obj={
-    numero, status: (ehAprovador||isExpedicao()) ? 'Atendida' : 'Aguardando Aprovação',
+    numero, status: editReqId ? reqOriginal.status : ((ehAprovador||isExpedicao()) ? 'Atendida' : 'Aguardando Aprovação'),
     departamento:depto,
     pdv_id:pdvId||null,
     pdv_nome:pvDest?(_numPdv(pvDest)+(pvDest.cliente?' — '+pvDest.cliente:'')+(pvDest.equipamento?' | '+pvDest.equipamento:'')):(isPdvDest?pvDestId:null),
@@ -13736,13 +13758,16 @@ async function salvarRequisicao(){
   try{
     // Save requisition
     let savedId = editReqId;
-    if(editReqId){ const patchObj={...obj}; delete patchObj.criado_por; await api('PATCH','requisicoes_material',patchObj,`?id=eq.${editReqId}`); }
+    if(editReqId){
+      const patchObj={...obj}; delete patchObj.criado_por;
+      await api('PATCH','requisicoes_material',patchObj,`?id=eq.${editReqId}`);
+    }
     else {
       const res = await api('POST','requisicoes_material',obj);
       if(res&&res[0]) savedId = res[0].id;
     }
     // Only baixar estoque if approved (admin creates directly as Atendida)
-    if(obj.status === 'Atendida'){
+    if(!editReqId && obj.status === 'Atendida'){
       for(const it of reqItensLocal){
         await api('POST','estoque_movimentacoes',{
           item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
@@ -13753,6 +13778,8 @@ async function salvarRequisicao(){
         });
       }
       showToast(`✅ Requisição Nº ${numero} aprovada e estoque atualizado!`);
+    } else if(editReqId) {
+      showToast(`✅ Requisição Nº ${numero} atualizada. O estoque ainda não foi movimentado.`);
     } else {
       showToast(`📋 Requisição Nº ${numero} enviada para aprovação!`, 'ok', 5000);
       // Atualiza badge de aprovações pendentes imediatamente
