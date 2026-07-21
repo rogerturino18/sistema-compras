@@ -4510,7 +4510,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 94';
+const APP_BUILD='2026-07-21 · build 97';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4983,6 +4983,8 @@ function renderPerguntasRapidasCentral(lista){
 function contextoDetalhadoCentralIA(){
   const abaixo=(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]).slice(0,12).map(x=>({
     material:String(x?.item?.descricao||x?.item?.tipo_peca||'Item sem descrição'),
+    codigo:String(x?.item?.codigo||'').trim(),
+    categoria:String(x?.item?.categoria||'').trim(),
     saldo:x?.saldo??null,
     minimo:x?.min??null,
     unidade:String(x?.item?.unidade||'').trim()
