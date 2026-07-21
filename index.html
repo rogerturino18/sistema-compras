@@ -4510,7 +4510,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-21 · build 97';
+const APP_BUILD='2026-07-21 · build 98';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4992,10 +4992,10 @@ function contextoDetalhadoCentralIA(){
   const compras=(comprasInternas||[]).filter(i=>i.prioridade==='urgente'&&!i.comprado).slice(0,10).map(i=>({
     descricao:String(i?.descricao||'Compra interna'), fornecedor:String(i?.fornecedor||'').trim()
   }));
-  const terceirizados=(ordens||[]).filter(o=>!o.excluida_em&&o.status==='terceirizado').map(o=>({
+  const terceirizados=(ordens||[]).filter(o=>!o.excluida_em&&String(o?.status||'').toLowerCase().includes('terceir')).map(o=>({
     numero:o?.numero||'', descricao:String(o?.descricao||''), terceirizado:String(o?.terceirizado_nome||''),
     dias:_centralDiasDesde(o?.terceirizado_data||o?.updated_at||o?.dt_abertura), prazo:Number(o?.terceirizado_prazo)||7
-  })).filter(o=>o.dias!==null&&o.dias>=o.prazo).sort((a,b)=>b.dias-a.dias).slice(0,15);
+  })).filter(o=>o.dias!==null).sort((a,b)=>b.dias-a.dias).slice(0,15);
   return {estoque_abaixo_minimo:abaixo,compras_urgentes:compras,terceirizados_atrasados:terceirizados};
 }
 
@@ -5032,7 +5032,12 @@ async function perguntarCentralIA(pergunta=''){
     const r=await fetch(baseUrl+'/api/analisar-pendencias',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({pendencias:analisarPendencias(),contexto:contextoDetalhadoCentralIA(),pergunta:perguntaFinal})
+      body:JSON.stringify({
+        pendencias:analisarPendencias(),
+        contexto:contextoDetalhadoCentralIA(),
+        pergunta:perguntaFinal,
+        historico:centralHistoricoIA.slice(0,-1).filter(m=>m.texto!=='Consultando as pendências atuais...').slice(-6)
+      })
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.sucesso) throw new Error(data.erro||'Não foi possível obter a análise agora.');
