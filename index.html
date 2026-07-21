@@ -4526,7 +4526,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-21 · build 102';
+const APP_BUILD='2026-07-21 · build 103';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9146,8 +9146,10 @@ function agruparOrdensIguaisParaImpressao(lista,agrupar){
   lista.forEach(o=>{
     const desenho=normalizar(o.desenho);
     // Sem desenho não há identificação suficientemente segura para mesclar.
+    // O número do desenho é a identificação técnica da peça. Material pode ter
+    // pequenas variações de cadastro (ex.: "A53-B" x "A53B") sem mudar a peça.
     const chave=desenho
-      ? [o.pdv_id||'',desenho,normalizar(o.descricao),normalizar(o.material),normalizar(o.peso)].join('|')
+      ? [o.pdv_id||'',desenho].join('|')
       : `individual|${o.id}`;
     if(!grupos.has(chave)) grupos.set(chave,[]);
     grupos.get(chave).push(o);
