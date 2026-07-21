@@ -692,6 +692,14 @@ thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f
 /* A grade de Ordens tem blocos independentes por PDV. Cabeçalho fixo global
    sobrepunha a primeira ordem ao rolar; aqui ele permanece no fluxo normal. */
 #tab5 #listaOrdens thead th{position:static!important;top:auto!important;z-index:auto!important}
+/* Estoque: a tabela possui seu próprio contêiner com rolagem. O cabeçalho
+   global (topo 70px) deslocava suas colunas e cobria a primeira linha. */
+#tab11 #estThead{position:static!important;top:auto!important;z-index:auto!important}
+#tab11 #estThead th{position:sticky!important;top:0!important;z-index:3!important}
+#estoqueToolbar>button{flex:0 0 auto!important;justify-content:center!important;white-space:nowrap!important;font-size:12px!important;line-height:1.2!important}
+#estoqueToolbar #btnEstOrdem,#estoqueToolbar #btnEstOcultar0{min-width:148px!important}
+#estoqueToolbar button[onclick="codificarItensEmLote()"]{min-width:132px!important}
+#estoqueToolbar button[onclick="exportarExcelEstoque()"]{min-width:82px!important}
 tbody tr{transition:background .14s ease,box-shadow .14s ease}
 tbody tr:hover td{background:#f4faf6!important}
 tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 #66a982}
@@ -1128,7 +1136,7 @@ td{vertical-align:middle!important}
     <div style="flex:1;display:flex;flex-direction:column;min-width:0">
 
       <!-- Toolbar interno -->
-      <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
+        <div id="estoqueToolbar" style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
         <button class="btn primary" style="font-size:12px;white-space:nowrap" onclick="abrirModalEstoque('mp',null)">+ Novo Item</button>
         <input type="text" id="buscaEstoque" placeholder="Buscar código, descrição, material..." oninput="renderEstoque()" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
         <select id="filtroEstMaterial" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-width:120px">
@@ -4526,7 +4534,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-21 · build 103';
+const APP_BUILD='2026-07-21 · build 106';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -5021,9 +5029,34 @@ function renderConversaCentralIA(el){
   el.style.display='block';
   el.innerHTML=centralHistoricoIA.map(msg=>msg.tipo==='pergunta'
     ?`<div style="margin:7px 0 7px 26px;padding:8px 10px;border-radius:9px;background:#e4f2eb;color:#164f3b"><b>Você:</b> ${_centralEsc(msg.texto)}</div>`
-    :`<div style="margin:7px 26px 7px 0;padding:9px 10px;border-radius:9px;background:#fff;border:1px solid #d4e6dc;color:#29453a"><b style="color:#1f6a50">Assistente:</b><div style="margin-top:4px;white-space:pre-wrap">${_centralEsc(msg.texto)}</div></div>`
+    :`<div style="margin:7px 26px 7px 0;padding:9px 10px;border-radius:9px;background:#fff;border:1px solid #d4e6dc;color:#29453a"><b style="color:#1f6a50">Assistente:</b><div style="margin-top:4px;white-space:pre-wrap">${_centralEsc(normalizarTextoRespostaCentralIA(msg.texto))}</div>${renderTabelaRespostaCentralIA(msg.tabela)}</div>`
   ).join('');
   el.scrollTop=el.scrollHeight;
+}
+
+function normalizarTextoRespostaCentralIA(texto){
+  const bruto=String(texto||'').trim();
+  if(!/^\{[\s\S]*\}$/.test(bruto)) return bruto;
+  try{
+    const dados=JSON.parse(bruto);
+    const resumo=String(dados?.resumo||dados?.resposta||'').trim();
+    const itens=Array.isArray(dados?.itens)?dados.itens.slice(0,6):[];
+    const linhas=itens.map(i=>{
+      const titulo=String(i?.item||i?.titulo||'').trim();
+      const contexto=String(i?.contexto||i?.motivo||'').trim();
+      const acao=String(i?.acao||'').trim();
+      return [titulo,contexto,acao?`Próxima ação: ${acao}`:''].filter(Boolean).join(' — ');
+    }).filter(Boolean);
+    return [resumo,...linhas].filter(Boolean).join('\n\n')||'A resposta recebida não pôde ser interpretada.';
+  }catch(_){ return bruto; }
+}
+
+function renderTabelaRespostaCentralIA(tabela){
+  const colunas=Array.isArray(tabela?.colunas)?tabela.colunas:[];
+  const linhas=Array.isArray(tabela?.linhas)?tabela.linhas:[];
+  if(!colunas.length||!linhas.length) return '';
+  const valores=linha=>Array.isArray(linha)?linha:colunas.map((coluna,i)=>linha?.[Object.keys(linha||{})[i]]??'—');
+  return `<div style="margin-top:10px;overflow:auto;border:1px solid #d5e5dc;border-radius:7px"><table style="width:100%;min-width:570px;border-collapse:collapse;font-size:11px"><thead><tr>${colunas.map(c=>`<th style="padding:7px;text-align:left;background:#edf7f1;border-bottom:1px solid #d5e5dc;color:#1f6a50">${_centralEsc(c)}</th>`).join('')}</tr></thead><tbody>${linhas.map(l=>`<tr>${valores(l).map(v=>`<td style="padding:7px;border-bottom:1px solid #edf2ef;vertical-align:top">${_centralEsc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
 async function perguntarCentralIA(pergunta=''){
@@ -5057,7 +5090,7 @@ async function perguntarCentralIA(pergunta=''){
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.sucesso) throw new Error(data.erro||'Não foi possível obter a análise agora.');
-    centralHistoricoIA[centralHistoricoIA.length-1]={tipo:'resposta',texto:String(data.resposta||data.resumo||data.analise||'Não encontrei uma resposta para esta pergunta.')};
+    centralHistoricoIA[centralHistoricoIA.length-1]={tipo:'resposta',texto:String(data.resposta||data.resumo||data.analise||'Não encontrei uma resposta para esta pergunta.'),tabela:data.tabela||null};
     renderConversaCentralIA(resultado);
   }catch(e){
     centralHistoricoIA[centralHistoricoIA.length-1]={tipo:'resposta',texto:'Não foi possível concluir agora: '+(e?.message||'erro de conexão')};
@@ -7864,6 +7897,34 @@ async function sincronizarQuantidadeOPVinculada(no, novaQuantidade, quantidadeAn
   return true;
 }
 
+// A janela completa da estrutura recria os nós para preservar a hierarquia.
+// Antes desta rotina, ela preservava o vínculo com a OP, mas esquecia de levar
+// a nova quantidade junto. Este lote aplica a mesma proteção da edição rápida:
+// só atualiza ordens ainda sem produção iniciada.
+async function sincronizarQuantidadesOPDaEstrutura(alteracoes){
+  const porOrdem = new Map();
+  (alteracoes||[]).forEach(a=>{
+    if(a?.ordem_id && Number(a.quantidadeAnterior||1)!==Number(a.novaQuantidade||1)){
+      porOrdem.set(a.ordem_id, a);
+    }
+  });
+  let atualizadas=0, preservadas=0;
+  for(const alteracao of porOrdem.values()){
+    const ordem = ordens.find(o=>o.id===alteracao.ordem_id);
+    if(!ordem) continue;
+    const possuiApontamentos = temposOP.some(t=>t.ordem_id===ordem.id && t.operacao && t.operacao!=='REPROCESSAR');
+    if(ordem.status==='concluido' || ordem.status==='terceirizado' || possuiApontamentos){
+      preservadas++;
+      continue;
+    }
+    await api('PATCH','ordens_producao',{quantidade:Number(alteracao.novaQuantidade)||1},`?id=eq.${ordem.id}`);
+    ordem.quantidade=Number(alteracao.novaQuantidade)||1;
+    atualizadas++;
+  }
+  if(atualizadas) showToast(`${atualizadas} O.P. vinculada(s) atualizada(s) com a nova quantidade.`);
+  if(preservadas) showToast(`${preservadas} O.P. já iniciada/terceirizada foi mantida sem alteração automática.`,'err',5000);
+}
+
 async function salvarEdicaoRapida(){
   const modal = document.getElementById('modalEdicaoRapida');
   const noId = modal.dataset.noId, tipo = modal.dataset.tipo;
@@ -8192,6 +8253,7 @@ async function salvarDesenhoRecebido(){
 
   const editId = document.getElementById('modalDesenhoRecebido').dataset.editId;
   let assumiuLock = false;
+  let alteracoesQuantidadeOP = [];
   const cabecalho = {
     pdv_id: pdvId,
     data_recebimento: data,
@@ -8259,6 +8321,18 @@ async function salvarDesenhoRecebido(){
       // Vínculos já feitos (ordem_id, item_compra_id) são preservados porque vieram
       // junto nos nós carregados em _coletarArvoreDoEquipamento.
       const arvoreAntiga = _coletarArvoreDoEquipamento(editId);
+      // _nosTemp mantém os ids originais enquanto esta janela está sendo editada.
+      // Comparamos a árvore salva com o estado atual ANTES de apagar e recriar os
+      // nós, assim sabemos exatamente qual O.P. precisa receber a nova quantidade.
+      const antigosPorId = new Map(arvoreAntiga.map(no=>[String(no.id),no]));
+      alteracoesQuantidadeOP = _nosTemp.map(no=>{
+        const antigo = antigosPorId.get(String(no.id));
+        return antigo?.ordem_id ? {
+          ordem_id: antigo.ordem_id,
+          quantidadeAnterior: antigo.quantidade,
+          novaQuantidade: no.quantidade
+        } : null;
+      }).filter(Boolean);
       const gruposAntiga = _agruparPorProfundidade(arvoreAntiga);
       for(const p of Object.keys(gruposAntiga).map(Number).sort((a,b)=>b-a)){
         await Promise.all(gruposAntiga[p].map(n => n.tipo==='montagem'
@@ -8320,6 +8394,8 @@ async function salvarDesenhoRecebido(){
       if(proximaLeva.length) progresso = true;
       restantes = restantes.filter(n=>mapaIds[n.id]===undefined);
     }
+
+    await sincronizarQuantidadesOPDaEstrutura(alteracoesQuantidadeOP);
 
     showToast('Equipamento recebido salvo!');
     fecharModal('modalDesenhoRecebido');
