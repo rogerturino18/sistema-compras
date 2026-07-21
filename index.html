@@ -3495,7 +3495,11 @@ td{vertical-align:middle!important}
       <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="gi_selecionarTodas" onchange="toggleSelecionarTodasOrdens(this)"> Selecionar todas
       </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap;color:#1565c0;font-weight:700">
+        <input type="checkbox" id="gi_agruparIguais" onchange="atualizarContadorImpressao()"> Agrupar peças iguais
+      </label>
     </div>
+    <div style="padding:0 16px 10px;color:#607d8b;font-size:11px">Agrupa apenas na impressão as peças do mesmo PDV, desenho, descrição e material. As O.P.s originais não são alteradas.</div>
     <div id="gi_contador" style="padding:8px 16px;background:#f5f7f5;font-size:12px;color:#546e7a;border-bottom:1px solid #e0e0e0">Nenhuma ordem selecionada</div>
     <div id="gi_lista" style="max-height:380px;overflow-y:auto;padding:8px 16px"></div>
   </div>
@@ -4522,7 +4526,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-21 · build 101';
+const APP_BUILD='2026-07-21 · build 102';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -9107,7 +9111,10 @@ function atualizarContadorImpressao(){
   const checks=document.querySelectorAll('.gi_check:checked');
   const total=document.querySelectorAll('.gi_check').length;
   const selecionadas=checks.length;
-  const folhas=Math.ceil(selecionadas/2);
+  const agrupar=!!document.getElementById('gi_agruparIguais')?.checked;
+  const ordensSelecionadas=[...checks].map(c=>ordens.find(o=>o.id===c.value)).filter(Boolean);
+  const fichas=agruparOrdensIguaisParaImpressao(ordensSelecionadas,agrupar);
+  const folhas=Math.ceil(fichas.length/2);
   const contador=document.getElementById('gi_contador');
   const btn=document.getElementById('gi_btnImprimir');
   const selTodas=document.getElementById('gi_selecionarTodas');
@@ -9115,6 +9122,9 @@ function atualizarContadorImpressao(){
     contador.innerHTML='<span style="color:#9e9e9e">Nenhuma ordem selecionada</span>';
   } else {
     contador.innerHTML=`<strong style="color:#1565c0">${selecionadas} ordem(ns) selecionada(s)</strong> · <span>🖨️ ${folhas} folha(s) A4</span>${selecionadas%2!==0?' · <span style="color:#e65100">⚠️ Última folha com 1 ordem (meia folha)</span>':''}`;
+    if(agrupar&&fichas.length<selecionadas){
+      contador.innerHTML=`<strong style="color:#1565c0">${selecionadas} O.P.s selecionadas</strong> → <strong style="color:#2e7d32">${fichas.length} ficha(s) para imprimir</strong> · <span>🖨️ ${folhas} folha(s) A4</span>`;
+    }
   }
   btn.disabled=selecionadas===0;
   btn.style.opacity=selecionadas===0?'0.5':'1';
@@ -9126,6 +9136,34 @@ function atualizarContadorImpressao(){
 function toggleSelecionarTodasOrdens(cb){
   document.querySelectorAll('.gi_check').forEach(c=>{c.checked=cb.checked;});
   atualizarContadorImpressao();
+}
+
+// Agrupamento exclusivamente visual para impressão: não altera O.P.s, status ou histórico.
+function agruparOrdensIguaisParaImpressao(lista,agrupar){
+  if(!agrupar) return lista;
+  const normalizar=valor=>String(valor??'').trim().toUpperCase().replace(/\s+/g,' ');
+  const grupos=new Map();
+  lista.forEach(o=>{
+    const desenho=normalizar(o.desenho);
+    // Sem desenho não há identificação suficientemente segura para mesclar.
+    const chave=desenho
+      ? [o.pdv_id||'',desenho,normalizar(o.descricao),normalizar(o.material),normalizar(o.peso)].join('|')
+      : `individual|${o.id}`;
+    if(!grupos.has(chave)) grupos.set(chave,[]);
+    grupos.get(chave).push(o);
+  });
+  return [...grupos.values()].map(grupo=>{
+    if(grupo.length===1) return grupo[0];
+    const base=grupo[0];
+    return {
+      ...base,
+      quantidade:grupo.reduce((s,o)=>s+(Number(o.quantidade)||0),0),
+      numero:grupo.map(o=>o.numero).join(' + '),
+      _opAgrupada:true,
+      _ordensOriginais:grupo.map(o=>o.id),
+      _numerosOriginais:grupo.map(o=>o.numero)
+    };
+  });
 }
 
 // Logo vetorial embutido: não depende de imagem externa nem de tempo de carregamento
@@ -9145,7 +9183,9 @@ function logoOrdemProducaoSVG(){
 function imprimirOrdensSelecionadas(){
   const ids=[...document.querySelectorAll('.gi_check:checked')].map(c=>c.value);
   if(!ids.length){showToast('Selecione ao menos uma ordem','err');return;}
-  const ordensParaImprimir=ids.map(id=>ordens.find(o=>o.id===id)).filter(Boolean);
+  const ordensSelecionadas=ids.map(id=>ordens.find(o=>o.id===id)).filter(Boolean);
+  const agrupar=!!document.getElementById('gi_agruparIguais')?.checked;
+  const ordensParaImprimir=agruparOrdensIguaisParaImpressao(ordensSelecionadas,agrupar);
   fecharModal('modalGestaoImpressao');
 
   const fmtDtHr=s=>{
@@ -9159,7 +9199,8 @@ function imprimirOrdensSelecionadas(){
 
   const gerarBlocoOrdem=(o)=>{
     const pdv=pdvs.find(p=>p.id===o.pdv_id);
-    const tempos=(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao);
+    // Uma ficha agrupada representa várias O.P.s; seus apontamentos continuam nas originais.
+    const tempos=o._opAgrupada?[]:(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao);
     const dataAbertura=o.dt_abertura?o.dt_abertura.split('T')[0].split('-').reverse().join('/'):'';
     const getTempo=(op)=>{
       const ts=tempos.filter(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&x.dt_hr_final);
@@ -9219,6 +9260,7 @@ function imprimirOrdensSelecionadas(){
   ${opRow('FURADEIRA','SOLDA')}
   ${opRow('FREZA','MONTAGEM')}
 </table>
+${o._opAgrupada?`<div style="margin-top:5px;padding:4px 7px;border:1px solid #1565c0;background:#eaf3ff;color:#0d47a1;font-size:9px;font-weight:700;text-align:center">IMPRESSÃO AGRUPADA — O.P.s ${o._numerosOriginais.join(', ')} · Quantidade total: ${o.quantidade}</div>`:''}
 ${o.foto_produto?`<div style="margin-top:6px;text-align:center"><img src="${o.foto_produto}" style="max-height:80px;max-width:100%;object-fit:contain;border:1px solid #ccc;border-radius:3px"></div>`:''}`;
   };
 
