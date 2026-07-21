@@ -4511,7 +4511,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 88';
+const APP_BUILD='2026-07-20 · build 90';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4984,12 +4984,34 @@ async function analisarCentralComIA(){
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.sucesso) throw new Error(data.erro||'Não foi possível obter a análise agora.');
-    if(resultado) resultado.textContent=data.analise;
+    if(resultado) renderizarAnaliseCentralIA(resultado,data);
   }catch(e){
     if(resultado) resultado.textContent='Não foi possível concluir a análise: '+(e?.message||'erro de conexão')+' A Central por regras continua disponível normalmente.';
   }finally{
     if(btn){ btn.disabled=false; btn.innerHTML=original||'✨ Analisar com IA'; }
   }
+}
+
+function renderizarAnaliseCentralIA(el,data){
+  const esc=_centralEsc;
+  const itens=Array.isArray(data?.itens)?data.itens:[];
+  if(!itens.length){
+    el.textContent=String(data?.resumo||data?.analise||'A IA não retornou recomendações agora.');
+    return;
+  }
+  el.innerHTML=`
+    <div style="font-weight:700;color:#1f6a50;margin-bottom:8px">Recomendação da IA</div>
+    ${data?.resumo?`<div style="margin-bottom:9px;color:#45645a">${esc(data.resumo)}</div>`:''}
+    <div style="display:grid;gap:7px">${itens.map((item,index)=>{
+      const critica=String(item.prioridade||'').toLowerCase().includes('cr');
+      const cor=critica?'#bf2b1e':'#a56b00';
+      const fundo=critica?'#fff7f5':'#fffbef';
+      return `<div style="background:${fundo};border-left:3px solid ${cor};border-radius:6px;padding:8px 9px">
+        <div style="font-weight:700;color:${cor}">${index+1}. ${esc(item.titulo)}</div>
+        ${item.motivo?`<div style="margin-top:3px"><b>Verificar:</b> ${esc(item.motivo)}</div>`:''}
+        ${item.acao?`<div style="margin-top:3px"><b>Próximo passo:</b> ${esc(item.acao)}</div>`:''}
+      </div>`;
+    }).join('')}</div>`;
 }
 
 function abrirCentralPendencias(){
@@ -7247,7 +7269,7 @@ function renderOrdens(){
             ${COLS_FIXAS.map(op=>op==='Centro de Usinagem'?`<col style="width:90px">`:`<col style="width:62px">`).join('')}
             <col style="width:110px">
           </colgroup>
-          <thead>
+          <tbody>
             <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Ordem</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
@@ -7255,8 +7277,8 @@ function renderOrdens(){
               ${COLS_FIXAS.map(op=>`<th style="padding:6px 2px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;line-height:1.2;word-break:break-word">${op}</th>`).join('')}
               <th style="width:110px"></th>
             </tr>
-          </thead>
-          <tbody>${linhas}</tbody>
+            ${linhas}
+          </tbody>
         </table>
       </div>
     </div>`;
