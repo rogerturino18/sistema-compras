@@ -93,6 +93,9 @@ tr:hover td{background:#f9fbf9}
 .modal-header-actions{display:flex;gap:6px}
 .modal-header-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;line-height:1}
 .modal-header-btn:hover{background:rgba(255,255,255,0.35)}
+.modal-close{background:rgba(255,255,255,0.2);border:none;color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:20px;display:inline-flex;align-items:center;justify-content:center;line-height:1;position:relative;z-index:2;touch-action:manipulation}
+.modal-close:hover{background:rgba(255,255,255,0.35)}
+.modal-close:active{transform:none!important}
 .modal-body{padding:22px}
 .modal h3{font-size:15px;font-weight:700;margin-bottom:16px;color:var(--green);border-bottom:2px solid var(--green-pale);padding-bottom:8px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -2137,7 +2140,7 @@ td{vertical-align:middle!important}
 <div class="modal" style="width:480px;max-width:96vw">
   <div class="modal-header">
     <h3 id="edrTitulo">Editar</h3>
-    <button class="modal-close" onclick="fecharModal('modalEdicaoRapida')">×</button>
+    <button type="button" class="modal-close" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();fecharModal('modalEdicaoRapida')" title="Fechar">×</button>
   </div>
   <div style="padding:0 22px 18px">
     <div class="form-group"><label id="edrLabelNome">Denominação *</label><input id="edr_nome" placeholder="Nome ou denominação"></div>
@@ -4534,7 +4537,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-21 · build 106';
+const APP_BUILD='2026-07-21 · build 108';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -8114,12 +8117,17 @@ function renderColunas(){
       </div>`;
     }).join('') || `<div style="padding:14px;text-align:center;color:#bbb;font-size:11px">Vazio</div>`;
 
+    const textoBotaoMontagem = parentId===null ? '+ Adicionar montagem ao equipamento' : '+ Adicionar submontagem';
+    const dicaBotaoMontagem = parentId===null
+      ? 'Inclui uma montagem principal neste equipamento'
+      : 'Inclui uma submontagem dentro da montagem selecionada';
+    const textoBotaoItem = parentId===null ? '+ Adicionar item ao equipamento' : '+ Adicionar item';
     html += `<div style="min-width:280px;width:280px;flex-shrink:0;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;max-height:320px">
       <div style="padding:7px 10px;background:#eceff1;font-size:11px;font-weight:700;color:#37474f;border-bottom:1px solid #e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${labelTopo}">${labelTopo}</div>
       <div style="flex:1;overflow-y:auto">${linhas}</div>
       <div style="display:flex;gap:4px;padding:6px;border-top:1px solid #e0e0e0;background:#fafafa">
-        <button class="btn btn-sm" onclick="adicionarSubMontagem(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">+ Montagem</button>
-        <button class="btn btn-sm" onclick="adicionarItemEm(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">+ Item</button>
+        <button class="btn btn-sm" onclick="adicionarSubMontagem(${parentId===null?'null':"'"+parentId+"'"})" title="${dicaBotaoMontagem}" style="font-size:10px;padding:3px 6px;flex:1">${textoBotaoMontagem}</button>
+        <button class="btn btn-sm" onclick="adicionarItemEm(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">${textoBotaoItem}</button>
       </div>
     </div>`;
   }
@@ -13165,7 +13173,8 @@ function initDragModal(id){
   if(!modal||!header) return;
   let isDragging=false,startX,startY,initLeft,initTop;
   header.addEventListener('mousedown',e=>{
-    if(e.target.classList.contains('modal-header-btn')) return;
+    // Controles no cabeçalho nunca devem iniciar o arraste do modal.
+    if(e.target.closest('button, input, select, textarea, a, label')) return;
     isDragging=true;
     const rect=modal.getBoundingClientRect();
     startX=e.clientX; startY=e.clientY;
