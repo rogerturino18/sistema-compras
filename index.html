@@ -3431,7 +3431,7 @@ td{vertical-align:middle!important}
 </div>
 </div>
 
-<!-- CENTRAL DE PENDÊNCIAS — modo de leitura; a IA conversacional será conectada ao backend futuramente. -->
+<!-- CENTRAL DE PENDÊNCIAS — assistente conversacional somente de leitura. -->
 <div class="modal-bg" id="modalCentralPendencias">
 <div class="modal" style="max-width:760px;width:calc(100% - 28px)">
   <div class="modal-header">
@@ -3442,18 +3442,20 @@ td{vertical-align:middle!important}
     <div style="margin:14px 0 12px;padding:11px 13px;border-left:4px solid #6a1b9a;background:#faf5ff;color:#4a148c;font-size:12px;line-height:1.45">
       Esta primeira etapa é somente de leitura: ela cruza os dados do sistema e destaca situações que merecem atenção. Nenhuma informação é alterada automaticamente.
     </div>
-    <div id="centralPendenciasResumo" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
-    <div id="centralPendenciasTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
-    <div id="centralPendenciasLista" style="max-height:min(48vh,420px);overflow:auto;padding-right:3px"></div>
-    <div id="centralIAArea" style="margin-top:14px;padding-top:12px;border-top:1px solid #e4ece8">
+    <div id="centralPendenciasResumo" style="display:none"></div>
+    <div id="centralPendenciasTabs" style="display:none"></div>
+    <div id="centralPendenciasLista" style="display:none"></div>
+    <div id="centralIAArea" style="margin-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <div style="font-size:12px;color:#546e7a"><b style="color:#1f6a50">✨ Análise IA</b> — recomenda prioridades e próximos passos; não altera dados.</div>
-        <div style="display:flex;gap:7px"><button id="btnConfigCentralIA" class="btn btn-sm" onclick="configurarCentralIA()">Configurar</button><button id="btnAnalisarCentralIA" class="btn btn-sm primary" onclick="analisarCentralComIA()">✨ Analisar com IA</button></div>
+        <div><b style="font-size:14px;color:#1f6a50">✨ Assistente de Operação</b><div style="font-size:12px;color:#607d8b;margin-top:3px">Pergunte sobre as pendências atuais. A resposta é somente de leitura.</div></div>
+        <button id="btnConfigCentralIA" class="btn btn-sm" onclick="configurarCentralIA()">Configurar</button>
       </div>
-      <div id="centralIAResultado" style="display:none;margin-top:10px;padding:11px 12px;border-radius:9px;background:#f4faf7;border:1px solid #cfe5d9;font-size:12px;line-height:1.5;color:#29453a;white-space:pre-wrap"></div>
-    </div>
-    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;color:#607d8b;font-size:12px">
-      Próxima etapa: permitir perguntas como “o que está parado no terceirizado?” usando IA protegida no backend.
+      <div id="centralPerguntasRapidas" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px"></div>
+      <div style="display:flex;gap:7px;margin-top:12px">
+        <input id="centralIAPergunta" class="input" style="flex:1;min-width:0" placeholder="Ex.: O que preciso cobrar hoje?" onkeydown="if(event.key==='Enter') perguntarCentralIA()">
+        <button id="btnAnalisarCentralIA" class="btn btn-sm primary" onclick="perguntarCentralIA()">Perguntar</button>
+      </div>
+      <div id="centralIAResultado" style="display:none;margin-top:12px;max-height:290px;overflow:auto;padding:11px 12px;border-radius:9px;background:#f4faf7;border:1px solid #cfe5d9;font-size:12px;line-height:1.55;color:#29453a"></div>
     </div>
   </div>
 </div>
@@ -4511,7 +4513,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 92';
+const APP_BUILD='2026-07-20 · build 93';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4964,33 +4966,71 @@ function atualizarAreaCentralIA(){
   if(!temUrl&&resultado){ resultado.style.display='block'; resultado.textContent='A IA ainda não foi configurada neste navegador. Um administrador deve informar a URL do Backend IA.'; }
 }
 
-async function analisarCentralComIA(){
+let centralHistoricoIA=[];
+
+function perguntasRapidasCentral(lista){
+  const perguntas=['Monte meu plano de hoje.'];
+  if(lista.some(p=>String(p.titulo||'').toLowerCase().includes('terceirizado'))) perguntas.push('O que preciso cobrar no terceirizado hoje?');
+  if(lista.some(p=>String(p.titulo||'').toLowerCase().includes('estoque mínimo'))) perguntas.push('Quais materiais devo conferir para reposição?');
+  if(lista.some(p=>String(p.titulo||'').toLowerCase().includes('compra'))) perguntas.push('O que preciso verificar nas compras urgentes?');
+  if(lista.some(p=>String(p.titulo||'').toLowerCase().includes('produção'))) perguntas.push('O que está parado na produção?');
+  return perguntas.slice(0,4);
+}
+
+function renderPerguntasRapidasCentral(lista){
+  const el=document.getElementById('centralPerguntasRapidas');
+  if(!el) return;
+  el.innerHTML=perguntasRapidasCentral(lista).map(pergunta=>`<button class="btn btn-sm" onclick="perguntarCentralIA(${_centralEsc(JSON.stringify(pergunta))})" style="border-color:#b9d8ca;color:#1f6a50">${_centralEsc(pergunta)}</button>`).join('');
+}
+
+function renderConversaCentralIA(el){
+  if(!el) return;
+  if(!centralHistoricoIA.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  el.innerHTML=centralHistoricoIA.map(msg=>msg.tipo==='pergunta'
+    ?`<div style="margin:7px 0 7px 26px;padding:8px 10px;border-radius:9px;background:#e4f2eb;color:#164f3b"><b>Você:</b> ${_centralEsc(msg.texto)}</div>`
+    :`<div style="margin:7px 26px 7px 0;padding:9px 10px;border-radius:9px;background:#fff;border:1px solid #d4e6dc;color:#29453a"><b style="color:#1f6a50">Assistente:</b><div style="margin-top:4px;white-space:pre-wrap">${_centralEsc(msg.texto)}</div></div>`
+  ).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+async function perguntarCentralIA(pergunta=''){
   const baseUrl=getCentralIAUrl();
   if(!baseUrl){
     if(isAprovador()) configurarCentralIA();
     else showToast('A IA ainda não foi configurada pelo administrador.','err');
     return;
   }
+  const campo=document.getElementById('centralIAPergunta');
+  const perguntaFinal=String(pergunta||campo?.value||'').trim();
+  if(!perguntaFinal){ showToast('Escreva uma pergunta ou escolha uma sugestão.','err'); return; }
   const btn=document.getElementById('btnAnalisarCentralIA');
   const resultado=document.getElementById('centralIAResultado');
   const original=btn?.innerHTML;
   try{
     if(btn){ btn.disabled=true; btn.textContent='Analisando...'; }
-    if(resultado){ resultado.style.display='block'; resultado.textContent='Preparando análise. Nenhum dado será alterado.'; }
+    if(campo) campo.value='';
+    centralHistoricoIA.push({tipo:'pergunta',texto:perguntaFinal});
+    centralHistoricoIA.push({tipo:'resposta',texto:'Consultando as pendências atuais...'});
+    renderConversaCentralIA(resultado);
     const r=await fetch(baseUrl+'/api/analisar-pendencias',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({pendencias:analisarPendencias()})
+      body:JSON.stringify({pendencias:analisarPendencias(),pergunta:perguntaFinal})
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.sucesso) throw new Error(data.erro||'Não foi possível obter a análise agora.');
-    if(resultado) renderizarAnaliseCentralIA(resultado,data);
+    centralHistoricoIA[centralHistoricoIA.length-1]={tipo:'resposta',texto:String(data.resposta||data.resumo||data.analise||'Não encontrei uma resposta para esta pergunta.')};
+    renderConversaCentralIA(resultado);
   }catch(e){
-    if(resultado) resultado.textContent='Não foi possível concluir a análise: '+(e?.message||'erro de conexão')+' A Central por regras continua disponível normalmente.';
+    centralHistoricoIA[centralHistoricoIA.length-1]={tipo:'resposta',texto:'Não foi possível concluir agora: '+(e?.message||'erro de conexão')};
+    renderConversaCentralIA(resultado);
   }finally{
-    if(btn){ btn.disabled=false; btn.innerHTML=original||'✨ Analisar com IA'; }
+    if(btn){ btn.disabled=false; btn.innerHTML=original||'Perguntar'; }
   }
 }
+
+async function analisarCentralComIA(){ return perguntarCentralIA('Monte meu plano de hoje.'); }
 
 function renderizarAnaliseCentralIA(el,data){
   data=normalizarRespostaCentralIA(data);
@@ -5038,7 +5078,9 @@ function abrirCentralPendencias(){
   }
   const lista=analisarPendencias();
   centralPendenciasFiltro=lista.some(p=>p.nivel==='critica')?'critica':(lista.some(p=>p.nivel==='atencao')?'atencao':'todas');
+  centralHistoricoIA=[];
   renderCentralPendencias(lista);
+  renderConversaCentralIA(document.getElementById('centralIAResultado'));
   atualizarAreaCentralIA();
   abrirModal('modalCentralPendencias');
 }
@@ -5056,6 +5098,10 @@ function renderCentralPendencias(lista){
   const criticas=lista.filter(p=>p.nivel==='critica').length;
   const atencao=lista.filter(p=>p.nivel==='atencao').length;
   resumo.style.display='none';
+  tabs.style.display='none';
+  div.style.display='none';
+  renderPerguntasRapidasCentral(lista);
+  return;
   resumo.innerHTML=`<span class="badge badge-red">${criticas} crítico(s)</span><span class="badge badge-yellow">${atencao} atenção</span><span class="badge badge-blue">${lista.length} no total</span>`;
   const opcoes=[['critica','Críticas',criticas],['atencao','Atenção',atencao],['todas','Todas',lista.length]];
   tabs.innerHTML=opcoes.map(([id,nome,total])=>`<button class="btn btn-sm ${centralPendenciasFiltro===id?'primary':''}" onclick="filtrarCentralPendencias('${id}')">${nome} <span style="opacity:.72">${total}</span></button>`).join('');
