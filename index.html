@@ -3442,6 +3442,13 @@ td{vertical-align:middle!important}
     <div id="centralPendenciasResumo" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
     <div id="centralPendenciasTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
     <div id="centralPendenciasLista" style="max-height:min(48vh,420px);overflow:auto;padding-right:3px"></div>
+    <div id="centralIAArea" style="margin-top:14px;padding-top:12px;border-top:1px solid #e4ece8">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div style="font-size:12px;color:#546e7a"><b style="color:#1f6a50">✨ Análise IA</b> — recomenda prioridades e próximos passos; não altera dados.</div>
+        <div style="display:flex;gap:7px"><button id="btnConfigCentralIA" class="btn btn-sm" onclick="configurarCentralIA()">Configurar</button><button id="btnAnalisarCentralIA" class="btn btn-sm primary" onclick="analisarCentralComIA()">✨ Analisar com IA</button></div>
+      </div>
+      <div id="centralIAResultado" style="display:none;margin-top:10px;padding:11px 12px;border-radius:9px;background:#f4faf7;border:1px solid #cfe5d9;font-size:12px;line-height:1.5;color:#29453a;white-space:pre-wrap"></div>
+    </div>
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;color:#607d8b;font-size:12px">
       Próxima etapa: permitir perguntas como “o que está parado no terceirizado?” usando IA protegida no backend.
     </div>
@@ -4501,7 +4508,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 84';
+const APP_BUILD='2026-07-20 · build 85';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4921,6 +4928,67 @@ function renderResumoCentralPendencias(){
 
 let centralPendenciasFiltro='critica';
 
+function getCentralIAUrl(){
+  return String(localStorage.getItem('sl_central_ia_url')||'').trim().replace(/\/+$/,'');
+}
+
+function configurarCentralIA(){
+  if(!isAprovador()){
+    showToast('Somente administradores podem configurar a IA.','err');
+    return;
+  }
+  const atual=getCentralIAUrl();
+  const url=prompt('Cole a URL do Backend IA na Vercel (ex.: https://sl-oleos-backend-ia.vercel.app):',atual);
+  if(url===null) return;
+  const limpa=String(url).trim().replace(/\/+$/,'');
+  if(!limpa){ localStorage.removeItem('sl_central_ia_url'); atualizarAreaCentralIA(); return; }
+  if(!/^https:\/\/[^\s]+\.vercel\.app$/i.test(limpa)){
+    showToast('Informe uma URL válida da Vercel (https://...vercel.app).','err');
+    return;
+  }
+  localStorage.setItem('sl_central_ia_url',limpa);
+  atualizarAreaCentralIA();
+  showToast('Backend da IA configurado neste navegador.');
+}
+
+function atualizarAreaCentralIA(){
+  const temUrl=!!getCentralIAUrl();
+  const btn=document.getElementById('btnAnalisarCentralIA');
+  const cfg=document.getElementById('btnConfigCentralIA');
+  const resultado=document.getElementById('centralIAResultado');
+  if(btn){ btn.disabled=!temUrl; btn.title=temUrl?'Analisar as pendências mostradas':'Configure o backend da IA primeiro'; }
+  if(cfg) cfg.style.display=isAprovador()?'inline-flex':'none';
+  if(!temUrl&&resultado){ resultado.style.display='block'; resultado.textContent='A IA ainda não foi configurada neste navegador. Um administrador deve informar a URL do Backend IA.'; }
+}
+
+async function analisarCentralComIA(){
+  const baseUrl=getCentralIAUrl();
+  if(!baseUrl){
+    if(isAprovador()) configurarCentralIA();
+    else showToast('A IA ainda não foi configurada pelo administrador.','err');
+    return;
+  }
+  const btn=document.getElementById('btnAnalisarCentralIA');
+  const resultado=document.getElementById('centralIAResultado');
+  const original=btn?.innerHTML;
+  try{
+    if(btn){ btn.disabled=true; btn.textContent='Analisando...'; }
+    if(resultado){ resultado.style.display='block'; resultado.textContent='Preparando análise. Nenhum dado será alterado.'; }
+    const r=await fetch(baseUrl+'/api/analisar-pendencias',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pendencias:analisarPendencias()})
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.sucesso) throw new Error(data.erro||'Não foi possível obter a análise agora.');
+    if(resultado) resultado.textContent=data.analise;
+  }catch(e){
+    if(resultado) resultado.textContent='Não foi possível concluir a análise: '+(e?.message||'erro de conexão')+' A Central por regras continua disponível normalmente.';
+  }finally{
+    if(btn){ btn.disabled=false; btn.innerHTML=original||'✨ Analisar com IA'; }
+  }
+}
+
 function abrirCentralPendencias(){
   if(!podeUsarCentralPendencias()){
     showToast('Você não tem permissão para acessar a Central de Pendências.','err');
@@ -4929,6 +4997,7 @@ function abrirCentralPendencias(){
   const lista=analisarPendencias();
   centralPendenciasFiltro=lista.some(p=>p.nivel==='critica')?'critica':(lista.some(p=>p.nivel==='atencao')?'atencao':'todas');
   renderCentralPendencias(lista);
+  atualizarAreaCentralIA();
   abrirModal('modalCentralPendencias');
 }
 
