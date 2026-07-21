@@ -677,6 +677,9 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
 .stat::after{content:'';position:absolute;width:90px;height:90px;right:-48px;bottom:-52px;border-radius:50%;background:currentColor;opacity:.035}
 .tbl-wrap{overflow:hidden!important}
 thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f3faf5,#eaf5ee)!important}
+/* A grade de Ordens tem blocos independentes por PDV. Cabeçalho fixo global
+   sobrepunha a primeira ordem ao rolar; aqui ele permanece no fluxo normal. */
+#tab5 #listaOrdens thead th{position:static!important;top:auto!important;z-index:auto!important}
 tbody tr{transition:background .14s ease,box-shadow .14s ease}
 tbody tr:hover td{background:#f4faf6!important}
 tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 #66a982}
@@ -4508,7 +4511,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-20 · build 85';
+const APP_BUILD='2026-07-20 · build 88';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4938,12 +4941,12 @@ function configurarCentralIA(){
     return;
   }
   const atual=getCentralIAUrl();
-  const url=prompt('Cole a URL do Backend IA na Vercel (ex.: https://sl-oleos-backend-ia.vercel.app):',atual);
+  const url=prompt('Cole a URL do Backend IA (Vercel ou Cloudflare Workers). Ex.: https://sl-oleos-backend-ia.rogerturino18.workers.dev',atual);
   if(url===null) return;
   const limpa=String(url).trim().replace(/\/+$/,'');
   if(!limpa){ localStorage.removeItem('sl_central_ia_url'); atualizarAreaCentralIA(); return; }
-  if(!/^https:\/\/[^\s]+\.vercel\.app$/i.test(limpa)){
-    showToast('Informe uma URL válida da Vercel (https://...vercel.app).','err');
+  if(!/^https:\/\/[^\s]+\.(vercel\.app|workers\.dev)$/i.test(limpa)){
+    showToast('Informe uma URL válida HTTPS da Vercel ou Cloudflare Workers.','err');
     return;
   }
   localStorage.setItem('sl_central_ia_url',limpa);
@@ -5013,6 +5016,7 @@ function renderCentralPendencias(lista){
   if(!resumo||!tabs||!div) return;
   const criticas=lista.filter(p=>p.nivel==='critica').length;
   const atencao=lista.filter(p=>p.nivel==='atencao').length;
+  resumo.style.display='none';
   resumo.innerHTML=`<span class="badge badge-red">${criticas} crítico(s)</span><span class="badge badge-yellow">${atencao} atenção</span><span class="badge badge-blue">${lista.length} no total</span>`;
   const opcoes=[['critica','Críticas',criticas],['atencao','Atenção',atencao],['todas','Todas',lista.length]];
   tabs.innerHTML=opcoes.map(([id,nome,total])=>`<button class="btn btn-sm ${centralPendenciasFiltro===id?'primary':''}" onclick="filtrarCentralPendencias('${id}')">${nome} <span style="opacity:.72">${total}</span></button>`).join('');
