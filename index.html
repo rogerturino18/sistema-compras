@@ -699,6 +699,14 @@ thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f
    global (topo 70px) deslocava suas colunas e cobria a primeira linha. */
 #tab11 #estThead{position:static!important;top:auto!important;z-index:auto!important}
 #tab11 #estThead th{position:sticky!important;top:0!important;z-index:3!important}
+/* Toda tabela dentro de .tbl-wrap (ou de um modal) tem rolagem própria, então o
+   cabeçalho gruda no topo do PRÓPRIO contêiner. O top:70px global (pensado para
+   a rolagem da página, abaixo da barra fixa) empurrava o cabeçalho para dentro
+   da tabela: ele aparecia abaixo da primeira linha e ainda cobria as linhas
+   seguintes — era o caso de Entradas/Saídas, Requisições de Material e da
+   tabela de itens da Nova Requisição (o item entrava, mas ficava escondido).
+   Aqui só o deslocamento é corrigido; cabeçalhos fixos intencionais seguem. */
+.tbl-wrap thead th,.modal thead th{top:0!important}
 #estoqueToolbar>button{flex:0 0 auto!important;justify-content:center!important;white-space:nowrap!important;font-size:12px!important;line-height:1.2!important}
 #estoqueToolbar #btnEstOrdem,#estoqueToolbar #btnEstOcultar0{min-width:148px!important}
 #estoqueToolbar button[onclick="codificarItensEmLote()"]{min-width:132px!important}
@@ -4537,7 +4545,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-21 · build 108';
+const APP_BUILD='2026-07-22 · build 109';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
