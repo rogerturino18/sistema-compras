@@ -684,8 +684,12 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
 .toolbar input::placeholder,.form-group input::placeholder,.form-group textarea::placeholder{color:#8a9b95!important}
 .toolbar select{cursor:pointer!important}
 .btn{font-family:"Aptos","Segoe UI",system-ui,sans-serif!important;letter-spacing:.01em!important}
-.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red){background:#fff!important}
-.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red):hover{background:#f2f8f4!important;border-color:#a9cbbb!important;color:#1b624a!important}
+/* O fundo branco forçado vencia o estilo do próprio botão (regra !important
+   ganha de estilo inline). Botões que definem a própria cor de fundo — e usam
+   texto branco, como "Codificar Itens" e "Ocultar Zero" ativo — ficavam branco
+   no branco, sumindo o texto. Agora quem tem fundo próprio é preservado. */
+.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red):not([style*="background"]){background:#fff!important}
+.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red):not([style*="background"]):hover{background:#f2f8f4!important;border-color:#a9cbbb!important;color:#1b624a!important}
 .btn.primary,.btn-green{background:linear-gradient(135deg,#277457,#1f6048)!important;border-color:#1f6048!important;box-shadow:0 5px 12px rgba(31,96,72,.16)!important}
 .btn.primary:hover,.btn-green:hover{filter:brightness(.96)!important;box-shadow:0 8px 17px rgba(31,96,72,.22)!important}
 .stat{position:relative;overflow:hidden}
@@ -1596,10 +1600,43 @@ td{vertical-align:middle!important}
         <th>Departamento</th>
         <th>Referência / Obs</th>
         <th>Solicitado por</th>
+        <th style="width:90px">Ações</th>
       </tr></thead>
       <tbody id="listaMovEstoque"></tbody>
     </table>
   </div>
+
+<!-- MODAL EDITAR MOVIMENTAÇÃO DE ESTOQUE -->
+<div class="modal-bg" id="modalEditarMov">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>✏️ Editar Movimentação</h3>
+      <div class="modal-header-actions">
+        <button class="modal-header-btn" onclick="fecharModal('modalEditarMov')" title="Fechar">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="edmovResumo" style="background:#f1f8e9;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#33691e"></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Quantidade *</label><input id="edmov_qtd" type="number" step="0.01" min="0"></div>
+        <div class="form-group"><label>Data</label><input id="edmov_data" type="date"></div>
+        <div class="form-group"><label>Barracão</label>
+          <select id="edmov_barracao">
+            <option value="">Não informado</option>
+            <option value="Barracão 1">Barracão 1</option>
+            <option value="Barracão 2">Barracão 2</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Referência / Observação</label><input id="edmov_obs" placeholder="Ex: Compra sem nota, ajuste..."></div>
+      </div>
+      <div style="font-size:11px;color:#90a4ae;margin-top:8px">Alterar a quantidade recalcula o saldo do item automaticamente.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modalEditarMov')">Cancelar</button>
+      <button class="btn primary" onclick="salvarEditarMov()">Salvar</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- TAB 17: REQUISIÇÕES DE MATERIAL -->
@@ -4545,7 +4582,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-22 · build 110';
+const APP_BUILD='2026-07-22 · build 112';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -12756,7 +12793,8 @@ function isProjetista(){
 
 function isPerfilSimplificadoCI(){
   const emails=['expedicao@sloleos.com.br','pcp@sloleos.com.br'];
-  return usuarioLogado&&emails.includes(usuarioLogado.email);
+  const email=String(usuarioLogado?.email||'').trim().toLowerCase();
+  return !!email && emails.includes(email);
 }
 
 // ── Sistema de Permissões por Módulo ─────────────────────────────────────
@@ -14037,6 +14075,60 @@ async function transferirBarracao(itemId, origem, saldoOrigem){
 }
 
 // ===== MOVIMENTAÇÕES DE ESTOQUE =====
+// ===== EDITAR / EXCLUIR MOVIMENTAÇÃO DE ESTOQUE =====
+let editMovId = null;
+
+function abrirEditarMov(id){
+  const m=(estoqueMov||[]).find(x=>String(x.id)===String(id));
+  if(!m){ showToast('Movimentação não encontrada','err'); return; }
+  editMovId=m.id;
+  const item=(estoqueItens||[]).find(i=>i.id===m.item_id);
+  const nome=item?.tipo_peca||item?.descricao||'Item removido';
+  const dt=(m.data||m.created_at||'').substring(0,10);
+  const resumo=document.getElementById('edmovResumo');
+  if(resumo) resumo.innerHTML=`<b>${nome}</b><br>${m.tipo==='entrada'?'Entrada':'Saída'} registrada por ${m.criado_por||'—'}${dt?' em '+new Date(dt+'T12:00').toLocaleDateString('pt-BR'):''}`;
+  document.getElementById('edmov_qtd').value=m.quantidade||0;
+  document.getElementById('edmov_data').value=dt||'';
+  document.getElementById('edmov_barracao').value=m.barracao||'';
+  document.getElementById('edmov_obs').value=m.observacao||'';
+  abrirModal('modalEditarMov');
+}
+
+async function salvarEditarMov(){
+  if(!editMovId) return;
+  const qtd=parseFloat(document.getElementById('edmov_qtd').value);
+  if(isNaN(qtd)||qtd<0){ showToast('Informe uma quantidade válida','err'); return; }
+  const dados={
+    quantidade: qtd,
+    data: document.getElementById('edmov_data').value||null,
+    barracao: document.getElementById('edmov_barracao').value||null,
+    observacao: document.getElementById('edmov_obs').value||null
+  };
+  try{
+    await api('PATCH','estoque_movimentacoes',dados,`?id=eq.${editMovId}`);
+    showToast('✅ Movimentação atualizada!');
+    fecharModal('modalEditarMov');
+    editMovId=null;
+    await loadAll();
+  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
+}
+
+async function excluirMov(id){
+  const m=(estoqueMov||[]).find(x=>String(x.id)===String(id));
+  if(!m){ showToast('Movimentação não encontrada','err'); return; }
+  const item=(estoqueItens||[]).find(i=>i.id===m.item_id);
+  const nome=item?.tipo_peca||item?.descricao||'Item removido';
+  const tipoTxt=m.tipo==='entrada'?'Entrada':'Saída';
+  // Confirmação mostrando exatamente o que será removido e o efeito no saldo.
+  if(!confirm(`Excluir esta movimentação?\n\n${nome}\n${tipoTxt} de ${m.quantidade||0} ${m.unidade_saida||item?.unidade||''}\n\nO saldo do item será recalculado. Esta ação não pode ser desfeita.`)) return;
+  try{
+    await api('DELETE','estoque_movimentacoes','',`?id=eq.${id}`);
+    showToast('Movimentação excluída — saldo recalculado');
+    await loadAll();
+  }catch(e){ showToast('Erro ao excluir: '+e.message,'err'); console.error(e); }
+}
+// ===== FIM EDITAR / EXCLUIR MOVIMENTAÇÃO =====
+
 function renderMovEstoque(){
   const busca=(document.getElementById('buscaMov')?.value||'').toLowerCase();
   const filtTipo=document.getElementById('filtroMovTipo')?.value||'';
@@ -14075,7 +14167,7 @@ function renderMovEstoque(){
     });
   }
 
-  if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação encontrada</td></tr>`;return;}
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação encontrada</td></tr>`;return;}
 
   tbody.innerHTML=lista.map(m=>{
     const item=estoqueItens.find(i=>i.id===m.item_id);
@@ -14104,6 +14196,10 @@ function renderMovEstoque(){
       <td style="padding:7px 10px;font-size:12px">${deptoDisplay!=='—'?`<span class="badge badge-blue" style="font-size:10px">${deptoDisplay}</span>`:'—'}</td>
       <td style="padding:7px 10px;font-size:12px;color:#546e7a">${obsDisplay}</td>
       <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${m.criado_por||'—'}</td>
+      <td style="padding:7px 10px;white-space:nowrap">
+        <button class="btn btn-sm" onclick="abrirEditarMov('${m.id}')" title="Editar movimentação">✏️</button>
+        <button class="btn btn-sm danger" onclick="excluirMov('${m.id}')" title="Excluir movimentação">🗑</button>
+      </td>
     </tr>`;
   }).join('');
 }
