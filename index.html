@@ -4545,7 +4545,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-22 · build 109';
+const APP_BUILD='2026-07-22 · build 110';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -12812,7 +12812,7 @@ function getPermissoesUsuario(u){
   if(cargo.includes('compra'))    return ['compras','cotacoes','estoque','requisicoes','compint','envio'];
   if(cargo.includes('pcp'))       return ['compras','producao','requisicoes','estoque','projetos','material'];
   if(cargo.includes('producao')||cargo.includes('produção')) return ['producao','estoque','requisicoes'];
-  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao','requisicoes'];
+  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao','requisicoes','compint'];
   if(cargo.includes('projeto'))   return ['projetos','producao','material'];
   if(cargo.includes('engenharia'))return ['projetos','producao','material','estoque'];
   if(cargo.includes('comercial')) return ['pdv','clientes','cotacoes'];
@@ -12832,7 +12832,9 @@ const GRUPO_TABS = {
   cotacoes:   [6,7],
   compint:    [9],
   envio:      [10],
-  estoque:    [11,30],
+  // 16 = Entradas e Saídas (Movimentações de Estoque). Ficava fora de qualquer
+  // grupo, então só o administrador via a aba, mesmo com permissão de Estoque.
+  estoque:    [11,16,30],
   fiscal:     [12],
   pdv:        [13],
   clientes:   [14],
