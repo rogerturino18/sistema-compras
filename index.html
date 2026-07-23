@@ -4582,7 +4582,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-23 · build 113';
+const APP_BUILD='2026-07-23 · build 114';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -5052,7 +5052,175 @@ function renderPerguntasRapidasCentral(lista){
   el.innerHTML=perguntasRapidasCentral(lista).map(pergunta=>`<button class="btn btn-sm" onclick="perguntarCentralIA(${_centralEsc(JSON.stringify(pergunta))})" style="border-color:#b9d8ca;color:#1f6a50">${_centralEsc(pergunta)}</button>`).join('');
 }
 
-function contextoDetalhadoCentralIA(){
+// ===== CONTEXTO DINÂMICO DA IA =====
+// Antes a IA recebia só 3 listas fixas (mínimo, urgentes, terceirizados) e por
+// isso respondia sempre o básico: ela não "enxergava" estoque, ordens,
+// requisições, compras nem equipamentos. Agora, a cada pergunta, o sistema
+// procura nos dados reais e envia o que for relevante.
+
+const _cnorm = s => String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+
+// Palavras sem valor de busca — tirá-las evita casar com qualquer registro.
+const _CENTRAL_STOP = new Set(['que','qual','quais','quanto','quantos','quantas','como','onde','quando','porque','por','para','pra','com','sem','dos','das','dele','pelo','pela','uma','uns','umas','tem','temos','tenho','esta','este','isso','meu','minha','nos','nas','sobre','mais','menos','ainda','hoje','ontem','amanha','preciso','precisa','fazer','saber','estao','estamos','ser','sao','foi','tudo','todos','todas','item','itens','sistema','favor','me','de','do','da','em','no','na','os','as','um','e','o','a','ou']);
+
+function _centralPalavrasChave(pergunta){
+  return [...new Set(_cnorm(pergunta).replace(/[^\w\s./-]/g,' ').split(/\s+/)
+    // Números entram mesmo com 2 dígitos: "PDV 66", "ordem 63" são referências
+    // diretas e descartá-los fazia a busca perder justamente o alvo.
+    .filter(p=>(/^\d+$/.test(p) ? p.length>=2 : (p.length>=3 && !_CENTRAL_STOP.has(p)))))].slice(0,8);
+}
+
+// Retorna os registros de uma base que casam com as palavras da pergunta.
+function _centralFiltrar(base, palavras, textoDe, mapear, limite){
+  if(!Array.isArray(base)||!base.length) return [];
+  const achados=[];
+  for(const reg of base){
+    const texto=_cnorm(textoDe(reg));
+    if(!texto) continue;
+    if(palavras.length && !palavras.some(p=>texto.includes(p))) continue;
+    achados.push(mapear(reg));
+    if(achados.length>=limite) break;
+  }
+  return achados;
+}
+
+// Números gerais — dão à IA a noção do todo sem precisar mandar tudo.
+function _centralPanorama(){
+  const saldoDe = i => (typeof _saldoAtualEstoqueItem==='function') ? _saldoAtualEstoqueItem(i) : (Number(i?.qtd_inicial)||0);
+  const ativos=(ordens||[]).filter(o=>!o.excluida_em);
+  const porStatus={};
+  ativos.forEach(o=>{ const s=String(o?.status||'sem status'); porStatus[s]=(porStatus[s]||0)+1; });
+  const comSaldo=(estoqueItens||[]).filter(i=>saldoDe(i)>0);
+  return {
+    data_de_hoje:new Date().toISOString().split('T')[0],
+    estoque:{
+      total_de_itens:(estoqueItens||[]).length,
+      itens_com_saldo:comSaldo.length,
+      itens_zerados:(estoqueItens||[]).length-comSaldo.length,
+      abaixo_do_minimo:(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]).length,
+      valor_total_estimado:Math.round(comSaldo.reduce((s,i)=>s+saldoDe(i)*(Number(i?.valor_unitario)||0),0))
+    },
+    ordens_de_producao:{total:ativos.length, por_status:porStatus},
+    requisicoes:{total:(requisicoes||[]).length, abertas:(requisicoes||[]).filter(r=>!/atendida|cancelada/i.test(String(r?.status||''))).length},
+    compras_internas:{total:(comprasInternas||[]).length, pendentes:(comprasInternas||[]).filter(i=>!i.comprado).length, urgentes_pendentes:(comprasInternas||[]).filter(i=>i.prioridade==='urgente'&&!i.comprado).length},
+    lista_de_compras:{total:(itens||[]).length},
+    equipamentos_recebidos:(desenhosRecebidos||[]).length,
+    pdvs_cadastrados:(pdvs||[]).length
+  };
+}
+
+// Procura a pergunta em TODAS as bases do sistema.
+function _centralBuscarNosDados(pergunta){
+  const P=_centralPalavrasChave(pergunta);
+  if(!P.length) return {termos_buscados:[],aviso:'Pergunta sem termos específicos — use o panorama e as pendências.'};
+  const saldoDe = i => (typeof _saldoAtualEstoqueItem==='function') ? _saldoAtualEstoqueItem(i) : (Number(i?.qtd_inicial)||0);
+  const nomePdv = id => { const p=(pdvs||[]).find(x=>x.id===id); return p?('PDV '+p.numero+(p.cliente?' — '+p.cliente:'')):''; };
+  const corta = (s,n=90) => String(s??'').trim().substring(0,n);
+
+  const achados={termos_buscados:P};
+
+  achados.estoque=_centralFiltrar(estoqueItens,P,
+    i=>[i?.codigo,i?.descricao,i?.tipo_peca,i?.material,i?.categoria,i?.localizacao].join(' '),
+    i=>{ const sb=(typeof saldoBarracoes==='function')?saldoBarracoes(i):null;
+      return {codigo:i?.codigo||'', descricao:corta(i?.tipo_peca||i?.descricao), categoria:i?.categoria||'',
+        saldo:saldoDe(i), unidade:i?.unidade||'', minimo:Number(i?.estoque_minimo)||0,
+        barracao_1:sb?sb.b1:null, barracao_2:sb?sb.b2:null, custo_unitario:Number(i?.valor_unitario)||null}; },30);
+
+  achados.ordens_de_producao=_centralFiltrar((ordens||[]).filter(o=>!o.excluida_em),P,
+    o=>[o?.numero,o?.descricao,o?.desenho,o?.material,o?.status,o?.terceirizado_nome,nomePdv(o?.pdv_id)].join(' '),
+    o=>({numero:o?.numero||'', descricao:corta(o?.descricao), desenho:o?.desenho||'', material:corta(o?.material,40),
+      quantidade:o?.quantidade??null, status:o?.status||'', pdv:nomePdv(o?.pdv_id),
+      terceirizado:o?.terceirizado_nome||'', dias_no_terceirizado:_centralDiasDesde(o?.terceirizado_data)}),25);
+
+  achados.requisicoes=_centralFiltrar(requisicoes,P,
+    r=>[r?.numero,r?.departamento,r?.status,r?.solicitante,r?.criado_por,nomePdv(r?.pdv_id),
+        (Array.isArray(r?.itens)?r.itens.map(x=>x?.descricao||x?.item||'').join(' '):'')].join(' '),
+    r=>({numero:r?.numero||'', data:String(r?.data||'').substring(0,10), departamento:r?.departamento||'',
+      pdv:nomePdv(r?.pdv_id), status:r?.status||'', solicitante:r?.solicitante||r?.criado_por||'',
+      qtd_itens:Array.isArray(r?.itens)?r.itens.length:0}),20);
+
+  achados.compras_internas=_centralFiltrar(comprasInternas,P,
+    c=>[c?.descricao,c?.categoria,c?.fornecedor,c?.solicitado_por,c?.prioridade].join(' '),
+    c=>({descricao:corta(c?.descricao), prioridade:c?.prioridade||'', comprado:!!c?.comprado,
+      quantidade:c?.quantidade??null, unidade:c?.unidade||'', fornecedor:c?.fornecedor||'', solicitante:c?.solicitado_por||''}),20);
+
+  achados.lista_de_compras=_centralFiltrar(itens,P,
+    i=>[i?.descritivo,i?.material,i?.desenho,i?.equipamento,i?.cliente,i?.pdv,i?.categoria,i?.fornecedor].join(' '),
+    i=>({pdv:i?.pdv||'', cliente:corta(i?.cliente,40), descritivo:corta(i?.descritivo), material:corta(i?.material,40),
+      desenho:i?.desenho||'', quantidade:i?.qtd??null, categoria:i?.categoria||'', fornecedor:i?.fornecedor||''}),25);
+
+  achados.equipamentos=_centralFiltrar(desenhosRecebidos,P,
+    d=>[d?.nome_equipamento,d?.numero_geral,nomePdv(d?.pdv_id)].join(' '),
+    d=>({pdv:nomePdv(d?.pdv_id), equipamento:corta(d?.nome_equipamento), desenho_geral:d?.numero_geral||'',
+      recebido_em:String(d?.data_recebimento||'').substring(0,10)}),12);
+
+  const nomeEquip = id => { const d=(desenhosRecebidos||[]).find(x=>x.id===id); return d?corta(d.nome_equipamento,40):''; };
+  achados.pecas_de_equipamentos=_centralFiltrar(itensDesenhoRecebido,P,
+    i=>[i?.denominacao,i?.desenho_peca,i?.material].join(' '),
+    i=>({peca:corta(i?.denominacao), desenho:i?.desenho_peca||'', material:corta(i?.material,40),
+      quantidade:i?.quantidade??null, tipo:i?.item_tipo||'', equipamento:nomeEquip(i?.desenho_id),
+      ja_tem_op:!!i?.ordem_id, material_na_lista_de_compras:!!i?.material_compra_id}),25);
+
+  achados.montagens=_centralFiltrar(montagensRecebidas,P,
+    m=>[m?.nome_montagem,m?.numero_desenho,m?.material].join(' '),
+    m=>({montagem:corta(m?.nome_montagem), desenho:m?.numero_desenho||'', material:corta(m?.material,40), ja_tem_op:!!m?.ordem_id}),15);
+
+  const nomeItem = id => { const i=(estoqueItens||[]).find(x=>x.id===id); return i?corta(i.tipo_peca||i.descricao,60):''; };
+  achados.movimentacoes_de_estoque=_centralFiltrar(estoqueMov,P,
+    m=>[nomeItem(m?.item_id),m?.observacao,m?.departamento,m?.criado_por,m?.barracao,m?.tipo].join(' '),
+    m=>({item:nomeItem(m?.item_id), tipo:m?.tipo||'', quantidade:m?.quantidade??null,
+      data:String(m?.data||m?.created_at||'').substring(0,10), barracao:m?.barracao||'',
+      observacao:corta(m?.observacao,60), registrado_por:m?.criado_por||''}),25);
+
+  achados.pdvs=_centralFiltrar(pdvs,P,
+    p=>['PDV',p?.numero,p?.cliente,p?.equipamento].join(' '),
+    p=>({numero:p?.numero||'', cliente:corta(p?.cliente,50), equipamento:corta(p?.equipamento,60)}),12);
+
+  // Aprofundamento: perguntar por um equipamento ou PDV deve trazer também o
+  // que está ligado a ele, mesmo que o nome da peça não contenha os termos.
+  const equipsAchados=(desenhosRecebidos||[]).filter(d=>{
+    const t=_cnorm([d?.nome_equipamento,d?.numero_geral,nomePdv(d?.pdv_id)].join(' '));
+    return t && P.some(p=>t.includes(p));
+  }).slice(0,4);
+  if(equipsAchados.length){
+    const ids=new Set(equipsAchados.map(d=>d.id));
+    const pecas=(itensDesenhoRecebido||[]).filter(i=>ids.has(i.desenho_id));
+    const monts=(montagensRecebidas||[]).filter(m=>ids.has(m.desenho_id));
+    achados.pecas_dos_equipamentos_encontrados={
+      equipamentos:equipsAchados.map(d=>corta(d.nome_equipamento,60)),
+      total_de_pecas:pecas.length,
+      pecas_sem_ordem_de_producao:pecas.filter(i=>i.item_tipo==='fabricar'&&!i.ordem_id).length,
+      pecas_comerciais_sem_compra:pecas.filter(i=>(i.item_tipo==='comercial'||i.item_tipo==='materia_prima')&&!i.material_compra_id).length,
+      montagens_sem_ordem:monts.filter(m=>!m.ordem_id).length,
+      amostra:pecas.slice(0,20).map(i=>({peca:corta(i?.denominacao), desenho:i?.desenho_peca||'',
+        material:corta(i?.material,40), quantidade:i?.quantidade??null, tipo:i?.item_tipo||'', ja_tem_op:!!i?.ordem_id}))
+    };
+  }
+
+  const pdvsAchados=(pdvs||[]).filter(p=>{
+    const t=_cnorm(['PDV',p?.numero,p?.cliente,p?.equipamento].join(' '));
+    return t && P.some(x=>t.includes(x));
+  }).slice(0,3);
+  if(pdvsAchados.length){
+    const ids=new Set(pdvsAchados.map(p=>p.id));
+    const nums=new Set(pdvsAchados.map(p=>String(p.numero)));
+    const ord=(ordens||[]).filter(o=>!o.excluida_em&&ids.has(o.pdv_id));
+    const compras=(itens||[]).filter(i=>nums.has(String(i.pdv||'').replace(/\D/g,'')));
+    achados.situacao_dos_pdvs_encontrados=pdvsAchados.map(p=>({
+      pdv:'PDV '+p.numero+(p.cliente?' — '+p.cliente:''),
+      ordens_de_producao:ord.filter(o=>o.pdv_id===p.id).length,
+      ordens_concluidas:ord.filter(o=>o.pdv_id===p.id&&String(o.status||'').toLowerCase().includes('conclu')).length,
+      ordens_no_terceirizado:ord.filter(o=>o.pdv_id===p.id&&String(o.status||'').toLowerCase().includes('terceir')).length,
+      itens_na_lista_de_compras:compras.filter(i=>String(i.pdv||'').replace(/\D/g,'')===String(p.numero)).length
+    }));
+  }
+
+  Object.keys(achados).forEach(k=>{ if(Array.isArray(achados[k]) && !achados[k].length) delete achados[k]; });
+  return achados;
+}
+// ===== FIM CONTEXTO DINÂMICO =====
+
+function contextoDetalhadoCentralIA(pergunta){
   const abaixo=(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]).slice(0,12).map(x=>({
     material:String(x?.item?.descricao||x?.item?.tipo_peca||'Item sem descrição'),
     codigo:String(x?.item?.codigo||'').trim(),
@@ -5068,7 +5236,13 @@ function contextoDetalhadoCentralIA(){
     numero:o?.numero||'', descricao:String(o?.descricao||''), terceirizado:String(o?.terceirizado_nome||''),
     dias:_centralDiasDesde(o?.terceirizado_data||o?.updated_at||o?.dt_abertura), prazo:Number(o?.terceirizado_prazo)||7
   })).filter(o=>o.dias!==null).sort((a,b)=>b.dias-a.dias).slice(0,15);
-  return {estoque_abaixo_minimo:abaixo,compras_urgentes:compras,terceirizados_atrasados:terceirizados};
+  return {
+    panorama_do_sistema:_centralPanorama(),
+    dados_encontrados_para_a_pergunta:_centralBuscarNosDados(pergunta),
+    estoque_abaixo_minimo:abaixo,
+    compras_urgentes:compras,
+    terceirizados_atrasados:terceirizados
+  };
 }
 
 function renderConversaCentralIA(el){
@@ -5131,9 +5305,9 @@ async function perguntarCentralIA(pergunta=''){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         pendencias:analisarPendencias(),
-        contexto:contextoDetalhadoCentralIA(),
+        contexto:contextoDetalhadoCentralIA(perguntaFinal),
         pergunta:perguntaFinal,
-        historico:centralHistoricoIA.slice(0,-1).filter(m=>m.texto!=='Consultando as pendências atuais...').slice(-6)
+        historico:centralHistoricoIA.slice(0,-1).filter(m=>m.texto!=='Consultando as pendências atuais...').slice(-12)
       })
     });
     const data=await r.json().catch(()=>({}));
