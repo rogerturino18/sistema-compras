@@ -3510,7 +3510,7 @@ td{vertical-align:middle!important}
         <input type="checkbox" id="gi_agruparIguais" onchange="atualizarContadorImpressao()"> Agrupar peças iguais
       </label>
     </div>
-    <div style="padding:0 16px 10px;color:#607d8b;font-size:11px">Agrupa apenas na impressão as peças do mesmo PDV, desenho, descrição e material. As O.P.s originais não são alteradas.</div>
+    <div style="padding:0 16px 10px;color:#607d8b;font-size:11px">Agrupa somente na impressão peças com o mesmo desenho, descrição e material, mesmo entre PDVs diferentes. As O.P.s originais não são alteradas.</div>
     <div id="gi_contador" style="padding:8px 16px;background:#f5f7f5;font-size:12px;color:#546e7a;border-bottom:1px solid #e0e0e0">Nenhuma ordem selecionada</div>
     <div id="gi_lista" style="max-height:380px;overflow-y:auto;padding:8px 16px"></div>
   </div>
@@ -9322,15 +9322,17 @@ function toggleSelecionarTodasOrdens(cb){
 // Agrupamento exclusivamente visual para impressão: não altera O.P.s, status ou histórico.
 function agruparOrdensIguaisParaImpressao(lista,agrupar){
   if(!agrupar) return lista;
-  const normalizar=valor=>String(valor??'').trim().toUpperCase().replace(/\s+/g,' ');
+  const normalizar=valor=>String(valor??'').trim().toUpperCase().replace(/\s+/g,' ').replace(/[^\p{L}\p{N}]/gu,'');
   const grupos=new Map();
   lista.forEach(o=>{
     const desenho=normalizar(o.desenho);
+    const descricao=normalizar(o.descricao);
+    const material=normalizar(o.material);
     // Sem desenho não há identificação suficientemente segura para mesclar.
     // O número do desenho é a identificação técnica da peça. Material pode ter
     // pequenas variações de cadastro (ex.: "A53-B" x "A53B") sem mudar a peça.
     const chave=desenho
-      ? [o.pdv_id||'',desenho].join('|')
+      ? [desenho,descricao,material].join('|')
       : `individual|${o.id}`;
     if(!grupos.has(chave)) grupos.set(chave,[]);
     grupos.get(chave).push(o);
@@ -9338,13 +9340,24 @@ function agruparOrdensIguaisParaImpressao(lista,agrupar){
   return [...grupos.values()].map(grupo=>{
     if(grupo.length===1) return grupo[0];
     const base=grupo[0];
+    const pdvsDoGrupo=[...new Map(grupo.map(ordem=>{
+      const pdv=pdvs.find(p=>String(p.id)===String(ordem.pdv_id));
+      const chavePdv=String(pdv?.id??ordem.pdv_id??'sem-pdv');
+      return [chavePdv,{
+        numero:String(pdv?.numero??'').trim()||'Sem PDV',
+        equipamento:String(pdv?.equipamento??'').trim(),
+        cliente:String(pdv?.cliente??'').trim()
+      }];
+    })).values()];
     return {
       ...base,
       quantidade:grupo.reduce((s,o)=>s+(Number(o.quantidade)||0),0),
       numero:grupo.map(o=>o.numero).join(' + '),
       _opAgrupada:true,
       _ordensOriginais:grupo.map(o=>o.id),
-      _numerosOriginais:grupo.map(o=>o.numero)
+      _numerosOriginais:grupo.map(o=>o.numero),
+      _detalhesOrdensOriginais:grupo.map(o=>({numero:o.numero,quantidade:Number(o.quantidade)||0})),
+      _pdvsOriginais:pdvsDoGrupo
     };
   });
 }
@@ -9382,6 +9395,15 @@ function imprimirOrdensSelecionadas(){
 
   const gerarBlocoOrdem=(o)=>{
     const pdv=pdvs.find(p=>p.id===o.pdv_id);
+    const pdvsAgrupados=Array.isArray(o._pdvsOriginais)?o._pdvsOriginais:[];
+    const temMultiplosPdvs=pdvsAgrupados.length>1;
+    const numeroPdvImpresso=pdvsAgrupados.length?pdvsAgrupados.map(p=>p.numero).join(' + '):(pdv?.numero||'—');
+    const projetoImpresso=temMultiplosPdvs
+      ? `PEÇA COMUM AOS PDVs ${pdvsAgrupados.map(p=>p.numero).join(' + ')}`
+      : (pdv?pdv.equipamento||('PDV '+pdv.numero):'');
+    const clienteImpresso=temMultiplosPdvs
+      ? 'CONFERIR SEPARAÇÃO POR O.P. DE ORIGEM'
+      : (pdv?.cliente||'');
     // Uma ficha agrupada representa várias O.P.s; seus apontamentos continuam nas originais.
     const tempos=o._opAgrupada?[]:(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao);
     const dataAbertura=o.dt_abertura?o.dt_abertura.split('T')[0].split('-').reverse().join('/'):'';
@@ -9414,15 +9436,15 @@ function imprimirOrdensSelecionadas(){
     <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">DT ABERTURA</td>
     <td style="text-align:center;border:1px solid #000">${dataAbertura}</td>
     <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">PDV</td>
-    <td colspan="2" style="text-align:center;font-size:14px;font-weight:700;border:1px solid #000">${pdv?.numero||'—'}</td>
+    <td colspan="2" style="text-align:center;font-size:${temMultiplosPdvs?'12px':'14px'};font-weight:700;border:1px solid #000">${numeroPdvImpresso}</td>
   </tr>
   <tr>
     <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">PROJETO</td>
-    <td colspan="4" style="text-align:center;font-weight:600;border:1px solid #000">${pdv?pdv.equipamento||('PDV '+pdv.numero):''}</td>
+    <td colspan="4" style="text-align:center;font-weight:600;border:1px solid #000">${projetoImpresso}</td>
   </tr>
   <tr>
     <td style="background:#eee;font-weight:700;text-align:center;font-size:9px;border:1px solid #000">CLIENTE</td>
-    <td colspan="4" style="text-align:center;font-size:11px;font-weight:600;border:1px solid #000">${pdv?.cliente||''}</td>
+    <td colspan="4" style="text-align:center;font-size:11px;font-weight:600;border:1px solid #000">${clienteImpresso}</td>
   </tr>
   <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:9px">
     <td style="border:1px solid #000;padding:3px">DESENHO</td>
@@ -9443,7 +9465,7 @@ function imprimirOrdensSelecionadas(){
   ${opRow('FURADEIRA','SOLDA')}
   ${opRow('FREZA','MONTAGEM')}
 </table>
-${o._opAgrupada?`<div style="margin-top:5px;padding:4px 7px;border:1px solid #1565c0;background:#eaf3ff;color:#0d47a1;font-size:9px;font-weight:700;text-align:center">IMPRESSÃO AGRUPADA — O.P.s ${o._numerosOriginais.join(', ')} · Quantidade total: ${o.quantidade}</div>`:''}
+${o._opAgrupada?`<div style="margin-top:5px;padding:4px 7px;border:1px solid #1565c0;background:#eaf3ff;color:#0d47a1;font-size:9px;font-weight:700;text-align:center">IMPRESSÃO AGRUPADA — ${o._detalhesOrdensOriginais.map(x=>`O.P. ${x.numero} (${x.quantidade})`).join(' + ')} · PDV(s): ${(o._pdvsOriginais||[]).map(p=>p.numero).join(', ')||'—'} · Quantidade total: ${o.quantidade}</div>`:''}
 ${o.foto_produto?`<div style="margin-top:6px;text-align:center"><img src="${o.foto_produto}" style="max-height:80px;max-width:100%;object-fit:contain;border:1px solid #ccc;border-radius:3px"></div>`:''}`;
   };
 
