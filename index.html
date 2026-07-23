@@ -684,12 +684,8 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
 .toolbar input::placeholder,.form-group input::placeholder,.form-group textarea::placeholder{color:#8a9b95!important}
 .toolbar select{cursor:pointer!important}
 .btn{font-family:"Aptos","Segoe UI",system-ui,sans-serif!important;letter-spacing:.01em!important}
-/* O fundo branco forçado vencia o estilo do próprio botão (regra !important
-   ganha de estilo inline). Botões que definem a própria cor de fundo — e usam
-   texto branco, como "Codificar Itens" e "Ocultar Zero" ativo — ficavam branco
-   no branco, sumindo o texto. Agora quem tem fundo próprio é preservado. */
-.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red):not([style*="background"]){background:#fff!important}
-.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red):not([style*="background"]):hover{background:#f2f8f4!important;border-color:#a9cbbb!important;color:#1b624a!important}
+.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red){background:#fff!important}
+.btn:not(.primary):not(.btn-danger):not(.danger):not(.btn-red):hover{background:#f2f8f4!important;border-color:#a9cbbb!important;color:#1b624a!important}
 .btn.primary,.btn-green{background:linear-gradient(135deg,#277457,#1f6048)!important;border-color:#1f6048!important;box-shadow:0 5px 12px rgba(31,96,72,.16)!important}
 .btn.primary:hover,.btn-green:hover{filter:brightness(.96)!important;box-shadow:0 8px 17px rgba(31,96,72,.22)!important}
 .stat{position:relative;overflow:hidden}
@@ -703,14 +699,6 @@ thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f
    global (topo 70px) deslocava suas colunas e cobria a primeira linha. */
 #tab11 #estThead{position:static!important;top:auto!important;z-index:auto!important}
 #tab11 #estThead th{position:sticky!important;top:0!important;z-index:3!important}
-/* Toda tabela dentro de .tbl-wrap (ou de um modal) tem rolagem própria, então o
-   cabeçalho gruda no topo do PRÓPRIO contêiner. O top:70px global (pensado para
-   a rolagem da página, abaixo da barra fixa) empurrava o cabeçalho para dentro
-   da tabela: ele aparecia abaixo da primeira linha e ainda cobria as linhas
-   seguintes — era o caso de Entradas/Saídas, Requisições de Material e da
-   tabela de itens da Nova Requisição (o item entrava, mas ficava escondido).
-   Aqui só o deslocamento é corrigido; cabeçalhos fixos intencionais seguem. */
-.tbl-wrap thead th,.modal thead th{top:0!important}
 #estoqueToolbar>button{flex:0 0 auto!important;justify-content:center!important;white-space:nowrap!important;font-size:12px!important;line-height:1.2!important}
 #estoqueToolbar #btnEstOrdem,#estoqueToolbar #btnEstOcultar0{min-width:148px!important}
 #estoqueToolbar button[onclick="codificarItensEmLote()"]{min-width:132px!important}
@@ -1600,43 +1588,10 @@ td{vertical-align:middle!important}
         <th>Departamento</th>
         <th>Referência / Obs</th>
         <th>Solicitado por</th>
-        <th style="width:90px">Ações</th>
       </tr></thead>
       <tbody id="listaMovEstoque"></tbody>
     </table>
   </div>
-
-<!-- MODAL EDITAR MOVIMENTAÇÃO DE ESTOQUE -->
-<div class="modal-bg" id="modalEditarMov">
-  <div class="modal" style="max-width:520px">
-    <div class="modal-header">
-      <h3>✏️ Editar Movimentação</h3>
-      <div class="modal-header-actions">
-        <button class="modal-header-btn" onclick="fecharModal('modalEditarMov')" title="Fechar">✕</button>
-      </div>
-    </div>
-    <div class="modal-body">
-      <div id="edmovResumo" style="background:#f1f8e9;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#33691e"></div>
-      <div class="form-grid">
-        <div class="form-group"><label>Quantidade *</label><input id="edmov_qtd" type="number" step="0.01" min="0"></div>
-        <div class="form-group"><label>Data</label><input id="edmov_data" type="date"></div>
-        <div class="form-group"><label>Barracão</label>
-          <select id="edmov_barracao">
-            <option value="">Não informado</option>
-            <option value="Barracão 1">Barracão 1</option>
-            <option value="Barracão 2">Barracão 2</option>
-          </select>
-        </div>
-        <div class="form-group full"><label>Referência / Observação</label><input id="edmov_obs" placeholder="Ex: Compra sem nota, ajuste..."></div>
-      </div>
-      <div style="font-size:11px;color:#90a4ae;margin-top:8px">Alterar a quantidade recalcula o saldo do item automaticamente.</div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="fecharModal('modalEditarMov')">Cancelar</button>
-      <button class="btn primary" onclick="salvarEditarMov()">Salvar</button>
-    </div>
-  </div>
-</div>
 </div>
 
 <!-- TAB 17: REQUISIÇÕES DE MATERIAL -->
@@ -4582,7 +4537,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-23 · build 114';
+const APP_BUILD='2026-07-21 · build 108';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -5052,175 +5007,7 @@ function renderPerguntasRapidasCentral(lista){
   el.innerHTML=perguntasRapidasCentral(lista).map(pergunta=>`<button class="btn btn-sm" onclick="perguntarCentralIA(${_centralEsc(JSON.stringify(pergunta))})" style="border-color:#b9d8ca;color:#1f6a50">${_centralEsc(pergunta)}</button>`).join('');
 }
 
-// ===== CONTEXTO DINÂMICO DA IA =====
-// Antes a IA recebia só 3 listas fixas (mínimo, urgentes, terceirizados) e por
-// isso respondia sempre o básico: ela não "enxergava" estoque, ordens,
-// requisições, compras nem equipamentos. Agora, a cada pergunta, o sistema
-// procura nos dados reais e envia o que for relevante.
-
-const _cnorm = s => String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-
-// Palavras sem valor de busca — tirá-las evita casar com qualquer registro.
-const _CENTRAL_STOP = new Set(['que','qual','quais','quanto','quantos','quantas','como','onde','quando','porque','por','para','pra','com','sem','dos','das','dele','pelo','pela','uma','uns','umas','tem','temos','tenho','esta','este','isso','meu','minha','nos','nas','sobre','mais','menos','ainda','hoje','ontem','amanha','preciso','precisa','fazer','saber','estao','estamos','ser','sao','foi','tudo','todos','todas','item','itens','sistema','favor','me','de','do','da','em','no','na','os','as','um','e','o','a','ou']);
-
-function _centralPalavrasChave(pergunta){
-  return [...new Set(_cnorm(pergunta).replace(/[^\w\s./-]/g,' ').split(/\s+/)
-    // Números entram mesmo com 2 dígitos: "PDV 66", "ordem 63" são referências
-    // diretas e descartá-los fazia a busca perder justamente o alvo.
-    .filter(p=>(/^\d+$/.test(p) ? p.length>=2 : (p.length>=3 && !_CENTRAL_STOP.has(p)))))].slice(0,8);
-}
-
-// Retorna os registros de uma base que casam com as palavras da pergunta.
-function _centralFiltrar(base, palavras, textoDe, mapear, limite){
-  if(!Array.isArray(base)||!base.length) return [];
-  const achados=[];
-  for(const reg of base){
-    const texto=_cnorm(textoDe(reg));
-    if(!texto) continue;
-    if(palavras.length && !palavras.some(p=>texto.includes(p))) continue;
-    achados.push(mapear(reg));
-    if(achados.length>=limite) break;
-  }
-  return achados;
-}
-
-// Números gerais — dão à IA a noção do todo sem precisar mandar tudo.
-function _centralPanorama(){
-  const saldoDe = i => (typeof _saldoAtualEstoqueItem==='function') ? _saldoAtualEstoqueItem(i) : (Number(i?.qtd_inicial)||0);
-  const ativos=(ordens||[]).filter(o=>!o.excluida_em);
-  const porStatus={};
-  ativos.forEach(o=>{ const s=String(o?.status||'sem status'); porStatus[s]=(porStatus[s]||0)+1; });
-  const comSaldo=(estoqueItens||[]).filter(i=>saldoDe(i)>0);
-  return {
-    data_de_hoje:new Date().toISOString().split('T')[0],
-    estoque:{
-      total_de_itens:(estoqueItens||[]).length,
-      itens_com_saldo:comSaldo.length,
-      itens_zerados:(estoqueItens||[]).length-comSaldo.length,
-      abaixo_do_minimo:(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]).length,
-      valor_total_estimado:Math.round(comSaldo.reduce((s,i)=>s+saldoDe(i)*(Number(i?.valor_unitario)||0),0))
-    },
-    ordens_de_producao:{total:ativos.length, por_status:porStatus},
-    requisicoes:{total:(requisicoes||[]).length, abertas:(requisicoes||[]).filter(r=>!/atendida|cancelada/i.test(String(r?.status||''))).length},
-    compras_internas:{total:(comprasInternas||[]).length, pendentes:(comprasInternas||[]).filter(i=>!i.comprado).length, urgentes_pendentes:(comprasInternas||[]).filter(i=>i.prioridade==='urgente'&&!i.comprado).length},
-    lista_de_compras:{total:(itens||[]).length},
-    equipamentos_recebidos:(desenhosRecebidos||[]).length,
-    pdvs_cadastrados:(pdvs||[]).length
-  };
-}
-
-// Procura a pergunta em TODAS as bases do sistema.
-function _centralBuscarNosDados(pergunta){
-  const P=_centralPalavrasChave(pergunta);
-  if(!P.length) return {termos_buscados:[],aviso:'Pergunta sem termos específicos — use o panorama e as pendências.'};
-  const saldoDe = i => (typeof _saldoAtualEstoqueItem==='function') ? _saldoAtualEstoqueItem(i) : (Number(i?.qtd_inicial)||0);
-  const nomePdv = id => { const p=(pdvs||[]).find(x=>x.id===id); return p?('PDV '+p.numero+(p.cliente?' — '+p.cliente:'')):''; };
-  const corta = (s,n=90) => String(s??'').trim().substring(0,n);
-
-  const achados={termos_buscados:P};
-
-  achados.estoque=_centralFiltrar(estoqueItens,P,
-    i=>[i?.codigo,i?.descricao,i?.tipo_peca,i?.material,i?.categoria,i?.localizacao].join(' '),
-    i=>{ const sb=(typeof saldoBarracoes==='function')?saldoBarracoes(i):null;
-      return {codigo:i?.codigo||'', descricao:corta(i?.tipo_peca||i?.descricao), categoria:i?.categoria||'',
-        saldo:saldoDe(i), unidade:i?.unidade||'', minimo:Number(i?.estoque_minimo)||0,
-        barracao_1:sb?sb.b1:null, barracao_2:sb?sb.b2:null, custo_unitario:Number(i?.valor_unitario)||null}; },30);
-
-  achados.ordens_de_producao=_centralFiltrar((ordens||[]).filter(o=>!o.excluida_em),P,
-    o=>[o?.numero,o?.descricao,o?.desenho,o?.material,o?.status,o?.terceirizado_nome,nomePdv(o?.pdv_id)].join(' '),
-    o=>({numero:o?.numero||'', descricao:corta(o?.descricao), desenho:o?.desenho||'', material:corta(o?.material,40),
-      quantidade:o?.quantidade??null, status:o?.status||'', pdv:nomePdv(o?.pdv_id),
-      terceirizado:o?.terceirizado_nome||'', dias_no_terceirizado:_centralDiasDesde(o?.terceirizado_data)}),25);
-
-  achados.requisicoes=_centralFiltrar(requisicoes,P,
-    r=>[r?.numero,r?.departamento,r?.status,r?.solicitante,r?.criado_por,nomePdv(r?.pdv_id),
-        (Array.isArray(r?.itens)?r.itens.map(x=>x?.descricao||x?.item||'').join(' '):'')].join(' '),
-    r=>({numero:r?.numero||'', data:String(r?.data||'').substring(0,10), departamento:r?.departamento||'',
-      pdv:nomePdv(r?.pdv_id), status:r?.status||'', solicitante:r?.solicitante||r?.criado_por||'',
-      qtd_itens:Array.isArray(r?.itens)?r.itens.length:0}),20);
-
-  achados.compras_internas=_centralFiltrar(comprasInternas,P,
-    c=>[c?.descricao,c?.categoria,c?.fornecedor,c?.solicitado_por,c?.prioridade].join(' '),
-    c=>({descricao:corta(c?.descricao), prioridade:c?.prioridade||'', comprado:!!c?.comprado,
-      quantidade:c?.quantidade??null, unidade:c?.unidade||'', fornecedor:c?.fornecedor||'', solicitante:c?.solicitado_por||''}),20);
-
-  achados.lista_de_compras=_centralFiltrar(itens,P,
-    i=>[i?.descritivo,i?.material,i?.desenho,i?.equipamento,i?.cliente,i?.pdv,i?.categoria,i?.fornecedor].join(' '),
-    i=>({pdv:i?.pdv||'', cliente:corta(i?.cliente,40), descritivo:corta(i?.descritivo), material:corta(i?.material,40),
-      desenho:i?.desenho||'', quantidade:i?.qtd??null, categoria:i?.categoria||'', fornecedor:i?.fornecedor||''}),25);
-
-  achados.equipamentos=_centralFiltrar(desenhosRecebidos,P,
-    d=>[d?.nome_equipamento,d?.numero_geral,nomePdv(d?.pdv_id)].join(' '),
-    d=>({pdv:nomePdv(d?.pdv_id), equipamento:corta(d?.nome_equipamento), desenho_geral:d?.numero_geral||'',
-      recebido_em:String(d?.data_recebimento||'').substring(0,10)}),12);
-
-  const nomeEquip = id => { const d=(desenhosRecebidos||[]).find(x=>x.id===id); return d?corta(d.nome_equipamento,40):''; };
-  achados.pecas_de_equipamentos=_centralFiltrar(itensDesenhoRecebido,P,
-    i=>[i?.denominacao,i?.desenho_peca,i?.material].join(' '),
-    i=>({peca:corta(i?.denominacao), desenho:i?.desenho_peca||'', material:corta(i?.material,40),
-      quantidade:i?.quantidade??null, tipo:i?.item_tipo||'', equipamento:nomeEquip(i?.desenho_id),
-      ja_tem_op:!!i?.ordem_id, material_na_lista_de_compras:!!i?.material_compra_id}),25);
-
-  achados.montagens=_centralFiltrar(montagensRecebidas,P,
-    m=>[m?.nome_montagem,m?.numero_desenho,m?.material].join(' '),
-    m=>({montagem:corta(m?.nome_montagem), desenho:m?.numero_desenho||'', material:corta(m?.material,40), ja_tem_op:!!m?.ordem_id}),15);
-
-  const nomeItem = id => { const i=(estoqueItens||[]).find(x=>x.id===id); return i?corta(i.tipo_peca||i.descricao,60):''; };
-  achados.movimentacoes_de_estoque=_centralFiltrar(estoqueMov,P,
-    m=>[nomeItem(m?.item_id),m?.observacao,m?.departamento,m?.criado_por,m?.barracao,m?.tipo].join(' '),
-    m=>({item:nomeItem(m?.item_id), tipo:m?.tipo||'', quantidade:m?.quantidade??null,
-      data:String(m?.data||m?.created_at||'').substring(0,10), barracao:m?.barracao||'',
-      observacao:corta(m?.observacao,60), registrado_por:m?.criado_por||''}),25);
-
-  achados.pdvs=_centralFiltrar(pdvs,P,
-    p=>['PDV',p?.numero,p?.cliente,p?.equipamento].join(' '),
-    p=>({numero:p?.numero||'', cliente:corta(p?.cliente,50), equipamento:corta(p?.equipamento,60)}),12);
-
-  // Aprofundamento: perguntar por um equipamento ou PDV deve trazer também o
-  // que está ligado a ele, mesmo que o nome da peça não contenha os termos.
-  const equipsAchados=(desenhosRecebidos||[]).filter(d=>{
-    const t=_cnorm([d?.nome_equipamento,d?.numero_geral,nomePdv(d?.pdv_id)].join(' '));
-    return t && P.some(p=>t.includes(p));
-  }).slice(0,4);
-  if(equipsAchados.length){
-    const ids=new Set(equipsAchados.map(d=>d.id));
-    const pecas=(itensDesenhoRecebido||[]).filter(i=>ids.has(i.desenho_id));
-    const monts=(montagensRecebidas||[]).filter(m=>ids.has(m.desenho_id));
-    achados.pecas_dos_equipamentos_encontrados={
-      equipamentos:equipsAchados.map(d=>corta(d.nome_equipamento,60)),
-      total_de_pecas:pecas.length,
-      pecas_sem_ordem_de_producao:pecas.filter(i=>i.item_tipo==='fabricar'&&!i.ordem_id).length,
-      pecas_comerciais_sem_compra:pecas.filter(i=>(i.item_tipo==='comercial'||i.item_tipo==='materia_prima')&&!i.material_compra_id).length,
-      montagens_sem_ordem:monts.filter(m=>!m.ordem_id).length,
-      amostra:pecas.slice(0,20).map(i=>({peca:corta(i?.denominacao), desenho:i?.desenho_peca||'',
-        material:corta(i?.material,40), quantidade:i?.quantidade??null, tipo:i?.item_tipo||'', ja_tem_op:!!i?.ordem_id}))
-    };
-  }
-
-  const pdvsAchados=(pdvs||[]).filter(p=>{
-    const t=_cnorm(['PDV',p?.numero,p?.cliente,p?.equipamento].join(' '));
-    return t && P.some(x=>t.includes(x));
-  }).slice(0,3);
-  if(pdvsAchados.length){
-    const ids=new Set(pdvsAchados.map(p=>p.id));
-    const nums=new Set(pdvsAchados.map(p=>String(p.numero)));
-    const ord=(ordens||[]).filter(o=>!o.excluida_em&&ids.has(o.pdv_id));
-    const compras=(itens||[]).filter(i=>nums.has(String(i.pdv||'').replace(/\D/g,'')));
-    achados.situacao_dos_pdvs_encontrados=pdvsAchados.map(p=>({
-      pdv:'PDV '+p.numero+(p.cliente?' — '+p.cliente:''),
-      ordens_de_producao:ord.filter(o=>o.pdv_id===p.id).length,
-      ordens_concluidas:ord.filter(o=>o.pdv_id===p.id&&String(o.status||'').toLowerCase().includes('conclu')).length,
-      ordens_no_terceirizado:ord.filter(o=>o.pdv_id===p.id&&String(o.status||'').toLowerCase().includes('terceir')).length,
-      itens_na_lista_de_compras:compras.filter(i=>String(i.pdv||'').replace(/\D/g,'')===String(p.numero)).length
-    }));
-  }
-
-  Object.keys(achados).forEach(k=>{ if(Array.isArray(achados[k]) && !achados[k].length) delete achados[k]; });
-  return achados;
-}
-// ===== FIM CONTEXTO DINÂMICO =====
-
-function contextoDetalhadoCentralIA(pergunta){
+function contextoDetalhadoCentralIALegado(){
   const abaixo=(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]).slice(0,12).map(x=>({
     material:String(x?.item?.descricao||x?.item?.tipo_peca||'Item sem descrição'),
     codigo:String(x?.item?.codigo||'').trim(),
@@ -5236,12 +5023,103 @@ function contextoDetalhadoCentralIA(pergunta){
     numero:o?.numero||'', descricao:String(o?.descricao||''), terceirizado:String(o?.terceirizado_nome||''),
     dias:_centralDiasDesde(o?.terceirizado_data||o?.updated_at||o?.dt_abertura), prazo:Number(o?.terceirizado_prazo)||7
   })).filter(o=>o.dias!==null).sort((a,b)=>b.dias-a.dias).slice(0,15);
+  return {estoque_abaixo_minimo:abaixo,compras_urgentes:compras,terceirizados_atrasados:terceirizados};
+}
+
+// Contexto de leitura enviado para a IA. Ele e montado no momento da pergunta,
+// portanto a resposta pode considerar dados atuais sem expor o banco inteiro.
+function _centralBuscaNormalizada(valor){
+  try{return String(valor??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+  catch(_){return String(valor??'').toLowerCase();}
+}
+function _centralNumero(valor){ const n=Number(valor); return Number.isFinite(n)?n:0; }
+function _centralData(valor){ return valor?String(valor).slice(0,10):''; }
+function _centralNomeItem(item){ return String(item?.descricao||item?.nome||item?.tipo_peca||item?.material||'Item sem descricao').trim(); }
+function _centralTextoRegistro(registro){
+  if(registro==null) return '';
+  if(typeof registro!=='object') return String(registro);
+  return Object.entries(registro).map(([chave,valor])=>{
+    if(valor==null) return '';
+    if(typeof valor==='object') return Array.isArray(valor)?valor.slice(0,8).map(_centralTextoRegistro).join(' '):'';
+    return `${chave} ${String(valor)}`;
+  }).join(' ');
+}
+function _centralTokensPergunta(pergunta){
+  const ignorar=new Set(['para','como','qual','quais','sobre','meu','minha','esta','estao','esse','essa','isso','com','sem','dos','das','que','por','uma','uns','umas','devo','preciso','pode','poderia','hoje','agora','verificar','olhar','favor','mais','menos','item','itens']);
+  return _centralBuscaNormalizada(pergunta).split(/[^a-z0-9]+/).filter(token=>((/\d/.test(token)&&token.length>0)||token.length>=3)&&!ignorar.has(token)).slice(0,14);
+}
+function _centralCombinaPergunta(registro,tokens){
+  if(!tokens.length) return false;
+  const texto=_centralBuscaNormalizada(_centralTextoRegistro(registro));
+  return tokens.some(token=>texto.includes(token));
+}
+function _centralSaldoItem(item){
+  const inicial=_centralNumero(item?.qtd_inicial??item?.quantidade_inicial??item?.saldo_inicial);
+  return inicial+(estoqueMov||[]).filter(m=>String(m?.item_id??'')===String(item?.id??'')).reduce((total,m)=>total+(String(m?.tipo||'').toLowerCase()==='entrada'?_centralNumero(m?.quantidade):-_centralNumero(m?.quantidade)),0);
+}
+function _centralPdvResumo(id){
+  const pdv=(pdvs||[]).find(p=>String(p?.id??'')===String(id??''));
+  if(!pdv) return '';
+  return String(pdv?.numero||pdv?.nome||pdv?.descricao||pdv?.cliente||'').trim();
+}
+function _centralItensRelevantes(itensLista,tokens,limite=35){
+  const correspondentes=(itensLista||[]).filter(registro=>_centralCombinaPergunta(registro,tokens));
+  return correspondentes.slice(0,limite);
+}
+function _centralResumoMovimentacoes(){
+  const mapa=new Map();
+  (estoqueMov||[]).forEach(mov=>{
+    const item=(estoqueItens||[]).find(i=>String(i?.id??'')===String(mov?.item_id??''))||{};
+    const chave=String(item?.id||mov?.item_id||_centralNomeItem(item));
+    const atual=mapa.get(chave)||{codigo:String(item?.codigo||''),material:_centralNomeItem(item),unidade:String(item?.unidade||''),movimentacoes:0,entradas:0,saidas:0,quantidade_entrada:0,quantidade_saida:0,ultima_movimentacao:''};
+    const tipo=String(mov?.tipo||'').toLowerCase();
+    const qtd=_centralNumero(mov?.quantidade);
+    atual.movimentacoes+=1;
+    if(tipo==='entrada'){atual.entradas+=1;atual.quantidade_entrada+=qtd;}else{atual.saidas+=1;atual.quantidade_saida+=qtd;}
+    const data=_centralData(mov?.data||mov?.created_at||mov?.data_movimentacao);
+    if(data>atual.ultima_movimentacao) atual.ultima_movimentacao=data;
+    mapa.set(chave,atual);
+  });
+  return [...mapa.values()].sort((a,b)=>b.movimentacoes-a.movimentacoes||b.quantidade_saida-a.quantidade_saida).slice(0,35);
+}
+function contextoDetalhadoCentralIA(pergunta=''){
+  const tokens=_centralTokensPergunta(pergunta);
+  const itensEstoque=(estoqueItens||[]).map(item=>{
+    const saldo=_centralSaldoItem(item);
+    return {id:item?.id,codigo:String(item?.codigo||''),material:_centralNomeItem(item),categoria:String(item?.categoria||''),unidade:String(item?.unidade||''),saldo,minimo:_centralNumero(item?.estoque_minimo??item?.minimo??item?.qtd_minima),barracao:String(item?.barracao||item?.localizacao||'')};
+  });
+  const abaixoMinimo=itensEstoque.filter(item=>item.minimo>0&&item.saldo<item.minimo).sort((a,b)=>(a.saldo-a.minimo)-(b.saldo-b.minimo));
+  const movimentos=(estoqueMov||[]).map(mov=>{
+    const item=itensEstoque.find(i=>String(i.id??'')===String(mov?.item_id??''))||{};
+    return {data:_centralData(mov?.data||mov?.created_at||mov?.data_movimentacao),tipo:String(mov?.tipo||''),quantidade:_centralNumero(mov?.quantidade),material:item.material||String(mov?.descricao||''),codigo:item.codigo||'',unidade:item.unidade||'',barracao:item.barracao||'',pdv:_centralPdvResumo(mov?.pdv_id),departamento:String(mov?.departamento||''),observacao:String(mov?.observacao||'')};
+  }).sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+  const ordensResumo=(ordens||[]).filter(ordem=>!ordem?.excluida_em).map(ordem=>{
+    const dataTerceiro=_centralData(ordem?.terceirizado_data||ordem?.updated_at||ordem?.dt_abertura);
+    return {numero:ordem?.numero||'',peca:String(ordem?.descricao||ordem?.peca||ordem?.nome||''),quantidade:_centralNumero(ordem?.quantidade||ordem?.qtd),status:String(ordem?.status||''),pdv:_centralPdvResumo(ordem?.pdv_id),terceirizado:String(ordem?.terceirizado_nome||ordem?.terceirizado||''),data_terceirizado:dataTerceiro,dias_no_terceirizado:_centralDiasDesde(ordem?.terceirizado_data||ordem?.updated_at||ordem?.dt_abertura),prazo_dias:_centralNumero(ordem?.terceirizado_prazo)||7,data_abertura:_centralData(ordem?.dt_abertura||ordem?.created_at)};
+  });
+  const terceirizadas=ordensResumo.filter(ordem=>_centralBuscaNormalizada(ordem.status).includes('terceir')||ordem.terceirizado).sort((a,b)=>_centralNumero(b.dias_no_terceirizado)-_centralNumero(a.dias_no_terceirizado));
+  const compras=(comprasInternas||[]).map(compra=>({descricao:String(compra?.descricao||compra?.item||'Compra interna'),fornecedor:String(compra?.fornecedor||''),prioridade:String(compra?.prioridade||''),status:compra?.comprado?'comprada':'pendente',data:_centralData(compra?.data||compra?.created_at),observacao:String(compra?.observacao||'')}));
+  const requisicoesResumo=(requisicoes||[]).map(req=>({numero:req?.numero||req?.id||'',data:_centralData(req?.data||req?.created_at),status:String(req?.status||''),departamento:String(req?.departamento||req?.setor||''),pdv:_centralPdvResumo(req?.pdv_id),itens:_centralTextoRegistro(req?.itens||req?.itens_json||''),solicitante:String(req?.solicitante||'')}));
+  const encontrados={
+    estoque:_centralItensRelevantes(itensEstoque,tokens,40),
+    movimentacoes:_centralItensRelevantes(movimentos,tokens,40),
+    ordens:_centralItensRelevantes(ordensResumo,tokens,40),
+    compras:_centralItensRelevantes(compras,tokens,30),
+    requisicoes:_centralItensRelevantes(requisicoesResumo,tokens,30)
+  };
   return {
-    panorama_do_sistema:_centralPanorama(),
-    dados_encontrados_para_a_pergunta:_centralBuscarNosDados(pergunta),
-    estoque_abaixo_minimo:abaixo,
-    compras_urgentes:compras,
-    terceirizados_atrasados:terceirizados
+    gerado_em:new Date().toISOString(),
+    pergunta:String(pergunta||''),
+    termos_identificados:tokens,
+    panorama:{itens_estoque:itensEstoque.length,movimentacoes_registradas:movimentos.length,ordens_ativas:ordensResumo.length,ordens_terceirizadas:terceirizadas.length,compras_pendentes:compras.filter(c=>c.status==='pendente').length,requisicoes:requisicoesResumo.length},
+    dados_encontrados_para_a_pergunta:encontrados,
+    estoque_abaixo_minimo:abaixoMinimo.slice(0,35),
+    movimentacao_mais_frequente:_centralResumoMovimentacoes(),
+    movimentacoes_recentes:movimentos.slice(0,35),
+    compras_urgentes:compras.filter(c=>_centralBuscaNormalizada(c.prioridade).includes('urg')).slice(0,30),
+    compras_pendentes:compras.filter(c=>c.status==='pendente').slice(0,30),
+    ordens_terceirizadas:terceirizadas.slice(0,45),
+    requisicoes_em_aberto:requisicoesResumo.filter(req=>!_centralBuscaNormalizada(req.status).includes('atendid')&&!_centralBuscaNormalizada(req.status).includes('cancel')).slice(0,30)
   };
 }
 
@@ -9009,22 +8887,6 @@ function _renderArvoreCascata(desenhoId, termoBusca){
   return breadcrumbHtml + corpo;
 }
 
-// Busca individual de cada equipamento (a barrinha dentro do card do PDV).
-// Guardada fora do HTML para sobreviver às re-renderizações da lista.
-const buscaEquipamento = {};
-
-// Redesenha APENAS a árvore daquele equipamento. Refazer a lista inteira faria
-// o campo perder o foco a cada tecla digitada.
-function filtrarEquipamento(desenhoId, valor){
-  buscaEquipamento[desenhoId] = valor||'';
-  const cont = document.querySelector(`[data-scroll-arv="${desenhoId}"]`);
-  if(!cont) return;
-  const buscaGeral = (document.getElementById('buscaDesenho')?.value||'').trim().toLowerCase();
-  const termo = (valor||'').trim().toLowerCase() || buscaGeral;
-  cont.innerHTML = _renderArvoreCascata(desenhoId, termo);
-  cont.scrollTop = 0;
-}
-
 function renderDesenhosRecebidos(){
   const div = document.getElementById('listaDesenhosRecebidos');
   if(!div) return;
@@ -9106,10 +8968,7 @@ function renderDesenhosRecebidos(){
 
   div.innerHTML = lista.map(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
-    // A busca da barrinha do próprio PDV tem prioridade sobre a busca geral:
-    // quando a pessoa digita ali, ela quer filtrar só aquele equipamento.
-    const buscaLocal = (buscaEquipamento[d.id]||'').trim().toLowerCase();
-    const corpoArvore = _renderArvoreCascata(d.id, buscaLocal || busca);
+    const corpoArvore = _renderArvoreCascata(d.id, busca);
 
     return `<div style="margin-bottom:16px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
       <div style="background:#f5f5f5;padding:12px 16px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -9117,12 +8976,7 @@ function renderDesenhosRecebidos(){
           <div style="font-weight:700;font-size:13px;color:#37474f">📐 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${d.nome_equipamento?' · '+d.nome_equipamento:''}${d.numero_geral?' · Desenho Geral Nº '+d.numero_geral:''}</div>
           <div style="font-size:11px;color:#9e9e9e">Recebido em ${new Date(d.data_recebimento+'T12:00').toLocaleDateString('pt-BR')}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;flex:1;justify-content:flex-end;min-width:220px">
-          ${corpoArvore ? `<input type="search" id="buscaEq_${d.id}" value="${(buscaEquipamento[d.id]||'').replace(/"/g,'&quot;')}"
-            oninput="filtrarEquipamento('${d.id}',this.value)"
-            placeholder="🔍 Buscar neste equipamento..."
-            title="Busca apenas dentro deste equipamento (montagens, peças e nº de desenho)"
-            style="flex:1;max-width:300px;padding:6px 10px;border:1px solid #cfd8dc;border-radius:7px;font-size:12px;background:#fff">` : ''}
+        <div style="display:flex;gap:6px">
           <button class="btn btn-sm" onclick="abrirModalDesenhoRecebido('${d.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm danger" onclick="deletarDesenhoRecebido('${d.id}')" title="Excluir">🗑</button>
         </div>
@@ -12991,8 +12845,7 @@ function isProjetista(){
 
 function isPerfilSimplificadoCI(){
   const emails=['expedicao@sloleos.com.br','pcp@sloleos.com.br'];
-  const email=String(usuarioLogado?.email||'').trim().toLowerCase();
-  return !!email && emails.includes(email);
+  return usuarioLogado&&emails.includes(usuarioLogado.email);
 }
 
 // ── Sistema de Permissões por Módulo ─────────────────────────────────────
@@ -13048,7 +12901,7 @@ function getPermissoesUsuario(u){
   if(cargo.includes('compra'))    return ['compras','cotacoes','estoque','requisicoes','compint','envio'];
   if(cargo.includes('pcp'))       return ['compras','producao','requisicoes','estoque','projetos','material'];
   if(cargo.includes('producao')||cargo.includes('produção')) return ['producao','estoque','requisicoes'];
-  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao','requisicoes','compint'];
+  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao','requisicoes'];
   if(cargo.includes('projeto'))   return ['projetos','producao','material'];
   if(cargo.includes('engenharia'))return ['projetos','producao','material','estoque'];
   if(cargo.includes('comercial')) return ['pdv','clientes','cotacoes'];
@@ -13068,9 +12921,7 @@ const GRUPO_TABS = {
   cotacoes:   [6,7],
   compint:    [9],
   envio:      [10],
-  // 16 = Entradas e Saídas (Movimentações de Estoque). Ficava fora de qualquer
-  // grupo, então só o administrador via a aba, mesmo com permissão de Estoque.
-  estoque:    [11,16,30],
+  estoque:    [11,30],
   fiscal:     [12],
   pdv:        [13],
   clientes:   [14],
@@ -14273,60 +14124,6 @@ async function transferirBarracao(itemId, origem, saldoOrigem){
 }
 
 // ===== MOVIMENTAÇÕES DE ESTOQUE =====
-// ===== EDITAR / EXCLUIR MOVIMENTAÇÃO DE ESTOQUE =====
-let editMovId = null;
-
-function abrirEditarMov(id){
-  const m=(estoqueMov||[]).find(x=>String(x.id)===String(id));
-  if(!m){ showToast('Movimentação não encontrada','err'); return; }
-  editMovId=m.id;
-  const item=(estoqueItens||[]).find(i=>i.id===m.item_id);
-  const nome=item?.tipo_peca||item?.descricao||'Item removido';
-  const dt=(m.data||m.created_at||'').substring(0,10);
-  const resumo=document.getElementById('edmovResumo');
-  if(resumo) resumo.innerHTML=`<b>${nome}</b><br>${m.tipo==='entrada'?'Entrada':'Saída'} registrada por ${m.criado_por||'—'}${dt?' em '+new Date(dt+'T12:00').toLocaleDateString('pt-BR'):''}`;
-  document.getElementById('edmov_qtd').value=m.quantidade||0;
-  document.getElementById('edmov_data').value=dt||'';
-  document.getElementById('edmov_barracao').value=m.barracao||'';
-  document.getElementById('edmov_obs').value=m.observacao||'';
-  abrirModal('modalEditarMov');
-}
-
-async function salvarEditarMov(){
-  if(!editMovId) return;
-  const qtd=parseFloat(document.getElementById('edmov_qtd').value);
-  if(isNaN(qtd)||qtd<0){ showToast('Informe uma quantidade válida','err'); return; }
-  const dados={
-    quantidade: qtd,
-    data: document.getElementById('edmov_data').value||null,
-    barracao: document.getElementById('edmov_barracao').value||null,
-    observacao: document.getElementById('edmov_obs').value||null
-  };
-  try{
-    await api('PATCH','estoque_movimentacoes',dados,`?id=eq.${editMovId}`);
-    showToast('✅ Movimentação atualizada!');
-    fecharModal('modalEditarMov');
-    editMovId=null;
-    await loadAll();
-  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
-}
-
-async function excluirMov(id){
-  const m=(estoqueMov||[]).find(x=>String(x.id)===String(id));
-  if(!m){ showToast('Movimentação não encontrada','err'); return; }
-  const item=(estoqueItens||[]).find(i=>i.id===m.item_id);
-  const nome=item?.tipo_peca||item?.descricao||'Item removido';
-  const tipoTxt=m.tipo==='entrada'?'Entrada':'Saída';
-  // Confirmação mostrando exatamente o que será removido e o efeito no saldo.
-  if(!confirm(`Excluir esta movimentação?\n\n${nome}\n${tipoTxt} de ${m.quantidade||0} ${m.unidade_saida||item?.unidade||''}\n\nO saldo do item será recalculado. Esta ação não pode ser desfeita.`)) return;
-  try{
-    await api('DELETE','estoque_movimentacoes','',`?id=eq.${id}`);
-    showToast('Movimentação excluída — saldo recalculado');
-    await loadAll();
-  }catch(e){ showToast('Erro ao excluir: '+e.message,'err'); console.error(e); }
-}
-// ===== FIM EDITAR / EXCLUIR MOVIMENTAÇÃO =====
-
 function renderMovEstoque(){
   const busca=(document.getElementById('buscaMov')?.value||'').toLowerCase();
   const filtTipo=document.getElementById('filtroMovTipo')?.value||'';
@@ -14365,7 +14162,7 @@ function renderMovEstoque(){
     });
   }
 
-  if(!lista.length){tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação encontrada</td></tr>`;return;}
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação encontrada</td></tr>`;return;}
 
   tbody.innerHTML=lista.map(m=>{
     const item=estoqueItens.find(i=>i.id===m.item_id);
@@ -14394,10 +14191,6 @@ function renderMovEstoque(){
       <td style="padding:7px 10px;font-size:12px">${deptoDisplay!=='—'?`<span class="badge badge-blue" style="font-size:10px">${deptoDisplay}</span>`:'—'}</td>
       <td style="padding:7px 10px;font-size:12px;color:#546e7a">${obsDisplay}</td>
       <td style="padding:7px 10px;font-size:12px;color:#9e9e9e">${m.criado_por||'—'}</td>
-      <td style="padding:7px 10px;white-space:nowrap">
-        <button class="btn btn-sm" onclick="abrirEditarMov('${m.id}')" title="Editar movimentação">✏️</button>
-        <button class="btn btn-sm danger" onclick="excluirMov('${m.id}')" title="Excluir movimentação">🗑</button>
-      </td>
     </tr>`;
   }).join('');
 }
