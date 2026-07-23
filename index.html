@@ -2098,6 +2098,9 @@ td{vertical-align:middle!important}
   <div class="stat-row" id="statsDesenhos"></div>
   <div class="toolbar" style="margin-bottom:12px">
     <input type="text" id="buscaDesenho" placeholder="Buscar por PDV, equipamento, cliente, montagem, peça, nº de desenho..." oninput="renderDesenhosRecebidos()" style="flex:1">
+    <select id="filtroDesenhoPDV" onchange="renderDesenhosRecebidos()" style="min-width:220px" title="Filtrar equipamentos por PDV">
+      <option value="">Todos os PDVs</option>
+    </select>
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#546e7a;white-space:nowrap;cursor:pointer">
       <input type="checkbox" id="desFiltroPendentes" onchange="renderDesenhosRecebidos()" style="width:15px;height:15px;cursor:pointer"> Só com pendências
     </label>
@@ -8892,6 +8895,20 @@ function renderDesenhosRecebidos(){
   if(!div) return;
   const busca = (document.getElementById('buscaDesenho')?.value||'').toLowerCase();
   const soPendentes = document.getElementById('desFiltroPendentes')?.checked||false;
+  const filtroPDV = document.getElementById('filtroDesenhoPDV')?.value||'';
+
+  // Mantém o filtro por PDV disponível mesmo após cada atualização da tela.
+  const seletorPDV = document.getElementById('filtroDesenhoPDV');
+  if(seletorPDV){
+    const valorAtual = seletorPDV.value;
+    const opcoes = pdvs.slice().sort((a,b)=>{
+      const na = parseInt(String(a.numero||'').replace(/\D/g,''))||0;
+      const nb = parseInt(String(b.numero||'').replace(/\D/g,''))||0;
+      return na-nb || String(a.numero||'').localeCompare(String(b.numero||''),'pt-BR');
+    }).map(p=>`<option value="${p.id}">PDV ${p.numero||'—'}${p.cliente ? ' — '+p.cliente : ''}</option>`).join('');
+    seletorPDV.innerHTML = '<option value="">Todos os PDVs</option>' + opcoes;
+    seletorPDV.value = valorAtual;
+  }
 
   // Pendência: qualquer item OU montagem (em qualquer profundidade) deste
   // equipamento ainda sem OP/compra — montagem sem ordem_id só conta se tiver
@@ -8908,6 +8925,7 @@ function renderDesenhosRecebidos(){
 
   let lista = desenhosRecebidos.filter(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
+    if(filtroPDV && String(d.pdv_id)!==String(filtroPDV)) return false;
     if(busca){
       const texto=[pdv?.numero,pdv?.cliente,d.nome_equipamento,d.numero_geral].filter(Boolean).join(' | ').toLowerCase();
       // A busca agora também procura DENTRO da árvore (nome/nº de desenho de
