@@ -3510,7 +3510,7 @@ td{vertical-align:middle!important}
         <input type="checkbox" id="gi_agruparIguais" onchange="atualizarContadorImpressao()"> Agrupar peças iguais
       </label>
     </div>
-    <div style="padding:0 16px 10px;color:#607d8b;font-size:11px">Agrupa somente na impressão peças com o mesmo desenho, descrição e material, mesmo entre PDVs diferentes. As O.P.s originais não são alteradas.</div>
+    <div style="padding:0 16px 10px;color:#607d8b;font-size:11px">Agrupa somente na impressão peças com o mesmo número de desenho, inclusive entre PDVs diferentes. As O.P.s originais não são alteradas.</div>
     <div id="gi_contador" style="padding:8px 16px;background:#f5f7f5;font-size:12px;color:#546e7a;border-bottom:1px solid #e0e0e0">Nenhuma ordem selecionada</div>
     <div id="gi_lista" style="max-height:380px;overflow-y:auto;padding:8px 16px"></div>
   </div>
@@ -9326,14 +9326,10 @@ function agruparOrdensIguaisParaImpressao(lista,agrupar){
   const grupos=new Map();
   lista.forEach(o=>{
     const desenho=normalizar(o.desenho);
-    const descricao=normalizar(o.descricao);
-    const material=normalizar(o.material);
-    // Sem desenho não há identificação suficientemente segura para mesclar.
-    // O número do desenho é a identificação técnica da peça. Material pode ter
-    // pequenas variações de cadastro (ex.: "A53-B" x "A53B") sem mudar a peça.
-    const chave=desenho
-      ? [desenho,descricao,material].join('|')
-      : `individual|${o.id}`;
+    // O número do desenho é a identidade técnica da peça. Descrição e material
+    // podem variar por cadastro/origem, mas não devem impedir a unificação.
+    // Sem desenho, cada O.P. permanece individual por segurança.
+    const chave=desenho || `individual|${o.id}`;
     if(!grupos.has(chave)) grupos.set(chave,[]);
     grupos.get(chave).push(o);
   });
@@ -9401,8 +9397,9 @@ function imprimirOrdensSelecionadas(){
     const projetoImpresso=temMultiplosPdvs
       ? `PEÇA COMUM AOS PDVs ${pdvsAgrupados.map(p=>p.numero).join(' + ')}`
       : (pdv?pdv.equipamento||('PDV '+pdv.numero):'');
-    const clienteImpresso=temMultiplosPdvs
-      ? 'CONFERIR SEPARAÇÃO POR O.P. DE ORIGEM'
+    const clientesDoGrupo=[...new Set(pdvsAgrupados.map(p=>p.cliente).filter(Boolean))];
+    const clienteImpresso=pdvsAgrupados.length
+      ? clientesDoGrupo.join(' / ')
       : (pdv?.cliente||'');
     // Uma ficha agrupada representa várias O.P.s; seus apontamentos continuam nas originais.
     const tempos=o._opAgrupada?[]:(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao);
