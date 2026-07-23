@@ -5056,9 +5056,22 @@ function _centralCombinaPergunta(registro,tokens){
   const texto=_centralBuscaNormalizada(_centralTextoRegistro(registro));
   return tokens.some(token=>texto.includes(token));
 }
+function _centralTipoMovimentacao(valor){
+  const tipo=_centralBuscaNormalizada(valor);
+  if(tipo.includes('entrada')) return 'entrada';
+  if(tipo.includes('saida')) return 'saida';
+  return '';
+}
+function _centralPerguntaSobreUsoEstoque(pergunta){
+  return /(moviment|utiliz|uso|consum|saida|giro|rotativ)/.test(_centralBuscaNormalizada(pergunta));
+}
 function _centralSaldoItem(item){
   const inicial=_centralNumero(item?.qtd_inicial??item?.quantidade_inicial??item?.saldo_inicial);
-  return inicial+(estoqueMov||[]).filter(m=>String(m?.item_id??'')===String(item?.id??'')).reduce((total,m)=>total+(String(m?.tipo||'').toLowerCase()==='entrada'?_centralNumero(m?.quantidade):-_centralNumero(m?.quantidade)),0);
+  return inicial+(estoqueMov||[]).filter(m=>String(m?.item_id??'')===String(item?.id??'')).reduce((total,m)=>{
+    const tipo=_centralTipoMovimentacao(m?.tipo);
+    const quantidade=_centralNumero(m?.quantidade);
+    return total+(tipo==='entrada'?quantidade:tipo==='saida'?-quantidade:0);
+  },0);
 }
 function _centralPdvResumo(id){
   const pdv=(pdvs||[]).find(p=>String(p?.id??'')===String(id??''));
@@ -5072,11 +5085,12 @@ function _centralItensRelevantes(itensLista,tokens,limite=35){
 function _centralResumoMovimentacoes(){
   const mapa=new Map();
   (estoqueMov||[]).forEach(mov=>{
-    const item=(estoqueItens||[]).find(i=>String(i?.id??'')===String(mov?.item_id??''))||{};
-    const chave=String(item?.id||mov?.item_id||_centralNomeItem(item));
-    const atual=mapa.get(chave)||{codigo:String(item?.codigo||''),material:_centralNomeItem(item),unidade:String(item?.unidade||''),movimentacoes:0,entradas:0,saidas:0,quantidade_entrada:0,quantidade_saida:0,ultima_movimentacao:''};
-    const tipo=String(mov?.tipo||'').toLowerCase();
+    const item=(estoqueItens||[]).find(i=>String(i?.id??'')===String(mov?.item_id??''));
+    const tipo=_centralTipoMovimentacao(mov?.tipo);
     const qtd=_centralNumero(mov?.quantidade);
+    if(!item||!tipo||qtd<=0) return;
+    const chave=String(item?.id);
+    const atual=mapa.get(chave)||{codigo:String(item?.codigo||''),material:_centralNomeItem(item),unidade:String(item?.unidade||''),movimentacoes:0,entradas:0,saidas:0,quantidade_entrada:0,quantidade_saida:0,ultima_movimentacao:''};
     atual.movimentacoes+=1;
     if(tipo==='entrada'){atual.entradas+=1;atual.quantidade_entrada+=qtd;}else{atual.saidas+=1;atual.quantidade_saida+=qtd;}
     const data=_centralData(mov?.data||mov?.created_at||mov?.data_movimentacao);
@@ -5084,6 +5098,11 @@ function _centralResumoMovimentacoes(){
     mapa.set(chave,atual);
   });
   return [...mapa.values()].sort((a,b)=>b.movimentacoes-a.movimentacoes||b.quantidade_saida-a.quantidade_saida).slice(0,35);
+}
+function _centralRankingUsoEstoque(){
+  return _centralResumoMovimentacoes().filter(item=>item.saidas>0&&item.quantidade_saida>0)
+    .sort((a,b)=>b.saidas-a.saidas||b.quantidade_saida-a.quantidade_saida||b.movimentacoes-a.movimentacoes)
+    .slice(0,15);
 }
 function contextoDetalhadoCentralIA(pergunta=''){
   const tokens=_centralTokensPergunta(pergunta);
@@ -5094,8 +5113,8 @@ function contextoDetalhadoCentralIA(pergunta=''){
   const abaixoMinimo=itensEstoque.filter(item=>item.minimo>0&&item.saldo<item.minimo).sort((a,b)=>(a.saldo-a.minimo)-(b.saldo-b.minimo));
   const movimentos=(estoqueMov||[]).map(mov=>{
     const item=itensEstoque.find(i=>String(i.id??'')===String(mov?.item_id??''))||{};
-    return {data:_centralData(mov?.data||mov?.created_at||mov?.data_movimentacao),tipo:String(mov?.tipo||''),quantidade:_centralNumero(mov?.quantidade),material:item.material||String(mov?.descricao||''),codigo:item.codigo||'',unidade:item.unidade||'',barracao:item.barracao||'',pdv:_centralPdvResumo(mov?.pdv_id),departamento:String(mov?.departamento||''),observacao:String(mov?.observacao||'')};
-  }).sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+    return {data:_centralData(mov?.data||mov?.created_at||mov?.data_movimentacao),tipo:_centralTipoMovimentacao(mov?.tipo),quantidade:_centralNumero(mov?.quantidade),material:item.material||String(mov?.descricao||''),codigo:item.codigo||'',unidade:item.unidade||'',barracao:item.barracao||'',pdv:_centralPdvResumo(mov?.pdv_id),departamento:String(mov?.departamento||''),observacao:String(mov?.observacao||'')};
+  }).filter(mov=>mov.tipo&&mov.quantidade>0).sort((a,b)=>String(b.data).localeCompare(String(a.data)));
   const ordensResumo=(ordens||[]).filter(ordem=>!ordem?.excluida_em).map(ordem=>{
     const dataTerceiro=_centralData(ordem?.terceirizado_data||ordem?.updated_at||ordem?.dt_abertura);
     return {numero:ordem?.numero||'',peca:String(ordem?.descricao||ordem?.peca||ordem?.nome||''),quantidade:_centralNumero(ordem?.quantidade||ordem?.qtd),status:String(ordem?.status||''),pdv:_centralPdvResumo(ordem?.pdv_id),terceirizado:String(ordem?.terceirizado_nome||ordem?.terceirizado||''),data_terceirizado:dataTerceiro,dias_no_terceirizado:_centralDiasDesde(ordem?.terceirizado_data||ordem?.updated_at||ordem?.dt_abertura),prazo_dias:_centralNumero(ordem?.terceirizado_prazo)||7,data_abertura:_centralData(ordem?.dt_abertura||ordem?.created_at)};
@@ -5114,10 +5133,12 @@ function contextoDetalhadoCentralIA(pergunta=''){
     gerado_em:new Date().toISOString(),
     pergunta:String(pergunta||''),
     termos_identificados:tokens,
+    foco_da_consulta:_centralPerguntaSobreUsoEstoque(pergunta)?'utilização e saídas do estoque':'consulta operacional geral',
     panorama:{itens_estoque:itensEstoque.length,movimentacoes_registradas:movimentos.length,ordens_ativas:ordensResumo.length,ordens_terceirizadas:terceirizadas.length,compras_pendentes:compras.filter(c=>c.status==='pendente').length,requisicoes:requisicoesResumo.length},
     dados_encontrados_para_a_pergunta:encontrados,
     estoque_abaixo_minimo:abaixoMinimo.slice(0,35),
     movimentacao_mais_frequente:_centralResumoMovimentacoes(),
+    ranking_de_utilizacao_por_saidas:_centralRankingUsoEstoque(),
     movimentacoes_recentes:movimentos.slice(0,35),
     compras_urgentes:compras.filter(c=>_centralBuscaNormalizada(c.prioridade).includes('urg')).slice(0,30),
     compras_pendentes:compras.filter(c=>c.status==='pendente').slice(0,30),
