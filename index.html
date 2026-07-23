@@ -4582,7 +4582,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-22 · build 112';
+const APP_BUILD='2026-07-23 · build 113';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -8835,6 +8835,22 @@ function _renderArvoreCascata(desenhoId, termoBusca){
   return breadcrumbHtml + corpo;
 }
 
+// Busca individual de cada equipamento (a barrinha dentro do card do PDV).
+// Guardada fora do HTML para sobreviver às re-renderizações da lista.
+const buscaEquipamento = {};
+
+// Redesenha APENAS a árvore daquele equipamento. Refazer a lista inteira faria
+// o campo perder o foco a cada tecla digitada.
+function filtrarEquipamento(desenhoId, valor){
+  buscaEquipamento[desenhoId] = valor||'';
+  const cont = document.querySelector(`[data-scroll-arv="${desenhoId}"]`);
+  if(!cont) return;
+  const buscaGeral = (document.getElementById('buscaDesenho')?.value||'').trim().toLowerCase();
+  const termo = (valor||'').trim().toLowerCase() || buscaGeral;
+  cont.innerHTML = _renderArvoreCascata(desenhoId, termo);
+  cont.scrollTop = 0;
+}
+
 function renderDesenhosRecebidos(){
   const div = document.getElementById('listaDesenhosRecebidos');
   if(!div) return;
@@ -8916,7 +8932,10 @@ function renderDesenhosRecebidos(){
 
   div.innerHTML = lista.map(d=>{
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
-    const corpoArvore = _renderArvoreCascata(d.id, busca);
+    // A busca da barrinha do próprio PDV tem prioridade sobre a busca geral:
+    // quando a pessoa digita ali, ela quer filtrar só aquele equipamento.
+    const buscaLocal = (buscaEquipamento[d.id]||'').trim().toLowerCase();
+    const corpoArvore = _renderArvoreCascata(d.id, buscaLocal || busca);
 
     return `<div style="margin-bottom:16px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
       <div style="background:#f5f5f5;padding:12px 16px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -8924,7 +8943,12 @@ function renderDesenhosRecebidos(){
           <div style="font-weight:700;font-size:13px;color:#37474f">📐 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${d.nome_equipamento?' · '+d.nome_equipamento:''}${d.numero_geral?' · Desenho Geral Nº '+d.numero_geral:''}</div>
           <div style="font-size:11px;color:#9e9e9e">Recebido em ${new Date(d.data_recebimento+'T12:00').toLocaleDateString('pt-BR')}</div>
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;justify-content:flex-end;min-width:220px">
+          ${corpoArvore ? `<input type="search" id="buscaEq_${d.id}" value="${(buscaEquipamento[d.id]||'').replace(/"/g,'&quot;')}"
+            oninput="filtrarEquipamento('${d.id}',this.value)"
+            placeholder="🔍 Buscar neste equipamento..."
+            title="Busca apenas dentro deste equipamento (montagens, peças e nº de desenho)"
+            style="flex:1;max-width:300px;padding:6px 10px;border:1px solid #cfd8dc;border-radius:7px;font-size:12px;background:#fff">` : ''}
           <button class="btn btn-sm" onclick="abrirModalDesenhoRecebido('${d.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm danger" onclick="deletarDesenhoRecebido('${d.id}')" title="Excluir">🗑</button>
         </div>
