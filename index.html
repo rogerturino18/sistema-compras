@@ -3513,13 +3513,17 @@ td{vertical-align:middle!important}
     <div id="centralIAArea" style="margin-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div><b style="font-size:14px;color:#1f6a50">✨ Assistente de Operação</b><div style="font-size:12px;color:#607d8b;margin-top:3px">Pergunte sobre as pendências atuais. A resposta é somente de leitura.</div></div>
-        <button id="btnConfigCentralIA" class="btn btn-sm" onclick="configurarCentralIA()">Configurar</button>
+        <div style="display:flex;gap:6px">
+          <button id="btnTestarCentralIA" class="btn btn-sm" onclick="testarCentralIA()" title="Verificar se a IA está respondendo e, se não estiver, o motivo">🔍 Testar IA</button>
+          <button id="btnConfigCentralIA" class="btn btn-sm" onclick="configurarCentralIA()">Configurar</button>
+        </div>
       </div>
       <div id="centralPerguntasRapidas" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px"></div>
       <div style="display:flex;gap:7px;margin-top:12px">
         <input id="centralIAPergunta" class="input" style="flex:1;min-width:0" placeholder="Ex.: O que preciso cobrar hoje?" onkeydown="if(event.key==='Enter') perguntarCentralIA()">
         <button id="btnAnalisarCentralIA" class="btn btn-sm primary" onclick="perguntarCentralIA()">Perguntar</button>
       </div>
+      <div id="centralIADiagnostico"></div>
       <div id="centralIAResultado" style="display:none;margin-top:12px;max-height:290px;overflow:auto;padding:11px 12px;border-radius:9px;background:#f4faf7;border:1px solid #cfe5d9;font-size:12px;line-height:1.55;color:#29453a"></div>
     </div>
   </div>
@@ -4582,7 +4586,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-23 · build 116';
+const APP_BUILD='2026-07-24 · build 118';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -5006,6 +5010,63 @@ function getCentralIAUrl(){
   return String(localStorage.getItem('sl_central_ia_url')||'').trim().replace(/\/+$/,'');
 }
 
+// Testa a conexão com a IA e mostra o motivo exato de qualquer falha, sem
+// precisar sair do sistema nem abrir o painel do Cloudflare.
+async function testarCentralIA(){
+  if(!isAprovador()){ showToast('Somente administradores podem testar a IA.','err'); return; }
+  const baseUrl=getCentralIAUrl();
+  if(!baseUrl){ showToast('Configure primeiro o endereço do serviço de IA.','err'); return; }
+  const btn=document.getElementById('btnTestarCentralIA');
+  const original=btn?.innerHTML;
+  if(btn){ btn.disabled=true; btn.textContent='Testando...'; }
+  const mostrar=(titulo,linhas,cor)=>{
+    const cx=document.getElementById('centralIADiagnostico');
+    if(cx) cx.innerHTML=`<div style="border:1px solid ${cor};background:${cor}14;border-radius:10px;padding:12px 14px;margin-top:12px">
+      <div style="font-weight:700;color:${cor};font-size:13px;margin-bottom:6px">${titulo}</div>
+      <div style="font-size:12px;color:#37474f;line-height:1.6">${linhas.join('<br>')}</div></div>`;
+  };
+  try{
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),30000);
+    let r;
+    try{
+      r=await fetch(baseUrl+'/api/testar-ia',{signal:ctrl.signal});
+    }catch(err){
+      clearTimeout(t);
+      mostrar('❌ Não foi possível alcançar o serviço',[
+        `Endereço configurado: <code>${baseUrl}</code>`,
+        err?.name==='AbortError'?'O serviço não respondeu em 30 segundos.':'O endereço não respondeu — confira se o serviço está publicado.'
+      ],'#c62828');
+      return;
+    }
+    clearTimeout(t);
+    const d=await r.json().catch(()=>({}));
+    if(d.sucesso){
+      mostrar('✅ IA funcionando',[
+        `Modelo: <b>${d.modelo||'—'}</b>`,
+        d.mensagem||'Chave, cota e modelo estão respondendo normalmente.',
+        'Se ainda houver erro ao perguntar, me avise para investigar o envio dos dados.'
+      ],'#2e7d32');
+    } else if(r.status===404){
+      mostrar('⚠️ Serviço desatualizado',[
+        'Este teste ainda não existe no serviço publicado.',
+        'Publique a versão nova do <b>worker.js</b> no Cloudflare e teste de novo.'
+      ],'#e65100');
+    } else {
+      mostrar('❌ A IA recusou a consulta',[
+        d.http?`Código do erro: <b>${d.http}</b>`:'',
+        d.modelo?`Modelo configurado: <b>${d.modelo}</b>`:'',
+        d.erro?`Mensagem: ${d.erro}`:'',
+        d.dica?`<b>O que fazer:</b> ${d.dica}`:''
+      ].filter(Boolean),'#c62828');
+    }
+  }catch(e){
+    mostrar('❌ Falha no teste',[String(e?.message||e)],'#c62828');
+  }finally{
+    if(btn){ btn.disabled=false; btn.innerHTML=original; }
+  }
+}
+
 function configurarCentralIA(){
   if(!isAprovador()){
     showToast('Somente administradores podem configurar a IA.','err');
@@ -5353,11 +5414,15 @@ async function perguntarCentralIA(pergunta=''){
     const bruto=await r.text();
     let data={}; try{ data=bruto?JSON.parse(bruto):{}; }catch(_){ data={}; }
     if(!r.ok||!data.sucesso){
-      // Mostra o motivo real: sem isso não dá para saber se é chave inválida,
-      // serviço fora do ar, limite estourado ou erro interno do backend.
-      const detalhe=data.erro||data.message||data.error||(bruto||'').substring(0,200)||'sem detalhes';
-      console.error('[Central IA] HTTP',r.status,r.statusText,'|',detalhe);
-      throw new Error(`${detalhe} (código ${r.status}${r.statusText?' '+r.statusText:''})`);
+      // O usuário comum vê a mensagem amigável; o detalhe técnico (chave, cota,
+      // modelo) fica visível só para quem administra o sistema.
+      const amigavel=data.erro||data.message||data.error||'Não foi possível consultar a IA agora.';
+      const tec=data.detalhe_tecnico;
+      console.error('[Central IA] HTTP',r.status,r.statusText,'|',JSON.stringify(tec||amigavel));
+      const ehAdmin=(typeof isAprovador==='function')&&isAprovador();
+      throw new Error(ehAdmin&&tec
+        ? `${amigavel}\n[detalhe técnico] HTTP ${tec.http||r.status} · modelo ${tec.modelo||'—'} · ${tec.motivo||''}`
+        : amigavel);
     }
     centralHistoricoIA[posicaoResposta]={tipo:'resposta',texto:String(data.resposta||data.resumo||data.analise||'Não encontrei uma resposta para esta pergunta.'),tabela:data.tabela||null};
     renderConversaCentralIA(resultado);
