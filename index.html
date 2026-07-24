@@ -85,7 +85,7 @@ tr:hover td{background:#f9fbf9}
 .modal-bg{display:none;position:fixed;inset:0;z-index:100;pointer-events:none}
 .modal-bg.open{display:flex!important;align-items:center;justify-content:center;pointer-events:all!important;background:rgba(0,0,0,0.5);z-index:500!important}
 .modal-bg.minimized{display:block}
-.modal{background:#fff;border-radius:14px;padding:0;width:560px;max-width:98vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(46,125,50,0.25);position:fixed;top:80px;left:50%;transform:translateX(-50%);pointer-events:all;cursor:default}
+.modal{background:#fff;border-radius:14px;padding:0;width:560px;max-width:98vw;max-height:calc(100vh - 96px);overflow-y:auto;box-shadow:0 8px 40px rgba(46,125,50,0.25);position:fixed;top:80px;left:50%;transform:translateX(-50%);pointer-events:all;cursor:default}
 .modal-bg.minimized .modal{max-height:48px;overflow:hidden;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.2)}
 .modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:var(--green);border-radius:14px 14px 0 0;cursor:grab;user-select:none}
 .modal-header:active{cursor:grabbing}
@@ -105,6 +105,13 @@ tr:hover td{background:#f9fbf9}
 .form-group input,.form-group select,.form-group textarea{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--dark);background:#fff;width:100%;box-sizing:border-box;max-width:100%}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--green)}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #f0f4f0}
+/* Botões de ação sempre visíveis: antes ficavam no fim do conteúdo rolável e
+   saíam da tela em modais altos (era preciso adivinhar que existia rolagem). */
+.modal .modal-actions{position:sticky;bottom:0;background:#fff;padding-bottom:14px;margin-bottom:-4px;z-index:6}
+/* Cabeçalho fixo: mantém o título à vista e permite arrastar mesmo com o
+   conteúdo rolado para baixo. */
+.modal .modal-header{position:sticky;top:0;z-index:7;cursor:move}
+.modal .modal-header:active{cursor:grabbing}
 .compare-item{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 .compare-header{padding:10px 14px;background:#f9fbf9;font-weight:600;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
 .compare-header:hover{background:var(--green-pale)}
@@ -658,6 +665,9 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
 .panel.active{animation:slPanelEnter .24s cubic-bezier(.2,.75,.25,1) both}
 .modal-bg.open{animation:slOverlayEnter .18s ease-out both}
 .modal-bg.open .modal{animation:slModalEnter .24s cubic-bezier(.2,.8,.25,1) both}
+/* Ao arrastar, a animação de entrada precisa sair de cena: ela reaplicava o
+   transform de centralização e o modal saltava para o lado. */
+.modal-bg.open .modal.arrastando,.modal-bg .modal.arrastando{animation:none!important;transform:none!important}
 [id^="sbpanel_"][style*="display: block"]{animation:slSideEnter .2s cubic-bezier(.2,.75,.25,1) both}
 .toast.show{animation:slToastEnter .24s cubic-bezier(.2,.75,.25,1) both}
 .btn,.home-enter-btn,.sb-icon,.stat,.card,.tile{will-change:transform;transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease,border-color .16s ease,filter .16s ease}
@@ -832,6 +842,7 @@ td{vertical-align:middle!important}
   <div style="padding:6px 0">
     <div class="sbi" onclick="sbGo(11,'Estoque')">📦 Itens em Estoque</div>
     <div class="sbi" onclick="sbGo(16,'Movimentações de Estoque')">📋 Entradas e Saídas</div>
+    <div class="sbi" onclick="sbGo(24,'Entrada NF-e')">🧾 Entrada NF-e (XML)</div>
     <div class="sbi" onclick="sbGo(17,'Requisições de Material')">📤 Requisições de Material</div>
     <div class="sbi" onclick="sbGo(18,'Departamentos')">🏢 Departamentos</div>
   </div>
@@ -841,7 +852,6 @@ td{vertical-align:middle!important}
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🛒 Compras</div>
   <div style="padding:6px 0">
     <div class="sbi" onclick="sbGo(1,'Lista de Compras')">📋 Lista de Compras</div>
-    <div class="sbi" onclick="sbGo(24,'Entrada NF-e')">🧾 Entrada NF-e</div>
     <div class="sbi" onclick="sbGo(2,'Fornecedores')">🏢 Fornecedores</div>
     <div class="sbi" onclick="sbGo(7,'Comparar Orçamentos')">📊 Comparar Orçamentos</div>
     <div class="sbi" onclick="sbGo(9,'Compras Internas')">🛒 Compras Internas</div>
@@ -1169,6 +1179,7 @@ td{vertical-align:middle!important}
         <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
         <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
         <button class="btn" onclick="abrirAlertaMinimo()" id="btnAlertaMinimo" style="font-size:12px" title="Itens abaixo do estoque mínimo">⚠️ Estoque mínimo</button>
+        <button class="btn" onclick="document.getElementById('inputNFe').click()" style="font-size:12px;background:#00695c;color:#fff;border-color:#00695c" title="Selecionar o XML da NF-e e dar entrada no estoque sem sair desta tela">📥 Importar XML</button>
         <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
       </div>
 
@@ -4586,7 +4597,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-24 · build 118';
+const APP_BUILD='2026-07-24 · build 120';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -10812,7 +10823,7 @@ function atualizarRelogio(){
 // ── Grupos da dashboard com sub-abas ────────────────────────────────────
 const DASH_GRUPOS = [
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
-   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Entrada NF-e',icon:'📥',tab:24}]},
+   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
    subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32}]},
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
@@ -10820,7 +10831,7 @@ const DASH_GRUPOS = [
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
    subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
-   subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18}]},
+   subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Entrada NF-e',icon:'🧾',tab:24},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18}]},
   {id:'epi',        label:'Controle EPI', icon:'🦺', color:'linear-gradient(135deg,#ef6c00,#e65100)', directTab:29,
    subs:[{label:'Controle EPI',icon:'🦺',tab:29}]},
 ];
@@ -13268,11 +13279,11 @@ const MODULOS_SISTEMA = [
 // internos listados — evita o erro de liberar só "Entrada NF-e" e esquecer
 // o resto de Compras, por exemplo.
 const GRUPOS_PERMISSAO = [
-  {id:'g_compras',    label:'Compras',    icon:'🛒', cor:'#1565c0', modulos:['compras','cotacoes','compint','envio','entrada_nfe']},
+  {id:'g_compras',    label:'Compras',    icon:'🛒', cor:'#1565c0', modulos:['compras','cotacoes','compint','envio']},
   {id:'g_producao',   label:'Produção',   icon:'🏭', cor:'#558b2f', modulos:['producao','desenhos']},
   {id:'g_vendas',     label:'Vendas',     icon:'🏷️', cor:'#6a1b9a', modulos:['pdv','clientes','fiscal']},
   {id:'g_financeiro', label:'Financeiro', icon:'💰', cor:'#c62828', modulos:['financeiro','receber','fluxo']},
-  {id:'g_estoque',    label:'Estoque',    icon:'📦', cor:'#00695c', modulos:['estoque','requisicoes','admin']},
+  {id:'g_estoque',    label:'Estoque',    icon:'📦', cor:'#00695c', modulos:['estoque','entrada_nfe','requisicoes','admin']},
   {id:'g_epi',        label:'EPI',        icon:'🦺', cor:'#e65100', modulos:['epi']},
 ];
 
@@ -13314,14 +13325,13 @@ const GRUPO_TABS = {
   envio:      [10],
   // 16 = Entradas e Saídas (Movimentações de Estoque). Ficava fora de qualquer
   // grupo, então só o administrador via a aba, mesmo com permissão de Estoque.
-  estoque:    [11,16,30],
+  estoque:    [11,16,24,30],
   fiscal:     [12],
   pdv:        [13],
   clientes:   [14],
   financeiro: [19,25],
   receber:    [20,26],
   fluxo:      [21,22,23],
-  entrada_nfe:[24],
   requisicoes:[17],
   admin:      [18],
 };
@@ -13634,6 +13644,14 @@ function abrirModal(id){
   m.style.display='flex';
   m.style.pointerEvents='all';
   m.classList.add('open');
+  // Reabrir devolve o modal ao lugar padrão, senão ele reaparece onde foi solto.
+  const cx=m.querySelector('.modal');
+  if(cx&&cx.classList.contains('arrastando')){
+    cx.classList.remove('arrastando');
+    cx.style.left=''; cx.style.top=''; cx.style.transform=''; cx.style.margin='';
+  }
+  // Garante o arraste mesmo em modais montados agora (a função ignora repetição).
+  if(typeof initDragModal==='function') initDragModal(id);
 }
 
 function fecharModal(id){
@@ -13660,38 +13678,85 @@ function initDragModal(id){
   const bg=document.getElementById(id);
   const modal=bg?.querySelector('.modal');
   const header=bg?.querySelector('.modal-header');
-  if(!modal||!header) return;
-  let isDragging=false,startX,startY,initLeft,initTop;
-  header.addEventListener('mousedown',e=>{
+  if(!modal||!header||header.dataset.arrastavel==='1') return;
+  header.dataset.arrastavel='1';   // evita registrar o mesmo modal duas vezes
+
+  let arrastando=false,xIni,yIni,esqIni,topIni;
+
+  const ponto=e=>e.touches?.[0]||e.changedTouches?.[0]||e;
+
+  function comecar(e){
     // Controles no cabeçalho nunca devem iniciar o arraste do modal.
     if(e.target.closest('button, input, select, textarea, a, label')) return;
-    isDragging=true;
-    const rect=modal.getBoundingClientRect();
-    startX=e.clientX; startY=e.clientY;
-    initLeft=rect.left; initTop=rect.top;
+    const p=ponto(e);
+    arrastando=true;
+    const r=modal.getBoundingClientRect();
+    xIni=p.clientX; yIni=p.clientY; esqIni=r.left; topIni=r.top;
+    modal.classList.add('arrastando');   // desliga a animação de entrada
     modal.style.transform='none';
-    modal.style.left=initLeft+'px';
-    modal.style.top=initTop+'px';
-    document.addEventListener('mousemove',onMouseMove);
-    document.addEventListener('mouseup',onMouseUp);
+    modal.style.left=esqIni+'px';
+    modal.style.top=topIni+'px';
+    modal.style.margin='0';
+    document.addEventListener('mousemove',mover,{passive:false});
+    document.addEventListener('mouseup',soltar);
+    document.addEventListener('touchmove',mover,{passive:false});
+    document.addEventListener('touchend',soltar);
+    document.body.style.userSelect='none';
+  }
+
+  function mover(e){
+    if(!arrastando) return;
+    e.preventDefault();
+    const p=ponto(e);
+    const r=modal.getBoundingClientRect();
+    // Mantém o modal dentro da tela: antes era possível arrastá-lo para fora
+    // e perdê-lo de vista, sem conseguir trazer de volta.
+    const margem=40;
+    const maxEsq=window.innerWidth-margem, minEsq=margem-r.width;
+    const maxTopo=window.innerHeight-margem;
+    modal.style.left=Math.min(maxEsq,Math.max(minEsq,esqIni+(p.clientX-xIni)))+'px';
+    modal.style.top =Math.min(maxTopo,Math.max(0,topIni+(p.clientY-yIni)))+'px';
+  }
+
+  function soltar(){
+    arrastando=false;
+    document.removeEventListener('mousemove',mover);
+    document.removeEventListener('mouseup',soltar);
+    document.removeEventListener('touchmove',mover);
+    document.removeEventListener('touchend',soltar);
+    document.body.style.userSelect='';
+  }
+
+  header.addEventListener('mousedown',comecar);
+  header.addEventListener('touchstart',comecar,{passive:true});
+
+  // Duplo clique no cabeçalho devolve o modal ao centro.
+  header.addEventListener('dblclick',e=>{
+    if(e.target.closest('button, input, select, textarea, a, label')) return;
+    modal.classList.remove('arrastando');
+    modal.style.left=''; modal.style.top=''; modal.style.transform=''; modal.style.margin='';
   });
-  function onMouseMove(e){
-    if(!isDragging) return;
-    const dx=e.clientX-startX, dy=e.clientY-startY;
-    modal.style.left=(initLeft+dx)+'px';
-    modal.style.top=Math.max(0,initTop+dy)+'px';
-  }
-  function onMouseUp(){
-    isDragging=false;
-    document.removeEventListener('mousemove',onMouseMove);
-    document.removeEventListener('mouseup',onMouseUp);
-  }
 }
 
-// Init drag on all modals after DOM ready
+// Ativa o arraste em todos os modais existentes e nos criados depois.
+function ativarArrasteModais(){
+  document.querySelectorAll('.modal-bg').forEach(m=>{ if(m.id) initDragModal(m.id); });
+}
 window.addEventListener('load',()=>{
-  document.querySelectorAll('.modal-bg').forEach(m=>initDragModal(m.id));
+  ativarArrasteModais();
+  // Modais montados dinamicamente (innerHTML) não existiam no load e por isso
+  // nasciam sem arraste — este observador cobre esse caso.
+  try{
+    new MutationObserver(muts=>{
+      for(const m of muts) for(const n of m.addedNodes){
+        if(n.nodeType!==1) continue;
+        if(n.classList?.contains('modal-bg')&&n.id) initDragModal(n.id);
+        n.querySelectorAll?.('.modal-bg[id]').forEach(x=>initDragModal(x.id));
+      }
+    }).observe(document.body,{childList:true,subtree:true});
+  }catch(_){}
 });
+
 function showToast(msg,type='ok',duracao=3000){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.background=type==='err'?'#c62828':'var(--green)';
