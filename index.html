@@ -4596,7 +4596,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-24 · build 121';
+const APP_BUILD='2026-07-24 · build 123';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4770,6 +4770,16 @@ async function loadAll(){
       api('GET','itens_desenho_recebido','','?order=item_numero.asc').catch(()=>[])
     ]);
     renderAll();
+    // Após um F5, a aba já estava aberta ANTES de os dados chegarem, então ela
+    // renderizou vazia. Aqui, com os dados em mãos, redesenhamos a aba ativa —
+    // resolve de forma geral (Entradas e Saídas, Requisições e quaisquer outras).
+    try{
+      const abaAtiva=Number(sessionStorage.getItem('sl_aba_atual'));
+      if(Number.isInteger(abaAtiva)&&abaAtiva>0&&typeof showTab==='function'
+         &&document.getElementById('tab'+abaAtiva)?.classList.contains('active')){
+        showTab(abaAtiva);
+      }
+    }catch(e){}
     verificarLembretes();
     // Não reconstrói os cards enquanto o usuário abre um grupo na dashboard.
     // Isso evitava que um carregamento assíncrono cancelasse um clique em andamento.
@@ -8312,13 +8322,16 @@ async function sincronizarQuantidadeOPVinculada(no, novaQuantidade, quantidadeAn
   if(!no?.ordem_id || Number(quantidadeAnterior||1)===Number(novaQuantidade||1)) return false;
   const ordem = ordens.find(o=>o.id===no.ordem_id);
   if(!ordem) return false;
+  const nova = Number(novaQuantidade)||1;
+  // Sincronização instantânea nos dois sentidos: a quantidade da peça e a da OP
+  // andam sempre juntas. Só avisamos (sem bloquear) quando a OP já tem tempo de
+  // máquina apontado, para o usuário rever o que já foi produzido.
   const possuiApontamentos = temposOP.some(t=>t.ordem_id===ordem.id && t.operacao && t.operacao!=='REPROCESSAR');
-  if(ordem.status==='concluido' || ordem.status==='terceirizado' || possuiApontamentos){
-    showToast('Peça atualizada. A OP já tem produção registrada e não foi alterada automaticamente.');
-    return false;
+  await api('PATCH','ordens_producao',{quantidade:nova},`?id=eq.${ordem.id}`);
+  ordem.quantidade=nova;
+  if(possuiApontamentos){
+    showToast(`⚠️ OP nº ${ordem.numero||''} atualizada para ${nova}, mas já tinha produção apontada — confira.`,'ok',6000);
   }
-  await api('PATCH','ordens_producao',{quantidade:Number(novaQuantidade)||1},`?id=eq.${ordem.id}`);
-  ordem.quantidade=Number(novaQuantidade)||1;
   return true;
 }
 
@@ -8337,17 +8350,15 @@ async function sincronizarQuantidadesOPDaEstrutura(alteracoes){
   for(const alteracao of porOrdem.values()){
     const ordem = ordens.find(o=>o.id===alteracao.ordem_id);
     if(!ordem) continue;
+    const nova = Number(alteracao.novaQuantidade)||1;
     const possuiApontamentos = temposOP.some(t=>t.ordem_id===ordem.id && t.operacao && t.operacao!=='REPROCESSAR');
-    if(ordem.status==='concluido' || ordem.status==='terceirizado' || possuiApontamentos){
-      preservadas++;
-      continue;
-    }
-    await api('PATCH','ordens_producao',{quantidade:Number(alteracao.novaQuantidade)||1},`?id=eq.${ordem.id}`);
-    ordem.quantidade=Number(alteracao.novaQuantidade)||1;
+    await api('PATCH','ordens_producao',{quantidade:nova},`?id=eq.${ordem.id}`);
+    ordem.quantidade=nova;
     atualizadas++;
+    if(possuiApontamentos) preservadas++;   // atualizou, mas tinha produção — vale avisar
   }
   if(atualizadas) showToast(`${atualizadas} O.P. vinculada(s) atualizada(s) com a nova quantidade.`);
-  if(preservadas) showToast(`${preservadas} O.P. já iniciada/terceirizada foi mantida sem alteração automática.`,'err',5000);
+  if(preservadas) showToast(`${preservadas} dela(s) já tinha(m) produção apontada — confira.`,'ok',6000);
 }
 
 async function salvarEdicaoRapida(){
@@ -9524,6 +9535,25 @@ function abrirLixeiraOrdens(){
 // "Criar Ordem" mais de uma vez rapidamente criaria múltiplas Ordens de Produção
 // em paralelo a partir do mesmo formulário.
 let _salvandoOrdem = false;
+// OP → estrutura: acha a peça (item de desenho) ou a montagem vinculada a esta
+// ordem e ajusta a quantidade dela, mantendo os dois lados sempre iguais.
+async function sincronizarQuantidadeEstruturaVinculada(ordemId, novaQuantidade){
+  const nova = Number(novaQuantidade)||1;
+  let mudou=false;
+  const item = (itensDesenhoRecebido||[]).find(i=>i.ordem_id===ordemId);
+  if(item && Number(item.quantidade||1)!==nova){
+    await api('PATCH','itens_desenho_recebido',{quantidade:nova},`?id=eq.${item.id}`).catch(()=>{});
+    item.quantidade=nova; mudou=true;
+  }
+  const mont = (montagensRecebidas||[]).find(m=>m.ordem_id===ordemId);
+  if(mont && Number(mont.quantidade||1)!==nova){
+    await api('PATCH','montagens_recebidas',{quantidade:nova},`?id=eq.${mont.id}`).catch(()=>{});
+    mont.quantidade=nova; mudou=true;
+  }
+  if(mudou) showToast('Quantidade sincronizada com a Estrutura de Equipamentos.');
+  return mudou;
+}
+
 async function salvarOrdem(){
   if(_salvandoOrdem) return;
   const descricao=document.getElementById('ord_descricao').value.trim();
@@ -9550,8 +9580,15 @@ async function salvarOrdem(){
   try{
     let res;
     if(editOrdemId){
+      const ordemAntes=ordens.find(o=>o.id===editOrdemId);
+      const qtdAntes=Number(ordemAntes?.quantidade||1);
       res=await api('PATCH','ordens_producao',obj,`?id=eq.${editOrdemId}`);
       showToast('Ordem atualizada!');
+      // OP → estrutura: se a quantidade mudou, empurra para a peça/montagem
+      // vinculada (mesmo número dos dois lados, nos dois sentidos).
+      if(qtdAntes!==obj.quantidade){
+        await sincronizarQuantidadeEstruturaVinculada(editOrdemId, obj.quantidade);
+      }
     } else {
       res=await api('POST','ordens_producao',obj);
       showToast('Ordem criada!');
