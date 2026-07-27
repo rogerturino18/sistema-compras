@@ -14946,13 +14946,13 @@ function abrirModalReq(id){
     else selDest.value='';
   }
   reqItensLocal=Array.isArray(r?.itens)?JSON.parse(JSON.stringify(r.itens)):[];
-  // Ao editar, atualiza o saldo exibido com o estoque real de agora, e não com o saldo salvo anteriormente.
+  // Ao editar, atualiza o saldo exibido no barracão escolhido com o estoque real de agora.
   reqItensLocal.forEach(it=>{
     const item=estoqueItens.find(x=>x.id===it.item_id);
     if(!item)return;
-    const saldo=estoqueMov.filter(m=>m.item_id===it.item_id)
-      .reduce((s,m)=>s+(m.tipo==='entrada'?Number(m.quantidade||0):-Number(m.quantidade||0)),Number(item.qtd_inicial||0));
-    it.saldo_atual=saldo;
+    it.barracao=it.barracao==='Barracão 2'?'Barracão 2':it.barracao==='Barracão 1'?'Barracão 1':(item.localizacao==='Barracão 2'?'Barracão 2':'Barracão 1');
+    const saldos=saldoBarracoes(item);
+    it.saldo_atual=it.barracao==='Barracão 2'?saldos.b2:saldos.b1;
     it.unidade=it.unidade||item.unidade||'PC';
   });
   const btnSalvar=document.getElementById('btnSalvarReq');
@@ -14973,42 +14973,52 @@ function renderBuscaItemReq(){
   const b=(document.getElementById('buscaItemReqModal')?.value||'').toLowerCase();
   const div=document.getElementById('listaItemReqModal');
   if(!div)return;
-  let lista=estoqueItens.filter(i=>{
-    if(b&&!(i.descricao+i.tipo_peca+i.material+i.codigo+'').toLowerCase().includes(b)) return false;
-    return true;
+  const lista=estoqueItens.filter(i=>{
+    const texto=`${i.descricao||''} ${i.tipo_peca||''} ${i.material||''} ${i.codigo||''}`.toLowerCase();
+    return !b||texto.includes(b);
   });
   if(!lista.length){div.innerHTML='<p style="color:#bdbdbd;padding:12px">Nenhum item</p>';return;}
-  div.innerHTML=lista.map(i=>{
-    const mov=estoqueMov.filter(m=>m.item_id===i.id);
-    const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(i.qtd_inicial||0));
-    const saldoColor=saldo<=0?'color:#c62828':'color:#2e7d32';
-    const saldos=(typeof saldoBarracoes==='function')?saldoBarracoes(i):{b1:0,b2:0};
+
+  const linhas=lista.flatMap(item=>{
+    const saldos=(typeof saldoBarracoes==='function')?saldoBarracoes(item):{b1:0,b2:0};
+    return [
+      {item,barracao:'Barracão 1',saldo:Number(saldos.b1||0)},
+      {item,barracao:'Barracão 2',saldo:Number(saldos.b2||0)}
+    ].filter(linha=>linha.saldo>0);
+  });
+
+  if(!linhas.length){
+    div.innerHTML='<p style="color:#bdbdbd;padding:12px">Nenhum item com saldo disponível</p>';
+    return;
+  }
+
+  const formatarQtd=valor=>Number(valor||0).toLocaleString('pt-BR',{maximumFractionDigits:3});
+  div.innerHTML=linhas.map(({item:i,barracao,saldo})=>{
     const unidade=i.unidade||'';
-    const formatarQtd=valor=>Number(valor||0).toLocaleString('pt-BR',{maximumFractionDigits:3});
-    return `<div onclick="selecionarItemReq('${i.id}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f4f0;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background='#f9f4ff'" onmouseout="this.style.background=''">
+    const barracao2=barracao==='Barracão 2';
+    return `<button type="button" onclick="selecionarItemReq('${i.id}','${barracao}')" style="width:100%;padding:10px 12px;border:0;border-bottom:1px solid #f0f4f0;background:#fff;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;font-family:inherit;cursor:pointer">
       <div>
         <div style="font-weight:600;font-size:13px">${i.tipo_peca||i.descricao||'—'}</div>
         <div style="font-size:11px;color:#546e7a">${i.material||''}${i.codigo?' · Cód: '+i.codigo:''}</div>
       </div>
-      <div style="text-align:right;min-width:190px">
-        <div style="${saldoColor};font-weight:700;font-size:13px;margin-bottom:4px">${formatarQtd(saldo)} ${unidade} <span style="font-size:10px;font-weight:500;color:#78909c">total</span></div>
-        <div style="display:flex;justify-content:flex-end;gap:5px;white-space:nowrap">
-          <span style="padding:3px 7px;border-radius:10px;background:#e3f2fd;color:#1565c0;font-size:10px;font-weight:700">Barracão 1: ${formatarQtd(saldos.b1)} ${unidade}</span>
-          <span style="padding:3px 7px;border-radius:10px;background:#f3e5f5;color:#7b1fa2;font-size:10px;font-weight:700">Barracão 2: ${formatarQtd(saldos.b2)} ${unidade}</span>
-        </div>
+      <div style="text-align:right;min-width:105px">
+        <div style="color:#2e7d32;font-weight:700;font-size:13px;margin-bottom:4px">${formatarQtd(saldo)} ${unidade}</div>
+        <span style="display:inline-block;padding:3px 7px;border-radius:10px;background:${barracao2?'#f3e5f5':'#e3f2fd'};color:${barracao2?'#7b1fa2':'#1565c0'};font-size:10px;font-weight:700">${barracao}</span>
       </div>
-    </div>`;
+    </button>`;
   }).join('');
 }
 
-function selecionarItemReq(itemId){
+function selecionarItemReq(itemId,barracao){
   const item=estoqueItens.find(i=>i.id===itemId);
   if(!item)return;
-  // Don't add duplicate
-  if(reqItensLocal.find(x=>x.item_id===itemId)){showToast('Item já adicionado','err');return;}
-  const mov=estoqueMov.filter(m=>m.item_id===itemId);
-  const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item.qtd_inicial||0));
-  reqItensLocal.push({item_id:itemId,descricao:item.tipo_peca||item.descricao||'',material:item.material||'',unidade:item.unidade||'PC',qtd:1,saldo_atual:saldo});
+  if(!['Barracão 1','Barracão 2'].includes(barracao)){showToast('Escolha o barracão de retirada','err');return;}
+  const saldos=saldoBarracoes(item);
+  const saldo=barracao==='Barracão 2'?Number(saldos.b2||0):Number(saldos.b1||0);
+  if(saldo<=0){showToast(`Sem saldo no ${barracao}`,'err');return;}
+  // O mesmo item pode ser retirado dos dois barracões, mas não repetido no mesmo local.
+  if(reqItensLocal.find(x=>x.item_id===itemId&&x.barracao===barracao)){showToast(`Item já adicionado do ${barracao}`,'err');return;}
+  reqItensLocal.push({item_id:itemId,descricao:item.tipo_peca||item.descricao||'',material:item.material||'',unidade:item.unidade||'PC',qtd:1,saldo_atual:saldo,barracao});
   fecharModal('modalBuscaItemReq');
   renderReqItens();
 }
@@ -15023,7 +15033,7 @@ function renderReqItens(){
   tbody.innerHTML=reqItensLocal.map((it,i)=>{
     const saldoColor=it.saldo_atual<=0?'color:#c62828;font-weight:700':'color:#2e7d32';
     return `<tr style="border-bottom:1px solid #f0f4f0">
-      <td style="padding:7px 10px;font-weight:600;font-size:12px">${it.descricao}</td>
+      <td style="padding:7px 10px;font-weight:600;font-size:12px">${it.descricao}<div style="margin-top:4px"><span style="display:inline-block;padding:2px 7px;border-radius:10px;background:${it.barracao==='Barracão 2'?'#f3e5f5':'#e3f2fd'};color:${it.barracao==='Barracão 2'?'#7b1fa2':'#1565c0'};font-size:10px;font-weight:700">${it.barracao||'Barracão não definido'}</span></div></td>
       <td style="padding:7px 10px;font-size:12px;color:var(--green)">${it.material||'—'}</td>
       <td style="padding:7px 10px;font-size:12px;${saldoColor}">${(it.saldo_atual||0).toLocaleString('pt-BR',{maximumFractionDigits:3})} ${it.unidade}</td>
       <td style="padding:4px 6px">${(()=>{const isInt=['UN','PC','PÇ','PCS','UNID','CX','CJ','CONJ','PAR','ROLO','FOLHA','PECA','PEÇA'].includes((it.unidade||'').toUpperCase());return `<input type="number" value="${it.qtd||1}" min="${isInt?1:0.001}" step="${isInt?1:0.001}" onchange="reqItensLocal[${i}].qtd=${isInt?'parseInt':'parseFloat'}(this.value)||0;this.value=reqItensLocal[${i}].qtd" style="padding:5px 8px;border:1px solid #ce93d8;border-radius:6px;font-size:13px;width:75px;font-weight:600">`;})()}</td>
@@ -15044,6 +15054,9 @@ async function salvarRequisicao(){
   const pvDest=pvDestId?pdvs.find(p=>p.id===pvDestId):null; // usa pdvs, não pedidosVenda
   // Check stock
   for(const it of reqItensLocal){
+    if(!['Barracão 1','Barracão 2'].includes(it.barracao)){
+      showToast(`Escolha o barracão de retirada: ${it.descricao}`,'err');return;
+    }
     if(it.qtd<=0){showToast(`Quantidade inválida: ${it.descricao}`,'err');return;}
     if(it.qtd>it.saldo_atual&&it.saldo_atual>=0){
       if(!confirm(`⚠️ ${it.descricao}: saldo atual ${it.saldo_atual} ${it.unidade}, você quer retirar ${it.qtd}. Continuar mesmo assim?`)) return;
@@ -15089,6 +15102,7 @@ async function salvarRequisicao(){
         await api('POST','estoque_movimentacoes',{
           item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
           quantidade:it.qtd, unidade_saida:it.unidade, data:obj.data,
+          barracao:it.barracao,
           departamento:depto, pdv_id:pdvId,
           observacao:`Req. Nº ${numero} — ${isPdvDest&&pdv?_numPdv(pdv):depto}`,
           criado_por:usuarioLogado?.nome||null
@@ -15218,6 +15232,7 @@ async function confirmarAprovacao(){
       await api('POST','estoque_movimentacoes',{
         item_id:it.item_id, tipo:'saida', subtipo:'requisicao',
         quantidade:it.qtd, unidade_saida:it.unidade,
+        barracao:it.barracao,
         data:r.data||new Date().toISOString().split('T')[0],
         departamento:r.departamento, pdv_id:r.pdv_id||null,
         observacao:`Req. Nº ${r.numero} — ${r.pdv_id?_numPdv(pdvs.find(p=>p.id===r.pdv_id)):r.departamento}`,
