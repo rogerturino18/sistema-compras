@@ -4596,7 +4596,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-24 · build 123';
+const APP_BUILD='2026-07-25 · build 125';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -7463,6 +7463,10 @@ function fecharLembrete(){
 }
 
 function verificarLembretes(){
+  // Lembrete automático (pop-up em 08:30 e 14:00) desativado a pedido do Roger.
+  // O código foi mantido abaixo para poder reativar facilmente se quiser.
+  return;
+
   // Só para Administrador
   if(!usuarioLogado||usuarioLogado.email!=='adm.geral@sloleos.com.br') return;
 
@@ -7669,6 +7673,17 @@ const COR_OPERACAO={
 
 let opAtual=null;
 
+// Busca individual por bloco de PDV na Ordem de Produção (a barrinha no
+// cabeçalho de cada PDV). Guardada fora do HTML para sobreviver às re-renderizações.
+const buscaOrdemPorPdv = {};
+function filtrarOrdemPorPdv(pdvId, valor){
+  buscaOrdemPorPdv[pdvId] = valor||'';
+  // Preserva o foco: só relê a lista e devolve o cursor ao campo digitado.
+  renderOrdens();
+  const inp=document.getElementById('buscaOrdemPdv_'+pdvId);
+  if(inp){ inp.focus(); const v=inp.value; inp.value=''; inp.value=v; }
+}
+
 function renderOrdens(){
   const b=(document.getElementById('buscaOrdem')?.value||'').toLowerCase();
   const filtroPDV=document.getElementById('filtroOrdemPDV')?.value||'';
@@ -7776,8 +7791,30 @@ function renderOrdens(){
   // Células compactas (mais estreitas) para caber todas as máquinas na tela sem rolagem horizontal excessiva.
   const COLS_FIXAS = ['Aguardando', ...OPERACOES_PROD, 'Terceirizado'];
 
-  div.innerHTML = gruposOrdenados.map(([pdvId, ordensGrupo])=>{
+  div.innerHTML = gruposOrdenados.map(([pdvId, ordensGrupoTodas])=>{
     const pdv=pdvs.find(p=>p.id===pdvId);
+    // Busca da barrinha do próprio PDV: filtra só as ordens daquele bloco,
+    // sem afetar os demais (igual ao que fizemos na Estrutura de Equipamentos).
+    const termoLocal=(buscaOrdemPorPdv[pdvId]||'').trim().toLowerCase();
+    const ordensGrupo = !termoLocal ? ordensGrupoTodas : ordensGrupoTodas.filter(o=>{
+      if(/^\d+$/.test(termoLocal)) return String(o.numero)===termoLocal || String(o.numero).includes(termoLocal);
+      const oper=(temposOP||[]).filter(t=>t.ordem_id===o.id).map(t=>t.operador||'').join(' ');
+      return [o.numero,o.descricao,o.desenho,o.material,oper].filter(Boolean).join(' | ').toLowerCase().includes(termoLocal);
+    });
+    if(!ordensGrupo.length && termoLocal){
+      // Mantém o cabeçalho com a barra para o usuário conseguir limpar/ajustar a busca.
+      return `<div style="margin-bottom:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
+        <div style="background:#f5f5f5;padding:10px 14px;font-weight:700;font-size:13px;color:#37474f;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <span>📋 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}</span>
+          <span style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;min-width:220px">
+            <input type="search" id="buscaOrdemPdv_${pdvId}" value="${termoLocal.replace(/"/g,'&quot;')}"
+              oninput="filtrarOrdemPorPdv('${pdvId}',this.value)" placeholder="🔍 Buscar neste PDV..."
+              style="flex:1;max-width:280px;padding:5px 10px;border:1px solid #cfd8dc;border-radius:7px;font-size:12px;font-weight:400;background:#fff">
+          </span>
+        </div>
+        <div style="padding:16px;color:#9e9e9e;font-size:12px;text-align:center">Nenhuma ordem encontrada neste PDV para "${termoLocal}".</div>
+      </div>`;
+    }
 
     const linhas = ordensGrupo.map(o=>{
       const st=statusOrdem(o);
@@ -7826,9 +7863,16 @@ function renderOrdens(){
     }).join('');
 
     return `<div style="margin-bottom:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
-      <div style="background:#f5f5f5;padding:10px 14px;font-weight:700;font-size:13px;color:#37474f;border-bottom:1px solid #e0e0e0">
-        📋 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${pdv?.equipamento?' · '+pdv.equipamento:''}
-        <span style="float:right;font-weight:400;color:#9e9e9e">${ordensGrupo.length} ${ordensGrupo.length!==1?'ordens':'ordem'}</span>
+      <div style="background:#f5f5f5;padding:10px 14px;font-weight:700;font-size:13px;color:#37474f;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <span>📋 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${pdv?.equipamento?' · '+pdv.equipamento:''}</span>
+        <span style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;min-width:220px">
+          <input type="search" id="buscaOrdemPdv_${pdvId}" value="${(buscaOrdemPorPdv[pdvId]||'').replace(/"/g,'&quot;')}"
+            oninput="filtrarOrdemPorPdv('${pdvId}',this.value)"
+            placeholder="🔍 Buscar neste PDV..."
+            title="Busca só as ordens deste PDV (nº, peça, desenho, material, operador)"
+            style="flex:1;max-width:280px;padding:5px 10px;border:1px solid #cfd8dc;border-radius:7px;font-size:12px;font-weight:400;background:#fff">
+          <span style="font-weight:400;color:#9e9e9e;white-space:nowrap">${ordensGrupo.length} ${ordensGrupo.length!==1?'ordens':'ordem'}</span>
+        </span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
