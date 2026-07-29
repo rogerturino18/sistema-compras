@@ -7878,13 +7878,10 @@ function renderOrdens(){
         </span>
       </div>
       <div style="overflow-x:auto">
-        <table style="width:100%;min-width:1300px;border-collapse:collapse;font-size:12px;table-layout:fixed">
+<table style="width:100%;min-width:1606px;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
             <col style="width:70px"><col style="width:200px"><col style="width:80px">
-            ${COLS_FIXAS.map(op=>{
-              const largura = op==='Centro de Usinagem' ? 120 : (op==='Furação' ? 78 : 72);
-              return `<col style="width:${largura}px">`;
-            }).join('')}
+${COLS_FIXAS.map(()=>'<col style="width:92px">').join('')}
             <col style="width:110px">
           </colgroup>
           <tbody>
@@ -7892,11 +7889,7 @@ function renderOrdens(){
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Ordem</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
               <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Quantidade</th>
-              ${COLS_FIXAS.map(op=>{
-                const rotulo = op==='Centro de Usinagem' ? 'Centro de<br>Usinagem' : op;
-                const quebra = op==='Centro de Usinagem' ? 'normal' : 'nowrap';
-                return `<th style="padding:6px 4px;text-align:center;color:#546e7a;font-size:9px;text-transform:uppercase;line-height:1.15;white-space:${quebra};word-break:normal;overflow-wrap:normal">${rotulo}</th>`;
-              }).join('')}
+${COLS_FIXAS.map(op=>`<th style="height:42px;padding:6px;text-align:center;vertical-align:middle;color:#546e7a;font-size:9px;font-weight:700;letter-spacing:.35px;text-transform:uppercase;line-height:1.25;white-space:normal;word-break:keep-all;overflow-wrap:normal">${op}</th>`).join('')}
               <th style="width:110px"></th>
             </tr>
             ${linhas}
