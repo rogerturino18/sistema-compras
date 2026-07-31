@@ -4623,7 +4623,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-31 · build 127';
+const APP_BUILD='2026-07-31 · build 128';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -11750,6 +11750,28 @@ async function salvarEstoque(){
   let codigoFinal = document.getElementById('est_codigo')?.value.trim() || null;
   if(!codigoFinal && !editEstoqueId) {
     codigoFinal = gerarProximoCodigo(categoria);
+  }
+
+  // Ao EDITAR um item existente: se a categoria mudou e o código ainda está
+  // na série da categoria ANTIGA (ninguém digitou um código novo à mão), o
+  // código é regerado automaticamente na série da categoria nova — sem isso,
+  // o item ficava com a categoria certa mas o código continuava da família
+  // errada (ex.: Insumos com código 10.01.xxx, que é série de Matéria Prima).
+  // Itens do fiscal (origem_fiscal) NUNCA têm o código alterado — código e
+  // descrição do fiscal são fixos, por regra da reconciliação contábil.
+  if(editEstoqueId){
+    const itemAntesDaEdicao = estoqueItens.find(i=>i.id===editEstoqueId);
+    if(itemAntesDaEdicao && !itemAntesDaEdicao.origem_fiscal){
+      const categoriaAntiga = itemAntesDaEdicao.categoria || 'Matéria Prima';
+      if(categoria !== categoriaAntiga){
+        const prefixoAntigo = getPrefixoFamilia(categoriaAntiga);
+        if(codigoFinal && codigoFinal.startsWith(prefixoAntigo+'.')){
+          const codigoAntigo = codigoFinal;
+          codigoFinal = gerarProximoCodigo(categoria);
+          showToast(`Categoria alterada para "${categoria}" — código atualizado de ${codigoAntigo} para ${codigoFinal}`,'ok',6000);
+        }
+      }
+    }
   }
   const unidade = document.getElementById('est_und').value;
   const isBarra = ehBarraRoscadaCortada();
