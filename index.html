@@ -23275,6 +23275,22 @@ function salvarConfigNFe(){
       /Produção/i.test(text) && /Estoque/i.test(text);
   }
 
+  // Quando um módulo está aberto, o botão "Voltar" fica visível. Nesse estado
+  // os cards internos usam a navegação original do aplicativo e não podem ser
+  // interceptados pela proteção criada apenas para os cards da tela inicial.
+  function moduleMenuIsVisible() {
+    return Array.from(document.querySelectorAll('button, a, [role="button"], [onclick]'))
+      .some(function (element) {
+        if (!/voltar/i.test((element.textContent || '').trim())) return false;
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== 'none' &&
+          style.visibility !== 'hidden' &&
+          Number(style.opacity) !== 0 &&
+          rect.width > 0 && rect.height > 0;
+      });
+  }
+
   function releaseStaleLocks() {
     if (!homeIsVisible()) return;
 
@@ -23294,7 +23310,7 @@ function salvarConfigNFe(){
 
   let forwardingClick = false;
   document.addEventListener('click', function (event) {
-    if (forwardingClick || !homeIsVisible()) return;
+    if (forwardingClick || !homeIsVisible() || moduleMenuIsVisible()) return;
     if (event.target.closest && event.target.closest(clickableSelector)) return;
 
     const clickable = document.elementsFromPoint(event.clientX, event.clientY)
