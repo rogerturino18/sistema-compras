@@ -23260,5 +23260,68 @@ function salvarConfigNFe(){
   setTimeout(atualizar, 500);
 })();
 </script>
+<!-- Proteção da dashboard: libera cliques caso uma camada/modal invisível fique presa. -->
+<script id="dashboard-click-recovery-v1">
+(function () {
+  const clickableSelector = [
+    'button', 'a[href]', '[onclick]', '[role="button"]',
+    '.home-card', '.dashboard-card', '.module-card', '.app-card', '.home-tile'
+  ].join(',');
+  const overlaySelector = '.modal-bg, .modal-overlay, .modal-backdrop, .overlay';
+
+  function homeIsVisible() {
+    const text = (document.body && document.body.innerText) || '';
+    return /Olá,/i.test(text) && /Compras/i.test(text) &&
+      /Produção/i.test(text) && /Estoque/i.test(text);
+  }
+
+  function releaseStaleLocks() {
+    if (!homeIsVisible()) return;
+
+    document.documentElement.style.pointerEvents = '';
+    document.body.style.pointerEvents = '';
+
+    document.querySelectorAll(overlaySelector).forEach(function (overlay) {
+      const style = getComputedStyle(overlay);
+      const inactive = style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        Number(style.opacity) === 0 ||
+        overlay.getAttribute('aria-hidden') === 'true';
+
+      if (inactive) overlay.style.pointerEvents = 'none';
+    });
+  }
+
+  let forwardingClick = false;
+  document.addEventListener('click', function (event) {
+    if (forwardingClick || !homeIsVisible()) return;
+    if (event.target.closest && event.target.closest(clickableSelector)) return;
+
+    const clickable = document.elementsFromPoint(event.clientX, event.clientY)
+      .map(function (element) {
+        return element.closest ? element.closest(clickableSelector) : null;
+      })
+      .find(function (element) {
+        return element && !element.closest(overlaySelector);
+      });
+
+    if (!clickable) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    forwardingClick = true;
+    try {
+      clickable.click();
+    } finally {
+      forwardingClick = false;
+    }
+  }, true);
+
+  document.addEventListener('DOMContentLoaded', releaseStaleLocks);
+  window.addEventListener('pageshow', releaseStaleLocks);
+  setTimeout(releaseStaleLocks, 0);
+  setTimeout(releaseStaleLocks, 600);
+})();
+</script>
 </body>
 </html>
