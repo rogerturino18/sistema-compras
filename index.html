@@ -4623,7 +4623,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-25 · build 126';
+const APP_BUILD='2026-07-31 · build 127';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -7855,9 +7855,16 @@ function renderOrdens(){
         }
         if(op==='Terceirizado'){
           const ativo = st==='terceirizado';
+          const nome = (o.terceirizado_nome||'').trim();
+          const nomeEsc = nome.replace(/"/g,'&quot;');
+          // Nome do terceirizado embaixo do caminhão — direto no HTML da célula,
+          // sem observar a página (evita o loop que travava o sistema antes).
+          const rotulo = ativo
+            ? `🚚${nome?`<div style="font-size:9px;font-weight:700;color:#fff;line-height:1.15;margin-top:2px;max-width:74px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal">${nomeEsc}</div>`:''}`
+            : '';
           return `<td onclick="${ativo?'retornarTerceirizado':'terceirizarOrdem'}('${o.id}')"
             style="background:${ativo?COR_OPERACAO['Terceirizado']:'#fff'};color:${ativo?'#fff':'#ef6c00'};border:1px solid ${ativo?COR_OPERACAO['Terceirizado']:'#b0bec5'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-            title="${ativo?'Terceirizado — clique para registrar retorno':'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${ativo?'🚚':''}</td>`;
+            title="${ativo?('Terceirizado com '+(nomeEsc||'—')+' — clique para registrar retorno'):'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${rotulo}</td>`;
         }
         const tempo = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
         const concluidasOp = temposOP.filter(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
