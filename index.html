@@ -4623,7 +4623,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-07-31 · build 128';
+const APP_BUILD='2026-08-01 · build 129';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4798,13 +4798,16 @@ async function loadAll(){
     ]);
     renderAll();
     // Após um F5, a aba já estava aberta ANTES de os dados chegarem, então ela
-    // renderizou vazia. Aqui, com os dados em mãos, redesenhamos a aba ativa —
-    // resolve de forma geral (Entradas e Saídas, Requisições e quaisquer outras).
+    // renderizou vazia. Aqui, com os dados em mãos, redesenhamos SÓ O CONTEÚDO
+    // da aba ativa (sem trocar de tela) — resolve de forma geral (Entradas e
+    // Saídas, Requisições e quaisquer outras) sem pular a rolagem para o topo
+    // a cada vez que algo é salvo (usar showTab() aqui causava esse pulo,
+    // porque showTab sempre rola para o topo ao entrar numa aba).
     try{
       const abaAtiva=Number(sessionStorage.getItem('sl_aba_atual'));
-      if(Number.isInteger(abaAtiva)&&abaAtiva>0&&typeof showTab==='function'
+      if(Number.isInteger(abaAtiva)&&abaAtiva>0&&typeof renderConteudoAba==='function'
          &&document.getElementById('tab'+abaAtiva)?.classList.contains('active')){
-        showTab(abaAtiva);
+        renderConteudoAba(abaAtiva);
       }
     }catch(e){}
     verificarLembretes();
@@ -13189,54 +13192,10 @@ async function cancelarNFe(ref,id){
 // ===== UTILS =====
 function fmtVal(v){return v!=null&&v!==0?'R$ '+Number(v).toFixed(2):'—';}
 function fmtDt(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('pt-BR');}catch{return d.substring(0,10);}}
-function showTab(n){
-  if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
-    showToast('Sem permissão para acessar este módulo','err');
-    return;
-  }
-  // Fecha cada tela também pelo estilo direto. Isso evita que uma tela
-  // antiga permaneça ocupando altura mesmo se tiver recebido a classe active.
-  const painelSelecionado=document.getElementById('tab'+n);
-  if(!painelSelecionado){
-    showToast('Tela não encontrada','err');
-    return;
-  }
-  const appContent=document.getElementById('appContent');
-  // Uma navegação para módulo sempre sai da dashboard. Isto impede que a
-  // camada da home esconda a aba escolhida após um clique rápido no menu.
-  if(n!==0){
-    document.getElementById('homeScreen')?.classList.remove('open');
-    appContent?.classList.remove('loading-home');
-  }
-  // Usa todos os painéis dentro do aplicativo e força o estilo direto.
-  // Alguns navegadores mantinham o display anterior em telas de estoque,
-  // deixando o menu ativo com o conteúdo aparentemente em branco.
-  (appContent?.querySelectorAll('.panel')||[]).forEach(p=>{
-    const ativo=p===painelSelecionado;
-    p.classList.toggle('active',ativo);
-    p.style.setProperty('display',ativo?'block':'none','important');
-  });
-  try{ window.scrollTo({top:0,left:0,behavior:'auto'}); }catch(e){ window.scrollTo(0,0); }
-  // Verifica permissão (exceto tab 0 = dashboard)
-  if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
-    showToast('Sem permissão para acessar este módulo','err');
-    return;
-  }
-  // Guarda a última tela somente enquanto esta sessão do navegador estiver aberta.
-  try{ sessionStorage.setItem('sl_aba_atual',String(n)); }catch(e){}
-  document.querySelectorAll('.tab').forEach(t=>{
-    const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
-    if(match) t.classList.toggle('active',parseInt(match[1])===n);
-  });
-  for(let i=0;i<=40;i++){
-    const p=document.getElementById('tab'+i);
-    if(p) p.classList.toggle('active',i===n);
-  }
-  if(n===10) preencherRemetenteLogado();
-  if(n===1){
-    // Lista de Compras sempre abre em modo cards
-    if(typeof setVistaCompras==='function') setTimeout(()=>setVistaCompras(_vistaCompras==='cards'?'cards':'cards'),50);
-  }
+// Renderiza SÓ o conteúdo de uma aba (sem rolar a página, sem trocar de tela).
+// Extraído do showTab para poder atualizar os dados de uma aba já aberta —
+// depois de salvar algo — sem o efeito colateral de pular para o topo.
+function renderConteudoAba(n){
   if(n===11) renderEstoque();
   if(n===24){
     // Auto-busca NF-e ao abrir a aba (igual Omie) — só se tiver backend configurado
@@ -13286,6 +13245,57 @@ function showTab(n){
   if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
   if(n===31) { if(typeof custoProdInit==='function') custoProdInit(); }
   if(n===32) { if(typeof pesosInit==='function') pesosInit(); }
+}
+
+function showTab(n){
+  if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
+    showToast('Sem permissão para acessar este módulo','err');
+    return;
+  }
+  // Fecha cada tela também pelo estilo direto. Isso evita que uma tela
+  // antiga permaneça ocupando altura mesmo se tiver recebido a classe active.
+  const painelSelecionado=document.getElementById('tab'+n);
+  if(!painelSelecionado){
+    showToast('Tela não encontrada','err');
+    return;
+  }
+  const appContent=document.getElementById('appContent');
+  // Uma navegação para módulo sempre sai da dashboard. Isto impede que a
+  // camada da home esconda a aba escolhida após um clique rápido no menu.
+  if(n!==0){
+    document.getElementById('homeScreen')?.classList.remove('open');
+    appContent?.classList.remove('loading-home');
+  }
+  // Usa todos os painéis dentro do aplicativo e força o estilo direto.
+  // Alguns navegadores mantinham o display anterior em telas de estoque,
+  // deixando o menu ativo com o conteúdo aparentemente em branco.
+  (appContent?.querySelectorAll('.panel')||[]).forEach(p=>{
+    const ativo=p===painelSelecionado;
+    p.classList.toggle('active',ativo);
+    p.style.setProperty('display',ativo?'block':'none','important');
+  });
+  try{ window.scrollTo({top:0,left:0,behavior:'auto'}); }catch(e){ window.scrollTo(0,0); }
+  // Verifica permissão (exceto tab 0 = dashboard)
+  if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
+    showToast('Sem permissão para acessar este módulo','err');
+    return;
+  }
+  // Guarda a última tela somente enquanto esta sessão do navegador estiver aberta.
+  try{ sessionStorage.setItem('sl_aba_atual',String(n)); }catch(e){}
+  document.querySelectorAll('.tab').forEach(t=>{
+    const match=t.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
+    if(match) t.classList.toggle('active',parseInt(match[1])===n);
+  });
+  for(let i=0;i<=40;i++){
+    const p=document.getElementById('tab'+i);
+    if(p) p.classList.toggle('active',i===n);
+  }
+  if(n===10) preencherRemetenteLogado();
+  if(n===1){
+    // Lista de Compras sempre abre em modo cards
+    if(typeof setVistaCompras==='function') setTimeout(()=>setVistaCompras(_vistaCompras==='cards'?'cards':'cards'),50);
+  }
+renderConteudoAba(n);
   if(n===29){ carregarDadosEPI().then(()=>{ renderEPI(); renderFuncionariosEPI(); }); }
   if(n===25){
     (async()=>{
