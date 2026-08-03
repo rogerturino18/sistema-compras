@@ -883,6 +883,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
     <div class="sbi" onclick="sbGo(9,'Compras Internas')">🛒 Compras Internas</div>
     <div class="sbi" onclick="sbGo(10,'Enviar Cotação')">📧 Enviar Cotação</div>
     <div class="sbi" onclick="sbGo(15,'Pedido de Compra')">📋 Pedido de Compra</div>
+    <div class="sbi" onclick="sbGo(33,'Relatório Contábil')">📊 Relatório Contábil</div>
   </div>
 </div>
 <div id="sbpanel_projetos" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1);overflow-y:auto">
@@ -2135,6 +2136,25 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
   </div>
 
   <div id="pesosTabelaWrap"></div>
+</div>
+
+<div class="panel" id="tab33">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📊 Relatório Contábil</h2>
+      <div style="font-size:12px;color:var(--gray);margin-top:2px">Formata automaticamente a planilha de recebimentos/notas de entrada exportada do sistema contábil, para envio à contabilidade.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="document.getElementById('relcontInput').click()" title="Selecione a planilha bruta exportada (ex.: pivot de recebimentos)">📥 Importar planilha</button>
+      <input type="file" id="relcontInput" accept=".xlsx,.xls" style="display:none" onchange="relcontProcessar(this)">
+    </div>
+  </div>
+
+  <div style="background:#f1f8e9;border:1px solid #dcedc8;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#33691e;line-height:1.6">
+    <b>Como funciona:</b> importe a planilha exatamente como ela sai do sistema contábil (sem mexer em nada). O SL Óleos identifica as colunas de agrupamento (Data, Fornecedor, Nota Fiscal...), mescla as células repetidas, ajusta a largura das colunas, aplica o formato de moeda nos valores e adiciona a linha de Total geral — pronta para baixar e enviar.
+  </div>
+
+  <div id="relcontResumo"></div>
 </div>
 
 <!-- MODAL: PESO DE ITEM -->
@@ -4623,7 +4643,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-08-01 · build 129';
+const APP_BUILD='2026-08-01 · build 130';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -10943,7 +10963,7 @@ function atualizarRelogio(){
 // ── Grupos da dashboard com sub-abas ────────────────────────────────────
 const DASH_GRUPOS = [
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
-   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2}]},
+   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Relatório Contábil',icon:'📊',tab:33}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
    subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32}]},
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
@@ -13478,7 +13498,7 @@ function getPermissoesUsuario(u){
 
 // Mapeamento grupo → tabs que ele controla
 const GRUPO_TABS = {
-  compras:    [1,2],
+  compras:    [1,2,33],
   projetos:   [3],
   material:   [4],
   producao:   [5,27,28,31,32],
@@ -18412,6 +18432,162 @@ async function pesoDeletar(id){
     showToast('Item excluído');
   }catch(e){ showToast('Erro: '+e.message,'err'); }
 }
+
+// ===== RELATÓRIO CONTÁBIL — formata a planilha bruta de recebimentos/notas =====
+// Função pura: recebe a matriz de linhas JÁ a partir do cabeçalho (rows[0]=cabeçalho,
+// rows[1..]=dados) e devolve a planilha (workbook) pronta + um resumo para exibir.
+// Separada da leitura do arquivo para poder ser testada isoladamente.
+function relcontMontarPlanilha(rows){
+  if(!rows||!rows.length) throw new Error('Planilha vazia.');
+  const cabecalho = (rows[0]||[]).map(h=>String(h??'').trim());
+  const nCols = cabecalho.length;
+
+  // Colunas de AGRUPAMENTO (mescláveis): tudo que vem ANTES de "Código do Produto".
+  // Tudo dali pra frente é detalhe do item (nunca mescla, mesmo repetindo).
+  let idxCodigoProduto = cabecalho.findIndex(h=>/c[oó]digo do produto/i.test(h));
+  if(idxCodigoProduto<0) idxCodigoProduto = Math.min(2, nCols-1); // salvaguarda
+  const colsAgrupaveis = Array.from({length:idxCodigoProduto},(_,i)=>i);
+
+  // Colunas de VALOR (moeda): identificadas pelo nome do cabeçalho.
+  const colsValor = cabecalho.map((h,i)=>/total|desconto|frete|despesa/i.test(h)?i:-1).filter(i=>i>=0);
+
+  // Linhas de dados: ignora linhas totalmente vazias e qualquer linha de total
+  // que já viesse na planilha bruta (o total é sempre recalculado aqui, para
+  // não herdar um valor desatualizado). Uma linha de total nem sempre traz o
+  // texto "Total geral" na primeira coluna — às vezes vem em branco. O sinal
+  // confiável é: todo item de verdade TEM código de produto; uma linha sem
+  // código (mas com valores) é resíduo de total, não um item.
+  const dados = [];
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i]||[];
+    const primeira = String(r[0]??'').trim();
+    const codigoProduto = String(r[idxCodigoProduto]??'').trim();
+    if(/total geral/i.test(primeira)) continue;
+    const temAlgumValor = r.some(v=>v!==null && v!==undefined && String(v).trim()!=='');
+    if(!temAlgumValor) continue;
+    if(!codigoProduto) continue; // sem código de produto = não é um item (provável linha de total)
+    dados.push(Array.from({length:nCols},(_,c)=>r[c]??''));
+  }
+  if(!dados.length) throw new Error('Nenhuma linha de dado encontrada nesta planilha.');
+
+  // Monta a matriz final (linha 0 = cabeçalho, 1..N = dados, N+1 = total geral)
+  const aoa = [cabecalho, ...dados];
+  const linhaTotalIdx = aoa.length; // índice (0-based) onde a linha de total vai entrar
+  const totalRow = new Array(nCols).fill('');
+  totalRow[0] = 'Total geral';
+  colsValor.forEach(c=>{
+    totalRow[c] = dados.reduce((s,r)=>s + (parseFloat(r[c])||0), 0);
+  });
+  aoa.push(totalRow);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Mescla, por coluna de agrupamento, as células repetidas consecutivas.
+  // A planilha bruta já vem com célula em branco quando o valor "repete" (é
+  // assim que o pivot exporta) — cada trecho de células não-vazias seguido de
+  // vazias, dentro da MESMA coluna, vira uma mesclagem.
+  const merges = [];
+  colsAgrupaveis.forEach(c=>{
+    let inicio = null;
+    for(let r=1;r<=dados.length;r++){ // linhas 1..dados.length na matriz (0=cabeçalho)
+      const valor = r<=dados.length ? String(aoa[r][c]??'').trim() : '';
+      const temValor = valor!=='';
+      if(temValor){
+        if(inicio!==null && r-1>inicio) merges.push({s:{r:inicio,c},e:{r:r-1,c}});
+        inicio = r;
+      }
+    }
+    if(inicio!==null && dados.length>=inicio) merges.push({s:{r:inicio,c},e:{r:dados.length,c}});
+  });
+  // Remove mesclagens de uma única linha (não fazem diferença nenhuma)
+  ws['!merges'] = merges.filter(m=>m.e.r>m.s.r);
+
+  // Formato de moeda nas colunas de valor (cabeçalho e linha de total ficam de fora)
+  const formatoMoeda = '"R$ "#,##0.00;-"R$ "#,##0.00';
+  for(let r=1;r<aoa.length;r++){
+    colsValor.forEach(c=>{
+      const endereco = XLSX.utils.encode_cell({r,c});
+      const cel = ws[endereco];
+      if(cel && typeof cel.v==='number'){ cel.z = formatoMoeda; cel.t='n'; }
+    });
+  }
+
+  // Larguras de coluna: baseadas no maior conteúdo de cada coluna (com limites
+  // razoáveis), igual ao ajuste manual que era feito no Excel.
+  const larguras = cabecalho.map((h,c)=>{
+    let maior = String(h||'').length;
+    aoa.forEach(linha=>{ const l=String(linha[c]??'').length; if(l>maior) maior=l; });
+    return {wch: Math.max(10, Math.min(70, maior+2))};
+  });
+  ws['!cols'] = larguras;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+
+  const idxNotaFiscal = cabecalho.findIndex(h=>/nota fiscal/i.test(h));
+  const resumo = {
+    linhas: dados.length,
+    fornecedores: new Set(dados.map(r=>String(r[Math.min(1,nCols-1)]||'').trim()).filter(Boolean)).size,
+    notas: idxNotaFiscal>=0 ? new Set(dados.map(r=>String(r[idxNotaFiscal]||'').trim()).filter(Boolean)).size : null,
+    totalGeral: colsValor.length ? aoa[linhaTotalIdx][colsValor[colsValor.length-1]] : null,
+    colunaTotal: colsValor.length ? cabecalho[colsValor[colsValor.length-1]] : null
+  };
+  return {wb, resumo};
+}
+
+// Acha a linha de cabeçalho de verdade dentro da planilha bruta (algumas
+// exportações trazem uma linha de título antes, tipo "Recebimentos por Mês").
+function relcontAcharLinhaCabecalho(rows){
+  for(let i=0;i<Math.min(5,rows.length);i++){
+    const linha=(rows[i]||[]).map(v=>String(v??'').toLowerCase());
+    const temNota = linha.some(v=>v.includes('nota fiscal'));
+    const temFornecedor = linha.some(v=>v.includes('fornecedor')||v.includes('cliente'));
+    if(temNota && temFornecedor) return i;
+  }
+  return -1;
+}
+
+async function relcontProcessar(input){
+  const file=input.files?.[0]; input.value='';
+  if(!file) return;
+  const resumoEl=document.getElementById('relcontResumo');
+  try{
+    if(typeof XLSX==='undefined'){
+      showToast('⏳ Carregando leitor de planilha...');
+      await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    }
+    const data=new Uint8Array(await file.arrayBuffer());
+    const wbBruto=XLSX.read(data,{type:'array'});
+    const wsBruto=wbBruto.Sheets[wbBruto.SheetNames[0]];
+    const rowsBrutas=XLSX.utils.sheet_to_json(wsBruto,{header:1,raw:true,defval:null});
+    if(!rowsBrutas.length){ showToast('Planilha vazia','err'); return; }
+
+    const linhaCab = relcontAcharLinhaCabecalho(rowsBrutas);
+    if(linhaCab<0){
+      showToast('Não encontrei as colunas esperadas (Nota Fiscal, Fornecedor...) nesta planilha.','err');
+      return;
+    }
+    const rows = rowsBrutas.slice(linhaCab);
+    const {wb, resumo} = relcontMontarPlanilha(rows);
+
+    const nomeArquivo = `Relatorio_Contabil_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, nomeArquivo);
+
+    if(resumoEl){
+      resumoEl.innerHTML = `<div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;padding:16px 20px;font-size:13px;color:#1b5e20">
+        <div style="font-weight:700;margin-bottom:8px">✅ Planilha formatada e baixada: ${nomeArquivo}</div>
+        <div>${resumo.linhas} linha(s) de item, ${resumo.fornecedores} fornecedor(es)${resumo.notas!=null?`, ${resumo.notas} nota(s) fiscal(is)`:''}</div>
+        ${resumo.colunaTotal?`<div style="margin-top:4px">${resumo.colunaTotal}: <b>${(resumo.totalGeral||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</b></div>`:''}
+      </div>`;
+    }
+    showToast('✅ Relatório formatado e baixado!');
+  }catch(e){
+    console.error(e);
+    showToast('Erro ao formatar: '+e.message,'err');
+    if(resumoEl) resumoEl.innerHTML=`<div style="color:#c62828;font-size:12px">Erro: ${e.message}</div>`;
+  }
+}
+// ===== FIM RELATÓRIO CONTÁBIL =====
 
 async function importarPesos(input){
   const file=input.files?.[0]; input.value='';
