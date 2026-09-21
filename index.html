@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SL Óleos — Gestão de Compras</title>
 <script>
 // Detecta formulário de cotação ANTES de qualquer CSS/render
@@ -202,6 +202,21 @@ tr:hover td{background:#f9fbf9}
   .toolbar > input,.toolbar > select{flex:1 1 100%;min-width:0}
   .toolbar > input[type="date"]{flex:1 1 46%}
   .toolbar > .btn{flex:1 1 46%;text-align:center;justify-content:center;min-height:38px}
+  /* A barra do Estoque tem largura mínima fixa pensada para o computador, o que
+     empurrava busca, filtros e botões para fora da tela do celular. */
+  #estoqueToolbar{flex-wrap:wrap !important;gap:6px !important}
+  #estoqueToolbar > *{min-width:0 !important;max-width:100% !important}
+  #estoqueToolbar input,#estoqueToolbar select{flex:1 1 100% !important;width:100% !important}
+  #estoqueToolbar button,#estoqueToolbar .btn{flex:1 1 46% !important;min-width:0 !important;white-space:normal !important;font-size:12px !important;min-height:44px !important}
+  /* A barra lateral fixa de 200px (filtro de categorias) + o conteúdo ao lado
+     não cabiam juntos no celular: os selects internos (min-width:120px) forçavam
+     a página inteira a ficar mais larga que a tela, empurrando busca, filtros e
+     botões para fora. Empilha em coluna única e vira a lista de categorias uma
+     faixa horizontal com rolagem, em vez de coluna lateral. */
+  #estLayoutWrap{flex-direction:column !important;min-height:0 !important}
+  #estSidebarCat{width:100% !important;flex-shrink:1 !important;border-right:none !important;border-bottom:1px solid var(--border) !important;max-height:none !important}
+  #estCategoriaLista{display:flex !important;flex-wrap:nowrap !important;overflow-x:auto !important;-webkit-overflow-scrolling:touch !important;gap:4px !important;padding:8px 10px !important}
+  #estCategoriaLista>div{flex:0 0 auto !important;white-space:nowrap !important;border-radius:8px !important;padding:8px 12px !important}
   .tbl-wrap{font-size:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .tbl-wrap table{min-width:560px}
   th{padding:7px 7px !important;font-size:11px !important;white-space:nowrap}
@@ -219,6 +234,7 @@ tr:hover td{background:#f9fbf9}
   .form-grid{grid-template-columns:1fr !important;gap:8px !important}
   .form-group.full{grid-column:1 !important}
   .grid2{grid-template-columns:1fr !important}
+  #dashGraficos{grid-template-columns:1fr !important}
   .kanban-wrap,.kanban-board-outer{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .kanban-board{min-width:600px}
   .tile-md{width:128px !important;height:128px !important}
@@ -229,8 +245,45 @@ tr:hover td{background:#f9fbf9}
 }
 
 /* ════════════════════════════════
-   PHONE ONLY (≤ 480px)
+   ESTOQUE NO CELULAR — cada item vira um cartão
+   A tabela tem 6 colunas e no celular exigia rolagem lateral para ver saldo
+   e barracão, que é justamente o que se consulta no chão de fábrica.
 ════════════════════════════════ */
+@media(max-width:768px){
+  #tab11 table{min-width:0 !important;width:100% !important;display:block}
+  #tab11 thead{display:none}                     /* os rótulos vão para cada célula */
+  #tab11 tbody{display:block;width:100%}
+  #tab11 tbody tr{
+    display:block;width:100%;box-sizing:border-box;
+    background:#fff;border:1px solid #e0e0e0;border-radius:10px;
+    margin-bottom:8px;padding:10px 12px;
+  }
+  #tab11 tbody td{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    width:100% !important;box-sizing:border-box;
+    border:none !important;padding:4px 0 !important;text-align:right !important;
+  }
+  /* Nome do item: destaque, ocupando a linha inteira */
+  #tab11 tbody td:nth-child(1){
+    font-weight:700;font-size:13px !important;text-align:left !important;
+    display:block;border-bottom:1px solid #f0f0f0 !important;
+    padding-bottom:7px !important;margin-bottom:5px;
+  }
+  /* Rótulo antes do valor, já que o cabeçalho está oculto */
+  #tab11 tbody td:nth-child(2)::before{content:"Saldo";font-weight:600;color:#78909c;font-size:11px}
+  #tab11 tbody td:nth-child(3)::before{content:"Status";font-weight:600;color:#78909c;font-size:11px}
+  #tab11 tbody td:nth-child(4)::before{content:"Barracão";font-weight:600;color:#78909c;font-size:11px}
+  #tab11 tbody td:nth-child(5)::before{content:"Última mov.";font-weight:600;color:#78909c;font-size:11px}
+  /* Linha vazia (Status sem alerta) não precisa ocupar espaço */
+  #tab11 tbody td:nth-child(3):empty{display:none}
+  /* Botões de ação: linha própria, lado a lado e fáceis de tocar */
+  #tab11 tbody td:last-child{
+    justify-content:flex-start;flex-wrap:wrap;gap:6px;
+    border-top:1px solid #f0f0f0 !important;margin-top:6px;padding-top:8px !important;
+  }
+  #tab11 tbody td:last-child::before{content:none}
+  #tab11 tbody td:last-child .btn,#tab11 tbody td:last-child button{flex:1 1 auto;min-height:40px}
+}
 @media(max-width:480px){
   .panel{padding:54px 8px 68px 8px !important}
   .tile-md{width:108px !important;height:108px !important}
@@ -270,13 +323,51 @@ tr:hover td{background:#f9fbf9}
    TOUCH DEVICES
 ════════════════════════════════ */
 @media(hover:none) and (pointer:coarse){
-  .btn{min-height:42px}
-  .btn-sm{min-height:36px;padding:5px 10px}
-  input,select,textarea{font-size:16px !important;min-height:40px}
-  select{min-height:40px}
-  .sbi{min-height:46px !important;padding:12px 16px !important;display:flex;align-items:center}
+  /* Apple recomenda alvos de toque de no mínimo 44x44pt — abaixo disso o dedo
+     erra o botão com frequência. */
+  .btn{min-height:44px}
+  .btn-sm{min-height:40px;padding:8px 12px}
+  input,select,textarea{font-size:16px !important;min-height:44px}
+  select{min-height:44px}
+  .sbi{min-height:48px !important;padding:12px 16px !important;display:flex;align-items:center}
   .kanban-card{padding:12px !important}
   .stat{-webkit-tap-highlight-color:transparent}
+  /* Botões de ação dentro das tabelas (editar/excluir) ficavam pequenos demais */
+  td .btn,td .btn-sm,td button{min-width:40px;min-height:40px}
+  /* Evita que um toque acidental selecione texto ao rolar a página */
+  .sbi,.tile,.stat,.btn{-webkit-touch-callout:none}
+}
+
+/* ════════════════════════════════
+   iPHONE — área segura (Dynamic Island, notch e barra inferior)
+   Sem isto, o cabeçalho fica sob a ilha dinâmica e a navegação inferior
+   fica escondida atrás da barra de gestos do iOS.
+════════════════════════════════ */
+@supports(padding:max(0px)){
+  @media(max-width:768px){
+    .header{
+      padding-left:max(10px, env(safe-area-inset-left)) !important;
+      padding-right:max(10px, env(safe-area-inset-right)) !important;
+      padding-top:env(safe-area-inset-top) !important;
+      height:calc(52px + env(safe-area-inset-top)) !important;
+    }
+    .panel{
+      padding-top:calc(58px + env(safe-area-inset-top)) !important;
+      padding-bottom:calc(72px + env(safe-area-inset-bottom)) !important;
+      padding-left:max(10px, env(safe-area-inset-left)) !important;
+      padding-right:max(10px, env(safe-area-inset-right)) !important;
+    }
+    #mobileNav{
+      padding-bottom:env(safe-area-inset-bottom) !important;
+      height:calc(60px + env(safe-area-inset-bottom)) !important;
+    }
+    [id^="sbpanel_"]{
+      bottom:calc(60px + env(safe-area-inset-bottom)) !important;
+      padding-bottom:8px !important;
+    }
+    .modal{padding-bottom:env(safe-area-inset-bottom) !important}
+    .modal-actions{padding-bottom:max(14px, env(safe-area-inset-bottom)) !important}
+  }
 }
 
 
@@ -704,7 +795,12 @@ th{height:42px!important;font-size:10px!important}td{height:42px!important;font-
 .btn.primary:hover,.btn-green:hover{filter:brightness(.96)!important;box-shadow:0 8px 17px rgba(31,96,72,.22)!important}
 .stat{position:relative;overflow:hidden}
 .stat::after{content:'';position:absolute;width:90px;height:90px;right:-48px;bottom:-52px;border-radius:50%;background:currentColor;opacity:.035}
-.tbl-wrap{overflow:hidden!important}
+/* Era overflow:hidden!important — cortava, sem barra de rolagem e sem aviso,
+   qualquer coluna que não coubesse no espaço (foi o que escondeu Categoria,
+   Quantidade e os botões de ação na versão simplificada de Compras Internas
+   pro Álvaro). overflow-x:auto permite rolar quando a tabela é mais larga que
+   o contêiner; overflow-y:hidden mantém o arredondamento das bordas. */
+.tbl-wrap{overflow-x:auto!important;overflow-y:hidden!important}
 thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f3faf5,#eaf5ee)!important}
 /* A grade de Ordens tem blocos independentes por PDV. Cabeçalho fixo global
    sobrepunha a primeira ordem ao rolar; aqui ele permanece no fluxo normal. */
@@ -721,10 +817,15 @@ thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f
    tabela de itens da Nova Requisição (o item entrava, mas ficava escondido).
    Aqui só o deslocamento é corrigido; cabeçalhos fixos intencionais seguem. */
 .tbl-wrap thead th,.modal thead th{top:0!important}
-#estoqueToolbar>button{flex:0 0 auto!important;justify-content:center!important;white-space:nowrap!important;font-size:12px!important;line-height:1.2!important}
-#estoqueToolbar #btnEstOrdem,#estoqueToolbar #btnEstOcultar0{min-width:148px!important}
-#estoqueToolbar button[onclick="codificarItensEmLote()"]{min-width:132px!important}
-#estoqueToolbar button[onclick="exportarExcelEstoque()"]{min-width:82px!important}
+/* Larguras fixas dos botões da barra do Estoque valem só a partir de telas
+   médias — no celular elas empurravam busca, filtros e botões para fora da
+   tela, forçando rolagem lateral. */
+@media(min-width:769px){
+  #estoqueToolbar>button{flex:0 0 auto!important;justify-content:center!important;white-space:nowrap!important;font-size:12px!important;line-height:1.2!important}
+  #estoqueToolbar #btnEstOrdem,#estoqueToolbar #btnEstOcultar0{min-width:148px!important}
+  #estoqueToolbar button[onclick="codificarItensEmLote()"]{min-width:132px!important}
+  #estoqueToolbar button[onclick="exportarExcelEstoque()"]{min-width:82px!important}
+}
 tbody tr{transition:background .14s ease,box-shadow .14s ease}
 tbody tr:hover td{background:#f4faf6!important}
 tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 #66a982}
@@ -747,11 +848,12 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] {
   min-width: 1336px !important;
   table-layout: fixed !important;
 }
-table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(1) { width: 82px !important; }
-table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(2) { width: 320px !important; }
-table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(3) { width: 82px !important; }
-table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(n+4):nth-child(-n+13) { width: 74px !important; }
-table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(14) { width: 112px !important; }
+table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(1) { width: 100px !important; }
+table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(2) { width: 90px !important; }
+table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(3) { width: 174px !important; }
+table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(4) { width: 82px !important; }
+table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(n+5):nth-child(-n+14) { width: 74px !important; }
+table[style*="min-width:1606px"][style*="table-layout:fixed"] col:nth-child(15) { width: 150px !important; }
 table[style*="min-width:1606px"][style*="table-layout:fixed"] th {
   white-space: normal !important;
   overflow-wrap: anywhere;
@@ -759,8 +861,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] th {
   font-size: 9px !important;
   padding: 6px 3px !important;
 }
-table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2),
-table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * {
+table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(3),
+table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(3) * {
   white-space: normal !important;
   overflow: visible !important;
   text-overflow: clip !important;
@@ -915,6 +1017,20 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
 <!-- TAB 0: DASHBOARD -->
 <div class="panel active" id="tab0">
   <div class="stat-row" id="dashStats"></div>
+  <div class="grid3" id="dashGraficos" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="card" style="margin:0;background:#fafbf9">
+      <h3>📦 Estoque abaixo do mínimo</h3>
+      <div id="dashGraficoEstoqueMin"></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>📈 Compras por mês</h3>
+      <div id="dashGraficoCompras"></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>🏭 Ordens por etapa</h3>
+      <div id="dashGraficoOrdens"></div>
+    </div>
+  </div>
   <div class="grid2">
     <div>
       <div class="card">
@@ -922,26 +1038,14 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
         <div id="dashNotifs"><div class="empty">Nenhuma notificação</div></div>
       </div>
       <div class="card">
-        <h3>📬 Últimas atividades</h3>
-        <div id="dashAtividades"><div class="empty">Nenhuma atividade</div></div>
-      </div>
-      <div class="card">
         <h3>🛒 Compras Internas Pendentes</h3>
         <div id="dashCI"><div class="empty">Nenhuma solicitação pendente</div></div>
       </div>
     </div>
     <div>
-      <div class="card" style="border-left:3px solid #2e7d32">
-        <h3>✏️ Em Desenho Agora</h3>
-        <div id="dashEmTrabalho"><div class="empty">Nenhum projetista trabalhando</div></div>
-      </div>
-      <div class="card">
-        <h3>📊 Resumo de cotações</h3>
-        <div id="dashCotacoes"><div class="empty">Nenhuma cotação</div></div>
-      </div>
-      <div class="card">
-        <h3>💡 Melhores preços disponíveis</h3>
-        <div id="dashMelhores"><div class="empty">Nenhuma cotação</div></div>
+      <div class="card" style="border-left:3px solid #ef6c00">
+        <h3>🚚 Terceirizado — ordens ativas</h3>
+        <div id="dashTerceirizado"><div class="empty">Nenhuma ordem terceirizada no momento</div></div>
       </div>
     </div>
   </div>
@@ -1176,10 +1280,10 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
   <div class="stat-row" id="statsEstoque"></div>
 
   <!-- Layout: filtro lateral + tabela -->
-  <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;min-height:500px">
+  <div id="estLayoutWrap" style="display:flex;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;min-height:500px">
 
     <!-- FILTRO LATERAL por categoria -->
-    <div style="width:200px;flex-shrink:0;background:#f8f9f8;border-right:1px solid var(--border);display:flex;flex-direction:column">
+    <div id="estSidebarCat" style="width:200px;flex-shrink:0;background:#f8f9f8;border-right:1px solid var(--border);display:flex;flex-direction:column">
       <div style="padding:10px 14px;font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border)">Categorias</div>
       <div id="estCategoriaLista" style="flex:1;overflow-y:auto;padding:4px 0"></div>
     </div>
@@ -1191,9 +1295,6 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
         <div id="estoqueToolbar" style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
         <button class="btn primary" style="font-size:12px;white-space:nowrap" onclick="abrirModalEstoque('mp',null)">+ Novo Item</button>
         <input type="text" id="buscaEstoque" placeholder="Buscar código, descrição, material..." oninput="renderEstoque()" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <select id="filtroEstMaterial" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-width:120px">
-          <option value="">Todos materiais</option>
-        </select>
         <select id="filtroEstBarracao" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
           <option value="">Ambos barracões</option>
           <option value="Barracão 1">Barracão 1</option>
@@ -1202,9 +1303,17 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
         <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
         <button id="btnEstOrdem" class="btn" onclick="toggleOrdemEstoque()" style="font-size:12px;white-space:nowrap" title="Ordenar pela data da última movimentação">🕐 Última movimentação</button>
         <button id="btnEstOcultar0" class="btn" onclick="toggleOcultarZero()" style="font-size:12px;white-space:nowrap" title="Ocultar itens com saldo zero">👁 Ocultar Zero</button>
-        <button class="btn" onclick="abrirGerenciarCategorias()" style="font-size:12px" title="Adicionar ou editar categorias">🏷️ Categorias</button>
-        <button class="btn" onclick="codificarItensEmLote()" style="font-size:12px;background:#1565c0;color:#fff;border-color:#1565c0" title="Atribuir códigos automáticos a todos os itens sem código">🔢 Codificar Itens</button>
-        <button class="btn" onclick="exportarExcelEstoque()" style="font-size:12px">📊 Excel</button>
+        <button id="btnEstMostrarOcultos" class="btn" onclick="toggleMostrarOcultos()" style="font-size:12px;white-space:nowrap" title="Ver os itens que você escondeu (pra restaurar)">🙈 Ocultos</button>
+        <button id="btnEstAgrupar" class="btn" onclick="toggleAgruparTamanho()" style="font-size:12px;white-space:nowrap" title="Agrupar em blocos por tamanho e tipo (ex: 4.1/2&quot; Corte, 4.1/2&quot; Flap, 7&quot; Corte...)">🗂️ Agrupar</button>
+        <div style="position:relative;display:inline-block">
+          <button id="btnEstMaisMenu" class="btn" onclick="toggleEstMaisMenu(event)" style="font-size:12px" title="Mais opções">⋮ Mais</button>
+          <div id="estMaisMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.14);z-index:60;min-width:190px;max-width:min(190px, calc(100vw - 24px));overflow:hidden">
+            <button class="btn" onclick="abrirGerenciarCategorias();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px">🏷️ Categorias</button>
+            <button class="btn" onclick="codificarItensEmLote();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px;background:#1565c0;color:#fff">🔢 Codificar Itens</button>
+            <button class="btn" onclick="exportarExcelEstoque();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px">📊 Excel</button>
+            <button class="btn" onclick="abrirGerenciarMinimos();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px">🎯 Mínimos por Especificação</button>
+          </div>
+        </div>
         <button class="btn" onclick="abrirAlertaMinimo()" id="btnAlertaMinimo" style="font-size:12px" title="Itens abaixo do estoque mínimo">⚠️ Estoque mínimo</button>
         <button class="btn" onclick="document.getElementById('inputNFe').click()" style="font-size:12px;background:#00695c;color:#fff;border-color:#00695c" title="Selecionar o XML da NF-e e dar entrada no estoque sem sair desta tela">📥 Importar XML</button>
         <input type="file" id="inputNFe" accept=".xml" style="display:none" onchange="lerNFe(this)">
@@ -1605,6 +1714,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
 <!-- TAB 16: MOVIMENTAÇÕES DE ESTOQUE -->
 <div class="panel" id="tab16">
   <div class="stat-row" id="statsMov"></div>
+  <div id="avisoMovSemHora" style="display:none;font-size:12px;color:#e65100;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:8px 12px;margin:8px 0"></div>
   <div class="toolbar">
     <input type="text" id="buscaMov" placeholder="Buscar item, referência..." oninput="renderMovEstoque()" style="flex:1;min-width:150px">
     <select id="filtroMovTipo" onchange="renderMovEstoque()">
@@ -2039,6 +2149,23 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
   </div>
 </div>
 
+<div class="modal-bg" id="modalGerenciarMinimos">
+  <div class="modal" style="width:680px;max-width:97vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px">🎯 Mínimos por Especificação</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalGerenciarMinimos')">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <p style="font-size:12px;color:var(--gray);margin-bottom:10px">
+        O mínimo aqui vale pra especificação inteira (tamanho + espessura/grão), somando o saldo de <b>todas as marcas juntas</b>.
+        Deixe em branco ou 0 pra itens que você só mantém cadastrados "de prontidão", sem precisar de aviso.
+      </p>
+      <input type="text" id="buscaMinimoGenerico" placeholder="Buscar especificação..." oninput="abrirGerenciarMinimos()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:10px">
+      <div id="listaGerenciarMinimos" style="max-height:52vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: CONFIG TELEGRAM -->
 <div class="modal-bg" id="modalConfigTelegram">
   <div class="modal" style="width:520px;max-width:96vw">
@@ -2150,10 +2277,6 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
     </div>
   </div>
 
-  <div style="background:#f1f8e9;border:1px solid #dcedc8;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#33691e;line-height:1.6">
-    <b>Como funciona:</b> importe a planilha exatamente como ela sai do sistema contábil (sem mexer em nada). O SL Óleos identifica as colunas de agrupamento (Data, Fornecedor, Nota Fiscal...), mescla as células repetidas, ajusta a largura das colunas, aplica o formato de moeda nos valores e adiciona a linha de Total geral — pronta para baixar e enviar.
-  </div>
-
   <div id="relcontResumo"></div>
 </div>
 
@@ -2203,6 +2326,9 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#546e7a;white-space:nowrap;cursor:pointer">
       <input type="checkbox" id="desFiltroPendentes" onchange="renderDesenhosRecebidos()" style="width:15px;height:15px;cursor:pointer"> Só com pendências
     </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#546e7a;white-space:nowrap;cursor:pointer">
+      <input type="checkbox" id="desVerConcluidos" onchange="renderDesenhosRecebidos()" style="width:15px;height:15px;cursor:pointer"> Ver concluídos
+    </label>
   </div>
   <div id="listaDesenhosRecebidos"></div>
 </div>
@@ -2214,7 +2340,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
     <h3 id="desModalTitulo">Novo Equipamento Recebido</h3>
     <button class="modal-header-btn" onclick="fecharModal('modalDesenhoRecebido')">✕</button>
   </div>
-  <div style="padding:0 22px 18px;max-height:85vh;overflow-y:auto">
+  <div style="padding:18px 22px 18px;max-height:85vh;overflow-y:auto">
     <div class="form-grid" style="grid-template-columns:repeat(4,1fr);gap:8px">
       <div class="form-group"><label>PDV *</label>
         <select id="des_pdv_sel" onchange="_desPdvMudou()"><option value="">Selecione o PDV...</option></select>
@@ -2244,7 +2370,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
     <h3 id="edrTitulo">Editar</h3>
     <button type="button" class="modal-close" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();fecharModal('modalEdicaoRapida')" title="Fechar">×</button>
   </div>
-  <div style="padding:0 22px 18px">
+  <div style="padding:18px 22px 18px">
     <div class="form-group"><label id="edrLabelNome">Denominação *</label><input id="edr_nome" placeholder="Nome ou denominação"></div>
     <div class="form-grid" style="grid-template-columns:1fr 1fr 80px">
       <div class="form-group"><label id="edrLabelDesenho">Desenho/Padrão</label><input id="edr_desenho"></div>
@@ -3543,6 +3669,38 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(2) * 
 </div>
 </div>
 
+<div class="modal-bg" id="modalAvisoDesenhoEstrutura">
+<div class="modal" style="max-width:480px">
+  <div class="modal-header" style="background:#ef6c00">
+    <h3>⚠️ Esse desenho já existe</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalAvisoDesenhoEstrutura')" title="Fechar">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" id="avisoDesenhoEstruturaConteudo"></div>
+  <div class="modal-actions" style="padding:0 22px 22px">
+    <button class="btn" onclick="_limparCampoDesenhoDuplicado()">Limpar campo</button>
+    <button class="btn primary" style="background:#ef6c00;border-color:#ef6c00" onclick="fecharModal('modalAvisoDesenhoEstrutura')">Entendi, manter assim</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg" id="modalAlertaDesenhoDuplicado">
+<div class="modal" style="max-width:480px">
+  <div class="modal-header" style="background:#ef6c00">
+    <h3>⚠️ Desenho já cadastrado</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="cancelarCriarOrdemDuplicada()" title="Fechar">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" id="alertaDesenhoDuplicadoConteudo"></div>
+  <div class="modal-actions" style="padding:0 22px 22px">
+    <button class="btn" onclick="cancelarCriarOrdemDuplicada()">Cancelar</button>
+    <button class="btn primary" style="background:#ef6c00;border-color:#ef6c00" onclick="confirmarCriarOrdemDuplicada()">Criar mesmo assim</button>
+  </div>
+</div>
+</div>
+
 <div class="modal-bg" id="modalLixeiraOrdens">
 <div class="modal" style="max-width:650px">
   <div class="modal-header">
@@ -4637,13 +4795,13 @@ async function exportarExcelEPI(){
 }
 // ═══════════════════════════ FIM EPI ═════════════════════════════════════
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[], desenhosRecebidos=[], montagensRecebidas=[], itensDesenhoRecebido=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[], desenhosRecebidos=[], montagensRecebidas=[], itensDesenhoRecebido=[], minimosGenericos=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-08-01 · build 130';
+const APP_BUILD='2026-09-19 · build 183';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações). Financeiro e suas sub-áreas.
 const MODULOS_OCULTOS = ['financeiro','receber','fluxo'];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
@@ -4773,6 +4931,28 @@ async function apiAll(table, query=''){
   return all;
 }
 
+// Busca as movimentações ordenadas por data + hora exata (created_at). Se essa
+// coluna ainda não existir no banco, a consulta falhava e a lista inteira
+// sumia da tela (pior do que a ordem errada) — agora, nesse caso, cai de volta
+// para ordenar só por data, em vez de esconder tudo.
+// Indica se a ordenação por hora exata está disponível. Quando a coluna
+// created_at não existe no banco, movimentações do mesmo dia ficam sem
+// critério de desempate e aparecem fora de ordem — o aviso na tela deixa
+// isso explícito em vez de parecer um defeito aleatório.
+let movSemHoraExata = false;
+
+async function buscarMovimentacoesEstoque(){
+  try{
+    const r = await apiAll('estoque_movimentacoes','?order=data.desc,created_at.desc');
+    movSemHoraExata = false;
+    return r;
+  }catch(e){
+    movSemHoraExata = true;
+    console.warn('[estoque_movimentacoes] ordenar por created_at falhou (coluna pode não existir ainda) — usando só a data:', e.message);
+    return await apiAll('estoque_movimentacoes','?order=data.desc').catch(()=>[]);
+  }
+}
+
 // Atualiza só dados financeiros — muito mais rápido que loadAll()
 async function loadFinanceiro(){
   try{
@@ -4785,7 +4965,7 @@ async function loadFinanceiro(){
 
 async function loadAll(){
   try {
-    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente,entradasNFe,desenhosRecebidos,montagensRecebidas,itensDesenhoRecebido]=await Promise.all([
+    [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente,entradasNFe,desenhosRecebidos,montagensRecebidas,itensDesenhoRecebido,minimosGenericos]=await Promise.all([
       api('GET','itens','','?order=created_at.asc').catch(e=>{console.warn('itens:',e.message);return [];}),
       api('GET','cotacoes','','?order=created_at.desc').catch(()=>[]),
       api('GET','fornecedores','','?order=razao_social.asc').catch(()=>[]),
@@ -4800,7 +4980,7 @@ async function loadAll(){
       api('GET','pecas_projeto','','?order=created_at.asc').catch(()=>[]),
       api('GET','sessoes_trabalho','','?order=iniciado_em.desc').catch(()=>[]),
       apiAll('estoque_itens','?order=descricao.asc').catch(()=>[]),
-      apiAll('estoque_movimentacoes','?order=data.desc').catch(()=>[]),
+      buscarMovimentacoesEstoque(),
       api('GET','clientes_fiscal','','?order=nome.asc').catch(()=>[]),
       api('GET','notas_fiscais','','?order=created_at.desc').catch(()=>[]),
       api('GET','clientes','','?order=nome.asc').catch(()=>[]),
@@ -4814,7 +4994,8 @@ async function loadAll(){
       api('GET','entradas_nfe','','?order=created_at.desc').catch(()=>[]),
       api('GET','desenhos_recebidos','','?order=data_recebimento.desc').catch(()=>[]),
       api('GET','montagens_recebidas','','?order=created_at.asc').catch(()=>[]),
-      api('GET','itens_desenho_recebido','','?order=item_numero.asc').catch(()=>[])
+      api('GET','itens_desenho_recebido','','?order=item_numero.asc').catch(()=>[]),
+      api('GET','minimos_genericos','','?order=chave.asc').catch(()=>[])
     ]);
     renderAll();
     // Após um F5, a aba já estava aberta ANTES de os dados chegarem, então ela
@@ -4859,58 +5040,145 @@ function renderAll(){
   if(typeof renderPedidosCompra==="function") renderPedidosCompra();
 }
 // ===== DASHBOARD =====
+// ===== Gráficos do Dashboard (SVG simples, sem biblioteca externa) =====
+
+// Estoque abaixo do mínimo: quanto do mínimo já está coberto pelo saldo atual.
+// Barra cheia = perto do mínimo; barra vazia = zerado. Ordenado pelo maior déficit
+// (mínimo − saldo) primeiro, pra mostrar os casos mais urgentes no topo.
+// Usa o mesmo mínimo generalizado por especificação usado no Telegram — já
+// vem agrupado (marcas somadas), não precisa juntar de novo aqui.
+function _renderDashGraficoEstoqueMin(){
+  const el=document.getElementById('dashGraficoEstoqueMin');
+  if(!el) return;
+  if(typeof itensAbaixoMinimoGenerico!=='function'){ el.innerHTML='<div class="empty">Módulo Estoque não disponível</div>'; return; }
+  const grupos=itensAbaixoMinimoGenerico();
+  if(!grupos.length){ el.innerHTML='<div class="empty">Nenhuma especificação abaixo do mínimo ✅</div>'; return; }
+  const comDeficit=grupos.map(g=>({nome:g.nome,saldo:g.saldo,min:g.min,deficit:g.min-g.saldo}))
+    .sort((a,b)=>b.deficit-a.deficit).slice(0,8);
+  const CIRC=2*Math.PI*32;
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:10px">
+    ${comDeficit.map(x=>{
+      const pct=x.min>0?Math.max(0,Math.min(100,Math.round(x.saldo/x.min*100))):0;
+      // Quanto mais perto de 0%, mais grave a falta — vermelho; perto do mínimo, amarelo.
+      const cor = pct>=70?'#f9a825':pct>=40?'#ef6c00':'#c62828';
+      const offset=(CIRC*(1-pct/100)).toFixed(1);
+      return `<div style="text-align:center;background:#fff;border-radius:10px;padding:10px 6px 8px;border:1px solid #edf1ef">
+        <svg width="76" height="76" viewBox="0 0 76 76">
+          <circle cx="38" cy="38" r="32" fill="none" stroke="#eceff1" stroke-width="7"/>
+          <circle cx="38" cy="38" r="32" fill="none" stroke="${cor}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset}" transform="rotate(-90 38 38)"/>
+          <text x="38" y="35" text-anchor="middle" font-size="12" font-weight="700" fill="#37474f">${x.saldo}/${x.min}</text>
+          <text x="38" y="48" text-anchor="middle" font-size="9" fill="${cor}" font-weight="700">${pct}%</text>
+        </svg>
+        <div style="font-size:10px;color:#546e7a;margin-top:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${x.nome.replace(/"/g,'&quot;')}">${x.nome}</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div style="text-align:center;font-size:11px;color:var(--gray);margin-top:8px">${grupos.length} especificação(ões) abaixo do mínimo</div>`;
+}
+
+// Compras por mês (últimos 6 meses), barras verticais.
+function _renderDashGraficoCompras(){
+  const el=document.getElementById('dashGraficoCompras');
+  if(!el) return;
+  if(typeof pedidosCompra==='undefined'){ el.innerHTML='<div class="empty">Sem dados de compras</div>'; return; }
+  const hoje=new Date();
+  const meses=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);
+    meses.push({label:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','').toUpperCase(),ano:d.getFullYear(),mes:d.getMonth(),total:0});
+  }
+  pedidosCompra.forEach(p=>{
+    if(!p.data_inclusao) return;
+    const d=new Date(p.data_inclusao);
+    const m=meses.find(x=>x.ano===d.getFullYear()&&x.mes===d.getMonth());
+    if(m) m.total+=Number(p.total)||0;
+  });
+  const max=Math.max(...meses.map(m=>m.total),1);
+  const larguraBarra=32, gap=14, altura=110;
+  const svgW=meses.length*(larguraBarra+gap);
+  const barras=meses.map((m,i)=>{
+    const h=Math.max(2,Math.round(m.total/max*altura));
+    const x=i*(larguraBarra+gap);
+    return `<g>
+      <rect x="${x}" y="${altura-h}" width="${larguraBarra}" height="${h}" rx="4" fill="#276b52"/>
+      <text x="${x+larguraBarra/2}" y="${altura+16}" text-anchor="middle" font-size="10" fill="#546e7a">${m.label}</text>
+    </g>`;
+  }).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${svgW} ${altura+22}" style="width:100%;height:${altura+22}px;overflow:visible">${barras}</svg>
+    <div style="text-align:center;font-size:11px;color:var(--gray);margin-top:6px">Total no período: <b style="color:#276b52">${fmtMoeda(meses.reduce((s,m)=>s+m.total,0))}</b></div>`;
+}
+
+// Ordens de produção por etapa atual (contagem de ordens abertas em cada etapa).
+function _renderDashGraficoOrdens(){
+  const el=document.getElementById('dashGraficoOrdens');
+  if(!el) return;
+  if(typeof ordens==='undefined'||!ordens.length){ el.innerHTML='<div class="empty">Nenhuma ordem cadastrada</div>'; return; }
+  const nomes=['Aguardando',...(typeof OPERACOES_PROD!=='undefined'?OPERACOES_PROD:[]),'Terceirizado'];
+  const contagem={}; nomes.forEach(n=>contagem[n]=0);
+  ordens.forEach(o=>{
+    if(o.status==='concluido') return;
+    const tempoAtivo=(temposOP||[]).find(t=>t.ordem_id===o.id&&t.operacao&&t.operacao!=='REPROCESSAR'&&!t.historico_only&&!t.dt_hr_final);
+    if(tempoAtivo&&contagem[tempoAtivo.operacao]!==undefined) contagem[tempoAtivo.operacao]++;
+    else if(o.status==='terceirizado') contagem['Terceirizado']++;
+    else contagem['Aguardando']++;
+  });
+  const ativos=nomes.filter(n=>contagem[n]>0);
+  if(!ativos.length){ el.innerHTML='<div class="empty">Nenhuma ordem em aberto 🎉</div>'; return; }
+  const max=Math.max(...ativos.map(n=>contagem[n]),1);
+  el.innerHTML = ativos.map(n=>{
+    const pct=Math.max(4,Math.round(contagem[n]/max*100));
+    const cor=(typeof COR_OPERACAO!=='undefined'&&COR_OPERACAO[n])||'#546e7a';
+    return `<div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+        <span style="font-weight:600;color:#37474f">${n}</span>
+        <span style="color:var(--gray)">${contagem[n]}</span>
+      </div>
+      <div style="background:#f0f2f1;border-radius:5px;height:14px;overflow:hidden">
+        <div style="background:${cor};height:100%;width:${pct}%;border-radius:5px;transition:width .4s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderDashboard(){
-  const total=itens.length;
-  const comp=itens.filter(i=>i.comprado).length;
-  const semCot=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)).length;
-  const cotResp=cotacoes.filter(c=>c.respondido).length;
-  const aguard=emails.filter(e=>!e.respondido).length;
+  // ---- Gráficos ----
+  _renderDashGraficoEstoqueMin();
+  _renderDashGraficoCompras();
+  _renderDashGraficoOrdens();
+
+  // ---- Cartões de número — focados no que é usado no dia a dia ----
+  const abaixoMin = (typeof itensAbaixoMinimoGenerico==='function') ? itensAbaixoMinimoGenerico() : [];
+  const ciTodas = (comprasInternas||[]).filter(i=>!i.comprado);
+  const ciUrgentes = ciTodas.filter(i=>i.prioridade==='urgente');
+  const ordensAbertas = (ordens||[]).filter(o=>o.status!=='concluido');
+  const ordensTerc = (ordens||[]).filter(o=>o.status==='terceirizado');
 
   document.getElementById('dashStats').innerHTML=`
-    <div class="stat" data-modulo="compras" onclick="showTab(1)" style="cursor:pointer"><div class="stat-label">Itens pendentes</div><div class="stat-val">${total-comp}</div><div class="stat-sub">de ${total} total</div></div>
-    <div class="stat yellow" data-modulo="compras" onclick="showTab(1)" style="cursor:pointer"><div class="stat-label">Sem cotação</div><div class="stat-val">${semCot}</div><div class="stat-sub">itens</div></div>
-    <div class="stat blue" data-modulo="cotacoes" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Cotações recebidas</div><div class="stat-val">${cotResp}</div><div class="stat-sub">via formulário</div></div>
-    <div class="stat" data-modulo="cotacoes" onclick="showTab(6)" style="cursor:pointer"><div class="stat-label">Comprados</div><div class="stat-val">${comp}</div><div class="stat-sub">${total?Math.round(comp/total*100):0}% do total</div></div>
-    <div class="stat red" data-modulo="envio" onclick="showTab(10)" style="cursor:pointer"><div class="stat-label">E-mails aguardando</div><div class="stat-val">${aguard}</div><div class="stat-sub">resposta</div></div>
-    <div class="stat" data-modulo="pdv" onclick="sbGo(13,'Pedido de Venda')" style="cursor:pointer;border-left-color:#1565c0;min-width:140px"><div class="stat-label">PDVs</div><div class="stat-val" style="color:#1565c0">${(typeof pedidosVenda!=='undefined'?pedidosVenda.filter(p=>!['Faturado','Entregue','Cancelado'].includes(p.status)).length:0)}</div><div class="stat-sub">em aberto</div></div>
-    <div class="stat" data-modulo="financeiro" onclick="showTab(19)" style="cursor:pointer;border-left-color:#c62828;min-width:140px"><div class="stat-label">💸 A Pagar</div><div class="stat-val" style="color:#c62828;font-size:14px">${typeof contasPagar!=='undefined'?fmtMoeda(contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasPagar!=='undefined'?contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
-    <div class="stat" data-modulo="receber" onclick="showTab(20)" style="cursor:pointer;border-left-color:#1565c0;min-width:140px"><div class="stat-label">💰 A Receber</div><div class="stat-val" style="color:#1565c0;font-size:14px">${typeof contasReceber!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">${typeof contasReceber!=='undefined'?contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada'&&isVencida(c.vencimento)).length:0} vencidas</div></div>
-    <div class="stat" data-modulo="fluxo" onclick="showTab(21)" style="cursor:pointer;border-left-color:#2e7d32;min-width:140px"><div class="stat-label">📊 Saldo Previsto</div><div class="stat-val" style="color:#2e7d32;font-size:13px">${typeof contasReceber!=='undefined'&&typeof contasPagar!=='undefined'?fmtMoeda(contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)-contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada').reduce((s,c)=>s+(c.valor||0),0)):'—'}</div><div class="stat-sub">receber − pagar</div></div>`;
+    <div class="stat red" data-modulo="estoque" onclick="abrirAlertaMinimo()" style="cursor:pointer"><div class="stat-label">📦 Estoque abaixo do mínimo</div><div class="stat-val">${abaixoMin.length}</div><div class="stat-sub">tipo(s) de item</div></div>
+    <div class="stat red" data-modulo="compras" onclick="showTab(9)" style="cursor:pointer"><div class="stat-label">🛒 Compras Internas urgentes</div><div class="stat-val">${ciUrgentes.length}</div><div class="stat-sub">pendente(s)</div></div>
+    <div class="stat yellow" data-modulo="compras" onclick="showTab(9)" style="cursor:pointer"><div class="stat-label">🛒 Compras Internas — total</div><div class="stat-val">${ciTodas.length}</div><div class="stat-sub">pendente(s)</div></div>
+    <div class="stat" data-modulo="producao" onclick="showTab(5)" style="cursor:pointer"><div class="stat-label">🏭 Ordens em aberto</div><div class="stat-val">${ordensAbertas.length}</div><div class="stat-sub">de ${(ordens||[]).length} total</div></div>
+    <div class="stat" data-modulo="producao" onclick="showTab(5)" style="cursor:pointer;border-left-color:#ef6c00"><div class="stat-label">🚚 Terceirizado</div><div class="stat-val" style="color:#ef6c00">${ordensTerc.length}</div><div class="stat-sub">ativo(s) agora</div></div>`;
 
-  // Notificações
+  // ---- Notificações — mesmas 4 áreas: Estoque, Compras Internas, Ordens, Terceirizado ----
   const notifs=[];
-  const novasCot=cotacoes.filter(c=>c.respondido&&isRecente(c.created_at,2));
-  if(novasCot.length) notifs.push({tipo:'green',icon:'✅',msg:`${novasCot.length} cotação(ões) recebida(s) nas últimas 48h`,tab:4});
-  const semForn=itens.filter(i=>!i.fornecedor&&!i.comprado);
-  if(semForn.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${semForn.length} item(ns) sem fornecedor definido`,tab:1});
-  if(aguard>0) notifs.push({tipo:'blue',icon:'📧',msg:`${aguard} e-mail(s) de cotação aguardando resposta`,tab:10});
-  const semCotacao=itens.filter(i=>!cotacoes.some(c=>c.item_id===i.id)&&!i.comprado);
-  if(semCotacao.length) notifs.push({tipo:'red',icon:'💰',msg:`${semCotacao.length} item(ns) sem nenhuma cotação`,tab:6});
-  // Financial alerts — só se o módulo Financeiro não estiver oculto
-  if(!moduloOculto('financeiro') && typeof contasPagar!=='undefined'){
-    const cpVencidas=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&isVencida(c.vencimento));
-    if(cpVencidas.length) notifs.push({tipo:'red',icon:'📤',msg:`${cpVencidas.length} conta(s) a pagar VENCIDA(S) — ${fmtMoeda(cpVencidas.reduce((s,c)=>s+(c.valor||0),0))}`,tab:19});
-    const cpHoje=contasPagar.filter(c=>c.status!=='Paga'&&c.status!=='Cancelada'&&c.vencimento===hoje());
-    if(cpHoje.length) notifs.push({tipo:'yellow',icon:'⚠️',msg:`${cpHoje.length} conta(s) a pagar vencem HOJE`,tab:19});
+  const permsAtivas=getPermissoesUsuario(usuarioLogado);
+  if(permsAtivas.includes('estoque')){
+    if(abaixoMin.length) notifs.push({tipo:'red',icon:'📦',msg:`${abaixoMin.length} tipo(s) de item abaixo do estoque mínimo`,tab:11});
   }
-  if(!moduloOculto('financeiro') && typeof contasReceber!=='undefined'){
-    const crVencidas=contasReceber.filter(c=>c.status!=='Recebida'&&c.status!=='Cancelada'&&isVencida(c.vencimento));
-    if(crVencidas.length) notifs.push({tipo:'yellow',icon:'📥',msg:`${crVencidas.length} conta(s) a receber VENCIDA(S) — ${fmtMoeda(crVencidas.reduce((s,c)=>s+(c.valor||0),0))}`,tab:20});
+  if(permsAtivas.includes('compras')){
+    if(ciUrgentes.length) notifs.push({tipo:'red',icon:'🛒',msg:`${ciUrgentes.length} compra(s) interna(s) urgente(s) pendente(s)`,tab:9});
+    else if(ciTodas.length) notifs.push({tipo:'yellow',icon:'🛒',msg:`${ciTodas.length} compra(s) interna(s) pendente(s)`,tab:9});
+  }
+  if(permsAtivas.includes('producao')){
+    const ordensAntigas=ordensAbertas.filter(o=>{const d=_diasAbertaOrdem(o);return d!==null&&d>=15;});
+    if(ordensAntigas.length) notifs.push({tipo:'yellow',icon:'⏳',msg:`${ordensAntigas.length} ordem(ns) aberta(s) há 15 dias ou mais`,tab:5});
+    const tercAntigos=ordensTerc.filter(o=>{const d=_centralDiasDesde(o.terceirizado_data);return d!==null&&d>=10;});
+    if(tercAntigos.length) notifs.push({tipo:'red',icon:'🚚',msg:`${tercAntigos.length} ordem(ns) terceirizada(s) há 10 dias ou mais`,tab:5});
   }
 
   const divN=document.getElementById('dashNotifs');
-  // Filtra notificações sem permissão
-  const permsAtivas=getPermissoesUsuario(usuarioLogado);
-  const notifsFiltradas=notifs.filter(n=>{
-    if(n.tab===19||n.tab===25) return permsAtivas.includes('financeiro');
-    if(n.tab===20||n.tab===26) return permsAtivas.includes('receber');
-    if(n.tab===21||n.tab===22||n.tab===23) return permsAtivas.includes('fluxo');
-    if(n.tab===1||n.tab===2) return permsAtivas.includes('compras');
-    if(n.tab===6||n.tab===7) return permsAtivas.includes('cotacoes');
-    if(n.tab===10) return permsAtivas.includes('envio');
-    return true;
-  });
-  divN.innerHTML=notifsFiltradas.length?notifsFiltradas.map((n,i)=>`
+  divN.innerHTML=notifs.length?notifs.map(n=>`
     <div class="notif-item ${n.tipo}" onclick="showTab(${n.tab})" style="cursor:pointer">
       <span style="font-size:18px">${n.icon}</span>
       <span style="font-size:13px;font-weight:500">${n.msg}</span>
@@ -4920,81 +5188,61 @@ function renderDashboard(){
   // Oculta cards sem permissão APÓS renderizar
   setTimeout(aplicarPermissoes, 0);
 
-  // Atividades recentes
-  const ativs=cotacoes.slice(0,8).map(c=>{
-    const it=itens.find(i=>i.id===c.item_id);
-    return {icon:c.respondido?'📩':'📋',text:`${c.fornecedor} cotou <b>${it?it.descritivo:'item'}</b> — ${fmtVal(c.valor)}`,time:fmtDt(c.created_at),cor:'#e8f5e9'};
-  });
-  const divA=document.getElementById('dashAtividades');
-  divA.innerHTML=ativs.length?ativs.map(a=>`
-    <div class="activity-item">
-      <div class="activity-icon" style="background:${a.cor}">${a.icon}</div>
-      <div><div class="activity-text">${a.text}</div><div class="activity-time">${a.time}</div></div>
-    </div>`).join(''):'<div class="empty">Nenhuma atividade</div>';
-
-  // Resumo cotações
-  const grupos={};
-  itens.forEach(it=>{
-    const cs=cotacoes.filter(c=>c.item_id===it.id);
-    if(cs.length) grupos[it.id]={it,cs};
-  });
-  const divC=document.getElementById('dashCotacoes');
-  const entries=Object.values(grupos).slice(0,6);
-  divC.innerHTML=entries.length?entries.map(({it,cs})=>{
-    const melhor=cs.sort((a,b)=>a.valor-b.valor)[0];
-    return `<div class="price-row">
-      <span style="flex:1;font-size:12px;font-weight:500">${it.descritivo||'—'}</span>
-      <span class="forn-tag">${melhor.fornecedor}</span>
-      <span class="badge badge-blue">${cs.length} cot.</span>
-      <span class="best-price">${fmtVal(melhor.valor)}</span>
-    </div>`;
-  }).join(''):'<div class="empty">Nenhuma cotação</div>';
-
-  // Melhores preços
-  const melhores=Object.values(grupos).map(({it,cs})=>{
-    const sorted=cs.sort((a,b)=>a.valor-b.valor);
-    return {it,melhor:sorted[0],economia:sorted.length>1?sorted[sorted.length-1].valor-sorted[0].valor:0};
-  }).filter(m=>m.economia>0).sort((a,b)=>b.economia-a.economia).slice(0,5);
-  const divM=document.getElementById('dashMelhores');
-  divM.innerHTML=melhores.length?melhores.map(m=>`
-    <div class="price-row">
-      <span style="flex:1;font-size:12px">${m.it.descritivo||'—'}</span>
-      <span class="forn-tag">${m.melhor.fornecedor}</span>
-      <span class="best-price">${fmtVal(m.melhor.valor)}</span>
-      <span class="badge badge-green">-${fmtVal(m.economia)}</span>
-    </div>`).join(''):'<div class="empty">Adicione cotações para ver comparativo</div>';
-
-  // Em desenho agora
-  const emTrabalhoAgora=pecasProjeto.filter(p=>p.status==='trabalhando');
-  const divET=document.getElementById('dashEmTrabalho');
-  if(divET){
-    divET.innerHTML=emTrabalhoAgora.length?emTrabalhoAgora.map(p=>{
-      const setor=setoresPDV.find(s=>s.id===p.setor_id);
-      const pdv=pdvs.find(x=>x.id===p.pdv_id);
-      const sessao=sessoesTrab.find(s=>s.peca_id===p.id&&s.status==='ativo');
-      return `<div class="em-trabalho-card" onclick="showTab(3)" style="cursor:pointer">
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${p.nome}${p.numero_desenho?' <span class="badge badge-blue">Nº '+p.numero_desenho+'</span>':''}</div>
-          <div style="font-size:11px;color:var(--gray);margin-top:2px">
-            👤 ${p.responsavel||'—'} · 📁 ${setor?.nome||'—'} · 📦 ${pdv?.numero||''}
-          </div>
-        </div>
-        <span class="status-chip status-trabalhando">✏️ trabalhando</span>
-      </div>`;
-    }).join(''):'<div class="empty">Nenhum projetista trabalhando no momento</div>';
-  }
-
-  // Compras Internas pendentes
-  const priorCor={urgente:'badge-red',alta:'badge-yellow',normal:'badge-gray'};
-  const ciPendentes=comprasInternas.filter(i=>!i.comprado).slice(0,10);
+  // ---- Compras Internas pendentes (mini gráfico por categoria + urgentes em destaque + dias parado) ----
   const divCI=document.getElementById('dashCI');
   if(divCI){
-    divCI.innerHTML=ciPendentes.length?ciPendentes.map(i=>`
-      <div class="price-row" style="cursor:pointer" onclick="showTab(9)">
-        <span class="badge ${priorCor[i.prioridade]||'badge-gray'}" style="flex-shrink:0">${i.prioridade||'normal'}</span>
-        <span style="flex:1;font-size:12px;margin:0 8px">${i.descricao||'—'}${i.categoria?' <span style="color:var(--gray);font-size:11px">— '+i.categoria+'</span>':''}</span>
-        <span style="font-size:11px;color:var(--gray)">${i.solicitado_por||''}</span>
-    </div>`).join(''):'<div class="empty">Nenhuma solicitação pendente ✅</div>';
+    if(!ciTodas.length){
+      divCI.innerHTML='<div class="empty">Nenhuma solicitação pendente ✅</div>';
+    } else {
+      // Mini gráfico por categoria
+      const porCategoria={};
+      ciTodas.forEach(i=>{ const cat=i.categoria||'Sem categoria'; porCategoria[cat]=(porCategoria[cat]||0)+1; });
+      const catsOrdenadas=Object.entries(porCategoria).sort((a,b)=>b[1]-a[1]);
+      const maxCat=Math.max(...catsOrdenadas.map(c=>c[1]),1);
+      const graficoCat=catsOrdenadas.map(([cat,qtd])=>{
+        const pct=Math.max(6,Math.round(qtd/maxCat*100));
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+          <span style="font-size:11px;color:#37474f;width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</span>
+          <div style="flex:1;background:#f0f2f1;border-radius:4px;height:11px;overflow:hidden"><div style="background:#1565c0;height:100%;width:${pct}%;border-radius:4px"></div></div>
+          <span style="font-size:11px;color:var(--gray);width:16px;text-align:right;flex-shrink:0">${qtd}</span>
+        </div>`;
+      }).join('');
+
+      const linhaItem=(i)=>{
+        const dias=_centralDiasDesde(i.created_at);
+        const cor=(typeof _corIdadeOrdem==='function')?_corIdadeOrdem(dias):'#9e9e9e';
+        return `<div class="price-row" style="cursor:pointer" onclick="showTab(9)">
+          <span title="${dias===null?'—':dias+' dia(s) parado'}" style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 3px;border-radius:5px;background:${cor};color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${dias===null?'—':dias}</span>
+          <span style="flex:1;font-size:12px;margin:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.descricao||'—'}${i.categoria?' <span style="color:var(--gray);font-size:11px">— '+i.categoria+'</span>':''}</span>
+          <span style="font-size:11px;color:var(--gray);flex-shrink:0">${i.solicitado_por||''}</span>
+        </div>`;
+      };
+      const urgentesLista=ciTodas.filter(i=>i.prioridade==='urgente').slice(0,6);
+      const restoLista=ciTodas.filter(i=>i.prioridade!=='urgente').slice(0,6);
+
+      divCI.innerHTML = `
+        <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">${graficoCat}</div>
+        ${urgentesLista.length?`<div style="font-size:11px;font-weight:700;color:#c62828;text-transform:uppercase;margin-bottom:4px">🔴 Urgentes (${ciTodas.filter(i=>i.prioridade==='urgente').length})</div>${urgentesLista.map(linhaItem).join('')}`:''}
+        ${restoLista.length?`<div style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;margin:${urgentesLista.length?'10px':'0'} 0 4px">Outras pendentes</div>${restoLista.map(linhaItem).join('')}`:''}`;
+    }
+  }
+
+  // ---- Terceirizado — ordens ativas (lista, com o mesmo selo de dias/cor da tela de Ordens) ----
+  const divT=document.getElementById('dashTerceirizado');
+  if(divT){
+    const ordensTercOrdenadas=[...ordensTerc].sort((a,b)=>{
+      const da=_centralDiasDesde(a.terceirizado_data), db=_centralDiasDesde(b.terceirizado_data);
+      return (db===null?-1:db)-(da===null?-1:da); // mais dias parado primeiro
+    });
+    divT.innerHTML=ordensTercOrdenadas.length?ordensTercOrdenadas.map(o=>{
+      const dias=_centralDiasDesde(o.terceirizado_data);
+      const cor=(typeof _corIdadeOrdem==='function')?_corIdadeOrdem(dias):'#ef6c00';
+      return `<div class="price-row" style="cursor:pointer" onclick="showTab(5)">
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 3px;border-radius:6px;background:${cor};color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${dias===null?'—':dias}</span>
+        <span style="flex:1;font-size:12px;margin:0 8px"><b>Nº ${o.numero}</b> — ${o.descricao||'—'}</span>
+        <span class="forn-tag">🚚 ${(o.terceirizado_nome||'—').trim()}</span>
+      </div>`;
+    }).join(''):'<div class="empty">Nenhuma ordem terceirizada no momento</div>';
   }
 
   renderResumoCentralPendencias();
@@ -5019,10 +5267,10 @@ function analisarPendencias(){
   const pendencias=[];
   const adicionar=(nivel,icone,titulo,detalhe,tab)=>pendencias.push({nivel,icone,titulo,detalhe,tab});
 
-  const abaixo=(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]);
+  const abaixo=(typeof itensAbaixoMinimoGenerico==='function'?itensAbaixoMinimoGenerico():[]);
   if(abaixo.length){
-    const exemplos=abaixo.slice(0,3).map(x=>`${x.item.descricao||x.item.tipo_peca||'Item'} (${x.saldo}/${x.min})`).join(' · ');
-    adicionar('critica','⚠️',`${abaixo.length} item(ns) abaixo do estoque mínimo`,exemplos+(abaixo.length>3?` · +${abaixo.length-3} outro(s)`:'') ,11);
+    const exemplos=abaixo.slice(0,3).map(x=>`${x.nome} (${x.saldo}/${x.min})`).join(' · ');
+    adicionar('critica','⚠️',`${abaixo.length} especificação(ões) abaixo do estoque mínimo`,exemplos+(abaixo.length>3?` · +${abaixo.length-3} outro(s)`:'') ,11);
   }
 
   const urgentes=(comprasInternas||[]).filter(i=>i.prioridade==='urgente'&&!i.comprado);
@@ -5228,7 +5476,7 @@ function _centralPanorama(){
       total_de_itens:(estoqueItens||[]).length,
       itens_com_saldo:comSaldo.length,
       itens_zerados:(estoqueItens||[]).length-comSaldo.length,
-      abaixo_do_minimo:(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]).length,
+      abaixo_do_minimo:(typeof itensAbaixoMinimoGenerico==='function'?itensAbaixoMinimoGenerico():[]).length,
       valor_total_estimado:Math.round(comSaldo.reduce((s,i)=>s+saldoDe(i)*(Number(i?.valor_unitario)||0),0))
     },
     ordens_de_producao:{total:ativos.length, por_status:porStatus},
@@ -5352,13 +5600,11 @@ function _centralBuscarNosDados(pergunta){
 // ===== FIM CONTEXTO DINÂMICO =====
 
 function contextoDetalhadoCentralIA(pergunta){
-  const abaixo=(typeof itensAbaixoMinimo==='function'?itensAbaixoMinimo():[]).slice(0,12).map(x=>({
-    material:String(x?.item?.descricao||x?.item?.tipo_peca||'Item sem descrição'),
-    codigo:String(x?.item?.codigo||'').trim(),
-    categoria:String(x?.item?.categoria||'').trim(),
+  const abaixo=(typeof itensAbaixoMinimoGenerico==='function'?itensAbaixoMinimoGenerico():[]).slice(0,12).map(x=>({
+    material:String(x?.nome||'Especificação sem nome'),
     saldo:x?.saldo??null,
     minimo:x?.min??null,
-    unidade:String(x?.item?.unidade||'').trim()
+    unidade:String(x?.un||'').trim()
   }));
   const compras=(comprasInternas||[]).filter(i=>i.prioridade==='urgente'&&!i.comprado).slice(0,10).map(i=>({
     descricao:String(i?.descricao||'Compra interna'), fornecedor:String(i?.fornecedor||'').trim()
@@ -5484,15 +5730,14 @@ async function perguntarCentralIA(pergunta=''){
     const bruto=await r.text();
     let data={}; try{ data=bruto?JSON.parse(bruto):{}; }catch(_){ data={}; }
     if(!r.ok||!data.sucesso){
-      // O usuário comum vê a mensagem amigável; o detalhe técnico (chave, cota,
-      // modelo) fica visível só para quem administra o sistema.
+      // Mensagem amigável pra todo mundo — o detalhe técnico (chave, cota, modelo)
+      // não aparece mais no balão do chat (ficava um trecho em inglês vindo direto
+      // da API do Gemini). Quem precisa investigar usa o botão "🔍 Testar IA" ou o
+      // console do navegador — o erro completo continua sendo logado ali.
       const amigavel=data.erro||data.message||data.error||'Não foi possível consultar a IA agora.';
       const tec=data.detalhe_tecnico;
       console.error('[Central IA] HTTP',r.status,r.statusText,'|',JSON.stringify(tec||amigavel));
-      const ehAdmin=(typeof isAprovador==='function')&&isAprovador();
-      throw new Error(ehAdmin&&tec
-        ? `${amigavel}\n[detalhe técnico] HTTP ${tec.http||r.status} · modelo ${tec.modelo||'—'} · ${tec.motivo||''}`
-        : amigavel);
+      throw new Error(amigavel);
     }
     centralHistoricoIA[posicaoResposta]={tipo:'resposta',texto:String(data.resposta||data.resumo||data.analise||'Não encontrei uma resposta para esta pergunta.'),tabela:data.tabela||null};
     renderConversaCentralIA(resultado);
@@ -7346,7 +7591,7 @@ function renderCI(){
   const theadCI=document.getElementById('theadCI');
 
   if(isPerfilSimplificadoCI()){
-    if(theadCI) theadCI.innerHTML='<tr><th>Status</th><th>Prioridade</th><th>Descrição</th><th>Categoria</th><th>Quantidade</th><th></th></tr>';
+    if(theadCI) theadCI.innerHTML='<tr><th style="width:90px">Status</th><th style="width:80px">Prioridade</th><th>Descrição</th><th style="width:110px">Categoria</th><th style="width:80px">Quantidade</th><th style="width:110px"></th></tr>';
     if(!lista.length){tb.innerHTML='<tr><td colspan="6" class="empty">Nenhuma solicitação</td></tr>';return;}
     tb.innerHTML=lista.map(i=>`<tr>
       <td>${i.comprado?'<span class="badge badge-green">Comprado</span>':'<span class="badge badge-yellow">Pendente</span>'}</td>
@@ -7722,6 +7967,52 @@ const COR_OPERACAO={
 };
 
 let opAtual=null;
+let estOrdemProdCampo = 'numero', estOrdemProdDir = -1; // padrão: número da ordem, do maior pro menor (como já era)
+
+// Qual PDV está aberto em modo detalhe na tela de Ordens — null = mostra a
+// grade de cartões por PDV.
+let _pdvOrdemSelecionado = null;
+function _abrirDetalhePdvOrdens(pdvId){
+  _pdvOrdemSelecionado = pdvId;
+  renderOrdens();
+}
+function _voltarListaPdvOrdens(){
+  _pdvOrdemSelecionado = null;
+  renderOrdens();
+}
+
+// Quadradinho de idade da ordem: quantos dias desde a abertura, mudando de
+// cor a cada 5 dias — ajuda a ver de cara quais ordens estão parando há mais
+// tempo, sem precisar ler a data. No futuro pode virar critério de prioridade.
+function _diasAbertaOrdem(o){
+  if(!o.dt_abertura) return null;
+  const abertura = new Date(o.dt_abertura.split('T')[0]+'T00:00:00');
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  return Math.max(0, Math.floor((hoje-abertura)/86400000));
+}
+function _corIdadeOrdem(dias){
+  if(dias===null) return '#b0bec5';
+  if(dias<5) return '#2e7d32';
+  if(dias<10) return '#f9a825';
+  if(dias<15) return '#ef6c00';
+  if(dias<20) return '#c62828';
+  return '#6a1b9a';
+}
+function _badgeIdadeOrdem(o){
+  const dias = _diasAbertaOrdem(o);
+  const cor = _corIdadeOrdem(dias);
+  const titulo = dias===null ? 'Sem data de abertura' : `${dias} dia${dias===1?'':'s'} desde a abertura`;
+  return `<span title="${titulo}" style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 3px;border-radius:6px;background:${cor};color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${dias===null?'—':dias}</span>`;
+}
+function toggleOrdemProd(campo){
+  if(estOrdemProdCampo === campo){
+    estOrdemProdDir = -estOrdemProdDir;
+  } else {
+    estOrdemProdCampo = campo;
+    estOrdemProdDir = campo==='desenho' ? 1 : -1; // desenho: A→Z primeiro; número/dias: maior (mais antiga) primeiro
+  }
+  renderOrdens();
+}
 
 // Busca individual por bloco de PDV na Ordem de Produção (a barrinha no
 // cabeçalho de cada PDV). Guardada fora do HTML para sobreviver às re-renderizações.
@@ -7758,10 +8049,14 @@ function renderOrdens(){
 
   const temposReais=t=>t.operacao&&t.operacao!=='REPROCESSAR'&&!t.historico_only;
 
-  // Filtra ordens visíveis (ignora ordens sem PDV — igual ao comportamento anterior)
+  // Filtra ordens visíveis. Ordens sem PDV (ex: registros históricos inseridos
+  // manualmente) ficam fora da visão padrão pra não virar bagunça — mas se o
+  // usuário está buscando algo específico (ex: um nº de desenho que o aviso de
+  // duplicidade apontou), elas PRECISAM aparecer, senão a pessoa não consegue
+  // conferir o que o aviso está dizendo.
   const todasFiltradas=ordens.filter(o=>{
     if(o.excluida_em) return false; // está na lixeira, não aparece na grade normal
-    if(!o.pdv_id) return false;
+    if(!o.pdv_id && !b) return false;
     if(filtroPDV&&o.pdv_id!==filtroPDV) return false;
     if(b){
       // Busca puramente numérica (ex: "91") deve achar o NÚMERO da ordem exatamente —
@@ -7780,6 +8075,7 @@ function renderOrdens(){
   });
 
   if(!todasFiltradas.length){
+    _pdvOrdemSelecionado = null;
     div.innerHTML=`<div class="empty" style="padding:32px;text-align:center">
       <div style="font-size:32px;margin-bottom:8px">🔧</div>
       <div style="font-weight:600;margin-bottom:8px">Nenhuma ordem de produção</div>
@@ -7841,8 +8137,37 @@ function renderOrdens(){
   // Células compactas (mais estreitas) para caber todas as máquinas na tela sem rolagem horizontal excessiva.
   const COLS_FIXAS = ['Aguardando', ...OPERACOES_PROD, 'Terceirizado'];
 
-  div.innerHTML = gruposOrdenados.map(([pdvId, ordensGrupoTodas])=>{
+  // No celular a grade kanban (até 1606px, uma coluna por máquina) não cabe na tela —
+  // rolagem lateral escondia peça, quantidade e os botões. Em vez de tabela, cada
+  // ordem vira um cartão com um selo da etapa atual (toque avança/consulta a etapa).
+  const isMobile = window.innerWidth <= 768;
+  const badgeEtapaMobile = (o) => {
+    const st = statusOrdem(o);
+    if(st==='aguardando'){
+      return `<span onclick="event.stopPropagation();abrirEscolherEtapaMobile(event,'${o.id}')" style="display:inline-flex;align-items:center;gap:6px;background:#eceff1;color:#607d8b;border:1px solid #90a4ae;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">⏳ Aguardando</span>`;
+    }
+    if(st==='terceirizado'){
+      const nome=(o.terceirizado_nome||'').trim().replace(/"/g,'&quot;');
+      const diasTerc = _centralDiasDesde(o.terceirizado_data);
+      const badgeDiasTerc = diasTerc!==null
+        ? `<span title="${diasTerc} dia${diasTerc===1?'':'s'} terceirizado" style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 3px;border-radius:5px;background:${_corIdadeOrdem(diasTerc)};color:#fff;font-size:10px;font-weight:700;border:1px solid rgba(255,255,255,.7)">${diasTerc}</span>`
+        : '';
+      return `<span onclick="event.stopPropagation();retornarTerceirizado('${o.id}')" style="display:inline-flex;align-items:center;gap:6px;background:${COR_OPERACAO['Terceirizado']};color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">${badgeDiasTerc}🚚 ${nome||'Terceirizado'}</span>`;
+    }
+    if(st==='concluido'){
+      return `<span style="display:inline-flex;align-items:center;gap:6px;background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700">✓ Concluído</span>`;
+    }
+    const tempoAtivo=temposOP.find(t=>t.ordem_id===o.id&&temposReais(t)&&!t.dt_hr_final);
+    const op=tempoAtivo?.operacao||'—';
+    const cor=COR_OPERACAO[op]||'#1565c0';
+    return `<span onclick="event.stopPropagation();abrirMenuEtapaOrdem(event,'${o.id}','${op.replace(/'/g,"\\'")}')" style="display:inline-flex;align-items:center;gap:6px;background:${cor};color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">▶ ${op}</span>`;
+  };
+
+  const renderBlocoPdvOrdens = ([pdvId, ordensGrupoTodas])=>{
     const pdv=pdvs.find(p=>p.id===pdvId);
+    const pdvLabel = pdv
+      ? `PDV ${pdv.numero}${pdv.cliente?' — '+pdv.cliente:''}`
+      : '📁 Sem PDV — registros históricos/antigos';
     // Busca da barrinha do próprio PDV: filtra só as ordens daquele bloco,
     // sem afetar os demais (igual ao que fizemos na Estrutura de Equipamentos).
     const termoLocal=(buscaOrdemPorPdv[pdvId]||'').trim().toLowerCase();
@@ -7851,11 +8176,21 @@ function renderOrdens(){
       const oper=(temposOP||[]).filter(t=>t.ordem_id===o.id).map(t=>t.operador||'').join(' ');
       return [o.numero,o.descricao,o.desenho,o.material,oper].filter(Boolean).join(' | ').toLowerCase().includes(termoLocal);
     });
+    ordensGrupo.sort((a,b)=>{
+      if(estOrdemProdCampo==='desenho'){
+        return String(a.desenho||'').localeCompare(String(b.desenho||''),'pt-BR',{numeric:true,sensitivity:'base'}) * estOrdemProdDir;
+      }
+      if(estOrdemProdCampo==='dias'){
+        const da=_diasAbertaOrdem(a), db=_diasAbertaOrdem(b);
+        return ((da===null?-1:da)-(db===null?-1:db)) * estOrdemProdDir;
+      }
+      return ((a.numero||0)-(b.numero||0)) * estOrdemProdDir;
+    });
     if(!ordensGrupo.length && termoLocal){
       // Mantém o cabeçalho com a barra para o usuário conseguir limpar/ajustar a busca.
       return `<div style="margin-bottom:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
         <div style="background:#f5f5f5;padding:10px 14px;font-weight:700;font-size:13px;color:#37474f;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-          <span>📋 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}</span>
+          <span>📋 ${pdvLabel}</span>
           <span style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;min-width:220px">
             <input type="search" id="buscaOrdemPdv_${pdvId}" value="${termoLocal.replace(/"/g,'&quot;')}"
               oninput="filtrarOrdemPorPdv('${pdvId}',this.value)" placeholder="🔍 Buscar neste PDV..."
@@ -7878,16 +8213,35 @@ function renderOrdens(){
         }
         if(op==='Terceirizado'){
           const ativo = st==='terceirizado';
+          const foiTerceirizado = !ativo && !!(o.terceirizado_nome||o.terceirizado_data);
           const nome = (o.terceirizado_nome||'').trim();
           const nomeEsc = nome.replace(/"/g,'&quot;');
-          // Nome do terceirizado embaixo do caminhão — direto no HTML da célula,
-          // sem observar a página (evita o loop que travava o sistema antes).
-          const rotulo = ativo
-            ? `🚚${nome?`<div style="font-size:9px;font-weight:700;color:#fff;line-height:1.15;margin-top:2px;max-width:74px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal">${nomeEsc}</div>`:''}`
-            : '';
-          return `<td onclick="${ativo?'retornarTerceirizado':'terceirizarOrdem'}('${o.id}')"
-            style="background:${ativo?COR_OPERACAO['Terceirizado']:'#fff'};color:${ativo?'#fff':'#ef6c00'};border:1px solid ${ativo?COR_OPERACAO['Terceirizado']:'#b0bec5'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-            title="${ativo?('Terceirizado com '+(nomeEsc||'—')+' — clique para registrar retorno'):'Enviar para terceirizado'}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${rotulo}</td>`;
+          if(ativo){
+            // Mesmo esquema de cores/dias do selo de idade da ordem (Nº), aplicado
+            // aqui: quantos dias está terceirizado, mudando de cor a cada 5 dias.
+            const diasTerc = _centralDiasDesde(o.terceirizado_data);
+            const badgeDiasTerc = diasTerc!==null
+              ? `<span title="${diasTerc} dia${diasTerc===1?'':'s'} terceirizado" style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 3px;border-radius:4px;background:${_corIdadeOrdem(diasTerc)};color:#fff;font-size:8px;font-weight:700;border:1px solid rgba(255,255,255,.7);vertical-align:middle;margin-right:3px">${diasTerc}</span>`
+              : '';
+            // Nome do terceirizado embaixo do caminhão — direto no HTML da célula,
+            // sem observar a página (evita o loop que travava o sistema antes).
+            const rotulo = `<div>${badgeDiasTerc}🚚</div>${nome?`<div style="font-size:9px;font-weight:700;color:#fff;line-height:1.15;margin-top:2px;max-width:74px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal">${nomeEsc}</div>`:''}`;
+            return `<td onclick="retornarTerceirizado('${o.id}')"
+              style="background:${COR_OPERACAO['Terceirizado']};color:#fff;border:1px solid ${COR_OPERACAO['Terceirizado']};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
+              title="Terceirizado com ${nomeEsc||'—'} — ${diasTerc!==null?diasTerc+' dia(s) — ':''}clique para registrar retorno" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${rotulo}</td>`;
+          }
+          if(foiTerceirizado){
+            // Já foi terceirizado e voltou — mostra ✓ igual às outras operações
+            // concluídas, em vez de ficar em branco como se nunca tivesse saído.
+            const dataEnvio = o.terceirizado_data?new Date(o.terceirizado_data+'T12:00').toLocaleDateString('pt-BR'):'—';
+            const dataRetorno = o.terceirizado_retorno?new Date(o.terceirizado_retorno+'T12:00').toLocaleDateString('pt-BR'):null;
+            return `<td onclick="terceirizarOrdem('${o.id}')"
+              style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
+              title="Terceirizado com ${nomeEsc||'—'} — enviado ${dataEnvio}${dataRetorno?' · voltou '+dataRetorno:''}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">✓</td>`;
+          }
+          return `<td onclick="terceirizarOrdem('${o.id}')"
+            style="background:#fff;color:#ef6c00;border:1px solid #b0bec5;text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
+            title="Enviar para terceirizado" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'"></td>`;
         }
         const tempo = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
         const concluidasOp = temposOP.filter(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
@@ -7902,19 +8256,24 @@ function renderOrdens(){
 
       return `<tr style="border-bottom:1px solid #b0bec5">
         <td style="padding:8px 10px;font-weight:700;color:#263238;white-space:nowrap">
-          Nº ${o.numero}
+          <div style="display:flex;align-items:center;gap:6px">
+            ${_badgeIdadeOrdem(o)}
+            <span>Nº ${o.numero}</span>
+          </div>
           ${o.dt_abertura?`<div style="font-weight:400;font-size:10px;color:#90a4ae;margin-top:2px">📅 ${o.dt_abertura.split('T')[0].split('-').reverse().join('/')}</div>`:''}
         </td>
+        <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#1f6b4f;white-space:nowrap">${o.desenho||'—'}</td>
         <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px">
             ${o.descricao||'—'}
             ${st==='concluido'&&recemConcluida(o)?'<span style="background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap" title="Concluída hoje — some da lista a partir de amanhã, a menos que marque \'Mostrar concluídas\'">✓ Pronta hoje</span>':''}
           </div>
-          ${o.desenho||o.material?`<div style="font-size:10px;color:#9e9e9e">${[o.desenho,o.material].filter(Boolean).join(' · ')}</div>`:''}
+          ${o.material?`<div style="font-size:10px;color:#9e9e9e">${o.material}</div>`:''}
         </td>
         <td style="padding:8px 4px;text-align:center;font-weight:700;color:#37474f">${o.quantidade||1}</td>
         ${celulas}
         <td style="padding:6px 8px;white-space:nowrap;text-align:center">
+          ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado — fecha a ordem e qualquer etapa em aberto, mesmo sem o tempo registrado certinho">✅</button>`:''}
           <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" title="Imprimir">🖨️</button>
           <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" title="Excluir">🗑</button>
@@ -7922,9 +8281,40 @@ function renderOrdens(){
       </tr>`;
     }).join('');
 
+    // Versão em cartões (celular): um cartão por ordem, com selo da etapa atual
+    // (toque avança/consulta) em vez das 8 colunas de máquina lado a lado.
+    const cardsMobile = !isMobile ? '' : ordensGrupo.map(o=>{
+      const st=statusOrdem(o);
+      return `<div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:700;font-size:13px;color:#263238;display:flex;align-items:center;gap:6px">${_badgeIdadeOrdem(o)}<span>Nº ${o.numero}${o.dt_abertura?` <span style="font-weight:400;font-size:10px;color:#90a4ae">📅 ${o.dt_abertura.split('T')[0].split('-').reverse().join('/')}</span>`:''}</span></div>
+            <div style="font-weight:600;font-size:13px;color:#37474f;margin-top:4px;overflow-wrap:anywhere;display:flex;align-items:center;flex-wrap:wrap;gap:6px">
+              ${o.descricao||'—'}
+              ${st==='concluido'&&recemConcluida(o)?'<span style="background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap">✓ Pronta hoje</span>':''}
+            </div>
+            ${o.desenho||o.material?`<div style="font-size:11px;color:#9e9e9e;margin-top:2px">${[o.desenho,o.material].filter(Boolean).join(' · ')}</div>`:''}
+          </div>
+          <div style="text-align:center;flex-shrink:0;background:#f5f5f5;border-radius:8px;padding:4px 10px">
+            <div style="font-size:9px;color:#9e9e9e;text-transform:uppercase">Qtd</div>
+            <div style="font-weight:700;font-size:15px;color:#37474f">${o.quantidade||1}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #f0f0f0">
+          ${badgeEtapaMobile(o)}
+          <div style="display:flex;gap:4px">
+            ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado">✅</button>`:''}
+            <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
+            <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" title="Imprimir">🖨️</button>
+            <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" title="Excluir">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
     return `<div style="margin-bottom:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
       <div style="background:#f5f5f5;padding:10px 14px;font-weight:700;font-size:13px;color:#37474f;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <span>📋 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${pdv?.equipamento?' · '+pdv.equipamento:''}</span>
+        <span>📋 ${pdvLabel}${pdv?.equipamento?' · '+pdv.equipamento:''}</span>
         <span style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;min-width:220px">
           <input type="search" id="buscaOrdemPdv_${pdvId}" value="${(buscaOrdemPorPdv[pdvId]||'').replace(/"/g,'&quot;')}"
             oninput="filtrarOrdemPorPdv('${pdvId}',this.value)"
@@ -7934,16 +8324,20 @@ function renderOrdens(){
           <span style="font-weight:400;color:#9e9e9e;white-space:nowrap">${ordensGrupo.length} ${ordensGrupo.length!==1?'ordens':'ordem'}</span>
         </span>
       </div>
-      <div style="overflow-x:auto">
+      ${isMobile ? `<div style="padding:10px">${cardsMobile}</div>` : `<div style="overflow-x:auto">
 <table style="width:100%;min-width:1606px;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
-            <col style="width:70px"><col style="width:200px"><col style="width:80px">
+            <col style="width:100px"><col style="width:90px"><col style="width:174px"><col style="width:80px">
 ${COLS_FIXAS.map(()=>'<col style="width:92px">').join('')}
             <col style="width:110px">
           </colgroup>
           <tbody>
             <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
-              <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Ordem</th>
+              <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase;user-select:none">
+                <span onclick="toggleOrdemProd('numero')" style="cursor:pointer" title="Ordenar por número da ordem">Ordem${estOrdemProdCampo==='numero'?(estOrdemProdDir===1?' ▲':' ▼'):''}</span>
+                <span onclick="event.stopPropagation();toggleOrdemProd('dias')" style="cursor:pointer;margin-left:6px;opacity:${estOrdemProdCampo==='dias'?1:0.45}" title="Ordenar por dias abertos (mais antiga primeiro)">🕐${estOrdemProdCampo==='dias'?(estOrdemProdDir===1?'▲':'▼'):''}</span>
+              </th>
+              <th onclick="toggleOrdemProd('desenho')" style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase;cursor:pointer;user-select:none" title="Ordenar por número do desenho">Desenho${estOrdemProdCampo==='desenho'?(estOrdemProdDir===1?' ▲':' ▼'):''}</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
               <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Quantidade</th>
 ${COLS_FIXAS.map(op=>`<th style="height:42px;padding:6px;text-align:center;vertical-align:middle;color:#546e7a;font-size:9px;font-weight:700;letter-spacing:.35px;text-transform:uppercase;line-height:1.25;white-space:normal;word-break:keep-all;overflow-wrap:normal">${op}</th>`).join('')}
@@ -7952,9 +8346,60 @@ ${COLS_FIXAS.map(op=>`<th style="height:42px;padding:6px;text-align:center;verti
             ${linhas}
           </tbody>
         </table>
-      </div>
+      </div>`}
     </div>`;
-  }).join('') || '<div class="empty" style="padding:32px;text-align:center;color:#9e9e9e">Nenhuma ordem corresponde aos filtros.</div>';
+  };
+
+  // Preserva a posição do scroll da árvore/tabela ao re-renderizar (ex: ao abrir
+  // uma etapa) — sem isso, o scroll sempre voltaria pro topo.
+  const scrollsSalvosOrdens = {};
+  div.querySelectorAll('[data-scroll-ordens]').forEach(el=>{ scrollsSalvosOrdens[el.dataset.scrollOrdens]=el.scrollTop; });
+
+  // ---- MODO DETALHE: um PDV específico, aberto pelo clique no cartão ----
+  const grupoSelecionado = _pdvOrdemSelecionado ? gruposOrdenados.find(([id])=>id===_pdvOrdemSelecionado) : null;
+  if(grupoSelecionado){
+    div.innerHTML = `<button class="btn btn-sm" onclick="_voltarListaPdvOrdens()" style="margin-bottom:12px">← Voltar aos PDVs</button>
+    <div data-scroll-ordens="${_pdvOrdemSelecionado}">${renderBlocoPdvOrdens(grupoSelecionado)}</div>`;
+    const elS=div.querySelector('[data-scroll-ordens]');
+    if(elS){ const salvo=scrollsSalvosOrdens[_pdvOrdemSelecionado]; if(salvo) elS.scrollTop=salvo; }
+    return;
+  }
+
+  // ---- MODO GRADE: um cartão por PDV, ordenado pela ordem mais recente
+  // primeiro (dias abertos) — resolve ter que rolar a tela toda pra achar
+  // onde estão as ordens novas.
+  const gruposParaGrade = [...gruposOrdenados].sort(([,grpA],[,grpB])=>{
+    const da=grpA.map(o=>_diasAbertaOrdem(o)).filter(d=>d!==null);
+    const db=grpB.map(o=>_diasAbertaOrdem(o)).filter(d=>d!==null);
+    const ma=da.length?Math.min(...da):9999, mb=db.length?Math.min(...db):9999;
+    return ma-mb;
+  });
+
+  div.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
+    ${gruposParaGrade.map(([pdvId, ordensGrupoTodas])=>{
+      const pdv=pdvs.find(p=>p.id===pdvId);
+      const diasArr=ordensGrupoTodas.map(o=>_diasAbertaOrdem(o)).filter(d=>d!==null);
+      const minDias=diasArr.length?Math.min(...diasArr):null;
+      const corMin=minDias!==null?_corIdadeOrdem(minDias):'#b0bec5';
+      const pendentes=ordensGrupoTodas.filter(o=>statusOrdem(o)!=='concluido').length;
+      return `<div onclick="_abrirDetalhePdvOrdens('${pdvId}')"
+        style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px;cursor:pointer;transition:box-shadow .15s,transform .15s"
+        onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)';this.style.transform='translateY(-1px)'"
+        onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:18px">📋</span>
+          <span style="font-size:11px;color:#9e9e9e;font-weight:700;text-transform:uppercase">${pdv?('PDV '+pdv.numero):'Sem PDV'}</span>
+          ${minDias!==null?`<span title="Ordem mais recente: ${minDias} dia(s)" style="margin-left:auto;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:6px;background:${corMin};color:#fff;font-size:10px;font-weight:700">${minDias}</span>`:''}
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#37474f;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(pdv?.cliente||'').replace(/"/g,'&quot;')}">${pdv?.cliente||'Sem PDV — histórico'}</div>
+        <div style="font-size:12px;color:#78909c;margin-bottom:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(pdv?.equipamento||'').replace(/"/g,'&quot;')}">${pdv?.equipamento||''}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:#546e7a">${ordensGrupoTodas.length} ${ordensGrupoTodas.length!==1?'ordens':'ordem'}</span>
+          ${pendentes?`<span style="font-size:11px;color:#ef6c00;font-weight:700">${pendentes} em aberto</span>`:`<span style="font-size:11px;color:#2e7d32;font-weight:700">✓ tudo concluído</span>`}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 // ── Menu rápido ao clicar numa célula da grade de produção ─────────────────
@@ -8064,6 +8509,30 @@ async function reabrirEtapaOrdem(tempoId){
     showToast('Etapa reaberta!');
     await loadAll();
   }catch(e){showToast('Erro','err');}
+}
+
+// Selo mobile em "Aguardando": como não há colunas de máquina visíveis no
+// cartão, o toque abre uma lista pra escolher em qual etapa iniciar.
+function abrirEscolherEtapaMobile(event, ordemId){
+  event.stopPropagation();
+  document.getElementById('menuEtapaOrdem')?.remove();
+  document.getElementById('menuEscolhaEtapa')?.remove();
+  const elClicado = event.currentTarget;
+  const menu=document.createElement('div');
+  menu.id='menuEscolhaEtapa';
+  menu.className='user-menu open';
+  menu.style.position='fixed';
+  menu.style.zIndex='200';
+  menu.style.width='fit-content';
+  menu.style.minWidth='200px';
+  menu.style.maxWidth='300px';
+  const itensOp = OPERACOES_PROD.map(op=>`<div class="user-menu-item" onclick="document.getElementById('menuEscolhaEtapa').remove();abrirIniciarOp('${ordemId}','${op.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:${COR_OPERACAO[op]||'#1565c0'};flex-shrink:0"></span>${op}</div>`).join('');
+  menu.innerHTML = `<div style="padding:8px 14px 4px;font-size:10px;color:#9e9e9e;text-transform:uppercase;font-weight:700">Iniciar em qual etapa?</div>`
+    + itensOp
+    + `<div style="border-top:1px solid #eee;margin:4px 0"></div><div class="user-menu-item" style="color:#ef6c00;font-weight:700" onclick="document.getElementById('menuEscolhaEtapa').remove();terceirizarOrdem('${ordemId}')">🚚 Terceirizar</div>`;
+  _posicionarMenuEtapa(menu, elClicado);
+  const fechar=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',fechar); } };
+  setTimeout(()=>document.addEventListener('click',fechar),0);
 }
 
 function abrirIniciarOp(ordemId, operacao){
@@ -8367,12 +8836,25 @@ function adicionarSubMontagem(parentId){
   const novoId = _tempId();
   _nosTemp.push({id:novoId, tipo:'montagem', parent_id:parentId, nome_montagem:'', numero_desenho:'', material:'', quantidade:1});
   renderColunas();
+  _scrollAteNoEstrutura(novoId);
 }
 
 function adicionarItemEm(parentId){
   const novoId = _tempId();
   _nosTemp.push({id:novoId, tipo:'item', parent_id:parentId, item_numero:'', denominacao:'', desenho_peca:'', material:'', quantidade:1, item_tipo:'fabricar', ordem_id:null, item_compra_id:null});
   renderColunas();
+  _scrollAteNoEstrutura(novoId);
+}
+
+// Rola até o item/montagem recém-criado (some da vista se a lista estiver rolada
+// pra baixo ou a coluna já estiver cheia) e foca no campo de nome pra digitar direto.
+function _scrollAteNoEstrutura(noId){
+  setTimeout(()=>{
+    const el=document.querySelector(`[data-no-id="${noId}"]`);
+    if(!el) return;
+    el.scrollIntoView({block:'nearest', behavior:'smooth'});
+    el.querySelector('input')?.focus();
+  }, 30);
 }
 
 function removerNo(nodeId){
@@ -8589,7 +9071,7 @@ function renderColunas(){
             <button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
           </div>
           <div style="display:flex;align-items:center;gap:4px;padding-left:19px">
-            <input value="${(no.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','numero_desenho',this.value)" onclick="event.stopPropagation()" placeholder="Nº desenho" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
+            <input value="${(no.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','numero_desenho',this.value)" onblur="_checarDesenhoDuplicadoNaEstrutura('${no.id}',this.value)" onclick="event.stopPropagation()" placeholder="Nº desenho" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
             <input value="${(no.material||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','material',this.value)" onclick="event.stopPropagation()" placeholder="Material" style="width:62px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
             <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" onclick="event.stopPropagation()" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
             <span style="font-size:11px;color:#558b2f;flex-shrink:0;font-weight:700;white-space:nowrap" title="Clique na linha pra abrir">▶ abrir</span>
@@ -8646,7 +9128,7 @@ function renderColunas(){
           ${botaoConverter}${botaoRemover}
         </div>
         <div style="display:flex;gap:3px">
-          <input value="${(no.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','desenho_peca',this.value)" onclick="event.stopPropagation()" placeholder="Desenho/Padrão" style="flex:1;min-width:0;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
+          <input value="${(no.desenho_peca||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','desenho_peca',this.value)" onblur="_checarDesenhoDuplicadoNaEstrutura('${no.id}',this.value)" onclick="event.stopPropagation()" placeholder="Desenho/Padrão" style="flex:1;min-width:0;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
           <input value="${(no.material||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','material',this.value)" onclick="event.stopPropagation()" placeholder="Material" style="width:62px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
           <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" onclick="event.stopPropagation()" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
         </div>
@@ -8661,11 +9143,11 @@ function renderColunas(){
     const textoBotaoItem = parentId===null ? '+ Adicionar item ao equipamento' : '+ Adicionar item';
     html += `<div style="min-width:280px;width:280px;flex-shrink:0;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;max-height:320px">
       <div style="padding:7px 10px;background:#eceff1;font-size:11px;font-weight:700;color:#37474f;border-bottom:1px solid #e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${labelTopo}">${labelTopo}</div>
-      <div style="flex:1;overflow-y:auto">${linhas}</div>
-      <div style="display:flex;gap:4px;padding:6px;border-top:1px solid #e0e0e0;background:#fafafa">
+      <div style="display:flex;gap:4px;padding:6px;border-bottom:1px solid #e0e0e0;background:#fafafa">
         <button class="btn btn-sm" onclick="adicionarSubMontagem(${parentId===null?'null':"'"+parentId+"'"})" title="${dicaBotaoMontagem}" style="font-size:10px;padding:3px 6px;flex:1">${textoBotaoMontagem}</button>
         <button class="btn btn-sm" onclick="adicionarItemEm(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">${textoBotaoItem}</button>
       </div>
+      <div style="flex:1;overflow-y:auto">${linhas}</div>
     </div>`;
   }
   container.innerHTML = html;
@@ -9003,6 +9485,11 @@ function _equipamentoDaMontagem(montagem){ return _equipamentoDoNo(montagem, 'mo
 function criarOPdoItemDesenho(itemId){
   const item = itensDesenhoRecebido.find(i=>i.id===itemId);
   if(!item) return;
+  _checarDesenhoDuplicadoEProsseguir(item.desenho_peca, itemId, ()=>_abrirModalOrdemDoItemDesenho(itemId));
+}
+function _abrirModalOrdemDoItemDesenho(itemId){
+  const item = itensDesenhoRecebido.find(i=>i.id===itemId);
+  if(!item) return;
   const desenho = _equipamentoDoItem(item);
   abrirModalOrdem(null);
   setTimeout(()=>{
@@ -9030,6 +9517,11 @@ function criarOPdoItemDesenho(itemId){
 // Cria a Ordem de Produção a partir de uma Montagem — mesmo fluxo do item Fabricar,
 // só que usando os campos próprios da montagem (nome/numero_desenho/material/quantidade).
 function criarOPdaMontagem(montagemId){
+  const montagem = montagensRecebidas.find(m=>m.id===montagemId);
+  if(!montagem) return;
+  _checarDesenhoDuplicadoEProsseguir(montagem.numero_desenho, montagemId, ()=>_abrirModalOrdemDaMontagem(montagemId));
+}
+function _abrirModalOrdemDaMontagem(montagemId){
   const montagem = montagensRecebidas.find(m=>m.id===montagemId);
   if(!montagem) return;
   const desenho = _equipamentoDaMontagem(montagem);
@@ -9237,7 +9729,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
     const statusMontagemHtml = no.ordem_id
       ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>`
       : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdaMontagem('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`;
-    return `<div data-tipo-item="montagem" onclick="_navegarArvore('${desenhoId}','${no.id}')" class="arv-linha" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;background:#f9fbe7">
+    return `<div data-tipo-item="montagem" onclick="_navegarArvore('${desenhoId}','${no.id}')" class="arv-linha" style="padding:8px 12px 8px 9px;cursor:pointer;border-bottom:1px solid #eee;border-left:3px solid ${no.ordem_id?'#2e7d32':'#ef6c00'};background:#f9fbe7">
       <span style="font-size:13px;flex-shrink:0">📁</span>
       ${_badgeTipoNo('montagem')}
       <span class="arv-mont-info" style="font-size:12px;font-weight:700;color:#827717">
@@ -9260,7 +9752,8 @@ function _renderArvoreCascata(desenhoId, termoBusca){
     const statusHtml = no.item_tipo==='fabricar'
       ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`)
       : _statusComercial(no).html;
-    return `<div data-tipo-item="${no.item_tipo}" onclick="${temFilhos?`_navegarArvore('${desenhoId}','${no.id}')`:''}" class="arv-linha" style="padding:7px 12px;cursor:${temFilhos?'pointer':'default'};border-bottom:1px solid #f5f5f5;background:#fff">
+    const prontoItem = no.item_tipo==='fabricar' ? !!no.ordem_id : !_statusComercial(no).pendente;
+    return `<div data-tipo-item="${no.item_tipo}" onclick="${temFilhos?`_navegarArvore('${desenhoId}','${no.id}')`:''}" class="arv-linha" style="padding:7px 12px 7px 9px;cursor:${temFilhos?'pointer':'default'};border-bottom:1px solid #f5f5f5;border-left:3px solid ${prontoItem?'#2e7d32':'#ef6c00'};background:#fff">
       <div class="arv-denom-grupo">
         ${_badgeTipoNo(no.item_tipo)}
         <span style="font-size:12px;font-weight:600">${destaca(no.denominacao||'—')}</span>
@@ -9343,11 +9836,23 @@ function filtrarEquipamento(desenhoId, valor){
   cont.scrollTop = 0;
 }
 
+// Qual equipamento está aberto em modo detalhe — null = mostra a grade de cartões.
+let _equipamentoSelecionado = null;
+function _abrirDetalheEquipamento(id){
+  _equipamentoSelecionado = id;
+  renderDesenhosRecebidos();
+}
+function _voltarListaEquipamentos(){
+  _equipamentoSelecionado = null;
+  renderDesenhosRecebidos();
+}
+
 function renderDesenhosRecebidos(){
   const div = document.getElementById('listaDesenhosRecebidos');
   if(!div) return;
   const busca = (document.getElementById('buscaDesenho')?.value||'').toLowerCase();
   const soPendentes = document.getElementById('desFiltroPendentes')?.checked||false;
+  const verConcluidos = document.getElementById('desVerConcluidos')?.checked||false;
 
   // Pendência: qualquer item OU montagem (em qualquer profundidade) deste
   // equipamento ainda sem OP/compra — montagem sem ordem_id só conta se tiver
@@ -9360,6 +9865,27 @@ function renderDesenhosRecebidos(){
       if(no.tipo==='montagem') return !no.ordem_id && idsComFilhos.has(no.id);
       return (no.item_tipo==='fabricar'&&!no.ordem_id) || ((no.item_tipo==='comercial'||no.item_tipo==='materia_prima')&&_statusComercial(no).pendente);
     });
+  };
+
+  // Progresso do equipamento: quantos itens/montagens "contáveis" (que não são
+  // pasta vazia) já estão prontos (OP criada ou comprado) vs total.
+  const progressoDe = d => {
+    const arvoreD = nosDoEquipamento(d);
+    const idsComFilhosD = new Set(arvoreD.filter(n=>n.parent_id!==null).map(n=>n.parent_id));
+    let totalD=0, prontosD=0;
+    arvoreD.forEach(no=>{
+      if(no.tipo==='montagem'){
+        if(!idsComFilhosD.has(no.id)) return;
+        totalD++; if(no.ordem_id) prontosD++;
+      } else if(no.item_tipo==='fabricar'){
+        totalD++; if(no.ordem_id) prontosD++;
+      } else if(no.item_tipo==='comercial'||no.item_tipo==='materia_prima'){
+        totalD++; if(!_statusComercial(no).pendente) prontosD++;
+      }
+    });
+    const pctD = totalD ? Math.round(prontosD/totalD*100) : 100;
+    const corBarraD = pctD===100 ? '#2e7d32' : pctD>=50 ? '#f9a825' : '#ef6c00';
+    return {totalD, prontosD, pctD, corBarraD};
   };
 
   let lista = desenhosRecebidos.filter(d=>{
@@ -9375,6 +9901,7 @@ function renderDesenhosRecebidos(){
       if(!bateNoEquip && !bateNaArvore) return false;
     }
     if(soPendentes && !temPendencia(d)) return false;
+    if(verConcluidos ? !d.concluido_manual : !!d.concluido_manual) return false;
     return true;
   });
 
@@ -9407,33 +9934,47 @@ function renderDesenhosRecebidos(){
       <div class="stat yellow"><div class="stat-label">🛒 Aguardando compra</div><div class="stat-val">${totalComercialPendente}</div></div>`;
   }
 
-  // Preserva a posição do scroll de cada equipamento — sem isso, clicar pra
-  // abrir/fechar uma montagem reescreve o innerHTML inteiro e o scroll sempre
-  // volta pro topo, perdendo o lugar onde a pessoa estava olhando.
-  const scrollsSalvos = {};
-  div.querySelectorAll('[data-scroll-arv]').forEach(el=>{ scrollsSalvos[el.dataset.scrollArv] = el.scrollTop; });
-
   if(!lista.length){
-    div.innerHTML = `<div class="empty" style="padding:32px;text-align:center">
-      <div style="font-size:32px;margin-bottom:8px">📐</div>
-      <div style="font-weight:600;margin-bottom:8px">Nenhum equipamento recebido cadastrado</div>
-      <button class="btn primary" style="width:auto;padding:10px 24px" onclick="abrirModalDesenhoRecebido(null)">+ Novo Equipamento Recebido</button>
-    </div>`;
+    _equipamentoSelecionado = null;
+    div.innerHTML = verConcluidos
+      ? `<div class="empty" style="padding:32px;text-align:center">
+          <div style="font-size:32px;margin-bottom:8px">✅</div>
+          <div style="font-weight:600">Nenhum equipamento concluído ainda</div>
+        </div>`
+      : `<div class="empty" style="padding:32px;text-align:center">
+          <div style="font-size:32px;margin-bottom:8px">📐</div>
+          <div style="font-weight:600;margin-bottom:8px">Nenhum equipamento recebido cadastrado</div>
+          <button class="btn primary" style="width:auto;padding:10px 24px" onclick="abrirModalDesenhoRecebido(null)">+ Novo Equipamento Recebido</button>
+        </div>`;
     return;
   }
 
-  div.innerHTML = lista.map(d=>{
+  // ---- MODO DETALHE: um equipamento específico, aberto pelo clique no cartão ----
+  const dSelecionado = _equipamentoSelecionado ? desenhosRecebidos.find(x=>x.id===_equipamentoSelecionado) : null;
+  if(dSelecionado){
+    // Preserva a posição do scroll da árvore — sem isso, abrir/fechar uma
+    // montagem reescreve o innerHTML inteiro e o scroll sempre volta pro topo.
+    const scrollsSalvos = {};
+    div.querySelectorAll('[data-scroll-arv]').forEach(el=>{ scrollsSalvos[el.dataset.scrollArv] = el.scrollTop; });
+
+    const d = dSelecionado;
     const pdv = pdvs.find(p=>p.id===d.pdv_id);
-    // A busca da barrinha do próprio PDV tem prioridade sobre a busca geral:
-    // quando a pessoa digita ali, ela quer filtrar só aquele equipamento.
     const buscaLocal = (buscaEquipamento[d.id]||'').trim().toLowerCase();
     const corpoArvore = _renderArvoreCascata(d.id, buscaLocal || busca);
+    const {totalD, prontosD, pctD, corBarraD} = progressoDe(d);
 
-    return `<div style="margin-bottom:16px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
+    div.innerHTML = `<button class="btn btn-sm" onclick="_voltarListaEquipamentos()" style="margin-bottom:12px">← Voltar aos equipamentos</button>
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
       <div style="background:#f5f5f5;padding:12px 16px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-weight:700;font-size:13px;color:#37474f">📐 PDV ${pdv?.numero||'—'}${pdv?.cliente?' — '+pdv.cliente:''}${d.nome_equipamento?' · '+d.nome_equipamento:''}${d.numero_geral?' · Desenho Geral Nº '+d.numero_geral:''}</div>
           <div style="font-size:11px;color:#9e9e9e">Recebido em ${new Date(d.data_recebimento+'T12:00').toLocaleDateString('pt-BR')}</div>
+          ${totalD>0?`<div style="margin-top:7px;max-width:240px">
+            <div style="position:relative;background:#eceff1;border-radius:10px;height:19px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.06)">
+              <div style="background:linear-gradient(90deg,${corBarraD}dd,${corBarraD});height:100%;width:${pctD}%;border-radius:10px;transition:width .4s"></div>
+              <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.2px;color:${pctD>48?'#fff':'#546e7a'};text-shadow:${pctD>48?'0 1px 2px rgba(0,0,0,.28)':'none'}">${prontosD}/${totalD} prontos · ${pctD}%</span>
+            </div>
+          </div>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex:1;justify-content:flex-end;min-width:220px">
           ${corpoArvore ? `<input type="search" id="buscaEq_${d.id}" value="${(buscaEquipamento[d.id]||'').replace(/"/g,'&quot;')}"
@@ -9441,6 +9982,9 @@ function renderDesenhosRecebidos(){
             placeholder="🔍 Buscar neste equipamento..."
             title="Busca apenas dentro deste equipamento (montagens, peças e nº de desenho)"
             style="flex:1;max-width:300px;padding:6px 10px;border:1px solid #cfd8dc;border-radius:7px;font-size:12px;background:#fff">` : ''}
+          ${d.concluido_manual
+            ? `<button class="btn btn-sm" style="background:#f3e5f5;color:#6a1b9a;border-color:#ce93d8" onclick="restaurarPDVConcluido('${d.id}')" title="Tira da seção Concluídos e volta pra tela inicial">↩️ Restaurar</button>`
+            : `<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="concluirPDVForcado('${d.id}')" title="Concluir à força — fecha todas as ordens já criadas neste equipamento que ainda estejam abertas, e move pra Concluídos">✅ Concluir PDV</button>`}
           <button class="btn btn-sm" onclick="abrirModalDesenhoRecebido('${d.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm danger" onclick="deletarDesenhoRecebido('${d.id}')" title="Excluir">🗑</button>
         </div>
@@ -9457,12 +10001,41 @@ function renderDesenhosRecebidos(){
         <div data-scroll-arv="${d.id}" style="overflow-x:auto;max-height:560px;overflow-y:auto">${corpoArvore}</div>
       </div>` : `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhuma montagem ou item cadastrado neste equipamento</div>`}
     </div>`;
-  }).join('');
 
-  div.querySelectorAll('[data-scroll-arv]').forEach(el=>{
-    const salvo = scrollsSalvos[el.dataset.scrollArv];
-    if(salvo) el.scrollTop = salvo;
-  });
+    div.querySelectorAll('[data-scroll-arv]').forEach(el=>{
+      const salvo = scrollsSalvos[el.dataset.scrollArv];
+      if(salvo) el.scrollTop = salvo;
+    });
+    return;
+  }
+
+  // ---- MODO GRADE: um cartão-resumo por equipamento ----
+  div.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">
+    ${lista.map(d=>{
+      const pdv = pdvs.find(p=>p.id===d.pdv_id);
+      const {totalD, prontosD, pctD, corBarraD} = progressoDe(d);
+      return `<div onclick="_abrirDetalheEquipamento('${d.id}')"
+        style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px;cursor:pointer;transition:box-shadow .15s,transform .15s"
+        onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)';this.style.transform='translateY(-1px)'"
+        onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:18px">📐</span>
+          <span style="font-size:11px;color:#9e9e9e;font-weight:700;text-transform:uppercase">PDV ${pdv?.numero||'—'}</span>
+          ${d.concluido_manual?`<span style="margin-left:auto;font-size:10px;background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:8px;font-weight:700">✅ Concluído</span>`:''}
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#37474f;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(pdv?.cliente||'').replace(/"/g,'&quot;')}">${pdv?.cliente||'—'}</div>
+        <div style="font-size:12px;color:#78909c;margin-bottom:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.nome_equipamento||'').replace(/"/g,'&quot;')}">${d.nome_equipamento||'Sem nome'}</div>
+        ${totalD>0?`
+        <div style="background:#eceff1;border-radius:8px;height:8px;overflow:hidden">
+          <div style="background:${corBarraD};height:100%;width:${pctD}%;border-radius:8px;transition:width .4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="font-size:11px;color:#78909c">${prontosD}/${totalD} prontos</span>
+          <span style="font-size:11px;font-weight:700;color:${corBarraD}">${pctD}%</span>
+        </div>`:`<div style="font-size:11px;color:#9e9e9e">Nada cadastrado ainda</div>`}
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 function abrirModalOrdem(id){
@@ -9577,6 +10150,79 @@ function preencherDadosOrdem(){
 
 // Soft-delete: a ordem não é removida do banco, só marcada com excluida_em.
 // Fica escondida da lista normal, mas pode ser restaurada pela Lixeira por 30 dias.
+// Fecha qualquer etapa aberta (sem dt_hr_final) e marca UMA ordem como concluída
+// — sem confirm/toast, pra poder ser chamada tanto sozinha quanto em lote.
+async function _forcarConclusaoOrdemSemConfirmar(o){
+  const agora=new Date().toISOString();
+  const abertos=(temposOP||[]).filter(t=>t.ordem_id===o.id && !t.dt_hr_final);
+  for(const t of abertos){
+    await api('PATCH','tempos_op',{dt_hr_final:agora},`?id=eq.${t.id}`);
+  }
+  const nota=`[Finalizada manualmente/forçado em ${new Date().toLocaleDateString('pt-BR')} por ${usuarioLogado?.nome||'—'}]`;
+  await api('PATCH','ordens_producao',{
+    status:'concluido',
+    concluido_por:usuarioLogado?.nome||null,
+    concluido_em:agora,
+    observacao:(o.observacao?o.observacao+' ':'')+nota
+  },`?id=eq.${o.id}`);
+}
+
+// Finaliza a ordem à força — pra quando o registro de tempo falhou e a ordem
+// fica presa "em andamento" sem jeito de concluir pelo fluxo normal.
+async function finalizarOrdemForcado(id){
+  const o=(ordens||[]).find(x=>x.id===id);
+  if(!o) return;
+  if(!confirm(`Finalizar a ordem Nº ${o.numero} à força?\n\nIsso marca a ordem como concluída e fecha qualquer etapa que ainda esteja em aberto (sem hora de término), mesmo que o tempo não tenha sido registrado certinho. Use só quando tiver certeza que a peça já foi produzida.\n\nEssa ação não tem um "desfazer" automático.`)) return;
+  try{
+    await _forcarConclusaoOrdemSemConfirmar(o);
+    showToast('Ordem finalizada!');
+    await loadAll();
+  }catch(e){ showToast('Erro ao finalizar ordem','err'); }
+}
+
+// Concluir PDV à força — fecha TODAS as ordens já criadas a partir deste
+// equipamento que ainda estejam abertas (mesma lógica acima, uma por uma), e
+// move o equipamento pra seção "Concluídos" (some da tela inicial). Itens/
+// montagens que nunca tiveram OP criada nem foram comprados NÃO são tocados —
+// continuam pendentes do jeito que estão, pra não inventar dado que não existe.
+async function concluirPDVForcado(desenhoId){
+  const d = (desenhosRecebidos||[]).find(x=>x.id===desenhoId);
+  if(!d) return;
+  const arvore = _coletarArvoreDoEquipamento(desenhoId);
+  const idsOrdens = new Set();
+  arvore.forEach(no=>{ if(no.ordem_id) idsOrdens.add(no.ordem_id); });
+  const ordensAbertas = [...idsOrdens].map(id=>(ordens||[]).find(o=>o.id===id)).filter(o=>o && o.status!=='concluido');
+
+  const msg = ordensAbertas.length
+    ? `Concluir este equipamento?\n\nIsso fecha à força ${ordensAbertas.length} ordem(ns) aberta(s) e move o equipamento pra seção "Concluídos" (some da tela inicial). Itens/montagens que ainda não têm OP criada nem foram comprados continuam pendentes, do jeito que estão.\n\nDá pra restaurar depois, na seção Concluídos.`
+    : `Mover este equipamento pra seção "Concluídos"?\n\nEle some da tela inicial. Dá pra restaurar depois, na seção Concluídos.`;
+  if(!confirm(msg)) return;
+
+  try{
+    for(const o of ordensAbertas){
+      await _forcarConclusaoOrdemSemConfirmar(o);
+    }
+    await api('PATCH','desenhos_recebidos',{
+      concluido_manual:true,
+      concluido_em:new Date().toISOString(),
+      concluido_por:usuarioLogado?.nome||null
+    },`?id=eq.${desenhoId}`);
+    showToast(ordensAbertas.length ? `${ordensAbertas.length} ordem(ns) concluída(s) — equipamento movido pra Concluídos!` : 'Equipamento movido pra Concluídos!');
+    _voltarListaEquipamentos();
+    await loadAll();
+  }catch(e){ showToast('Erro ao concluir equipamento','err'); }
+}
+
+// Tira o equipamento da seção Concluídos, volta pra tela inicial normal.
+async function restaurarPDVConcluido(desenhoId){
+  if(!confirm('Restaurar este equipamento pra tela inicial?')) return;
+  try{
+    await api('PATCH','desenhos_recebidos',{concluido_manual:false,concluido_em:null,concluido_por:null},`?id=eq.${desenhoId}`);
+    showToast('Equipamento restaurado!');
+    await loadAll();
+  }catch(e){ showToast('Erro ao restaurar equipamento','err'); }
+}
+
 async function deletarOrdem(id){
   const o = ordens.find(x=>x.id===id);
   const desc = o ? `Ordem Nº ${o.numero} — ${o.descricao||'sem descrição'}` : 'esta ordem de produção';
@@ -9658,14 +10304,110 @@ async function sincronizarQuantidadeEstruturaVinculada(ordemId, novaQuantidade){
   return mudou;
 }
 
+let _avisoDesenhoEstruturaNoId=null;
+
+// Checa duplicidade de desenho já na Estrutura de Equipamentos, no momento em que
+// o campo é preenchido — antes de qualquer Ordem de Produção existir. Olha em
+// três lugares: (1) outros itens já salvos no sistema, em qualquer PDV/equipamento;
+// (2) outras montagens já salvas; (3) outras linhas sendo cadastradas agora mesmo
+// nesta mesma edição, ainda não salvas (evita duplicar dentro da própria digitação).
+function _checarDesenhoDuplicadoNaEstrutura(noId, desenhoDigitado){
+  const desenhoNorm=String(desenhoDigitado||'').trim().toLowerCase();
+  if(!desenhoNorm) return;
+  const achados=[];
+
+  (itensDesenhoRecebido||[]).forEach(i=>{
+    if(i.id===noId) return;
+    if((i.desenho_peca||'').trim().toLowerCase()!==desenhoNorm) return;
+    const eq=_equipamentoDoItem(i);
+    const pdv=eq?(pdvs||[]).find(p=>p.id===eq.pdv_id):null;
+    achados.push({nome:i.denominacao||'—', temOP:!!i.ordem_id, pdvTexto:pdv?(`PDV ${pdv.numero}${pdv.cliente?' — '+pdv.cliente:''}`):(eq?.nome_equipamento||'—')});
+  });
+  (montagensRecebidas||[]).forEach(m=>{
+    if(m.id===noId) return;
+    if((m.numero_desenho||'').trim().toLowerCase()!==desenhoNorm) return;
+    const eq=_equipamentoDaMontagem(m);
+    const pdv=eq?(pdvs||[]).find(p=>p.id===eq.pdv_id):null;
+    achados.push({nome:m.nome_montagem||'—', temOP:!!m.ordem_id, pdvTexto:pdv?(`PDV ${pdv.numero}${pdv.cliente?' — '+pdv.cliente:''}`):(eq?.nome_equipamento||'—')});
+  });
+  (_nosTemp||[]).forEach(n=>{
+    if(!String(n.id).startsWith('tmp_') || n.id===noId) return;
+    const desenhoN = n.tipo==='montagem' ? n.numero_desenho : n.desenho_peca;
+    if((desenhoN||'').trim().toLowerCase()!==desenhoNorm) return;
+    achados.push({nome:(n.tipo==='montagem'?n.nome_montagem:n.denominacao)||'—', temOP:false, pdvTexto:'sendo cadastrado agora, neste mesmo equipamento'});
+  });
+
+  if(achados.length){
+    _avisoDesenhoEstruturaNoId=noId;
+    const linhas=achados.map(a=>`<div style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12px">
+      <b>${a.nome}</b>${a.temOP?' <span style="color:#2e7d32;font-weight:700">✓ já tem OP criada</span>':''}<br>
+      <span style="color:var(--gray)">${a.pdvTexto}</span>
+    </div>`).join('');
+    const el=document.getElementById('avisoDesenhoEstruturaConteudo');
+    if(el) el.innerHTML=`
+      <p style="margin-bottom:10px;font-size:13px">O desenho <b>${desenhoDigitado}</b> já está cadastrado em outro lugar:</p>
+      ${linhas}
+      <p style="margin-top:10px;font-size:12px;color:var(--gray)">Se for mesmo a mesma peça, evite cadastrar de novo — isso gera itens e ordens duplicadas.</p>`;
+    abrirModal('modalAvisoDesenhoEstrutura');
+  }
+}
+
+function _limparCampoDesenhoDuplicado(){
+  fecharModal('modalAvisoDesenhoEstrutura');
+  if(!_avisoDesenhoEstruturaNoId) return;
+  const no=(_nosTemp||[]).find(n=>n.id===_avisoDesenhoEstruturaNoId);
+  if(no){
+    atualizarNo(_avisoDesenhoEstruturaNoId, no.tipo==='montagem'?'numero_desenho':'desenho_peca', '');
+    renderColunas();
+  }
+  _avisoDesenhoEstruturaNoId=null;
+}
+
+let _pendingProsseguirAposDuplicado=null;
+
+// Checagem central de desenho duplicado, usada tanto pelo botão "Criar OP" (item
+// ou montagem da Estrutura de Equipamentos) quanto pelo salvamento manual da Ordem.
+// Olha em dois lugares, porque uma ordem existente pode ter o campo "desenho"
+// preenchido diferente do item/montagem de origem:
+//  1) outras ordens já criadas com esse mesmo número de desenho;
+//  2) outros itens/montagens da Estrutura de Equipamentos com esse desenho que já
+//     têm uma OP vinculada (ordem_id preenchido) — é o que realmente aconteceu nas
+//     ordens 272/303: a ordem em si não tinha o campo desenho igual, mas os dois
+//     itens da Estrutura apontavam pro mesmo desenho.
+// Se achar duplicidade, abre o alerta e só chama "prosseguir" se o usuário confirmar
+// ("Criar mesmo assim"); senão, chama "prosseguir" direto.
+function _checarDesenhoDuplicadoEProsseguir(desenho, origemId, prosseguir){
+  const desenhoNorm=String(desenho||'').trim().toLowerCase();
+  if(!desenhoNorm){ prosseguir(); return; }
+
+  const ordensAchadas=(ordens||[]).filter(o=>(o.desenho||'').trim().toLowerCase()===desenhoNorm);
+  const idsJaListados=new Set(ordensAchadas.map(o=>o.id));
+
+  (itensDesenhoRecebido||[]).forEach(i=>{
+    if(i.id===origemId || !i.ordem_id) return;
+    if((i.desenho_peca||'').trim().toLowerCase()!==desenhoNorm) return;
+    const o=(ordens||[]).find(o2=>o2.id===i.ordem_id);
+    if(o && !idsJaListados.has(o.id)){ idsJaListados.add(o.id); ordensAchadas.push(o); }
+  });
+  (montagensRecebidas||[]).forEach(m=>{
+    if(m.id===origemId || !m.ordem_id) return;
+    if((m.numero_desenho||'').trim().toLowerCase()!==desenhoNorm) return;
+    const o=(ordens||[]).find(o2=>o2.id===m.ordem_id);
+    if(o && !idsJaListados.has(o.id)){ idsJaListados.add(o.id); ordensAchadas.push(o); }
+  });
+
+  if(ordensAchadas.length){
+    _pendingProsseguirAposDuplicado=prosseguir;
+    _abrirAlertaDesenhoDuplicado(desenho, ordensAchadas);
+  } else {
+    prosseguir();
+  }
+}
+
 async function salvarOrdem(){
   if(_salvandoOrdem) return;
   const descricao=document.getElementById('ord_descricao').value.trim();
   if(!descricao){showToast('Informe a descrição da peça','err');return;}
-  _salvandoOrdem = true;
-  const btnSalvarOrdem = document.getElementById('btnSalvarOrdem');
-  const textoOriginalBtnOrdem = btnSalvarOrdem?.textContent;
-  if(btnSalvarOrdem){ btnSalvarOrdem.disabled = true; btnSalvarOrdem.textContent = '🔧 Salvando...'; }
   const pdvId=document.getElementById('ord_pdv_sel').value;
   const prodOpt=document.getElementById('ord_produto');
   const opt=prodOpt.options[prodOpt.selectedIndex];
@@ -9681,6 +10423,54 @@ async function salvarOrdem(){
     dt_abertura:document.getElementById('ord_data').value||new Date().toISOString().split('T')[0],
     criado_por:usuarioLogado?.nome||null
   };
+  const contexto={itemDesenhoOrigemId, montagemOrigemId};
+
+  // Alerta de desenho duplicado — só ao CRIAR (não ao editar). A origem a excluir
+  // é o item/montagem que já deu origem a ESTA ordem (se veio do "Criar OP"),
+  // senão nenhum item é excluído da checagem.
+  if(!editOrdemId && obj.desenho){
+    _checarDesenhoDuplicadoEProsseguir(obj.desenho, itemDesenhoOrigemId||montagemOrigemId||null, ()=>_prosseguirSalvarOrdem(obj, contexto));
+    return;
+  }
+  await _prosseguirSalvarOrdem(obj, contexto);
+}
+
+function _abrirAlertaDesenhoDuplicado(desenho, duplicadas){
+  const linhas=duplicadas.map(o=>{
+    const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id);
+    const pdvTexto=pdv?(`PDV ${pdv.numero}${pdv.cliente?' — '+pdv.cliente:''}`):'sem PDV definido';
+    return `<div style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12px">
+      <b>Nº ${o.numero}</b> — ${o.descricao||'—'}<br>
+      <span style="color:var(--gray)">${pdvTexto}${o.status?' · status: '+o.status:''}${o.terceirizado_nome?' · terceirizado com '+o.terceirizado_nome:''}</span>
+    </div>`;
+  }).join('');
+  const el=document.getElementById('alertaDesenhoDuplicadoConteudo');
+  if(el) el.innerHTML=`
+    <p style="margin-bottom:10px;font-size:13px">Já existe ${duplicadas.length>1?'mais de uma ordem':'uma ordem'} com o desenho <b>${desenho}</b> cadastrada:</p>
+    ${linhas}
+    <p style="margin-top:10px;font-size:12px;color:var(--gray)">Confira se não é a mesma peça já produzida (ou em produção) antes de criar uma ordem nova.</p>`;
+  abrirModal('modalAlertaDesenhoDuplicado');
+}
+
+function confirmarCriarOrdemDuplicada(){
+  fecharModal('modalAlertaDesenhoDuplicado');
+  const prosseguir=_pendingProsseguirAposDuplicado;
+  _pendingProsseguirAposDuplicado=null;
+  if(prosseguir) prosseguir();
+}
+function cancelarCriarOrdemDuplicada(){
+  fecharModal('modalAlertaDesenhoDuplicado');
+  _pendingProsseguirAposDuplicado=null;
+}
+
+async function _prosseguirSalvarOrdem(obj, contexto){
+  if(_salvandoOrdem) return;
+  _salvandoOrdem = true;
+  const btnSalvarOrdem = document.getElementById('btnSalvarOrdem');
+  const textoOriginalBtnOrdem = btnSalvarOrdem?.textContent;
+  if(btnSalvarOrdem){ btnSalvarOrdem.disabled = true; btnSalvarOrdem.textContent = '🔧 Salvando...'; }
+  const itemDesenhoOrigemId=contexto?.itemDesenhoOrigemId||null;
+  const montagemOrigemId=contexto?.montagemOrigemId||null;
   try{
     let res;
     if(editOrdemId){
@@ -10056,7 +10846,7 @@ function imprimirOrdem(id){
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   html, body { width: 190mm; font-family: Arial, sans-serif; font-size: 11px; }
   table { width:100%; border-collapse:collapse; table-layout:fixed; }
-  td { border:1px solid #000; padding:3px 5px; }
+  td { border:1px solid #000; padding:3px 5px; overflow-wrap:break-word; word-break:break-word; }
   .hdr { background:#d9d9d9; font-weight:700; text-align:center; font-size:10px; padding:4px; }
   .lbl { background:#eee; font-weight:700; text-align:center; font-size:10px; }
 </style>
@@ -11130,6 +11920,95 @@ let estOrdemRecentes = false;
 let estOcultarZero = (()=>{ try{ return localStorage.getItem('sl_ocultar_zero')==='1'; }catch(e){ return false; } })();
 let estSortCol='descricao';
 let estSortDir=1;
+let estAgruparTamanho = (()=>{ try{ return localStorage.getItem('sl_agrupar_tamanho')==='1'; }catch(e){ return false; } })();
+let estMostrarOcultos = false;
+
+function _aplicarBtnMostrarOcultos(){
+  const btn = document.getElementById('btnEstMostrarOcultos');
+  if(!btn) return;
+  if(estMostrarOcultos){
+    btn.style.background = '#6a1b9a'; btn.style.color = '#fff'; btn.style.borderColor = '#6a1b9a';
+    btn.textContent = '🙈 Voltar aos ativos';
+  } else {
+    btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
+    btn.textContent = '🙈 Ocultos';
+  }
+}
+function toggleMostrarOcultos(){
+  estMostrarOcultos = !estMostrarOcultos;
+  _aplicarBtnMostrarOcultos();
+  renderEstoque();
+}
+
+async function ocultarItemEstoque(id){
+  try{
+    await api('PATCH','estoque_itens',{oculto:true},`?id=eq.${id}`);
+    const it=(estoqueItens||[]).find(x=>x.id===id);
+    if(it) it.oculto=true;
+    showToast('Item ocultado — continua cadastrado, só some da lista');
+    renderEstoque();
+  }catch(e){ showToast('Erro ao ocultar item','err'); }
+}
+async function restaurarItemEstoque(id){
+  try{
+    await api('PATCH','estoque_itens',{oculto:false},`?id=eq.${id}`);
+    const it=(estoqueItens||[]).find(x=>x.id===id);
+    if(it) it.oculto=false;
+    showToast('Item restaurado');
+    renderEstoque();
+  }catch(e){ showToast('Erro ao restaurar item','err'); }
+}
+
+function toggleEstMaisMenu(event){
+  if(event) event.stopPropagation();
+  const menu=document.getElementById('estMaisMenu');
+  if(!menu) return;
+  const abrir = menu.style.display==='none'||!menu.style.display;
+  menu.style.display = abrir?'block':'none';
+  if(abrir){
+    const fechar=(e)=>{ if(!menu.contains(e.target)&&e.target.id!=='btnEstMaisMenu'){ menu.style.display='none'; document.removeEventListener('click',fechar); } };
+    setTimeout(()=>document.addEventListener('click',fechar),0);
+  }
+}
+function fecharEstMaisMenu(){
+  const menu=document.getElementById('estMaisMenu');
+  if(menu) menu.style.display='none';
+}
+
+// Extrai o tamanho (ex: "4.1/2", "7") e o tipo (ex: "DISCO DE CORTE") do nome
+// do item, pra montar os blocos do modo "Agrupar por tamanho". Considera o
+// primeiro trecho no formato número(+fração)" — que é como os tamanhos de
+// disco aparecem no nome (ex: DISCO DE CORTE 4.1/2" X 1,0 MM STARRET).
+function _extrairTamanhoTipo(texto){
+  const t = (texto||'').toUpperCase();
+  const m = t.match(/(\d+(?:[.,]\d+)?(?:\/\d+)?)"/);
+  if(!m) return {tamanho:null, tamanhoNum:9999, tipo:t.trim()||'—'};
+  const tamanho = m[1].replace(',', '.');
+  const tipo = t.slice(0, m.index).trim().replace(/[-–—]$/,'').trim() || '—';
+  // Converte "4.1/2" -> 4.5, "1/8" -> 0.125, "7" -> 7 (pra ordenar numericamente)
+  let tamanhoNum = 9999;
+  let mm = tamanho.match(/^(\d+)\.(\d+)\/(\d+)$/);
+  if(mm) tamanhoNum = parseInt(mm[1]) + parseInt(mm[2])/parseInt(mm[3]);
+  else if((mm = tamanho.match(/^(\d+)\/(\d+)$/))) tamanhoNum = parseInt(mm[1])/parseInt(mm[2]);
+  else if((mm = tamanho.match(/^(\d+(?:\.\d+)?)$/))) tamanhoNum = parseFloat(mm[1]);
+  return {tamanho, tamanhoNum, tipo};
+}
+
+function _aplicarBtnAgrupar(){
+  const btn = document.getElementById('btnEstAgrupar');
+  if(!btn) return;
+  if(estAgruparTamanho){
+    btn.style.background = '#1565c0'; btn.style.color = '#fff'; btn.style.borderColor = '#1565c0';
+  } else {
+    btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
+  }
+}
+function toggleAgruparTamanho(){
+  estAgruparTamanho = !estAgruparTamanho;
+  try{ localStorage.setItem('sl_agrupar_tamanho', estAgruparTamanho?'1':'0'); }catch(e){}
+  _aplicarBtnAgrupar();
+  renderEstoque();
+}
 
 function estOrdenarPor(col){
   if(estSortCol===col){ estSortDir*=-1; }
@@ -11181,6 +12060,8 @@ let estMovItemId = null, estMovTipo = null;
 function renderEstoque(){
   if(typeof atualizarBadgeMinimo==='function') setTimeout(atualizarBadgeMinimo,0);
   if(typeof _aplicarBtnOcultarZero==='function') _aplicarBtnOcultarZero();
+  if(typeof _aplicarBtnAgrupar==='function') _aplicarBtnAgrupar();
+  if(typeof _aplicarBtnMostrarOcultos==='function') _aplicarBtnMostrarOcultos();
   // Categorias dinâmicas (localStorage) + categorias em uso nos itens
   const CATS_FIXAS = getCatsEstoque();
   const catsUsadas = [...new Set(estoqueItens.map(i => i.categoria||'Matéria Prima'))];
@@ -11210,19 +12091,13 @@ function renderEstoque(){
     }).join('');
   }
 
-  // Popula filtro de material
-  const matSel=document.getElementById('filtroEstMaterial');
-  if(matSel&&matSel.options.length<=1){
-    const mats=[...new Set(estoqueItens.map(i=>i.material).filter(Boolean))].sort();
-    mats.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;matSel.appendChild(o);});
-  }
-  const filtMat=document.getElementById('filtroEstMaterial')?.value||'';
   const filtBarr=document.getElementById('filtroEstBarracao')?.value||'';
   const busca=(document.getElementById('buscaEstoque')?.value||'').toLowerCase();
   let lista=estoqueItens.filter(i=>{
     const cat=i.categoria||'Matéria Prima';
     if(estCatAtual&&cat!==estCatAtual) return false;
-    if(filtMat&&i.material!==filtMat) return false;
+    if(estMostrarOcultos){ if(!i.oculto) return false; }
+    else { if(i.oculto) return false; }
     if(filtBarr){
       const sb=(typeof saldoBarracoes==='function')?saldoBarracoes(i):{b1:0,b2:0};
       if(filtBarr==='Barracão 1' && sb.b1===0) return false;
@@ -11311,6 +12186,32 @@ function renderEstoque(){
     linhas.sort((a,b)=>(a.saldoBarr-b.saldoBarr)*estSortDir);
   }
 
+  // Modo "Agrupar por tamanho": em blocos por tamanho (4.1/2", 7"...), tipo
+  // (Disco de Corte, Flap, Desbaste...) e espessura/grão (1,6mm, 3,2mm, G40...) —
+  // mesma "especificação" usada no sistema de mínimo, pra não misturar espessuras
+  // diferentes no mesmo bloco.
+  let _contagemBloco = null;
+  if(estAgruparTamanho){
+    linhas.forEach(l=>{
+      l._grp = _extrairTamanhoTipo(l.it.tipo_peca||l.it.descricao||'');
+      l._chaveEsp = _chaveGenericaItem(l.it);
+    });
+    linhas.sort((a,b)=>{
+      const porGrupo = (a._grp.tamanhoNum-b._grp.tamanhoNum) || a._grp.tipo.localeCompare(b._grp.tipo,'pt-BR') || a._chaveEsp.localeCompare(b._chaveEsp,'pt-BR',{numeric:true});
+      if(porGrupo) return porGrupo;
+      // Dentro do mesmo bloco, respeita a coluna de ordenação escolhida (ex: Saldo).
+      if(!estOrdemRecentes && estSortCol==='saldo') return (a.saldoBarr-b.saldoBarr)*estSortDir;
+      if(!estOrdemRecentes && estSortCol==='codigo') return (a.it.codigo||'').localeCompare(b.it.codigo||'','pt-BR')*estSortDir;
+      if(!estOrdemRecentes && estSortCol==='barracao') return (a.barracao||'').localeCompare(b.barracao||'','pt-BR')*estSortDir;
+      if(!estOrdemRecentes && estSortCol==='custo') return ((a.it.valor_unitario||0)-(b.it.valor_unitario||0))*estSortDir;
+      return (a.it.tipo_peca||a.it.descricao||'').localeCompare(b.it.tipo_peca||b.it.descricao||'','pt-BR');
+    });
+    _contagemBloco = {};
+    linhas.forEach(l=>{
+      _contagemBloco[l._chaveEsp] = (_contagemBloco[l._chaveEsp]||0) + 1;
+    });
+  }
+
   if(!linhas.length){
     tbody.innerHTML='';
     if(vazio) vazio.style.display='block';
@@ -11319,7 +12220,31 @@ function renderEstoque(){
   }
   if(vazio) vazio.style.display='none';
 
-  tbody.innerHTML = linhas.map(({it:i, barracao:_barr, saldoBarr:saldo})=>{
+  let _grupoAnterior = null;
+  let _primeiroBloco = true;
+  tbody.innerHTML = linhas.map(({it:i, barracao:_barr, saldoBarr:saldo, _grp, _chaveEsp})=>{
+    let cabecalhoBloco = '';
+    if(estAgruparTamanho){
+      if(_chaveEsp !== _grupoAnterior){
+        _grupoAnterior = _chaveEsp;
+        const qtd = _contagemBloco[_chaveEsp]||0;
+        const margemTopo = _primeiroBloco ? '0' : '14px';
+        _primeiroBloco = false;
+        // O que sobra da chave depois de tirar "Tipo Tamanho”" é a espessura/grão
+        // (ex: " X 1.6", " G40") — mostrado ao lado do tipo, quando existir.
+        const prefixo = _grp.tamanho ? `${_grp.tipo} ${_grp.tamanho}"` : '';
+        const detalheEsp = (prefixo && _chaveEsp.startsWith(prefixo)) ? _chaveEsp.slice(prefixo.length).trim() : '';
+        cabecalhoBloco = `<tr><td colspan="6" style="padding:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;margin-top:${margemTopo};background:linear-gradient(135deg,#eaf6ee,#f6fbf8);border-left:4px solid #2e7d32;border-radius:8px 8px 0 0">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0">
+              <span style="background:#2e7d32;color:#fff;font-weight:700;font-size:12px;padding:4px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0">${_grp.tamanho?_grp.tamanho+'"':'—'}</span>
+              <span style="font-weight:700;font-size:13px;color:#1f6b4f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_grp.tipo}${detalheEsp?` <span style="color:#5c9a7c;font-weight:600">${detalheEsp}</span>`:''}</span>
+            </div>
+            <span style="font-size:11px;color:#5c8a72;font-weight:600;white-space:nowrap;flex-shrink:0">${qtd} ${qtd===1?'item':'itens'}</span>
+          </div>
+        </td></tr>`;
+      }
+    }
     const saldoColor = saldo<=0 ? 'color:#c62828;font-weight:700' : 'color:#2e7d32;font-weight:700';
 
     // Monta dimensões
@@ -11348,7 +12273,7 @@ function renderEstoque(){
       ? '<span style="font-size:10px;font-weight:700;background:#ffebee;color:#c62828;padding:3px 8px;border-radius:10px;white-space:nowrap">Sem estoque</span>'
       : '';
 
-    return `<tr style="border-bottom:1px solid #f0f4f0" onmouseover="this.style.background='#fafbfa'" onmouseout="this.style.background=''">
+    return `${cabecalhoBloco}<tr style="border-bottom:1px solid #f0f4f0" onmouseover="this.style.background='#fafbfa'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px;font-weight:600;font-size:12px;max-width:200px">
         <div>${titulo}</div>
       </td>
@@ -11360,12 +12285,17 @@ function renderEstoque(){
         <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirEstMovRapido('${i.id}','entrada')" title="Registrar Entrada">📥 Entrada</button>
         <button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="transferirBarracao('${i.id}','${_barr||''}',${saldo})" title="Transferir quantidade para o outro barracão">🔄</button>
         <button class="btn btn-sm" onclick="abrirModalEstoque('mp','${i.id}','${_barr||''}')" title="Editar">✏️</button>
+        ${estMostrarOcultos
+          ? `<button class="btn btn-sm" style="background:#f3e5f5;color:#6a1b9a;border-color:#ce93d8" onclick="restaurarItemEstoque('${i.id}')" title="Restaurar — volta a aparecer na lista normal">👁️ Restaurar</button>`
+          : `<button class="btn btn-sm" onclick="ocultarItemEstoque('${i.id}')" title="Ocultar — some da lista, mas continua cadastrado (não precisa recadastrar quando comprar de novo)">🙈</button>`}
         <button class="btn btn-sm danger" onclick="deletarEstoqueItem('${i.id}')" title="Excluir">🗑</button>
       </td>
     </tr>`;
   }).join('');
 
-  if(rodape) rodape.textContent = `${lista.length} item(ns) • Categoria: ${estCatAtual||'Todos'}`;
+  if(rodape) rodape.textContent = estMostrarOcultos
+    ? `${lista.length} item(ns) oculto(s)`
+    : `${lista.length} item(ns) • Categoria: ${estCatAtual||'Todos'}`;
 }
 
 function estSelecionarCat(cat){
@@ -12204,18 +13134,32 @@ function renderNFeModal(){
   const vencimentosSection=document.getElementById('nfeVencimentosSection');
   if(vencimentosSection) vencimentosSection.style.display='none';
 
+  // Pontua a força da correspondência (fração de palavras significativas do item
+  // do estoque que aparecem na descrição do XML), pra saber quando já existe um
+  // item cadastrado e evitar criar duplicata por padrão.
+  const _nfeMatchScore=(itemEstoque,xpLower)=>{
+    const desc=(itemEstoque.tipo_peca||itemEstoque.descricao||'').toLowerCase();
+    const palavras=desc.split(/\s+/).filter(w=>w.length>3);
+    if(!palavras.length) return 0;
+    const bate=palavras.filter(w=>xpLower.includes(w)).length;
+    return bate/palavras.length;
+  };
+  const LIMIAR_MATCH_FORTE=0.6;
+
   document.getElementById('nfeItens').innerHTML=itensNF.map((it,idx)=>{
-    // Tenta encontrar item parecido no estoque
-    const similar=estoqueItens.filter(e=>{
-      const desc=(e.tipo_peca||e.descricao||'').toLowerCase();
-      const xp=it.xProd.toLowerCase();
-      return desc.split(' ').some(w=>w.length>3&&xp.includes(w));
-    }).slice(0,5);
+    // Tenta encontrar item parecido no estoque, ordenado pela força do match
+    const xp=it.xProd.toLowerCase();
+    const candidatos=estoqueItens.map(e=>({item:e,score:_nfeMatchScore(e,xp)})).filter(c=>c.score>0).sort((a,b)=>b.score-a.score);
+    const melhorScore=candidatos[0]?.score||0;
+    // Só assume "já existe" quando a correspondência é forte — evita vincular
+    // ao item errado por acaso de uma palavra em comum.
+    const defaultExistente=melhorScore>=LIMIAR_MATCH_FORTE;
 
-    const optsExistentes=similar.map(e=>`<option value="${e.id}">${e.tipo_peca||e.descricao} | ${e.material||''} | ${e.espessura||''} ${e.medida1||''} | ${e.localizacao||''}</option>`).join('');
-    const optsAll=estoqueItens.map(e=>`<option value="${e.id}">${e.tipo_peca||e.descricao} | ${e.material||''} | ${e.localizacao||''}</option>`).join('');
+    const acaoInicial = defaultExistente ? 'existente' : 'novo';
+    const itemIdInicial = defaultExistente ? candidatos[0].item.id : '';
+    const nomeInicial = defaultExistente ? (candidatos[0].item.tipo_peca||candidatos[0].item.descricao||'') : '';
 
-    return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:#fafafa" id="nfeItem_${idx}">
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:#fafafa" id="nfeItem_${idx}" data-acao="${acaoInicial}">
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
         <div style="flex:1;min-width:200px">
           <div style="font-size:11px;color:var(--gray);text-transform:uppercase;margin-bottom:2px">Descrição na NF</div>
@@ -12224,13 +13168,6 @@ function renderNFeModal(){
             Qtd: <b>${it.qCom} ${it.uCom}</b> · Val. Unit.: <b>${fmtVal(it.vUnCom)}</b> · Total: <b style="color:#2e7d32">${fmtVal(it.vProd)}</b>
           </div>
         </div>
-      </div>
-
-      <!-- Ação -->
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button id="btnNovo_${idx}" onclick="setNFeAcao(${idx},'novo')" class="btn primary" style="font-size:12px;padding:6px 12px">➕ Criar novo item</button>
-        <button id="btnExist_${idx}" onclick="setNFeAcao(${idx},'existente')" class="btn" style="font-size:12px;padding:6px 12px">🔗 Vincular a existente</button>
-        <button id="btnIgn_${idx}" onclick="setNFeAcao(${idx},'ignorar')" class="btn" style="font-size:12px;padding:6px 12px;color:#9e9e9e">⏭ Ignorar</button>
       </div>
 
       <div style="background:#f1f8f4;border:1px solid #c8e6c9;border-radius:8px;padding:10px 12px;margin-bottom:10px">
@@ -12248,8 +13185,25 @@ function renderNFeModal(){
         </div>
       </div>
 
+      <!-- Busca única: digita o nome e escolhe o item já cadastrado -->
+      <div style="margin-bottom:8px;position:relative">
+        <label style="font-size:11px;font-weight:700;color:#37474f;display:block;margin-bottom:3px">🔍 Buscar item já cadastrado no estoque</label>
+        <input type="text" id="nfe_busca_${idx}" value="${nomeInicial.replace(/"/g,'&quot;')}"
+          oninput="filtrarItemNFe(${idx})" onfocus="filtrarItemNFe(${idx})" autocomplete="off"
+          placeholder="Digite o nome do item..."
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;box-sizing:border-box">
+        <input type="hidden" id="nfe_itemId_${idx}" value="${itemIdInicial}">
+        <div id="nfe_resultados_${idx}" style="display:none"></div>
+        <div id="nfe_selecionado_${idx}" style="font-size:11px;color:#2e7d32;margin-top:4px;${itemIdInicial?'':'display:none'}">✅ Vinculado a: <b>${nomeInicial}</b></div>
+      </div>
+
+      <div style="display:flex;gap:16px;font-size:11px;margin-bottom:10px">
+        <a href="#" onclick="event.preventDefault();alternarNovoItemNFe(${idx})" style="color:#2e7d32;font-weight:600">➕ Não encontrei — criar item novo</a>
+        <a href="#" onclick="event.preventDefault();marcarIgnorarNFe(${idx})" style="color:#9e9e9e">⏭ Ignorar este item</a>
+      </div>
+
       <!-- Painel NOVO -->
-      <div id="painelNovo_${idx}" style="background:#e8f5e9;border-radius:8px;padding:12px;display:none">
+      <div id="painelNovo_${idx}" style="background:#e8f5e9;border-radius:8px;padding:12px;display:${acaoInicial==='novo'?'block':'none'}">
         <div style="font-size:12px;font-weight:700;color:#2e7d32;margin-bottom:8px">Novo item no estoque:</div>
         <div class="form-grid" style="gap:8px">
           <div class="form-group full"><label style="font-size:11px">Descrição / Tipo de Peça</label><input id="nfe_tipo_${idx}" value="${it.xProd.toUpperCase()}" placeholder="Ex: FERRAMENTA, CHAPA, BARRA..." style="font-size:12px;text-transform:uppercase"></div>
@@ -12268,20 +13222,6 @@ function renderNFeModal(){
             </select>
           </div>
         </div>
-      </div>
-
-      <!-- Painel EXISTENTE -->
-      <div id="painelExist_${idx}" style="background:#e3f2fd;border-radius:8px;padding:12px;display:none">
-        <div style="font-size:12px;font-weight:700;color:#1565c0;margin-bottom:8px">Selecione o item do estoque:</div>
-        ${similar.length?`<p style="font-size:11px;color:var(--gray);margin-bottom:6px">⭐ Sugeridos (baseado na descrição):</p>
-        <select id="nfe_itemId_${idx}" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:8px">
-          <option value="">Selecione...</option>
-          <optgroup label="⭐ Sugeridos">${optsExistentes}</optgroup>
-          <optgroup label="Todos os itens">${optsAll}</optgroup>
-        </select>`:`
-        <select id="nfe_itemId_${idx}" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:12px">
-          <option value="">Selecione o item...</option>${optsAll}
-        </select>`}
       </div>
 
       <!-- Painel IGNORAR -->
@@ -12417,18 +13357,54 @@ function adicionarParcelaNFe(){
   _renderNFeVencimentos();
 }
 
-function setNFeAcao(idx, acao){
-  ['Novo','Exist','Ign'].forEach(p=>{
-    const panel=document.getElementById(`painel${p}_${idx}`);
-    if(panel) panel.style.display='none';
-    const btn=document.getElementById(`btn${p}_${idx}`);
-    if(btn) btn.className='btn';
-  });
-  const map={novo:'Novo',existente:'Exist',ignorar:'Ign'};
-  const panel=document.getElementById(`painel${map[acao]}_${idx}`);
-  if(panel) panel.style.display='block';
-  const btn=document.getElementById(`btn${map[acao]}_${idx}`);
-  if(btn) btn.className='btn primary';
+// Busca única pra vincular a um item já cadastrado — digita e escolhe da
+// lista, sem dropdown gigante nem botões de ação separados.
+function filtrarItemNFe(idx){
+  const termo=(document.getElementById(`nfe_busca_${idx}`)?.value||'').trim().toLowerCase();
+  const box=document.getElementById(`nfe_resultados_${idx}`);
+  if(!box) return;
+  if(!termo){ box.style.display='none'; box.innerHTML=''; return; }
+  const partes=termo.split(/\s+/).filter(Boolean);
+  const achados=estoqueItens.filter(e=>{
+    const desc=((e.tipo_peca||e.descricao||'')+' '+(e.material||'')+' '+(e.localizacao||'')).toLowerCase();
+    return partes.every(p=>desc.includes(p));
+  }).slice(0,8);
+  box.style.cssText='display:block;position:absolute;left:0;right:0;z-index:20;max-height:220px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.12);border-radius:0 0 6px 6px';
+  box.innerHTML = achados.length
+    ? achados.map(e=>`<div onclick="selecionarItemNFe(${idx},'${e.id}')" style="padding:8px 10px;font-size:12px;background:#fff;border:1px solid var(--border);border-top:none;cursor:pointer" onmouseover="this.style.background='#f1f8f4'" onmouseout="this.style.background='#fff'"><b>${e.tipo_peca||e.descricao}</b> <span style="color:#9e9e9e">${e.material?'· '+e.material:''} ${e.localizacao?'· '+e.localizacao:''}</span></div>`).join('')
+    : `<div style="padding:8px 10px;font-size:11px;color:#9e9e9e;background:#fff;border:1px solid var(--border);border-top:none">Nenhum item encontrado — use "Não encontrei" abaixo pra criar um novo.</div>`;
+}
+
+function selecionarItemNFe(idx, itemId){
+  const item=estoqueItens.find(e=>e.id===itemId);
+  if(!item) return;
+  const nome=item.tipo_peca||item.descricao||'';
+  document.getElementById(`nfe_itemId_${idx}`).value=itemId;
+  document.getElementById(`nfe_busca_${idx}`).value=nome;
+  const box=document.getElementById(`nfe_resultados_${idx}`);
+  if(box){ box.innerHTML=''; box.style.display='none'; }
+  const sel=document.getElementById(`nfe_selecionado_${idx}`);
+  if(sel){ sel.style.display='block'; sel.innerHTML=`✅ Vinculado a: <b>${nome}</b>${item.localizacao?' ('+item.localizacao+')':''}`; }
+  const card=document.getElementById(`nfeItem_${idx}`);
+  if(card) card.dataset.acao='existente';
+  const pn=document.getElementById(`painelNovo_${idx}`); if(pn) pn.style.display='none';
+  const pi=document.getElementById(`painelIgn_${idx}`); if(pi) pi.style.display='none';
+}
+
+function alternarNovoItemNFe(idx){
+  const card=document.getElementById(`nfeItem_${idx}`);
+  if(card) card.dataset.acao='novo';
+  document.getElementById(`nfe_itemId_${idx}`).value='';
+  const sel=document.getElementById(`nfe_selecionado_${idx}`); if(sel) sel.style.display='none';
+  const pn=document.getElementById(`painelNovo_${idx}`); if(pn) pn.style.display='block';
+  const pi=document.getElementById(`painelIgn_${idx}`); if(pi) pi.style.display='none';
+}
+
+function marcarIgnorarNFe(idx){
+  const card=document.getElementById(`nfeItem_${idx}`);
+  if(card) card.dataset.acao='ignorar';
+  const pn=document.getElementById(`painelNovo_${idx}`); if(pn) pn.style.display='none';
+  const pi=document.getElementById(`painelIgn_${idx}`); if(pi) pi.style.display='block';
 }
 
 async function confirmarImportNFe(){
@@ -12446,12 +13422,10 @@ async function confirmarImportNFe(){
 
   for(let idx=0;idx<itensNF.length;idx++){
     const it=itensNF[idx];
-    const btnNovo=document.getElementById(`btnNovo_${idx}`);
-    const btnExist=document.getElementById(`btnExist_${idx}`);
-    const btnIgn=document.getElementById(`btnIgn_${idx}`);
-    const acaoNovo=btnNovo?.className.includes('primary');
-    const acaoExist=btnExist?.className.includes('primary');
-    const acaoIgn=btnIgn?.className.includes('primary');
+    const acao=document.getElementById(`nfeItem_${idx}`)?.dataset.acao||'novo';
+    const acaoNovo=acao==='novo';
+    const acaoExist=acao==='existente';
+    const acaoIgn=acao==='ignorar';
 
     if(acaoIgn||(!acaoNovo&&!acaoExist)) continue;
 
@@ -14840,9 +15814,21 @@ function renderMovEstoque(){
     <div class="stat blue" style="cursor:default"><div class="stat-label">Entradas Hoje</div><div class="stat-val">${hoje_e}</div></div>
     <div class="stat" style="border-left-color:#c62828;cursor:default"><div class="stat-label">Saídas Hoje</div><div class="stat-val" style="color:#c62828">${hoje_s}</div></div>`;
 
+  const avisoEl=document.getElementById('avisoMovSemHora');
+  if(avisoEl){
+    avisoEl.style.display = movSemHoraExata ? 'block' : 'none';
+    avisoEl.innerHTML = movSemHoraExata
+      ? `⚠️ A ordem exata por horário ainda não está disponível (falta rodar um ajuste no banco de dados) — movimentações do mesmo dia podem aparecer fora de ordem. Fale com quem administra o sistema.`
+      : '';
+  }
+
+  // Mais recentes primeiro. Quando duas movimentações caem na mesma data (só
+  // o dia, sem hora), usa created_at como desempate — sem isso, movimentações
+  // do mesmo dia apareciam em ordem arbitrária, fora da ordem real dos processos.
   let lista=[...estoqueMov].sort((a,b)=>{
-    const da=a.data||a.created_at||''; const db=b.data||b.created_at||'';
-    return db.localeCompare(da);
+    const da=a.data||''; const db=b.data||'';
+    if(da!==db) return db.localeCompare(da);
+    return (b.created_at||'').localeCompare(a.created_at||'');
   });
 
   if(filtTipo) lista=lista.filter(m=>m.tipo===filtTipo);
@@ -18437,7 +19423,8 @@ async function pesoDeletar(id){
 // Função pura: recebe a matriz de linhas JÁ a partir do cabeçalho (rows[0]=cabeçalho,
 // rows[1..]=dados) e devolve a planilha (workbook) pronta + um resumo para exibir.
 // Separada da leitura do arquivo para poder ser testada isoladamente.
-function relcontMontarPlanilha(rows){
+function relcontMontarPlanilha(rows, xlsxLib){
+  const X = xlsxLib || XLSX; // aceita a lib de estilo (xlsx-js-style) ou a padrão
   if(!rows||!rows.length) throw new Error('Planilha vazia.');
   const cabecalho = (rows[0]||[]).map(h=>String(h??'').trim());
   const nCols = cabecalho.length;
@@ -18480,7 +19467,7 @@ function relcontMontarPlanilha(rows){
   });
   aoa.push(totalRow);
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const ws = X.utils.aoa_to_sheet(aoa);
 
   // Mescla, por coluna de agrupamento, as células repetidas consecutivas.
   // A planilha bruta já vem com célula em branco quando o valor "repete" (é
@@ -18506,7 +19493,7 @@ function relcontMontarPlanilha(rows){
   const formatoMoeda = '"R$ "#,##0.00;-"R$ "#,##0.00';
   for(let r=1;r<aoa.length;r++){
     colsValor.forEach(c=>{
-      const endereco = XLSX.utils.encode_cell({r,c});
+      const endereco = X.utils.encode_cell({r,c});
       const cel = ws[endereco];
       if(cel && typeof cel.v==='number'){ cel.z = formatoMoeda; cel.t='n'; }
     });
@@ -18521,8 +19508,32 @@ function relcontMontarPlanilha(rows){
   });
   ws['!cols'] = larguras;
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+  // Cor e borda — só têm efeito quando xlsxLib é a versão com suporte a estilo
+  // (xlsx-js-style); na versão padrão, a propriedade .s é simplesmente ignorada
+  // ao salvar, sem quebrar nada.
+  const bordaFina = {top:{style:'thin',color:{rgb:'BFBFBF'}}, bottom:{style:'thin',color:{rgb:'BFBFBF'}}, left:{style:'thin',color:{rgb:'BFBFBF'}}, right:{style:'thin',color:{rgb:'BFBFBF'}}};
+  for(let c=0;c<nCols;c++){
+    const endCab = X.utils.encode_cell({r:0,c});
+    if(ws[endCab]) ws[endCab].s = {
+      font:{bold:true, sz:11, name:'Calibri'},
+      fill:{fgColor:{rgb:'D9D9D9'}},
+      alignment:{horizontal:'center', vertical:'center'},
+      border:{...bordaFina, bottom:{style:'medium', color:{rgb:'000000'}}}
+    };
+    for(let r=1;r<aoa.length-1;r++){
+      const end = X.utils.encode_cell({r,c});
+      if(ws[end]) ws[end].s = { border:bordaFina };
+    }
+    const endTotal = X.utils.encode_cell({r:aoa.length-1,c});
+    if(ws[endTotal]) ws[endTotal].s = {
+      font:{bold:true},
+      fill:{fgColor:{rgb:'F2F2F2'}},
+      border:{...bordaFina, top:{style:'medium', color:{rgb:'000000'}}}
+    };
+  }
+
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, 'Relatório');
 
   const idxNotaFiscal = cabecalho.findIndex(h=>/nota fiscal/i.test(h));
   const resumo = {
@@ -18532,7 +19543,7 @@ function relcontMontarPlanilha(rows){
     totalGeral: colsValor.length ? aoa[linhaTotalIdx][colsValor[colsValor.length-1]] : null,
     colunaTotal: colsValor.length ? cabecalho[colsValor[colsValor.length-1]] : null
   };
-  return {wb, resumo};
+  return {wb, resumo, aoa, cabecalho, colsAgrupaveis, colsValor, totalRow};
 }
 
 // Acha a linha de cabeçalho de verdade dentro da planilha bruta (algumas
@@ -18546,6 +19557,25 @@ function relcontAcharLinhaCabecalho(rows){
   }
   return -1;
 }
+
+// Guarda o resultado do último processamento, para o botão de baixar usar
+// sem precisar reprocessar o arquivo.
+// Carrega a biblioteca com suporte real a cor/negrito/borda (xlsx-js-style) de
+// forma ISOLADA — sem sobrescrever o `XLSX` global que o resto do sistema usa
+// para exportar Estoque, EPI etc. Em vez de inserir como <script> (que criaria
+// outra variável global "XLSX" e colidiria com a existente), o código é obtido
+// como texto e executado dentro de uma função própria, guardando o resultado
+// em `window.XLSXStyle`.
+async function relcontCarregarXLSXStyle(){
+  if(window.XLSXStyle) return window.XLSXStyle;
+  const resp = await fetch('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js');
+  if(!resp.ok) throw new Error('Não foi possível carregar o formatador de planilha.');
+  const codigo = await resp.text();
+  window.XLSXStyle = new Function(codigo+'\nreturn XLSX;')();
+  return window.XLSXStyle;
+}
+
+let relcontUltimo = null;
 
 async function relcontProcessar(input){
   const file=input.files?.[0]; input.value='';
@@ -18568,24 +19598,93 @@ async function relcontProcessar(input){
       return;
     }
     const rows = rowsBrutas.slice(linhaCab);
-    const {wb, resumo} = relcontMontarPlanilha(rows);
-
-    const nomeArquivo = `Relatorio_Contabil_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, nomeArquivo);
-
-    if(resumoEl){
-      resumoEl.innerHTML = `<div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;padding:16px 20px;font-size:13px;color:#1b5e20">
-        <div style="font-weight:700;margin-bottom:8px">✅ Planilha formatada e baixada: ${nomeArquivo}</div>
-        <div>${resumo.linhas} linha(s) de item, ${resumo.fornecedores} fornecedor(es)${resumo.notas!=null?`, ${resumo.notas} nota(s) fiscal(is)`:''}</div>
-        ${resumo.colunaTotal?`<div style="margin-top:4px">${resumo.colunaTotal}: <b>${(resumo.totalGeral||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</b></div>`:''}
-      </div>`;
-    }
-    showToast('✅ Relatório formatado e baixado!');
+    // Tenta usar a lib com suporte a cor/borda; se falhar (sem internet, etc.),
+    // cai para a padrão — a planilha ainda sai correta, só sem a formatação visual.
+    let libEstilo = XLSX;
+    try{ libEstilo = await relcontCarregarXLSXStyle(); }
+    catch(e){ console.warn('[Relatório Contábil] formatação visual indisponível:',e); }
+    const resultado = relcontMontarPlanilha(rows, libEstilo);
+    resultado.nomeArquivo = `Relatorio_Contabil_${new Date().toISOString().split('T')[0]}.xlsx`;
+    resultado.libUsada = libEstilo;
+    relcontUltimo = resultado;
+    relcontRenderPreview();
   }catch(e){
     console.error(e);
     showToast('Erro ao formatar: '+e.message,'err');
     if(resumoEl) resumoEl.innerHTML=`<div style="color:#c62828;font-size:12px">Erro: ${e.message}</div>`;
   }
+}
+
+// Mostra uma prévia em tabela (com a mesma mesclagem visual do arquivo final)
+// antes de baixar, para conferir o resultado sem precisar abrir o Excel.
+function relcontRenderPreview(){
+  const resumoEl=document.getElementById('relcontResumo');
+  if(!resumoEl || !relcontUltimo) return;
+  const {resumo, aoa, cabecalho, colsAgrupaveis, colsValor, totalRow, nomeArquivo} = relcontUltimo;
+  const LIMITE_PREVIA = 80;
+  const totalLinhasDados = aoa.length-1; // aoa[0]=cabeçalho
+  const linhasPrevia = aoa.slice(1, 1+Math.min(LIMITE_PREVIA, totalLinhasDados));
+
+  const fmt = v => (typeof v==='number') ? v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : (v??'');
+
+  // Calcula, só dentro da fatia exibida, onde cada mesclagem visual começa e
+  // quantas linhas ocupa (rowspan) — a própria planilha já indica isso com as
+  // células em branco nas linhas que "continuam" o grupo anterior.
+  const pular = linhasPrevia.map(()=>new Set()); // colunas já "cobertas" por um rowspan anterior
+  const linhasHtml = linhasPrevia.map((linha,i)=>{
+    const celulas = cabecalho.map((_,c)=>{
+      if(pular[i].has(c)) return '';
+      let rowspan=1;
+      if(colsAgrupaveis.includes(c)){
+        const valor=String(linha[c]??'').trim();
+        if(valor!==''){
+          for(let j=i+1;j<linhasPrevia.length;j++){
+            const proximoValor=String(linhasPrevia[j][c]??'').trim();
+            if(proximoValor!=='') break;
+            rowspan++; pular[j].add(c);
+          }
+        }
+      }
+      const ehValor = colsValor.includes(c);
+      const conteudo = ehValor ? fmt(linha[c]) : (linha[c]??'');
+      return `<td rowspan="${rowspan}" style="padding:5px 8px;border:1px solid #e0e0e0;text-align:${ehValor?'right':'left'};white-space:${ehValor?'nowrap':'normal'};font-variant-numeric:${ehValor?'tabular-nums':'normal'}">${ehValor&&conteudo!==''?'R$ '+conteudo:conteudo}</td>`;
+    }).join('');
+    return `<tr>${celulas}</tr>`;
+  }).join('');
+
+  const totalHtml = `<tr style="font-weight:700;background:#f1f8e9">${cabecalho.map((_,c)=>{
+    const ehValor=colsValor.includes(c);
+    const v=totalRow[c];
+    const conteudo = ehValor && typeof v==='number' ? 'R$ '+fmt(v) : (v||'');
+    return `<td style="padding:6px 8px;border:1px solid #c8e6c9;text-align:${ehValor?'right':'left'}">${conteudo}</td>`;
+  }).join('')}</tr>`;
+
+  resumoEl.innerHTML = `
+    <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;padding:14px 18px;margin-bottom:14px;font-size:13px;color:#1b5e20;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-weight:700;margin-bottom:4px">✅ Planilha processada — confira a prévia abaixo</div>
+        <div>${resumo.linhas} linha(s) de item, ${resumo.fornecedores} fornecedor(es)${resumo.notas!=null?`, ${resumo.notas} nota(s) fiscal(is)`:''}${resumo.colunaTotal?` · ${resumo.colunaTotal}: <b>${(resumo.totalGeral||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</b>`:''}</div>
+      </div>
+      <button class="btn primary" onclick="relcontBaixar()">📥 Baixar Excel</button>
+    </div>
+    ${totalLinhasDados>LIMITE_PREVIA?`<div style="font-size:11px;color:#9e9e9e;margin-bottom:6px">Mostrando as primeiras ${LIMITE_PREVIA} de ${totalLinhasDados} linhas — o arquivo baixado tem todas, com a mesma formatação.</div>`:''}
+    <div style="overflow:auto;max-height:60vh;border:1px solid #e0e0e0;border-radius:8px">
+      <table style="border-collapse:collapse;font-size:12px;width:100%">
+        <thead>
+          <tr>${cabecalho.map(h=>`<th style="position:sticky;top:0;z-index:2;background:#f5f5f5;padding:7px 8px;border:1px solid #e0e0e0;text-align:left;white-space:nowrap">${h}</th>`).join('')}</tr>
+        </thead>
+        <tbody>${linhasHtml}${totalLinhasDados<=LIMITE_PREVIA?totalHtml:''}</tbody>
+      </table>
+    </div>`;
+}
+
+function relcontBaixar(){
+  if(!relcontUltimo){ showToast('Nenhuma planilha processada ainda.','err'); return; }
+  // Usa a MESMA biblioteca que construiu o workbook — necessário para o
+  // arquivo sair com cor/borda; a biblioteca padrão ignora esses estilos.
+  const lib = relcontUltimo.libUsada || XLSX;
+  lib.writeFile(relcontUltimo.wb, relcontUltimo.nomeArquivo);
+  showToast('✅ Baixado: '+relcontUltimo.nomeArquivo);
 }
 // ===== FIM RELATÓRIO CONTÁBIL =====
 
@@ -18704,67 +19803,177 @@ async function testarTelegram(){
 }
 
 // itens abaixo do mínimo
-function itensAbaixoMinimo(){
-  return (estoqueItens||[]).filter(i=>{
-    const min=Number(i.estoque_minimo)||0;
-    if(min<=0) return false;
-    return _saldoAtualEstoqueItem(i) < min;
-  }).map(i=>({item:i, saldo:_saldoAtualEstoqueItem(i), min:Number(i.estoque_minimo)||0}));
+// Reduz o nome do item a "tipo + tamanho + espessura" (sem marca/fabricante) —
+// essa é a "especificação" que o mínimo generalizado usa. Prioriza o campo
+// estruturado "espessura" do cadastro (mais confiável que tentar achar
+// "X 1,6 MM" solto no meio do nome); só usa o texto do nome como reserva.
+function _chaveGenericaItem(item){
+  const nome=(item.descricao||item.tipo_peca||'').toString().toUpperCase();
+  const {tamanho, tipo} = _extrairTamanhoTipo(nome);
+  if(!tamanho) return tipo||nome||'Item';
+  const espCampo = String(item.espessura||'').trim().replace(',','.').replace(/\s*MM$/i,'');
+  if(espCampo) return `${tipo} ${tamanho}" X ${espCampo}MM`;
+  const idx = nome.indexOf(tamanho+'"');
+  const resto = idx>=0 ? nome.slice(idx+tamanho.length+1) : '';
+  // Espessura solta no nome (discos de corte/desbaste) — ex: "X 1,6 - ALCAR"
+  const esp = resto.match(/X\s*(\d+(?:[.,]\d+)?)(?!\/)/);
+  if(esp) return `${tipo} ${tamanho}" X ${esp[1].replace(',','.')}`;
+  // Grão/granulometria (discos flap) — não tem espessura em mm, o que diferencia
+  // a compra é o grão: "G40", "G80", "80 GRÃOS", "GR 40" — todos viram "G40"/"G80".
+  const grao = resto.match(/\bG\s*(\d{2,3})\b/) || resto.match(/(\d{2,3})\s*GR(?:ÃOS|AOS)?\b/) || resto.match(/\bGR\s*(\d{2,3})\b/);
+  if(grao) return `${tipo} ${tamanho}" G${grao[1]}`;
+  return `${tipo} ${tamanho}"`;
+}
+
+// Agrupa TODOS os itens do estoque (de qualquer marca) pela especificação —
+// soma o saldo de todo mundo que cai na mesma chave. É essa soma que o
+// mínimo generalizado compara, não o saldo de uma marca isolada.
+function _saldoPorChaveGenerica(){
+  const grupos = {};
+  (estoqueItens||[]).forEach(it=>{
+    if(it.oculto) return; // item ocultado não entra na conta
+    const chave = _chaveGenericaItem(it);
+    if(!grupos[chave]) grupos[chave] = {chave, saldo:0, un:it.unidade||'', itens:[]};
+    grupos[chave].saldo += _saldoAtualEstoqueItem(it);
+    grupos[chave].itens.push(it);
+    if(!grupos[chave].un && it.unidade) grupos[chave].un = it.unidade;
+  });
+  return grupos;
+}
+
+// Especificações com mínimo cadastrado cujo saldo somado (todas as marcas
+// juntas) está abaixo do mínimo — essa é a lista que alimenta o Dashboard,
+// o Telegram e o alerta dentro do app.
+function itensAbaixoMinimoGenerico(){
+  const grupos = _saldoPorChaveGenerica();
+  return (minimosGenericos||[])
+    .filter(m=>Number(m.minimo)>0)
+    .map(m=>{
+      const g = grupos[m.chave];
+      return {nome:m.chave, saldo:g?g.saldo:0, min:Number(m.minimo), un:g?.un||''};
+    })
+    .filter(g=>g.saldo<g.min);
 }
 
 function atualizarBadgeMinimo(){
   const btn=document.getElementById('btnAlertaMinimo'); if(!btn) return;
-  const n=itensAbaixoMinimo().length;
+  const n=itensAbaixoMinimoGenerico().length;
   btn.innerHTML = n>0 ? `⚠️ Estoque mínimo <span style="background:#c62828;color:#fff;border-radius:9px;padding:0 6px;font-size:11px;font-weight:700">${n}</span>` : '⚠️ Estoque mínimo';
   btn.style.borderColor = n>0 ? '#c62828' : '';
   btn.style.color = n>0 ? '#c62828' : '';
 }
 
 function abrirAlertaMinimo(){
-  const lista=itensAbaixoMinimo();
+  const lista=itensAbaixoMinimoGenerico();
   const el=document.getElementById('listaAlertaMinimo');
-  if(!lista.length){ el.innerHTML='<div style="text-align:center;padding:30px;color:#66bb6a">✅ Nenhum item abaixo do mínimo.</div>'; }
+  if(!lista.length){ el.innerHTML='<div style="text-align:center;padding:30px;color:#66bb6a">✅ Nenhuma especificação abaixo do mínimo.</div>'; }
   else{
     el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr style="background:#f5f7f5"><th style="text-align:left;padding:6px 10px">Item</th><th style="text-align:left;padding:6px 10px">Código</th><th style="text-align:right;padding:6px 10px">Saldo</th><th style="text-align:right;padding:6px 10px">Mínimo</th></tr></thead>
+      <thead><tr style="background:#f5f7f5"><th style="text-align:left;padding:6px 10px">Especificação</th><th style="text-align:right;padding:6px 10px">Saldo (todas as marcas)</th><th style="text-align:right;padding:6px 10px">Mínimo</th></tr></thead>
       <tbody>${lista.map(l=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff5f5">
-        <td style="padding:6px 10px;font-weight:600">${(l.item.descricao||l.item.tipo_peca||'').replace(/</g,'&lt;')}</td>
-        <td style="padding:6px 10px;font-family:monospace;color:#1565c0">${l.item.codigo||'—'}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:700;color:#c62828">${l.saldo} ${l.item.unidade||''}</td>
+        <td style="padding:6px 10px;font-weight:600">${l.nome.replace(/</g,'&lt;')}</td>
+        <td style="padding:6px 10px;text-align:right;font-weight:700;color:#c62828">${l.saldo} ${l.un||''}</td>
         <td style="padding:6px 10px;text-align:right;color:#546e7a">${l.min}</td>
-      </tr>`).join('')}</tbody></table>`;
+      </tr>`).join('')}</tbody></table>
+      <div style="margin-top:10px;text-align:right"><button class="btn btn-sm" onclick="fecharModal('modalAlertaMinimo');abrirGerenciarMinimos()">🎯 Gerenciar mínimos</button></div>`;
   }
   abrirModal('modalAlertaMinimo');
 }
 
-// Cada item: nome COMPLETO (em negrito, quebra sozinho na tela) + linha clara de saldo/mínimo
-function _formatoMinimoTG(lista){
-  return lista.map(l=>{
-    const nome=(l.item.descricao||l.item.tipo_peca||'').toString().toUpperCase();
-    const un=l.item.unidade||'';
-    return `<b>${nome}</b>\n▪️ saldo <b>${l.saldo}${un?' '+un:''}</b> · mínimo <b>${l.min}</b>`;
+// Cada grupo (especificação, marcas somadas): nome genérico em negrito +
+// linha clara de saldo total/mínimo total.
+function _formatoMinimoTG(grupos){
+  return grupos.map(g=>{
+    return `<b>${g.nome}</b>\n▪️ saldo <b>${g.saldo}${g.un?' '+g.un:''}</b> · mínimo <b>${g.min}</b>`;
   }).join('\n\n');
 }
 
 async function enviarAlertaEstoqueTelegram(auto){
-  const lista=itensAbaixoMinimo();
-  if(!lista.length){ if(!auto) showToast('Nenhum item abaixo do mínimo'); return; }
-  const extra=lista.length>40?`\n\n<i>… e mais ${lista.length-40} itens</i>`:'';
-  const txt=`⚠️ <b>Estoque abaixo do mínimo</b> — ${lista.length} ${lista.length===1?'item':'itens'}\n\n${_formatoMinimoTG(lista.slice(0,40))}${extra}`;
+  const grupos=itensAbaixoMinimoGenerico();
+  if(!grupos.length){ if(!auto) showToast('Nenhuma especificação abaixo do mínimo'); return; }
+  const extra=grupos.length>40?`\n\n<i>… e mais ${grupos.length-40} tipos</i>`:'';
+  const txt=`⚠️ <b>Estoque abaixo do mínimo</b> — ${grupos.length} ${grupos.length===1?'tipo':'tipos'}\n\n${_formatoMinimoTG(grupos.slice(0,40))}${extra}`;
   const ok=await enviarTelegram(txt);
   if(ok&&!auto) showToast('📲 Alerta enviado no Telegram!');
 }
 
-// alerta automático: dispara quando a peça CRUZA para baixo do mínimo
+// alerta automático: dispara quando a ESPECIFICAÇÃO (soma de todas as marcas)
+// cruza para baixo do mínimo — não quando uma marca isolada zera, já que
+// outra marca da mesma especificação pode estar cobrindo o saldo.
 async function checarAlertaItem(itemId, qtdSaiu){
   const i=(estoqueItens||[]).find(x=>x.id===itemId); if(!i) return;
-  const min=Number(i.estoque_minimo)||0; if(min<=0) return;
-  const saldo=_saldoAtualEstoqueItem(i);
-  if(saldo>=min) return;                         // ainda acima do mínimo
-  const saldoAntes = saldo + (Number(qtdSaiu)||0);
-  if(qtdSaiu && saldoAntes < min) return;         // já estava abaixo antes — não repete
-  await enviarTelegram(`⚠️ <b>Estoque mínimo atingido</b>\n\n${_formatoMinimoTG([{item:i,saldo,min}])}`);
+  const chave = _chaveGenericaItem(i);
+  const m = (minimosGenericos||[]).find(x=>x.chave===chave);
+  if(!m || Number(m.minimo)<=0) return;
+  const min = Number(m.minimo);
+  const grupos = _saldoPorChaveGenerica();
+  const saldo = grupos[chave]?grupos[chave].saldo:0;
+  if(saldo>=min) return;                          // ainda acima do mínimo
+  const saldoAntes = saldo + (Number(qtdSaiu)||0); // só essa saída mudou o total do grupo
+  if(qtdSaiu && saldoAntes < min) return;          // já estava abaixo antes — não repete
+  await enviarTelegram(`⚠️ <b>Estoque mínimo atingido</b>\n\n${_formatoMinimoTG([{nome:chave, saldo, min, un:i.unidade||''}])}`);
 }
+// Abre/atualiza a tela de gerenciamento de mínimos por especificação — uma
+// linha por especificação existente hoje no estoque (qualquer marca), com o
+// saldo somado atual e um campo pra definir/editar o mínimo dela.
+function abrirGerenciarMinimos(){
+  const grupos = _saldoPorChaveGenerica();
+  const busca = (document.getElementById('buscaMinimoGenerico')?.value||'').trim().toLowerCase();
+  // Junta as chaves com item hoje com as que só têm mínimo salvo (órfãs) — sem
+  // isso, um mínimo salvo com um nome que não bate mais com nenhum item (ex:
+  // depois de uma correção no cálculo do nome) fica invisível e não dá pra apagar.
+  const todasChaves = new Set([...Object.keys(grupos), ...(minimosGenericos||[]).map(m=>m.chave)]);
+  const chaves = [...todasChaves]
+    .filter(c=>!busca||c.toLowerCase().includes(busca))
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const el = document.getElementById('listaGerenciarMinimos');
+  if(!el) return;
+  if(!chaves.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--gray)">Nenhuma especificação encontrada</div>'; }
+  else{
+    el.innerHTML = chaves.map(chave=>{
+      const g = grupos[chave];
+      const m = (minimosGenericos||[]).find(x=>x.chave===chave);
+      const minimoAtual = m?Number(m.minimo):0;
+      const idSeguro = chave.replace(/[^a-zA-Z0-9]/g,'_');
+      const chaveEsc = chave.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      const orfao = !g;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f0f0f0;${orfao?'background:#fff8e1':''}">
+        <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${chaveEsc}">${chave}${orfao?' <span style="font-size:10px;color:#ef6c00;font-weight:700">⚠️ nenhum item com esse nome hoje</span>':''}</span>
+        <span style="font-size:11px;color:var(--gray);white-space:nowrap">saldo hoje: <b>${g?g.saldo:0}${g?.un?' '+g.un:''}</b></span>
+        <input type="number" min="0" value="${minimoAtual||''}" placeholder="0" id="minG_${idSeguro}" style="width:75px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px" onkeydown="if(event.key==='Enter')salvarMinimoGenerico('${chaveEsc}',this.value)">
+        <button class="btn btn-sm primary" onclick="salvarMinimoGenerico('${chaveEsc}',document.getElementById('minG_${idSeguro}').value)">Salvar</button>
+        ${m?`<button class="btn btn-sm danger" onclick="excluirMinimoGenerico('${chaveEsc}')" title="Remove o mínimo dessa especificação">🗑</button>`:''}
+      </div>`;
+    }).join('');
+  }
+  abrirModal('modalGerenciarMinimos');
+}
+
+async function excluirMinimoGenerico(chave){
+  if(!confirm(`Remover o mínimo de "${chave}"?`)) return;
+  try{
+    await api('DELETE','minimos_genericos','',`?chave=eq.${encodeURIComponent(chave)}`);
+    showToast('Mínimo removido!');
+    await loadAll();
+    abrirGerenciarMinimos();
+  }catch(e){ showToast('Erro ao remover mínimo','err'); }
+}
+
+async function salvarMinimoGenerico(chave, valor){
+  const num = Number(valor)||0;
+  const existente = (minimosGenericos||[]).find(m=>m.chave===chave);
+  try{
+    if(existente){
+      await api('PATCH','minimos_genericos',{minimo:num, atualizado_em:new Date().toISOString(), atualizado_por:usuarioLogado?.nome||null},`?chave=eq.${encodeURIComponent(chave)}`);
+    } else {
+      await api('POST','minimos_genericos',{chave, minimo:num, atualizado_por:usuarioLogado?.nome||null});
+    }
+    showToast('Mínimo salvo!');
+    await loadAll();
+    abrirGerenciarMinimos();
+  }catch(e){ showToast('Erro ao salvar mínimo','err'); }
+}
+
 // ===== FIM ALERTA DE ESTOQUE MÍNIMO =====
 
 // ===== DIGEST DIÁRIO — COMPRAS INTERNAS URGENTES PENDENTES =====
@@ -18827,7 +20036,7 @@ async function checarDigestMinimoDiario(){
   try{
     if(_digestEmExecucao.minimo) return;
     if(!telegramCfg.token||!telegramCfg.chatId) return;
-    if(!itensAbaixoMinimo().length) return;
+    if(!itensAbaixoMinimoGenerico().length) return;
     _digestEmExecucao.minimo=true;
     if(!(await reservarDigestDiario('sl_digest_minimo'))) return;
     await enviarAlertaEstoqueTelegram(true);
