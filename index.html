@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SL Óleos — Gestão de Compras</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script>
 // Detecta formulário de cotação ANTES de qualquer CSS/render
 (function(){
@@ -4788,6 +4789,48 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 const SB_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6a3Fjd3NyYWN2b3NkaHFrbWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjQwMTMsImV4cCI6MjA5MzEwMDAxM30.wRmRXfU9kGtPodxKC6tD69VoDlBNI7Su5DGqLYDBe9U';
 const RESEND_KEY='re_jGEqPVW3_MLzktXZDieed4ZyACnhTNNFZ';
+
+// ===== ATUALIZAÇÃO AUTOMÁTICA (Realtime) =====
+// Mantém o sistema atualizado sozinho quando QUALQUER usuário insere/edita/apaga
+// algo em QUALQUER tabela — sem precisar apertar F5. Usa o cliente oficial do
+// Supabase (carregado via CDN no <head>) só pra abrir o WebSocket de notificação;
+// todo o resto do app continua funcionando exatamente como antes, via fetch()
+// direto no PostgREST (api()/apiAll()) — o realtime só decide QUANDO chamar
+// loadAll() de novo, não substitui como os dados são buscados.
+let _sbRealtimeCanal = null;
+let _realtimeReloadTimer = null;
+let _realtimeTentativas = 0;
+function _agendarRecargaRealtime(){
+  // Várias mudanças costumam chegar juntas (ex: salvar uma ordem mexe em 2-3
+  // tabelas de uma vez) — espera um pouco de silêncio antes de recarregar, pra
+  // não disparar loadAll() repetidas vezes à toa por causa da mesma ação.
+  clearTimeout(_realtimeReloadTimer);
+  _realtimeReloadTimer = setTimeout(()=>{
+    if(document.hidden) return; // aba em segundo plano — recarrega quando voltar ao foco (ver visibilitychange abaixo)
+    if(typeof usuarioLogado!=='undefined' && usuarioLogado && typeof loadAll==='function') loadAll();
+  }, 800);
+}
+function _iniciarRealtime(){
+  try{
+    if(_sbRealtimeCanal) return; // já iniciado nesta sessão do navegador
+    if(!window.supabase || typeof window.supabase.createClient!=='function'){
+      // supabase-js ainda não carregou (script com defer) — tenta de novo em breve,
+      // só umas poucas vezes pra não ficar tentando pra sempre se o CDN falhar.
+      if(_realtimeTentativas++ < 20) setTimeout(_iniciarRealtime, 300);
+      return;
+    }
+    const cliente = window.supabase.createClient(SB_URL, SB_KEY);
+    _sbRealtimeCanal = cliente
+      .channel('sl-oleos-mudancas-globais')
+      .on('postgres_changes', {event:'*', schema:'public'}, _agendarRecargaRealtime)
+      .subscribe();
+    // Quando a aba estava em segundo plano e volta ao foco, recarrega uma vez
+    // pra garantir que não perdeu nada (rede pode ter caído sem avisar).
+    document.addEventListener('visibilitychange', ()=>{
+      if(!document.hidden && typeof usuarioLogado!=='undefined' && usuarioLogado) _agendarRecargaRealtime();
+    });
+  }catch(e){ console.warn('Atualização automática (realtime) não iniciada:', e); }
+}
 const APP_URL=(typeof window!=='undefined'&&window.location)?(window.location?.origin||''):'';
 const SITE_URL=(typeof window!=='undefined'&&window.location)?(window.location?.origin||''):'';
 const NOTIFY_EMAIL='adm.geral@sloleos.com.br';
@@ -5121,7 +5164,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-09-30 · build 255';
+const APP_BUILD='2026-09-30 · build 256';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5379,6 +5422,7 @@ async function loadAll(){
     } else {
       _loadAllTentativas=0;
     }
+    _iniciarRealtime(); // só faz algo na 1ª vez — depois fica escutando sozinho
     renderAll();
     // Após um F5, a aba já estava aberta ANTES de os dados chegarem, então ela
     // renderizou vazia. Aqui, com os dados em mãos, redesenhamos SÓ O CONTEÚDO
