@@ -5121,7 +5121,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-09-30 · build 254';
+const APP_BUILD='2026-09-30 · build 255';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -8677,7 +8677,11 @@ function renderOrdens(){
 
   const visiveisPainel=todasFiltradas.filter(o=>{
     const st=statusOrdem(o);
-    if(st==='concluido'&&!mostrarConc&&!recemConcluida(o)) return false;
+    // Com busca ativa (código, desenho, descrição...), nunca esconde concluídas —
+    // senão o usuário procura um desenho que já foi concluído, não acha nada, e
+    // perde tempo até lembrar de marcar "Mostrar concluídas". A caixinha continua
+    // controlando a listagem geral (sem busca), só não se aplica durante a busca.
+    if(st==='concluido'&&!mostrarConc&&!recemConcluida(o)&&!b) return false;
     return true;
   });
 
@@ -8817,7 +8821,7 @@ function renderOrdens(){
           title="${titulo}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${txt}</td>`;
       }).join('');
 
-      return `<tr style="border-bottom:1px solid #b0bec5">
+      return `<tr style="border-bottom:1px solid #b0bec5${st==='concluido'?';background:#eef7ee' : ''}">
         <td style="padding:8px 2px;text-align:center">
           ${o.tem_foto_desenho
             ? `<button class="btn btn-sm" style="padding:2px 5px" onclick="abrirFotoOrdem('${o.id}')" title="Ver foto do desenho">📷</button>`
@@ -8834,7 +8838,7 @@ function renderOrdens(){
         <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px">
             ${o.descricao||'—'}
-            ${st==='concluido'&&recemConcluida(o)?'<span style="background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap" title="Concluída hoje — some da lista a partir de amanhã, a menos que marque \'Mostrar concluídas\'">✓ Pronta hoje</span>':''}
+            ${st==='concluido'?`<span style="background:#c8e6c9;color:#1b5e20;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap" title="${recemConcluida(o)?'Concluída hoje — some da lista amanhã, a menos que marque \'Mostrar concluídas\'':'Concluída — só aparece aqui porque bateu com a busca'}">✓ Concluída</span>`:''}
           </div>
           ${o.material?`<div style="font-size:10px;color:#9e9e9e">${o.material}</div>`:''}
         </td>
@@ -8853,13 +8857,13 @@ function renderOrdens(){
     // (toque avança/consulta) em vez das 8 colunas de máquina lado a lado.
     const cardsMobile = !isMobile ? '' : ordensGrupo.map(o=>{
       const st=statusOrdem(o);
-      return `<div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px;margin-bottom:8px">
+      return `<div style="background:${st==='concluido'?'#eef7ee':'#fff'};border:1px solid ${st==='concluido'?'#a5d6a7':'#e0e0e0'};border-radius:10px;padding:12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
           <div style="min-width:0;flex:1">
             <div style="font-weight:700;font-size:13px;color:#263238;display:flex;align-items:center;gap:6px">${_badgeIdadeOrdem(o)}<span>Nº ${o.numero}${o.dt_abertura?` <span style="font-weight:400;font-size:10px;color:#90a4ae">📅 ${o.dt_abertura.split('T')[0].split('-').reverse().join('/')}</span>`:''}</span></div>
             <div style="font-weight:600;font-size:13px;color:#37474f;margin-top:4px;overflow-wrap:anywhere;display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${o.descricao||'—'}
-              ${st==='concluido'&&recemConcluida(o)?'<span style="background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap">✓ Pronta hoje</span>':''}
+              ${st==='concluido'?`<span style="background:#c8e6c9;color:#1b5e20;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap">✓ Concluída</span>`:''}
             </div>
             ${o.desenho||o.material?`<div style="font-size:11px;color:#9e9e9e;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span>${[o.desenho,o.material].filter(Boolean).join(' · ')}</span>
