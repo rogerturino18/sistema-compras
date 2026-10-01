@@ -4807,7 +4807,13 @@ function _agendarRecargaRealtime(){
   clearTimeout(_realtimeReloadTimer);
   _realtimeReloadTimer = setTimeout(()=>{
     if(document.hidden) return; // aba em segundo plano — recarrega quando voltar ao foco (ver visibilitychange abaixo)
-    if(typeof usuarioLogado!=='undefined' && usuarioLogado && typeof loadAll==='function') loadAll();
+    // silencioso=true: essa recarga é automática, em segundo plano — não deve
+    // travar a tela nem mostrar "Carregando..." (ver _apiIniciarChamada). Sem
+    // isso, toda vez que a pessoa minimizava e voltava pro app, a tela ficava
+    // bloqueada com "Carregando..." até as ~31 tabelas responderem de novo —
+    // o que no celular, logo depois de voltar do segundo plano (rede ainda
+    // se reconectando), dava a impressão de ter travado.
+    if(typeof usuarioLogado!=='undefined' && usuarioLogado && typeof loadAll==='function') loadAll(true);
   }, 800);
 }
 function _iniciarRealtime(){
@@ -5164,7 +5170,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-01 · build 258';
+const APP_BUILD='2026-10-01 · build 259';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5281,8 +5287,14 @@ document.addEventListener('click',e=>{
 // ═══════════════════════════════════════════
 let _apiEmVoo = 0;
 let _apiIndicadorTimer = null;
+// Fica "true" durante uma recarga automática em segundo plano (realtime —
+// ver _agendarRecargaRealtime): nesse caso a atualização deve ser invisível,
+// sem travar clique nem mostrar "Carregando...", já que a pessoa não pediu
+// nada — é só o app se mantendo em dia sozinho.
+let _cargaSilenciosaAtiva = false;
 function _apiIniciarChamada(){
   _apiEmVoo++;
+  if(_cargaSilenciosaAtiva) return;
   const bloqueio = document.getElementById('loadingClickBlock');
   if(bloqueio) bloqueio.style.display = 'block';
   if(!_apiIndicadorTimer){
@@ -5369,7 +5381,12 @@ async function loadFinanceiro(){
 }
 
 let _loadAllTentativas = 0; // conta tentativas seguidas com falha, pra não ficar retentando pra sempre
-async function loadAll(){
+// silencioso=true: chamada automática em segundo plano (realtime/voltou do
+// segundo plano) — não trava a tela nem mostra "Carregando..." (ver
+// _cargaSilenciosaAtiva acima). Chamadas normais (login, F5 etc.) continuam
+// mostrando o carregamento como sempre.
+async function loadAll(silencioso){
+  if(silencioso) _cargaSilenciosaAtiva = true;
   try {
     // Se alguma dessas ~31 chamadas falhar (rede instável, timeout), NÃO
     // trocamos mais o dado por vazio — mantemos o que já estava carregado.
@@ -5445,6 +5462,7 @@ async function loadAll(){
     // Verifica requisições pendentes de aprovação sempre que os dados carregam
     setTimeout(()=>{ if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes(); }, 200);
   } catch(e){ console.error(e); showToast('Erro ao carregar dados','err'); }
+  finally { if(silencioso) _cargaSilenciosaAtiva = false; }
 }
 
 function renderAll(){
