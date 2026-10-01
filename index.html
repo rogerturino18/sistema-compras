@@ -5164,7 +5164,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-09-30 · build 257';
+const APP_BUILD='2026-10-01 · build 258';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10900,11 +10900,39 @@ function _ehPdfBase64(dataUrl){
   return !!dataUrl && dataUrl.startsWith('data:application/pdf');
 }
 
+// Abre um PDF guardado como base64 (data:application/pdf;base64,...) numa
+// aba nova. IMPORTANTE: não dá pra simplesmente colocar esse base64 como
+// href/window.open direto — a partir de certa versão, o Chrome e o Safari
+// do celular BLOQUEIAM silenciosamente a navegação de aba nova para uma
+// "data: URI" (por segurança). É exatamente por isso que "Ver PDF do
+// desenho" não abria nada no celular: no computador às vezes funciona,
+// no celular quase nunca. A solução é converter o base64 num Blob de
+// verdade e abrir uma "blob: URL" dele — isso os navegadores sempre aceitam.
+function _abrirPdfBase64(dataUrl){
+  if(!dataUrl) return;
+  try{
+    const [cabecalho, base64] = dataUrl.split(',');
+    const mime = (cabecalho.match(/data:([^;]+)/)||[])[1] || 'application/pdf';
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], {type:mime}));
+    window.open(url, '_blank');
+    // Libera a memória depois de um tempo — já deu tempo de sobra pra aba abrir o PDF.
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  }catch(e){
+    console.error('Erro ao abrir PDF:', e);
+    // Se por algum motivo a conversão falhar, tenta do jeito antigo (funciona
+    // em alguns navegadores de computador) em vez de simplesmente não fazer nada.
+    window.open(dataUrl, '_blank');
+  }
+}
+
 // Devolve o HTML certo pra exibir uma foto/PDF de desenho, do mesmo jeito em
 // todo canto que mostra isso (formulário, lista, painel do scanner).
 function _tagFotoDesenho(dataUrl, estiloImg){
   if(_ehPdfBase64(dataUrl)){
-    return `<a href="${dataUrl}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fdecea;border:1px solid #f5c6c0;border-radius:8px;text-decoration:none;color:#c62828;font-weight:700;font-size:13px">📄 Ver PDF do desenho</a>`;
+    return `<a href="javascript:void(0)" onclick="_abrirPdfBase64(this.dataset.pdf)" data-pdf="${dataUrl}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fdecea;border:1px solid #f5c6c0;border-radius:8px;text-decoration:none;color:#c62828;font-weight:700;font-size:13px">📄 Ver PDF do desenho</a>`;
   }
   return `<img src="${dataUrl}" style="${estiloImg}">`;
 }
@@ -10914,7 +10942,7 @@ function _tagFotoDesenho(dataUrl, estiloImg){
 // navegador já sabe fazer, sem eu precisar reinventar nada.
 function _abrirImagemTelaCheia(src){
   if(!src) return;
-  if(_ehPdfBase64(src)){ window.open(src,'_blank'); return; }
+  if(_ehPdfBase64(src)){ _abrirPdfBase64(src); return; }
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#000}img{width:100%;display:block}</style></head><body><img src="${src}"></body></html>`);
 }
