@@ -1281,7 +1281,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 <!-- TAB 5: ORDENS DE PRODUÇÃO -->
 <div class="panel" id="tab5">
   <div class="toolbar">
-    <input type="text" id="buscaOrdem" placeholder="Buscar por número, PDV, descrição..." oninput="renderOrdens()" style="flex:1;min-width:150px">
+    <input type="text" id="buscaOrdem" placeholder="Buscar por número, PDV, descrição..." oninput="_renderOrdensDebounced()" style="flex:1;min-width:150px">
     <select id="filtroOrdemPDV" onchange="renderOrdens()"><option value="">Todos os PDVs</option></select>
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#546e7a;white-space:nowrap;cursor:pointer">
       <input type="checkbox" id="mostrarConcluidas" onchange="renderOrdens()" style="width:15px;height:15px;cursor:pointer"> Mostrar concluídas
@@ -5164,7 +5164,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-09-30 · build 256';
+const APP_BUILD='2026-09-30 · build 257';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -8600,12 +8600,31 @@ function toggleOrdemProd(campo){
 // Busca individual por bloco de PDV na Ordem de Produção (a barrinha no
 // cabeçalho de cada PDV). Guardada fora do HTML para sobreviver às re-renderizações.
 const buscaOrdemPorPdv = {};
+let _timerFiltroOrdemPdv=null;
 function filtrarOrdemPorPdv(pdvId, valor){
   buscaOrdemPorPdv[pdvId] = valor||'';
-  // Preserva o foco: só relê a lista e devolve o cursor ao campo digitado.
-  renderOrdens();
-  const inp=document.getElementById('buscaOrdemPdv_'+pdvId);
-  if(inp){ inp.focus(); const v=inp.value; inp.value=''; inp.value=v; }
+  // A grade de produção é pesada pra remontar (muitas ordens × máquinas), e
+  // isso estava ficando lento no celular porque refazia a tela inteira a
+  // cada LETRA digitada. Agora só relê de verdade quando o usuário pausa
+  // um instante de digitar — a letra continua aparecendo no campo na hora,
+  // só o recálculo da lista é que espera.
+  clearTimeout(_timerFiltroOrdemPdv);
+  _timerFiltroOrdemPdv=setTimeout(()=>{
+    renderOrdens();
+    // Preserva o foco: devolve o cursor ao campo digitado.
+    const inp=document.getElementById('buscaOrdemPdv_'+pdvId);
+    if(inp){ inp.focus(); const v=inp.value; inp.value=''; inp.value=v; }
+  }, 280);
+}
+
+// Mesma lógica de "espera a pessoa parar de digitar" pra busca geral da aba
+// de Ordens de Produção (campo no topo) — sem isso, cada tecla recalculava
+// a grade inteira (todas as ordens × todas as máquinas), o que ficava
+// perceptivelmente lento, principalmente no celular.
+let _timerBuscaOrdem=null;
+function _renderOrdensDebounced(){
+  clearTimeout(_timerBuscaOrdem);
+  _timerBuscaOrdem=setTimeout(renderOrdens, 280);
 }
 
 // Monta "PDV 90 — Cliente" sem duplicar a palavra "PDV" — acontece quando
@@ -8649,6 +8668,15 @@ function renderOrdens(){
   }
 
   const temposReais=t=>t.operacao&&t.operacao!=='REPROCESSAR'&&!t.historico_only;
+
+  // Agrupa os tempos por ordem UMA vez só. Antes, cada ordem × cada uma das
+  // ~10 máquinas varria a lista COMPLETA de temposOP de novo (procurando só
+  // os tempos daquela ordem) — com o volume de tempos que já se acumulou,
+  // isso ficava bem pesado (e rodava tudo de novo a cada tecla digitada na
+  // busca, antes do debounce acima). Agora é uma única passada pra montar
+  // o índice, e todo o resto só consulta esse índice.
+  const temposPorOrdem={};
+  temposOP.forEach(t=>{ (temposPorOrdem[t.ordem_id]=temposPorOrdem[t.ordem_id]||[]).push(t); });
 
   // Filtra ordens visíveis. Ordens sem PDV (ex: registros históricos inseridos
   // manualmente) ficam fora da visão padrão pra não virar bagunça — mas se o
@@ -8698,14 +8726,14 @@ function renderOrdens(){
   const statusOrdem=o=>{
     if(o.status==='concluido') return 'concluido';   // finalização explícita (ex.: retorno do terceirizado)
     if(o.status==='terceirizado') return 'terceirizado';
-    const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t));
+    const tops=(temposPorOrdem[o.id]||[]).filter(temposReais);
     const emAndamento=tops.some(t=>!t.dt_hr_final);
     return emAndamento ? 'andamento' : 'aguardando';
   };
 
   // Data/hora em que a ordem foi concluída (maior dt_hr_final entre as operações reais)
   const dataConclusao=o=>{
-    const tops=temposOP.filter(t=>t.ordem_id===o.id&&temposReais(t)&&t.dt_hr_final);
+    const tops=(temposPorOrdem[o.id]||[]).filter(t=>temposReais(t)&&t.dt_hr_final);
     if(!tops.length) return null;
     return tops.reduce((max,t)=>{ const d=new Date(t.dt_hr_final); return d>max?d:max; }, new Date(0));
   };
@@ -8768,7 +8796,7 @@ function renderOrdens(){
     if(st==='concluido'){
       return `<span style="display:inline-flex;align-items:center;gap:6px;background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700">✓ Concluído</span>`;
     }
-    const tempoAtivo=temposOP.find(t=>t.ordem_id===o.id&&temposReais(t)&&!t.dt_hr_final);
+    const tempoAtivo=(temposPorOrdem[o.id]||[]).find(t=>temposReais(t)&&!t.dt_hr_final);
     const op=tempoAtivo?.operacao||'—';
     const cor=COR_OPERACAO[op]||'#1565c0';
     return `<span onclick="event.stopPropagation();abrirMenuEtapaOrdem(event,'${o.id}','${op.replace(/'/g,"\\'")}')" style="display:inline-flex;align-items:center;gap:6px;background:${cor};color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">▶ ${op}</span>`;
@@ -8784,7 +8812,7 @@ function renderOrdens(){
     const termoLocal=(buscaOrdemPorPdv[pdvId]||'').trim().toLowerCase();
     const ordensGrupo = !termoLocal ? ordensGrupoTodas : ordensGrupoTodas.filter(o=>{
       if(/^\d+$/.test(termoLocal)) return String(o.numero)===termoLocal || String(o.numero).includes(termoLocal);
-      const oper=(temposOP||[]).filter(t=>t.ordem_id===o.id).map(t=>t.operador||'').join(' ');
+      const oper=(temposPorOrdem[o.id]||[]).map(t=>t.operador||'').join(' ');
       return [o.numero,o.descricao,o.desenho,o.material,oper].filter(Boolean).join(' | ').toLowerCase().includes(termoLocal);
     });
     ordensGrupo.sort((a,b)=>{
@@ -8814,6 +8842,7 @@ function renderOrdens(){
 
     const linhas = ordensGrupo.map(o=>{
       const st=statusOrdem(o);
+      const temposDaOrdem=temposPorOrdem[o.id]||[];
 
       const celulas = COLS_FIXAS.map(op=>{
         if(op==='Aguardando'){
@@ -8854,8 +8883,8 @@ function renderOrdens(){
             style="background:#fff;color:#ef6c00;border:1px solid #b0bec5;text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
             title="Enviar para terceirizado" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'"></td>`;
         }
-        const tempo = temposOP.find(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
-        const concluidasOp = temposOP.filter(t=>t.ordem_id===o.id&&t.operacao===op&&temposReais(t)&&t.dt_hr_final);
+        const tempo = temposDaOrdem.find(t=>t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
+        const concluidasOp = temposDaOrdem.filter(t=>t.operacao===op&&temposReais(t)&&t.dt_hr_final);
         let bg='#fff', txt='', borda='#b0bec5', titulo='Clique para iniciar';
         if(tempo){ bg=COR_OPERACAO[op]||'#1565c0'; txt='▶'; borda=bg; titulo='Em andamento — '+(tempo.operador||''); }
         else if(concluidasOp.length>1){ bg='#e8f5e9'; txt=concluidasOp.length+'x'; borda='#a5d6a7'; titulo=concluidasOp.length+' passagens concluídas — clique para ver'; }
