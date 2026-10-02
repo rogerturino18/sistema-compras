@@ -2862,6 +2862,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     </select>
     <input type="date" id="filtroNFe_de" onchange="renderEntradaNFe()" title="Emissão de">
     <input type="date" id="filtroNFe_ate" onchange="renderEntradaNFe()" title="Emissão até">
+    <button class="btn btn-sm" onclick="filtrarNFeUltimosDias(7)" title="Mostra só as notas emitidas nos últimos 7 dias (sem mexer no que já foi importado — é só um filtro da visualização)">📅 Últimos 7 dias</button>
+    <button class="btn btn-sm" onclick="document.getElementById('filtroNFe_de').value='';document.getElementById('filtroNFe_ate').value='';renderEntradaNFe()" title="Remove o filtro de data e volta a mostrar todas">✕ Limpar período</button>
   </div>
 
   <!-- Table -->
@@ -5170,7 +5172,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-01 · build 259';
+const APP_BUILD='2026-10-02 · build 260';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25248,6 +25250,22 @@ async function recuperarEntradasDoEstoque(){
     showToast('Erro ao recuperar entradas','err');
     console.error(e);
   }
+}
+
+// Atalho pra ver só as notas emitidas nos últimos N dias (contando hoje),
+// sem mudar NADA do que já foi importado — é só um filtro em cima da lista
+// que já está no sistema. A busca na SEFAZ continua trazendo TUDO (nenhuma
+// nota antiga é descartada): a SEFAZ só entrega notas em sequência, não dá
+// pra pedir só "os últimos 7 dias" direto nela sem arriscar pular nota de
+// fornecedor que ainda não tinha sido importada.
+function filtrarNFeUltimosDias(dias){
+  const hoje=new Date();
+  const de=new Date(hoje);
+  de.setDate(de.getDate()-(dias-1)); // -(dias-1) pra contar o próprio dia de hoje como 1 dos N dias
+  const fmt=d=>d.toISOString().slice(0,10);
+  document.getElementById('filtroNFe_de').value=fmt(de);
+  document.getElementById('filtroNFe_ate').value=fmt(hoje);
+  renderEntradaNFe();
 }
 
 function renderEntradaNFe(){
