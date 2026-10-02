@@ -1081,8 +1081,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
   <div class="sb-icon active" id="sbico_0" onclick="sbGo(0,'Dashboard')" title="Dashboard" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🏠<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Dashboard</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
   <div class="sb-icon" id="sbico_vendas" onclick="sbToggle('vendas')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🧾<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Vendas</span></div>
+  <div class="sb-icon" id="sbico_projetos" onclick="sbToggle('projetos')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🎯<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Projetos</span></div>
   <div class="sb-icon" id="sbico_compras" onclick="sbToggle('compras')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🛒<span id="badgeAprovacoes" style="display:none;position:absolute;top:2px;right:2px;background:#f44336;color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center;z-index:10"></span><span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Compras</span></div>
-  <div class="sb-icon" id="sbico_projetos" onclick="sbToggle('projetos')" style="display:none;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🎯<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Projetos</span></div>
   <div class="sb-icon" id="sbico_producao" onclick="sbToggle('producao')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🔧<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Produção</span></div>
   <div class="sb-icon" id="sbico_financeiro" onclick="sbToggle('financeiro')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">💰<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Financeiro</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
@@ -5197,7 +5197,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-02 · build 265';
+const APP_BUILD='2026-10-02 · build 266';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12924,7 +12924,7 @@ function atualizarRelogio(){
 // ── Grupos da dashboard com sub-abas ────────────────────────────────────
 const DASH_GRUPOS = [
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
-   subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12}]},
+   subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12},{label:'Projetos / PDVs',icon:'🎯',tab:3},{label:'Lista de Material',icon:'📝',tab:4}]},
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
    subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Entrada de NF-e',icon:'🧾',tab:24},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Relatório Contábil',icon:'📊',tab:33}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
@@ -15675,7 +15675,7 @@ const MODULOS_SISTEMA = [
 const GRUPOS_PERMISSAO = [
   {id:'g_compras',    label:'Compras',    icon:'🛒', cor:'#1565c0', modulos:['compras','cotacoes','compint','envio']},
   {id:'g_producao',   label:'Produção',   icon:'🏭', cor:'#558b2f', modulos:['producao','desenhos']},
-  {id:'g_vendas',     label:'Vendas',     icon:'🏷️', cor:'#6a1b9a', modulos:['pdv','clientes','fiscal']},
+  {id:'g_vendas',     label:'Vendas',     icon:'🏷️', cor:'#6a1b9a', modulos:['pdv','clientes','fiscal','projetos','material']},
   {id:'g_financeiro', label:'Financeiro', icon:'💰', cor:'#c62828', modulos:['financeiro','receber','fluxo']},
   {id:'g_estoque',    label:'Estoque',    icon:'📦', cor:'#00695c', modulos:['estoque','requisicoes','admin']},
   {id:'g_epi',        label:'EPI',        icon:'🦺', cor:'#e65100', modulos:['epi']},
@@ -15791,14 +15791,10 @@ function aplicarPermissoes(){
   });
 
   // 1. Oculta/mostra ícones do sidebar lateral (sbico_*)
-  // 'projetos' fica sempre oculto — Roger decidiu substituir esse módulo por
-  // "Desenhos Recebidos" e não quer mais vê-lo na UI, mesmo como admin.
-  ['compras','producao','vendas','financeiro','estoque','expedicao'].forEach(g=>{
+  ['compras','producao','vendas','financeiro','estoque','expedicao','projetos'].forEach(g=>{
     const ico=document.getElementById('sbico_'+g);
     if(ico) ico.style.display = gruposPermitidos.has(g) ? '' : 'none';
   });
-  const icoProjetos=document.getElementById('sbico_projetos');
-  if(icoProjetos) icoProjetos.style.display='none';
 
   // 2. Oculta/mostra itens dentro dos painéis do sidebar
   document.querySelectorAll('.sbi[onclick*="sbGo("]').forEach(el=>{
@@ -22422,9 +22418,41 @@ async function expedicaoInit(){
   renderExpedicao();
 }
 
+// Acha o PDV do Pedido de Venda — o PV guarda o PDV escolhido como texto no
+// campo "departamento" (ex: "PDV 55 — Castro Óleos"), então casa esse texto
+// com o rótulo de cada PDV cadastrado.
+function _resolverPdvDoPV(pv){
+  if(!pv) return null;
+  const dep=(pv.departamento||'').trim();
+  if(!dep) return null;
+  return pdvs.find(p=>rotuloPDV(p,true)===dep) || pdvs.find(p=>rotuloPDV(p,false)===dep) || null;
+}
+
+// Monta o checklist a partir da sequência REAL de produção (as ordens desse
+// PDV, na ordem do número delas) — não do texto digitado no Pedido de Venda.
+// Só cai pro texto do PV quando o PV não está ligado a nenhum PDV cadastrado,
+// ou esse PDV ainda não tem nenhuma ordem de produção lançada.
+function _itensDeProducaoParaCarregamento(carregamentoId, pdvId, pv){
+  const ordensDoPdv = pdvId ? ordens.filter(o=>o.pdv_id===pdvId && !o.excluida_em).sort((a,b)=>(a.numero||0)-(b.numero||0)) : [];
+  if(ordensDoPdv.length){
+    return ordensDoPdv.map(o=>({
+      carregamento_id: carregamentoId,
+      ordem_producao_id: o.id,
+      numero_ordem: o.numero||null,
+      desenho: o.desenho||'',
+      descricao: o.descricao||'',
+      qtd: o.quantidade||1,
+    }));
+  }
+  const itensPV=Array.isArray(pv?.itens)?pv.itens:[];
+  return itensPV.map(it=>({ carregamento_id: carregamentoId, descricao: it.descricao||'', qtd: it.qtd||0 }));
+}
+
 // Cria sozinho um carregamento para todo Pedido de Venda "Aprovado"/"Em
 // Produção" que ainda não tem um — é isso que faz o pedido aparecer na
-// Expedição sem precisar cadastrar nada manualmente.
+// Expedição sem precisar cadastrar nada manualmente. Também reaproveita
+// carregamentos mais antigos (criados antes do PDV/sequência de produção
+// existir aqui) enquanto nenhum item deles tiver sido fotografado ainda.
 async function _sincronizarCarregamentosComPV(){
   const elegiveis=(pedidosVenda||[]).filter(p=>['Aprovado','Em Produção'].includes(p.status));
   const semCarregamento=elegiveis.filter(p=>!carregamentos.some(c=>c.pedido_venda_id===p.id));
@@ -22432,20 +22460,37 @@ async function _sincronizarCarregamentosComPV(){
   for(const pv of semCarregamento){
     try{
       maxNum++;
+      const pdv=_resolverPdvDoPV(pv);
       const [novo]=await api('POST','carregamentos',{
         numero: maxNum,
         pedido_venda_id: pv.id,
+        pdv_id: pdv?.id||null,
+        pdv_numero: pdv?rotuloPDV(pdv):null,
         cliente_nome: pv.cliente_nome||'',
         status:'Aguardando Fotos',
         criado_por: 'Automático (Pedido de Venda aprovado)',
       });
-      const itensPV=Array.isArray(pv.itens)?pv.itens:[];
-      novo.carregamento_itens = itensPV.length
-        ? await api('POST','carregamento_itens', itensPV.map(it=>({ carregamento_id: novo.id, descricao: it.descricao||'', qtd: it.qtd||0 })))
-        : [];
+      const itensParaCriar=_itensDeProducaoParaCarregamento(novo.id, pdv?.id||null, pv);
+      novo.carregamento_itens = itensParaCriar.length ? await api('POST','carregamento_itens', itensParaCriar) : [];
       novo.carregamento_fotos=[];
       carregamentos.unshift(novo);
     }catch(e){ console.warn('[expedicao] não consegui criar o carregamento automático do PV', pv.numero, e); }
+  }
+
+  for(const c of carregamentos){
+    if(c.pdv_id) continue; // já sincronizado
+    const temProgresso=(c.carregamento_itens||[]).some(i=>i.pronto) || (c.carregamento_fotos||[]).some(f=>f.etapa==='item_pronto');
+    if(temProgresso) continue; // já tem gente trabalhando nisso — não mexe
+    const pv=pedidosVenda.find(p=>p.id===c.pedido_venda_id);
+    const pdv=_resolverPdvDoPV(pv);
+    if(!pdv) continue;
+    try{
+      await api('DELETE','carregamento_itens',null,`?carregamento_id=eq.${c.id}`);
+      const itensParaCriar=_itensDeProducaoParaCarregamento(c.id, pdv.id, pv);
+      const novosItens = itensParaCriar.length ? await api('POST','carregamento_itens', itensParaCriar) : [];
+      await api('PATCH','carregamentos',{pdv_id:pdv.id, pdv_numero:rotuloPDV(pdv)},`?id=eq.${c.id}`);
+      c.pdv_id=pdv.id; c.pdv_numero=rotuloPDV(pdv); c.carregamento_itens=novosItens;
+    }catch(e){ console.warn('[expedicao] não consegui ligar o carregamento ao PDV', c.numero, e); }
   }
 }
 
@@ -22463,9 +22508,10 @@ function _cardExpedicao(c){
   const itensArr=c.carregamento_itens||[];
   const prontos=itensArr.filter(i=>i.pronto).length;
   const pct=itensArr.length?Math.round(prontos/itensArr.length*100):0;
+  const rotulo=(c.pdv_numero||`Carreg. Nº ${c.numero||'—'}`).replace(/</g,'&lt;');
   return `<div onclick="abrirDetalheCarregamento('${c.id}')" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:14px;cursor:pointer;transition:box-shadow .15s"
     onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)'" onmouseout="this.style.boxShadow='none'">
-    <div style="font-size:11px;color:#9e9e9e;font-weight:700;text-transform:uppercase;margin-bottom:4px">Nº ${c.numero||'—'}</div>
+    <div style="font-size:11px;color:#9e9e9e;font-weight:700;text-transform:uppercase;margin-bottom:4px">${rotulo}</div>
     <div style="font-size:14px;font-weight:700;color:#37474f;margin-bottom:8px">${(c.cliente_nome||'Sem cliente').replace(/</g,'&lt;')}</div>
     <div style="height:6px;background:#eceff1;border-radius:3px;overflow:hidden;margin-bottom:6px">
       <div style="height:100%;width:${pct}%;background:#43a047"></div>
@@ -22494,7 +22540,7 @@ function renderExpedicao(){
   if(b){
     lista=lista.filter(c=>{
       const pv=pedidosVenda.find(p=>p.id===c.pedido_venda_id);
-      const texto=[c.cliente_nome,c.numero,pv?.numero].filter(x=>x!=null).join(' | ').toLowerCase();
+      const texto=[c.cliente_nome,c.numero,c.pdv_numero,pv?.numero].filter(x=>x!=null).join(' | ').toLowerCase();
       return texto.includes(b);
     });
   }
@@ -22535,7 +22581,7 @@ function renderExpedicaoDetalhe(){
   if(!c){ _carregamentoSelecionadoId=null; return renderExpedicao(); }
   if(listaWrap) listaWrap.style.display='none';
   if(detWrap) detWrap.style.display='';
-  const itensArr=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.criado_em||'').localeCompare(b.criado_em||''));
+  const itensArr=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)||(a.criado_em||'').localeCompare(b.criado_em||''));
   const fotosArr=c.carregamento_fotos||[];
   const fotosDoItem=itemId=>fotosArr.filter(f=>f.item_id===itemId&&f.etapa==='item_pronto');
   const fotosCarreg=fotosArr.filter(f=>f.etapa==='carregamento');
@@ -22543,11 +22589,12 @@ function renderExpedicaoDetalhe(){
 
   const linhasItens=itensArr.map(it=>{
     const fotos=fotosDoItem(it.id);
+    const rotuloItem=`${it.numero_ordem?`Ordem Nº ${it.numero_ordem} · `:''}${it.desenho?`[${it.desenho}] `:''}${it.descricao||'—'}`;
     return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:${it.pronto?'#f1f8f4':'#fff'}">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px;cursor:pointer">
           <input type="checkbox" ${it.pronto?'checked':''} onchange="marcarItemCarregamentoPronto('${it.id}',this.checked)" style="width:18px;height:18px;cursor:pointer">
-          <span style="font-weight:600;font-size:13px">${(it.descricao||'—').replace(/</g,'&lt;')}</span>
+          <span style="font-weight:600;font-size:13px">${rotuloItem.replace(/</g,'&lt;')}</span>
         </label>
         <span style="font-size:12px;color:#78909c">Qtd: ${it.qtd||0}</span>
         <label class="btn btn-sm" style="cursor:pointer">📷 Foto
@@ -22565,7 +22612,7 @@ function renderExpedicaoDetalhe(){
   detWrap.innerHTML=`
     <button class="btn btn-sm" onclick="_voltarListaCarregamentos()" style="margin-bottom:12px">← Voltar à Expedição</button>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 Carregamento Nº ${c.numero||'—'} — ${(c.cliente_nome||'').replace(/</g,'&lt;')}</h2>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 ${(c.pdv_numero||`Carregamento Nº ${c.numero||'—'}`).replace(/</g,'&lt;')} — ${(c.cliente_nome||'').replace(/</g,'&lt;')}</h2>
       ${expedStatusBadge(c.status)}
     </div>
     <div style="font-size:12px;color:var(--gray);margin-bottom:16px">${itensArr.filter(i=>i.pronto).length}/${itensArr.length} itens com foto</div>
