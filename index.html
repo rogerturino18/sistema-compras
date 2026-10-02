@@ -1080,14 +1080,14 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 <div id="mainSidebar" style="position:fixed;left:0;top:56px;bottom:0;width:52px;background:#263238;display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;z-index:15;overflow:visible">
   <div class="sb-icon active" id="sbico_0" onclick="sbGo(0,'Dashboard')" title="Dashboard" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🏠<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Dashboard</span></div>
   <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
+  <div class="sb-icon" id="sbico_vendas" onclick="sbToggle('vendas')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🧾<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Vendas</span></div>
   <div class="sb-icon" id="sbico_compras" onclick="sbToggle('compras')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🛒<span id="badgeAprovacoes" style="display:none;position:absolute;top:2px;right:2px;background:#f44336;color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center;z-index:10"></span><span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Compras</span></div>
   <div class="sb-icon" id="sbico_projetos" onclick="sbToggle('projetos')" style="display:none;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🎯<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Projetos</span></div>
   <div class="sb-icon" id="sbico_producao" onclick="sbToggle('producao')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🔧<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Produção</span></div>
-  <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
-  <div class="sb-icon" id="sbico_vendas" onclick="sbToggle('vendas')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🧾<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Vendas</span></div>
   <div class="sb-icon" id="sbico_financeiro" onclick="sbToggle('financeiro')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">💰<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Financeiro</span></div>
-  <div class="sb-icon" id="sbico_epi" onclick="sbGo(29,'EPI')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">🦺<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Controle EPI</span></div>
+  <div style="width:28px;height:1px;background:rgba(255,255,255,0.1);margin:2px 0"></div>
   <div class="sb-icon" id="sbico_estoque" onclick="sbToggle('estoque')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">📦<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Estoque</span></div>
+  <div class="sb-icon" id="sbico_expedicao" onclick="sbToggle('expedicao')" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5);font-size:20px;position:relative">📦<span style="position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#263238;color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;border:1px solid rgba(255,255,255,0.15)" class="sb-tip">Expedição</span></div>
 </div>
 <!-- Painéis sidebar -->
 <div id="sbpanel_financeiro" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
@@ -1111,6 +1111,13 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="sbGo(17,'Requisições de Material')">📤 Requisições de Material</div>
     <div class="sbi" onclick="sbGo(18,'Departamentos')">🏢 Departamentos</div>
     <div class="sbi" onclick="sbGo(35,'Conferência de Peças Fundidas')">🏗️ Peças Fundidas</div>
+    <div class="sbi" onclick="sbGo(29,'Controle EPI')">🦺 Controle EPI</div>
+  </div>
+</div>
+<div id="sbpanel_expedicao" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid var(--border);z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
+  <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#00695c;text-transform:uppercase;border-bottom:1px solid #e8f5e9">📦 Expedição</div>
+  <div style="padding:6px 0">
+    <div class="sbi" onclick="sbGo(36,'Expedição')">📦 Carregamentos</div>
   </div>
 </div>
 <div id="sb_overlay" onclick="sbCloseAll()" style="display:none;position:fixed;inset:0;z-index:14"></div>
@@ -2606,6 +2613,48 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div style="padding:0 16px 16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="fecharModal('modalPeso')">Cancelar</button>
       <button class="btn primary" onclick="pesoSalvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 36: EXPEDIÇÃO -->
+<div class="panel" id="tab36">
+  <div id="expedListaWrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div>
+        <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 Expedição</h2>
+        <div style="font-size:12px;color:var(--gray);margin-top:2px">Carregamentos: fotos das peças prontas, depois fotos e dados do carregamento.</div>
+      </div>
+      <button class="btn primary" onclick="abrirNovoCarregamento()">+ Novo Carregamento</button>
+    </div>
+    <div class="toolbar" style="margin-bottom:12px">
+      <select id="filtroExpedStatus" onchange="renderExpedicao()" style="min-width:170px">
+        <option value="">Todos os status</option>
+        <option value="Separando">🟡 Separando</option>
+        <option value="Itens Prontos">🔵 Itens Prontos</option>
+        <option value="Carregado">🟢 Carregado</option>
+      </select>
+    </div>
+    <div id="expedLista"></div>
+  </div>
+  <div id="expedDetalheWrap" style="display:none"></div>
+</div>
+
+<!-- MODAL: NOVO CARREGAMENTO -->
+<div class="modal-bg" id="modalNovoCarregamento">
+  <div class="modal" style="width:440px;max-width:96vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px">📦 Novo Carregamento</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalNovoCarregamento')">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <label style="font-size:12px;color:#546e7a;font-weight:600">Pedido de Venda *</label>
+      <select id="novoCarreg_pv" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;margin:4px 0 4px"></select>
+      <div style="font-size:11px;color:#9e9e9e;margin-top:4px">Os itens do pedido entram automaticamente no checklist do carregamento.</div>
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="fecharModal('modalNovoCarregamento')">Cancelar</button>
+      <button class="btn primary" onclick="criarCarregamento()">💾 Criar</button>
     </div>
   </div>
 </div>
@@ -5166,13 +5215,13 @@ async function exportarExcelEPI(){
 }
 // ═══════════════════════════ FIM EPI ═════════════════════════════════════
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[], desenhosRecebidos=[], montagensRecebidas=[], itensDesenhoRecebido=[], minimosGenericos=[], operadoresMaquina=[], terceirizadosCadastro=[], fundidosItens=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[], desenhosRecebidos=[], montagensRecebidas=[], itensDesenhoRecebido=[], minimosGenericos=[], operadoresMaquina=[], terceirizadosCadastro=[], fundidosItens=[], carregamentos=[];
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-02 · build 263';
+const APP_BUILD='2026-10-02 · build 264';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12898,18 +12947,18 @@ function atualizarRelogio(){
 
 // ── Grupos da dashboard com sub-abas ────────────────────────────────────
 const DASH_GRUPOS = [
+  {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
+   subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12}]},
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
    subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Entrada de NF-e',icon:'🧾',tab:24},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Relatório Contábil',icon:'📊',tab:33}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
    subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32}]},
-  {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
-   subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12}]},
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
    subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
-   subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18},{label:'Peças Fundidas',icon:'🏗️',tab:35}]},
-  {id:'epi',        label:'Controle EPI', icon:'🦺', color:'linear-gradient(135deg,#ef6c00,#e65100)', directTab:29,
-   subs:[{label:'Controle EPI',icon:'🦺',tab:29}]},
+   subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18},{label:'Peças Fundidas',icon:'🏗️',tab:35},{label:'Controle EPI',icon:'🦺',tab:29}]},
+  {id:'expedicao',  label:'Expedição',  icon:'📦', color:'linear-gradient(135deg,#00838f,#006064)',
+   subs:[{label:'Carregamentos',icon:'📦',tab:36}]},
 ];
 
 let _dashGrupoAtivo = null;
@@ -15450,6 +15499,7 @@ function renderConteudoAba(n){
   if(n===32) { if(typeof pesosInit==='function') pesosInit(); }
   if(n===35) { if(typeof fundidosInit==='function') fundidosInit(); }
   if(n===34) { if(typeof renderOperadoresTerceirizados==='function') renderOperadoresTerceirizados(); }
+  if(n===36) { if(typeof expedicaoInit==='function') expedicaoInit(); }
 }
 
 function showTab(n){
@@ -15638,6 +15688,7 @@ const MODULOS_SISTEMA = [
   {id:'requisicoes',label:'📋 Requisições',          tab:17},
   {id:'admin',      label:'⚙️ Administração',        tab:18},
   {id:'epi',        label:'🦺 Controle EPI',           tab:29},
+  {id:'expedicao',  label:'📦 Expedição',             tab:36},
   {id:'central_pendencias', label:'✨ Central de Pendências', tab:0},
 ];
 
@@ -15652,6 +15703,7 @@ const GRUPOS_PERMISSAO = [
   {id:'g_financeiro', label:'Financeiro', icon:'💰', cor:'#c62828', modulos:['financeiro','receber','fluxo']},
   {id:'g_estoque',    label:'Estoque',    icon:'📦', cor:'#00695c', modulos:['estoque','requisicoes','admin']},
   {id:'g_epi',        label:'EPI',        icon:'🦺', cor:'#e65100', modulos:['epi']},
+  {id:'g_expedicao',  label:'Expedição',  icon:'📦', cor:'#00838f', modulos:['expedicao']},
 ];
 
 // Extrai permissões do campo perfil (formato: "Cargo:mod1,mod2,mod3" ou só "Cargo")
@@ -15670,7 +15722,7 @@ function getPermissoesUsuario(u){
   if(cargo.includes('compra'))    return ['compras','cotacoes','estoque','requisicoes','compint','envio'];
   if(cargo.includes('pcp'))       return ['compras','producao','requisicoes','estoque','projetos','material'];
   if(cargo.includes('producao')||cargo.includes('produção')) return ['producao','estoque','requisicoes'];
-  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao','requisicoes','compint'];
+  if(cargo.includes('expedicao')||cargo.includes('expediç')) return ['compras','projetos','estoque','producao','requisicoes','compint','expedicao'];
   if(cargo.includes('projeto'))   return ['projetos','producao','material'];
   if(cargo.includes('engenharia'))return ['projetos','producao','material','estoque'];
   if(cargo.includes('comercial')) return ['pdv','clientes','cotacoes'];
@@ -15718,10 +15770,10 @@ const TAB_GRUPO_SIDEBAR = {
   // sbpanel_financeiro: Contas a Pagar(19), Contas a Receber(20), Fluxo de Caixa(21),
   //                      Pagamentos(25), Recebimentos(26), Contas Correntes(22), DRE(23)
   19:'financeiro',20:'financeiro',21:'financeiro',22:'financeiro',23:'financeiro',25:'financeiro',26:'financeiro',
-  // sbpanel_estoque: Itens em Estoque(11), Movimentações(16), Distribuição por PDV(30), Requisições(17), Departamentos(18), Peças Fundidas(35)
-  11:'estoque',16:'estoque',17:'estoque',18:'estoque',30:'estoque',35:'estoque',
-  // EPI tem ícone próprio (sbico_epi → tab 29 direto, sem painel lateral)
-  29:'epi',
+  // sbpanel_estoque: Itens em Estoque(11), Movimentações(16), Distribuição por PDV(30), Requisições(17), Departamentos(18), Peças Fundidas(35), Controle EPI(29)
+  11:'estoque',16:'estoque',17:'estoque',18:'estoque',30:'estoque',35:'estoque',29:'estoque',
+  // sbpanel_expedicao: Carregamentos(36)
+  36:'expedicao',
 };
 
 // Aplica permissões na UI — oculta ícones, sidebar items, cards e bloqueia tabs
@@ -15765,7 +15817,7 @@ function aplicarPermissoes(){
   // 1. Oculta/mostra ícones do sidebar lateral (sbico_*)
   // 'projetos' fica sempre oculto — Roger decidiu substituir esse módulo por
   // "Desenhos Recebidos" e não quer mais vê-lo na UI, mesmo como admin.
-  ['compras','producao','vendas','financeiro','estoque','epi'].forEach(g=>{
+  ['compras','producao','vendas','financeiro','estoque','expedicao'].forEach(g=>{
     const ico=document.getElementById('sbico_'+g);
     if(ico) ico.style.display = gruposPermitidos.has(g) ? '' : 'none';
   });
@@ -16218,7 +16270,7 @@ function sbAgendarRecolhimento(group){
 function sbCloseAll(){
   sbCancelarRecolhimento();
   document.body.classList.remove('sb-submenu-open');
-  ['compras','projetos','producao','vendas','estoque','financeiro'].forEach(function(g){
+  ['compras','projetos','producao','vendas','estoque','financeiro','expedicao'].forEach(function(g){
     var p=document.getElementById('sbpanel_'+g);
     if(p) p.style.display='none';
     var i=document.getElementById('sbico_'+g);
@@ -22375,6 +22427,280 @@ async function exportarFundidos(){
   }catch(e){ showToast('Erro ao exportar: '+e.message,'err'); }
 }
 // ===== FIM CONFERÊNCIA DE PEÇAS FUNDIDAS =====
+
+// ===== EXPEDIÇÃO (CARREGAMENTOS) =====
+// Processo separado das Ordens de Produção: depois que as peças de um
+// Pedido de Venda ficam prontas, um carregamento junta os itens desse
+// pedido num checklist com foto de cada peça pronta (produção) e depois
+// foto/dados do carregamento em si (expedição/conferência).
+
+let _carregamentoSelecionadoId = null;
+
+async function expedicaoInit(){
+  try{
+    carregamentos = await apiAll('carregamentos','?select=*,carregamento_itens(*),carregamento_fotos(*)&order=criado_em.desc');
+  }catch(e){ console.warn('[expedicao] load', e); showToast('Não consegui carregar os carregamentos: '+e.message,'err'); }
+  renderExpedicao();
+}
+
+function expedStatusBadge(st){
+  const map={
+    'Separando':      ['🟡 Separando','#fff3e0','#e65100'],
+    'Itens Prontos':  ['🔵 Itens Prontos','#e3f2fd','#1565c0'],
+    'Carregado':      ['🟢 Carregado','#e8f5e9','#2e7d32'],
+  };
+  const [label,bg,fg]=map[st]||map['Separando'];
+  return `<span style="background:${bg};color:${fg};font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;white-space:nowrap">${label}</span>`;
+}
+
+function renderExpedicao(){
+  if(_carregamentoSelecionadoId) return renderExpedicaoDetalhe();
+  const listaWrap=document.getElementById('expedListaWrap');
+  const detWrap=document.getElementById('expedDetalheWrap');
+  if(listaWrap) listaWrap.style.display='';
+  if(detWrap) detWrap.style.display='none';
+  const div=document.getElementById('expedLista');
+  if(!div) return;
+  const st=document.getElementById('filtroExpedStatus')?.value||'';
+  let lista=[...carregamentos];
+  if(st) lista=lista.filter(c=>c.status===st);
+  if(!lista.length){
+    div.innerHTML=`<div class="empty" style="padding:32px;text-align:center;color:#9e9e9e">Nenhum carregamento${st?' com esse status':''}.</div>`;
+    return;
+  }
+  div.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">`
+    +lista.map(c=>{
+      const itensArr=c.carregamento_itens||[];
+      const prontos=itensArr.filter(i=>i.pronto).length;
+      return `<div onclick="abrirDetalheCarregamento('${c.id}')" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px;cursor:pointer;transition:box-shadow .15s"
+        onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)'" onmouseout="this.style.boxShadow='none'">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:11px;color:#9e9e9e;font-weight:700;text-transform:uppercase">Nº ${c.numero||'—'}</span>
+          ${expedStatusBadge(c.status)}
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#37474f;margin-bottom:4px">${(c.cliente_nome||'Sem cliente').replace(/</g,'&lt;')}</div>
+        <div style="font-size:12px;color:#78909c">${itensArr.length} ${itensArr.length===1?'item':'itens'} · ${prontos}/${itensArr.length} prontos</div>
+      </div>`;
+    }).join('')
+    +'</div>';
+}
+
+function abrirNovoCarregamento(){
+  const sel=document.getElementById('novoCarreg_pv');
+  if(sel){
+    const pvsDisp=[...pedidosVenda].filter(p=>!['Cancelado'].includes(p.status)).sort((a,b)=>(b.numero||0)-(a.numero||0));
+    sel.innerHTML='<option value="">Selecionar pedido...</option>'
+      +pvsDisp.map(p=>`<option value="${p.id}">Nº ${p.numero} — ${(p.cliente_nome||'Sem cliente').replace(/"/g,'&quot;')}</option>`).join('');
+  }
+  abrirModal('modalNovoCarregamento');
+}
+
+async function criarCarregamento(){
+  const pvId=document.getElementById('novoCarreg_pv')?.value;
+  if(!pvId){ showToast('Escolha um pedido de venda','err'); return; }
+  const pv=pedidosVenda.find(p=>p.id===pvId);
+  if(!pv){ showToast('Pedido não encontrado','err'); return; }
+  try{
+    const maxNum=carregamentos.length?Math.max(...carregamentos.map(c=>c.numero||0)):0;
+    const [novo]=await api('POST','carregamentos',{
+      numero: maxNum+1,
+      pedido_venda_id: pv.id,
+      cliente_nome: pv.cliente_nome||'',
+      status:'Separando',
+      responsavel_separacao: usuarioLogado?.nome||'',
+      criado_por: usuarioLogado?.nome||'',
+    });
+    const itensPV=Array.isArray(pv.itens)?pv.itens:[];
+    if(itensPV.length){
+      await api('POST','carregamento_itens', itensPV.map(it=>({
+        carregamento_id: novo.id,
+        descricao: it.descricao||'',
+        qtd: it.qtd||0,
+      })));
+    }
+    fecharModal('modalNovoCarregamento');
+    showToast('Carregamento criado!');
+    await expedicaoInit();
+    abrirDetalheCarregamento(novo.id);
+  }catch(e){ showToast('Erro ao criar: '+e.message,'err'); }
+}
+
+function abrirDetalheCarregamento(id){
+  _carregamentoSelecionadoId=id;
+  renderExpedicao();
+}
+
+function _voltarListaCarregamentos(){
+  _carregamentoSelecionadoId=null;
+  renderExpedicao();
+}
+
+function renderExpedicaoDetalhe(){
+  const listaWrap=document.getElementById('expedListaWrap');
+  const detWrap=document.getElementById('expedDetalheWrap');
+  const c=carregamentos.find(x=>x.id===_carregamentoSelecionadoId);
+  if(!c){ _carregamentoSelecionadoId=null; return renderExpedicao(); }
+  if(listaWrap) listaWrap.style.display='none';
+  if(detWrap) detWrap.style.display='';
+  const itensArr=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.criado_em||'').localeCompare(b.criado_em||''));
+  const fotosArr=c.carregamento_fotos||[];
+  const fotosDoItem=itemId=>fotosArr.filter(f=>f.item_id===itemId&&f.etapa==='item_pronto');
+  const fotosCarreg=fotosArr.filter(f=>f.etapa==='carregamento');
+  const todosProntos=itensArr.length>0 && itensArr.every(i=>i.pronto);
+
+  const linhasItens=itensArr.map(it=>{
+    const fotos=fotosDoItem(it.id);
+    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:${it.pronto?'#f1f8f4':'#fff'}">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px;cursor:pointer">
+          <input type="checkbox" ${it.pronto?'checked':''} onchange="marcarItemCarregamentoPronto('${it.id}',this.checked)" style="width:18px;height:18px;cursor:pointer">
+          <span style="font-weight:600;font-size:13px">${(it.descricao||'—').replace(/</g,'&lt;')}</span>
+        </label>
+        <span style="font-size:12px;color:#78909c">Qtd: ${it.qtd||0}</span>
+        <label class="btn btn-sm" style="cursor:pointer">📷 Foto
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}','${it.id}')">
+        </label>
+      </div>
+      ${fotos.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${fotos.map(f=>`
+        <div style="position:relative">
+          <img src="${f.foto_base64}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer" onclick="_abrirImagemTelaCheia('${f.foto_base64}')">
+          <button onclick="removerFotoCarregamento('${f.id}')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#f44336;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:10px;line-height:1">✕</button>
+        </div>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+
+  detWrap.innerHTML=`
+    <button class="btn btn-sm" onclick="_voltarListaCarregamentos()" style="margin-bottom:12px">← Voltar aos Carregamentos</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 Carregamento Nº ${c.numero||'—'} — ${(c.cliente_nome||'').replace(/</g,'&lt;')}</h2>
+      ${expedStatusBadge(c.status)}
+    </div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:16px">${itensArr.filter(i=>i.pronto).length}/${itensArr.length} itens prontos</div>
+
+    <h3 style="font-size:14px;font-weight:700;margin:0 0 8px">✅ Checklist de itens prontos</h3>
+    ${linhasItens||'<div style="color:#9e9e9e;font-size:13px">Nenhum item neste carregamento.</div>'}
+
+    ${c.status==='Separando'?`<button class="btn primary" style="margin-top:8px" ${todosProntos?'':'disabled'} onclick="avancarParaItensProntos('${c.id}')">Marcar "Itens Prontos" →</button>`:''}
+
+    ${c.status!=='Separando'?`
+    <h3 style="font-size:14px;font-weight:700;margin:24px 0 8px">🚚 Dados do carregamento</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div class="form-group"><label>Transportadora</label><input id="exp_transportadora_${c.id}" value="${(c.transportadora||'').replace(/"/g,'&quot;')}"></div>
+      <div class="form-group"><label>Motorista</label><input id="exp_motorista_${c.id}" value="${(c.motorista||'').replace(/"/g,'&quot;')}"></div>
+      <div class="form-group"><label>Placa do veículo</label><input id="exp_placa_${c.id}" value="${(c.placa_veiculo||'').replace(/"/g,'&quot;')}"></div>
+      <div class="form-group"><label>Responsável pelo carregamento</label><input id="exp_resp_${c.id}" value="${(c.responsavel_carregamento||'').replace(/"/g,'&quot;')}"></div>
+    </div>
+    <label class="btn btn-sm" style="cursor:pointer;margin-bottom:8px;display:inline-block">📷 Foto do carregamento
+      <input type="file" accept="image/*" capture="environment" style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}',null)">
+    </label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${fotosCarreg.map(f=>`
+      <div style="position:relative">
+        <img src="${f.foto_base64}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer" onclick="_abrirImagemTelaCheia('${f.foto_base64}')">
+        <button onclick="removerFotoCarregamento('${f.id}')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#f44336;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:10px;line-height:1">✕</button>
+      </div>`).join('')}</div>
+    `:''}
+
+    ${c.status==='Itens Prontos'?`<button class="btn primary" onclick="finalizarCarregamento('${c.id}')">✅ Finalizar Carregamento</button>`:''}
+    ${c.status==='Carregado'?`<div style="background:#e8f5e9;border-radius:8px;padding:10px 14px;color:#2e7d32;font-size:13px;font-weight:600;margin-bottom:10px">✓ Carregado em ${c.carregado_em?new Date(c.carregado_em).toLocaleString('pt-BR'):'—'}</div>
+    ${c.pedido_venda_id?`<button class="btn" onclick="marcarPVEntregue('${c.pedido_venda_id}')">🏷️ Marcar Pedido de Venda como Entregue</button>`:''}`:''}
+
+    <div style="margin-top:20px"><button class="btn danger btn-sm" onclick="excluirCarregamento('${c.id}')">🗑️ Excluir carregamento</button></div>
+  `;
+}
+
+async function marcarItemCarregamentoPronto(itemId, pronto){
+  try{
+    await api('PATCH','carregamento_itens',{pronto, pronto_em: pronto?new Date().toISOString():null, pronto_por: pronto?(usuarioLogado?.nome||''):null},`?id=eq.${itemId}`);
+    for(const c of carregamentos){
+      const it=(c.carregamento_itens||[]).find(i=>i.id===itemId);
+      if(it){ it.pronto=pronto; break; }
+    }
+    renderExpedicao();
+  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); }
+}
+
+async function adicionarFotoItemCarregamento(input, carregamentoId, itemId){
+  const file=input.files[0];
+  if(!file) return;
+  try{
+    const dataUrl=await _comprimirFotoParaBase64(file, 1600, 0.85);
+    const [foto]=await api('POST','carregamento_fotos',{
+      carregamento_id: carregamentoId,
+      item_id: itemId,
+      etapa: itemId?'item_pronto':'carregamento',
+      foto_base64: dataUrl,
+      criado_por: usuarioLogado?.nome||'',
+    });
+    const c=carregamentos.find(x=>x.id===carregamentoId);
+    if(c){ c.carregamento_fotos=[...(c.carregamento_fotos||[]), foto]; }
+    showToast('Foto salva!');
+    renderExpedicao();
+  }catch(e){ showToast('Erro ao salvar foto: '+e.message,'err'); }
+  input.value='';
+}
+
+async function removerFotoCarregamento(fotoId){
+  if(!confirm('Remover esta foto?')) return;
+  try{
+    await api('DELETE','carregamento_fotos',null,`?id=eq.${fotoId}`);
+    for(const c of carregamentos){
+      if(c.carregamento_fotos?.some(f=>f.id===fotoId)){
+        c.carregamento_fotos=c.carregamento_fotos.filter(f=>f.id!==fotoId);
+        break;
+      }
+    }
+    renderExpedicao();
+  }catch(e){ showToast('Erro ao remover: '+e.message,'err'); }
+}
+
+async function avancarParaItensProntos(id){
+  try{
+    await api('PATCH','carregamentos',{status:'Itens Prontos', itens_prontos_em:new Date().toISOString()},`?id=eq.${id}`);
+    const c=carregamentos.find(x=>x.id===id);
+    if(c){ c.status='Itens Prontos'; c.itens_prontos_em=new Date().toISOString(); }
+    renderExpedicao();
+  }catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+async function finalizarCarregamento(id){
+  if(!confirm('Finalizar este carregamento? Isso marca todos os itens como carregados.')) return;
+  try{
+    const c=carregamentos.find(x=>x.id===id);
+    if(!c) return;
+    const transportadora=document.getElementById(`exp_transportadora_${id}`)?.value||'';
+    const motorista=document.getElementById(`exp_motorista_${id}`)?.value||'';
+    const placa=document.getElementById(`exp_placa_${id}`)?.value||'';
+    const resp=document.getElementById(`exp_resp_${id}`)?.value||'';
+    const agora=new Date().toISOString();
+    await api('PATCH','carregamentos',{status:'Carregado', carregado_em:agora, transportadora, motorista, placa_veiculo:placa, responsavel_carregamento:resp},`?id=eq.${id}`);
+    await api('PATCH','carregamento_itens',{carregado:true, carregado_em:agora},`?carregamento_id=eq.${id}`);
+    Object.assign(c,{status:'Carregado', carregado_em:agora, transportadora, motorista, placa_veiculo:placa, responsavel_carregamento:resp});
+    (c.carregamento_itens||[]).forEach(it=>{ it.carregado=true; it.carregado_em=agora; });
+    showToast('Carregamento finalizado!');
+    renderExpedicao();
+  }catch(e){ showToast('Erro ao finalizar: '+e.message,'err'); }
+}
+
+async function marcarPVEntregue(pvId){
+  if(!confirm('Marcar este Pedido de Venda como "Entregue"?')) return;
+  try{
+    await api('PATCH','pedidos_venda',{status:'Entregue'},`?id=eq.${pvId}`);
+    const pv=pedidosVenda.find(p=>p.id===pvId);
+    if(pv) pv.status='Entregue';
+    showToast('Pedido marcado como Entregue!');
+  }catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+async function excluirCarregamento(id){
+  if(!confirm('Excluir este carregamento? Essa ação não pode ser desfeita.')) return;
+  try{
+    await api('DELETE','carregamentos',null,`?id=eq.${id}`);
+    carregamentos=carregamentos.filter(c=>c.id!==id);
+    _voltarListaCarregamentos();
+    showToast('Carregamento excluído');
+  }catch(e){ showToast('Erro ao excluir: '+e.message,'err'); }
+}
+// ===== FIM EXPEDIÇÃO (CARREGAMENTOS) =====
 
 // ===== ALERTA DE ESTOQUE MÍNIMO + TELEGRAM =====
 let telegramCfg={token:'',chatId:''};
