@@ -5172,7 +5172,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-02 · build 260';
+const APP_BUILD='2026-10-02 · build 261';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25793,7 +25793,7 @@ function abrirOpcoesNFe(){
       <p style="margin:0 0 14px;color:#546e7a;font-size:13px">Use estas opções somente quando precisar consultar ou configurar a integração.</p>
       <button id="btnBuscarNovasNfe" onclick="buscarNFeSEFAZ();document.getElementById('modalOpcoesNFe')?.remove()" style="width:100%;padding:11px;margin-bottom:9px;border:0;border-radius:8px;background:#1565c0;color:#fff;font-weight:700;cursor:pointer">🔍 Buscar notas novas</button>
       <button onclick="if(confirm('Buscar o histórico pode importar várias notas antigas. Deseja continuar?')){document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe()}" style="width:100%;padding:11px;margin-bottom:9px;border:1px solid #ef6c00;border-radius:8px;background:#fff3e0;color:#e65100;font-weight:700;cursor:pointer">📥 Buscar histórico</button>
-      <button onclick="if(confirm('Isso reinicia o ponto de checagem (NSU) e busca TODO o histórico de novo desde o início, mesmo o que já foi trazido antes. Use só se apagou notas e quer trazer tudo de novo. Continuar?')){localStorage.removeItem('nfe_ult_nsu');document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe(true)}" style="width:100%;padding:10px;margin-bottom:9px;border:1px solid #c62828;border-radius:8px;background:#ffebee;color:#c62828;font-weight:700;cursor:pointer" title="Use depois de apagar notas manualmente, pra elas voltarem a aparecer na próxima busca">♻️ Reiniciar histórico do zero</button>
+      <button onclick="if(confirm('Isso reinicia o ponto de checagem (NSU) e busca TODO o histórico de novo desde o início, mesmo o que já foi trazido antes. Use só se apagou notas e quer trazer tudo de novo. Continuar?')){reiniciarNsuNFe();document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe(true)}" style="width:100%;padding:10px;margin-bottom:9px;border:1px solid #c62828;border-radius:8px;background:#ffebee;color:#c62828;font-weight:700;cursor:pointer" title="Use depois de apagar notas manualmente, pra elas voltarem a aparecer na próxima busca">♻️ Reiniciar histórico do zero</button>
       <button onclick="document.getElementById('modalOpcoesNFe')?.remove();abrirModalNFeConfig()" style="width:100%;padding:10px;border:1px solid #cfd8dc;border-radius:8px;background:#fff;color:#37474f;font-weight:700;cursor:pointer">⚙️ Configurar conexão</button>
     </div>
   </div>`;
@@ -25989,7 +25989,40 @@ async function buscarPorChaveNFe(){
   }
 }
 
+// ═══════════════════════════════════════════
+// NSU COMPARTILHADO — o "ponto onde a busca de NF-e na SEFAZ parou" (NSU)
+// morava só no localStorage do navegador de quem clicou em buscar. Isso
+// significa que o celular, outro computador, ou uma busca automática
+// programada (de hora em hora) não sabiam o que já tinha sido buscado em
+// outro lugar — cada um ia cada um achando que o NSU era outro.
+// Agora esse ponto também fica salvo na nuvem (tabela config_sistema), e
+// todo lugar consulta/atualiza a versão de lá, mantendo o navegador em dia.
+// ═══════════════════════════════════════════
+async function _sincronizarNsuComNuvem(){
+  try{
+    const r=await api('GET','config_sistema','','?chave=eq.nfe_ult_nsu&select=valor');
+    const nsuNuvem=r?.[0]?.valor;
+    const nsuLocal=localStorage.getItem('nfe_ult_nsu');
+    if(nsuNuvem && (!nsuLocal || parseInt(nsuNuvem,10)>parseInt(nsuLocal,10))){
+      localStorage.setItem('nfe_ult_nsu', nsuNuvem);
+    }
+  }catch(e){ console.warn('[NFe] Não consegui sincronizar o NSU com a nuvem:', e.message); }
+}
+async function _publicarNsuNaNuvem(nsu){
+  if(!nsu) return;
+  try{
+    const r=await api('GET','config_sistema','','?chave=eq.nfe_ult_nsu&select=chave');
+    if(r&&r.length) await api('PATCH','config_sistema',{valor:nsu, atualizado_em:new Date().toISOString()},'?chave=eq.nfe_ult_nsu');
+    else await api('POST','config_sistema',{chave:'nfe_ult_nsu', valor:nsu, atualizado_em:new Date().toISOString()});
+  }catch(e){ console.warn('[NFe] Não consegui publicar o NSU na nuvem:', e.message); }
+}
+function reiniciarNsuNFe(){
+  localStorage.removeItem('nfe_ult_nsu');
+  _publicarNsuNaNuvem('000000000000000');
+}
+
 async function buscarNFeSEFAZ(silencioso=false){
+  await _sincronizarNsuComNuvem(); // garante que parte do ponto mais avançado, mesmo se outro lugar já buscou
   const cfg=getNFeBackendConfig();
   if(!cfg.url||!cfg.apiKey){
     if(!silencioso) abrirModalNFeConfig();
@@ -26030,7 +26063,7 @@ async function buscarNFeSEFAZ(silencioso=false){
       throw new Error(data.erro||data.message||'sucesso=false. Resposta: '+rawText.substring(0,300));
     }
 
-    if(data.ultNSU) localStorage.setItem('nfe_ult_nsu',data.ultNSU);
+    if(data.ultNSU){ localStorage.setItem('nfe_ult_nsu',data.ultNSU); _publicarNsuNaNuvem(data.ultNSU); }
 
     const notas = data.notas||[];
     const nsuRet = parseInt(data.ultNSU||ultNSU)||0;
@@ -26080,6 +26113,8 @@ async function buscarNFeSEFAZ(silencioso=false){
 async function buscarTodasNFe(forcarDoZero){
   const cfg=getNFeBackendConfig();
   if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
+
+  if(!forcarDoZero) await _sincronizarNsuComNuvem(); // garante que parte do ponto mais avançado, mesmo se outro lugar já buscou
 
   // Continua de onde parou (mesmo checkpoint usado por "Buscar Novas") em vez de
   // sempre reiniciar do zero — reiniciar do zero a cada clique refaz todos os lotes
@@ -26174,6 +26209,7 @@ async function buscarTodasNFe(forcarDoZero){
       if(data.ultNSU && data.ultNSU!==ultNSU){
         ultNSU=data.ultNSU;
         localStorage.setItem('nfe_ult_nsu',ultNSU);
+        _publicarNsuNaNuvem(ultNSU);
       }
 
       // Avança só se backend indicou que há mais E veio pelo menos 1 nota
