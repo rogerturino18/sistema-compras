@@ -5172,7 +5172,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-02 · build 262';
+const APP_BUILD='2026-10-02 · build 263';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -8683,7 +8683,11 @@ function renderOrdens(){
 
   const contadorSemFoto=document.getElementById('contadorSemFoto');
   if(contadorSemFoto){
-    const nSemFoto=ordens.filter(o=>!o.excluida_em&&o.status!=='concluido'&&!o.tem_foto_desenho).length;
+    // Tem que bater exatamente com o que a lista de baixo mostra: se "Mostrar
+    // concluídas" estiver marcado, as concluídas sem foto entram na lista —
+    // então entram na conta também. Senão o número do topo fica menor que a
+    // soma dos blocos por PDV, dando a impressão de que a contagem está errada.
+    const nSemFoto=ordens.filter(o=>!o.excluida_em&&!o.tem_foto_desenho&&(mostrarConc||o.status!=='concluido')).length;
     contadorSemFoto.textContent=nSemFoto>0?`(${nSemFoto})`:'';
   }
 
