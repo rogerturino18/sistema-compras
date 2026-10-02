@@ -5197,7 +5197,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-02 · build 266';
+const APP_BUILD='2026-10-02 · build 267';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -22509,9 +22509,12 @@ function _cardExpedicao(c){
   const prontos=itensArr.filter(i=>i.pronto).length;
   const pct=itensArr.length?Math.round(prontos/itensArr.length*100):0;
   const rotulo=(c.pdv_numero||`Carreg. Nº ${c.numero||'—'}`).replace(/</g,'&lt;');
-  return `<div onclick="abrirDetalheCarregamento('${c.id}')" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:14px;cursor:pointer;transition:box-shadow .15s"
-    onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)'" onmouseout="this.style.boxShadow='none'">
-    <div style="font-size:11px;color:#9e9e9e;font-weight:700;text-transform:uppercase;margin-bottom:4px">${rotulo}</div>
+  return `<div onclick="abrirDetalheCarregamento('${c.id}')" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:14px;cursor:pointer;transition:box-shadow .15s,transform .15s"
+    onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)';this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+      <span style="font-size:11px;color:#9e9e9e;font-weight:700;text-transform:uppercase">${rotulo}</span>
+      ${expedStatusBadge(c.status)}
+    </div>
     <div style="font-size:14px;font-weight:700;color:#37474f;margin-bottom:8px">${(c.cliente_nome||'Sem cliente').replace(/</g,'&lt;')}</div>
     <div style="height:6px;background:#eceff1;border-radius:3px;overflow:hidden;margin-bottom:6px">
       <div style="height:100%;width:${pct}%;background:#43a047"></div>
@@ -22537,6 +22540,7 @@ function renderExpedicao(){
   const b=(document.getElementById('buscaExped')?.value||'').toLowerCase();
   const mostrarEnviados=document.getElementById('expedMostrarEnviados')?.checked||false;
   let lista=[...carregamentos];
+  if(!mostrarEnviados) lista=lista.filter(c=>c.status!=='Enviado');
   if(b){
     lista=lista.filter(c=>{
       const pv=pedidosVenda.find(p=>p.id===c.pedido_venda_id);
@@ -22545,22 +22549,18 @@ function renderExpedicao(){
     });
   }
 
-  const COLUNAS=[
-    {status:'Aguardando Fotos', icon:'🟡', cor:'#e65100'},
-    {status:'Pronto p/ Envio',  icon:'🔵', cor:'#1565c0'},
-    ...(mostrarEnviados?[{status:'Enviado', icon:'🟢', cor:'#2e7d32'}]:[]),
-  ];
+  if(!lista.length){
+    div.innerHTML=`<div class="empty" style="padding:32px;text-align:center;color:#9e9e9e">Nenhum carregamento encontrado.</div>`;
+    return;
+  }
 
-  div.innerHTML=`<div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;align-items:flex-start">`
-    +COLUNAS.map(col=>{
-      const itensCol=lista.filter(c=>c.status===col.status).sort((a,b)=>(b.numero||0)-(a.numero||0));
-      return `<div style="flex:1;min-width:260px;max-width:340px">
-        <div style="font-size:12px;font-weight:700;color:${col.cor};text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px">${col.icon} ${col.status} <span style="background:#eceff1;color:#546e7a;border-radius:10px;padding:1px 8px;font-size:11px">${itensCol.length}</span></div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          ${itensCol.length?itensCol.map(c=>_cardExpedicao(c)).join(''):'<div style="color:#bdbdbd;font-size:12px;padding:16px 10px;text-align:center;border:1px dashed #e0e0e0;border-radius:10px">Vazio</div>'}
-        </div>
-      </div>`;
-    }).join('')
+  const ORDEM_STATUS={'Aguardando Fotos':0,'Pronto p/ Envio':1,'Enviado':2};
+  lista.sort((a,b)=>(ORDEM_STATUS[a.status]??9)-(ORDEM_STATUS[b.status]??9) || (b.numero||0)-(a.numero||0));
+
+  // Grade única, tudo numa tela só, sem colunas e sem rolagem lateral —
+  // igual à grade de PDVs da aba Produção.
+  div.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">`
+    +lista.map(c=>_cardExpedicao(c)).join('')
     +'</div>';
 }
 
