@@ -5208,7 +5208,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-05 · build 269';
+const APP_BUILD='2026-10-05 · build 270';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -22973,6 +22973,10 @@ function abrirGerenciarMinimos(){
     .sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const el = document.getElementById('listaGerenciarMinimos');
   if(!el) return;
+  // Especificações com item hoje mas sem mínimo configurado ainda — candidatas
+  // a "receber" o mínimo de uma órfã (ex: item renomeado antes de existir o
+  // religamento automático, então ficou sem religar sozinho).
+  const semMinimoAinda = Object.keys(grupos).filter(c=>!(minimosGenericos||[]).some(m=>m.chave===c)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(!chaves.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--gray)">Nenhuma especificação encontrada</div>'; }
   else{
     el.innerHTML = chaves.map(chave=>{
@@ -22982,9 +22986,14 @@ function abrirGerenciarMinimos(){
       const idSeguro = chave.replace(/[^a-zA-Z0-9]/g,'_');
       const chaveEsc = chave.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       const orfao = !g;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f0f0f0;${orfao?'background:#fff8e1':''}">
-        <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${chaveEsc}">${chave}${orfao?' <span style="font-size:10px;color:#ef6c00;font-weight:700">⚠️ nenhum item com esse nome hoje</span>':''}</span>
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f0f0f0;flex-wrap:wrap;${orfao?'background:#fff8e1':''}">
+        <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:140px" title="${chaveEsc}">${chave}${orfao?' <span style="font-size:10px;color:#ef6c00;font-weight:700">⚠️ nenhum item com esse nome hoje</span>':''}</span>
         <span style="font-size:11px;color:var(--gray);white-space:nowrap">saldo hoje: <b>${g?g.saldo:0}${g?.un?' '+g.un:''}</b></span>
+        ${orfao&&semMinimoAinda.length?`<select id="vincSel_${idSeguro}" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;max-width:220px">
+          <option value="">🔗 religar a um item de hoje...</option>
+          ${semMinimoAinda.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('')}
+        </select>
+        <button class="btn btn-sm primary" onclick="vincularMinimoOrfao('${chaveEsc}',document.getElementById('vincSel_${idSeguro}').value)">Religar</button>`:''}
         <input type="number" min="0" value="${minimoAtual||''}" placeholder="0" id="minG_${idSeguro}" style="width:75px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px" onkeydown="if(event.key==='Enter')salvarMinimoGenerico('${chaveEsc}',this.value)">
         <button class="btn btn-sm primary" onclick="salvarMinimoGenerico('${chaveEsc}',document.getElementById('minG_${idSeguro}').value)">Salvar</button>
         ${m?`<button class="btn btn-sm danger" onclick="excluirMinimoGenerico('${chaveEsc}')" title="Remove o mínimo dessa especificação">🗑</button>`:''}
@@ -22992,6 +23001,25 @@ function abrirGerenciarMinimos(){
     }).join('');
   }
   abrirModal('modalGerenciarMinimos');
+}
+
+// Religa manualmente um mínimo órfão (nome que não existe mais no estoque) a
+// uma especificação que existe hoje — pra quando a renomeação aconteceu antes
+// do religamento automático existir, ou aconteceu por fora da edição normal
+// do item (importação, correção em lote, etc).
+async function vincularMinimoOrfao(chaveAntiga, chaveNova){
+  if(!chaveNova){ showToast('Escolha pra qual especificação religar','err'); return; }
+  try{
+    const jaExiste = (minimosGenericos||[]).find(m=>m.chave===chaveNova);
+    if(jaExiste){
+      await api('DELETE','minimos_genericos','',`?chave=eq.${encodeURIComponent(chaveAntiga)}`);
+    } else {
+      await api('PATCH','minimos_genericos',{chave:chaveNova},`?chave=eq.${encodeURIComponent(chaveAntiga)}`);
+    }
+    showToast(`Mínimo religado a "${chaveNova}"!`);
+    await loadAll();
+    abrirGerenciarMinimos();
+  }catch(e){ showToast('Erro ao religar mínimo','err'); console.error(e); }
 }
 
 async function excluirMinimoGenerico(chave){
