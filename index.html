@@ -5197,7 +5197,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-02 · build 267';
+const APP_BUILD='2026-10-05 · build 268';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -14002,6 +14002,13 @@ async function salvarEstoque(){
   try{
     if(editEstoqueId){
       await api('PATCH','estoque_itens',obj,`?id=eq.${editEstoqueId}`);
+      // O nome pode ter mudado — re-sincroniza o mínimo por especificação
+      // (se houver) pra ele seguir o item em vez de ficar órfão.
+      if(itemOriginal && typeof _resincronizarMinimoAposRenomear==='function'){
+        const chaveAntes=_chaveGenericaItem(itemOriginal);
+        const chaveDepois=_chaveGenericaItem(obj);
+        await _resincronizarMinimoAposRenomear(chaveAntes, chaveDepois, editEstoqueId);
+      }
       // Se o saldo digitado é diferente do saldo que o item tinha antes desta
       // edição, registra a diferença como um ajuste — visível no histórico de
       // movimentações, igual uma Entrada ou Saída normal.
@@ -22820,6 +22827,36 @@ function _chaveGenericaItem(item){
   const grao = resto.match(/\bG\s*(\d{2,3})\b/) || resto.match(/(\d{2,3})\s*GR(?:ÃOS|AOS)?\b/) || resto.match(/\bGR\s*(\d{2,3})\b/);
   if(grao) return `${tipo} ${tamanho}" G${grao[1]}`;
   return `${tipo} ${tamanho}"`;
+}
+
+// Quando a descrição de um item muda, a "chave genérica" (especificação)
+// usada pelo Mínimo por Especificação pode mudar junto — e sem isso o
+// mínimo configurado vira um texto órfão, desligado do item que ele era
+// pra cobrir. Em vez de deixar o mínimo "à parte", esta função tenta
+// re-ligá-lo automaticamente à chave nova assim que o item é salvo —
+// só quando mais nenhum outro item do estoque ainda usa a chave antiga
+// (se outro item com aquele nome continuar existindo, o mínimo antigo
+// continua valendo pra ele, e nada é migrado).
+async function _resincronizarMinimoAposRenomear(chaveAntiga, chaveNova, idItemEditado){
+  if(!chaveAntiga || !chaveNova || chaveAntiga===chaveNova) return;
+  const aindaUsada = (estoqueItens||[]).some(i=>i.id!==idItemEditado && !i.oculto && _chaveGenericaItem(i)===chaveAntiga);
+  if(aindaUsada) return;
+  const minAntigo = (minimosGenericos||[]).find(m=>m.chave===chaveAntiga);
+  if(!minAntigo) return; // não tinha mínimo configurado pra esse nome — nada a migrar
+  const minNovo = (minimosGenericos||[]).find(m=>m.chave===chaveNova);
+  try{
+    if(minNovo){
+      // Já existe mínimo salvo pro nome novo — mantém o do nome novo (mais
+      // recente) e descarta o órfão, avisando se os valores eram diferentes.
+      await api('DELETE','minimos_genericos','',`?chave=eq.${encodeURIComponent(chaveAntiga)}`);
+      if(Number(minNovo.minimo)!==Number(minAntigo.minimo)){
+        showToast(`"${chaveNova}" já tinha um mínimo (${minNovo.minimo}) — o mínimo antigo de "${chaveAntiga}" (${minAntigo.minimo}) foi descartado`,'ok',7000);
+      }
+    } else {
+      await api('PATCH','minimos_genericos',{chave:chaveNova},`?chave=eq.${encodeURIComponent(chaveAntiga)}`);
+      showToast(`Mínimo de "${chaveAntiga}" atualizado automaticamente para "${chaveNova}"`,'ok',6000);
+    }
+  }catch(e){ console.warn('[minimo] não consegui re-sincronizar após renomear', e); }
 }
 
 // Agrupa TODOS os itens do estoque (de qualquer marca) pela especificação —
