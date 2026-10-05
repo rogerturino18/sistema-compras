@@ -5208,7 +5208,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-05 · build 270';
+const APP_BUILD='2026-10-05 · build 271';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -14048,11 +14048,23 @@ async function salvarEstoque(){
     } else {
       await api('POST','estoque_itens',obj);
     }
-    showToast(editEstoqueId?'Item atualizado!':'Item criado!');
+    const eraNovo = !editEstoqueId;
+    showToast(eraNovo?'Item criado!':'Item atualizado!');
     fecharModal('modalEstoque');
     await loadAll();
     estCatAtual = categoria;
+    // O item acabou de ser salvo — não pode "sumir" por causa de um filtro que
+    // sobrou da tela (busca digitada antes, filtro de barracão). Limpa o que
+    // esconderia ele; o "Mostrando Ativos" é preferência fixa, então só avisa.
+    const buscaEl=document.getElementById('buscaEstoque');
+    if(buscaEl && buscaEl.value && !(desc+' '+(codigoFinal||'')).toLowerCase().includes(buscaEl.value.toLowerCase())) buscaEl.value='';
+    const barrEl=document.getElementById('filtroEstBarracao');
+    if(barrEl && barrEl.value && barrEl.value!==(obj.localizacao||'')) barrEl.value='';
+    if(estMostrarOcultos) { estMostrarOcultos=false; if(typeof _aplicarBtnMostrarOcultos==='function') _aplicarBtnMostrarOcultos(); }
     renderEstoque();
+    if(eraNovo && estOcultarZero && novoSaldoDigitado<=0){
+      showToast('Item salvo com saldo 0 — está escondido porque "Mostrando Ativos" está ligado. Clique nele (botão laranja) pra ver tudo.','ok',9000);
+    }
   }catch(e){showToast('Erro','err');console.error(e);}
 }
 
