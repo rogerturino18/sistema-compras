@@ -118,10 +118,14 @@ tr:hover td{background:#f9fbf9}
 .compare-header:hover{background:var(--green-pale)}
 .compare-body{padding:12px 14px;display:none}
 .compare-body.open{display:block}
-.price-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f4f0;flex-wrap:wrap}
+.price-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f4f0;flex-wrap:wrap;min-width:0}
 .price-row:last-child{border-bottom:none}
+/* O texto do meio (flex:1, com white-space:nowrap + ellipsis) senão herda
+   min-width:auto do flexbox, que é o tamanho da frase inteira sem quebrar —
+   é isso que estoura a largura da linha (e da coluna) numa descrição longa. */
+.price-row>span{min-width:0}
 .best-price{color:var(--green);font-weight:700}
-.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,0.06);min-width:0}
 .card h3{font-size:14px;font-weight:700;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:6px}
 .activity-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f0}
 .activity-item:last-child{border-bottom:none}
@@ -143,6 +147,13 @@ tr:hover td{background:#f9fbf9}
 .forn-info p{font-size:12px;color:var(--gray)}
 .forn-actions{display:flex;gap:6px;flex-shrink:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* Sem isso, uma linha de texto comprida e sem quebra (ex: descrição longa
+   numa das colunas) força a coluna inteira a crescer além da sua "fatia"
+   justa de 1fr, espremendo a coluna vizinha (ex: card de Terceirizado) a
+   quase nada — mesmo em telas largas. min-width:0 deixa o grid/flex
+   encolher o conteúdo normalmente (e o text-overflow:ellipsis já usado
+   nessas linhas passa a funcionar de verdade). */
+.grid2>div{min-width:0}
 .section-title{font-size:13px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;margin-top:4px}
 
 /* ════════════════════════════════
@@ -5197,7 +5208,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-05 · build 268';
+const APP_BUILD='2026-10-05 · build 269';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
