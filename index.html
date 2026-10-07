@@ -5228,7 +5228,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-07 · build 275';
+const APP_BUILD='2026-10-07 · build 276';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18925,6 +18925,7 @@ function abrirCentroCusto(id, tipo){
 let _ccMatAberto = new Set();
 let _ccMatReqsCache = [];
 function _toggleCCMat(key){
+  key=decodeURIComponent(key);
   if(_ccMatAberto.has(key)) _ccMatAberto.delete(key); else _ccMatAberto.add(key);
   const el=document.getElementById('ccReqConteudo');
   if(el) el.innerHTML=renderCCMateriais(_ccMatReqsCache);
@@ -18934,6 +18935,7 @@ function _toggleCCMat(key){
 // valor no estoque (item apagado/sem cadastro). Grava dentro das próprias
 // linhas das requisições (it.valor_unit) — não cria nem altera item de estoque.
 async function definirValorMaterialCC(key){
+  key=decodeURIComponent(key);
   const norm=s=>(s||'').trim().toUpperCase().replace(/\s+/g,' ');
   const alvo=[]; // {req, idxs}
   let nomeExib='';
@@ -19031,7 +19033,8 @@ function renderCCMateriais(reqs){
 
   const rows=lista.map(g=>{
     const aberto=_ccMatAberto.has(g.key);
-    const keyEsc=g.key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    // A chave tem aspas (ex: 4.1/2") — codificada pra não quebrar o onclick="..."
+    const keyEsc=encodeURIComponent(g.key).replace(/'/g,'%27');
     const detalhe = aberto ? `<tr><td colspan="5" style="padding:0;background:#fafafa">
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#eeeeee">
