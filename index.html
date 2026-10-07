@@ -5208,7 +5208,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-05 · build 271';
+const APP_BUILD='2026-10-07 · build 272';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5477,6 +5477,7 @@ async function loadAll(silencioso){
     } else {
       _loadAllTentativas=0;
     }
+    if(!_loadAllFalhas.length && typeof _autoReligarMinimosOrfaos==='function') _autoReligarMinimosOrfaos();
     _iniciarRealtime(); // só faz algo na 1ª vez — depois fica escutando sozinho
     renderAll();
     // Após um F5, a aba já estava aberta ANTES de os dados chegarem, então ela
@@ -23013,6 +23014,67 @@ function abrirGerenciarMinimos(){
     }).join('');
   }
   abrirModal('modalGerenciarMinimos');
+}
+
+// Religamento AUTOMÁTICO de mínimos órfãos: se um mínimo guardado com um nome
+// que não existe mais no estoque tem, entre as especificações de hoje que
+// ainda estão sem mínimo, UMA candidata claramente parecida (mesmos números,
+// palavras iguais ou quase iguais — ex: "FERRA"→"FERRO", "Nº"/"NÚMERO"), ele é
+// religado a ela sozinho. Ambíguo ou sem candidata clara: não mexe em nada
+// (o botão "Religar" em Mínimos por Especificação continua disponível).
+let _religandoMinimos=false;
+function _tokensMinimo(txt){
+  const STOP=new Set(['DE','DA','DO','D','N','NO','NUMERO','NUM','A','O','E','X','MM','PC']);
+  return String(txt||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/N[º°]/g,' ').replace(/[^A-Z0-9]+/g,' ').split(' ').filter(t=>t&&!STOP.has(t));
+}
+function _lev1(a,b){ // true se distância de edição <= 1
+  if(a===b) return true;
+  if(Math.abs(a.length-b.length)>1) return false;
+  let i=0,j=0,d=0;
+  while(i<a.length&&j<b.length){
+    if(a[i]===b[j]){i++;j++;continue;}
+    if(++d>1) return false;
+    if(a.length>b.length) i++; else if(a.length<b.length) j++; else {i++;j++;}
+  }
+  return d+(a.length-i)+(b.length-j)<=1;
+}
+function _similaridadeMinimo(orfa,cand){
+  const A=_tokensMinimo(orfa), B=_tokensMinimo(cand);
+  const numA=A.filter(t=>/^\d+$/.test(t)).sort().join(','), numB=B.filter(t=>/^\d+$/.test(t)).sort().join(',');
+  if(numA!==numB) return 0; // números diferentes (1200 x 120) = outra coisa
+  let casados=0; const usados=new Set();
+  A.forEach(t=>{
+    const k=B.findIndex((u,idx)=>!usados.has(idx)&&(u===t||(t.length>=4&&u.length>=4&&_lev1(t,u))));
+    if(k>=0){usados.add(k);casados++;}
+  });
+  return casados/Math.max(A.length,B.length,1);
+}
+async function _autoReligarMinimosOrfaos(){
+  if(_religandoMinimos) return;
+  _religandoMinimos=true;
+  try{
+    const grupos=_saldoPorChaveGenerica();
+    const orfas=(minimosGenericos||[]).filter(m=>!grupos[m.chave]);
+    if(!orfas.length) return;
+    let candidatas=Object.keys(grupos).filter(c=>!(minimosGenericos||[]).some(m=>m.chave===c));
+    let mudou=false;
+    for(const o of orfas){
+      const pont=candidatas.map(c=>({c,p:_similaridadeMinimo(o.chave,c)})).filter(x=>x.p>=0.6).sort((a,b)=>b.p-a.p);
+      if(!pont.length) continue;
+      if(pont.length>1 && pont[0].p-pont[1].p<0.2) continue; // ambíguo
+      const alvo=pont[0].c;
+      await api('PATCH','minimos_genericos',{chave:alvo},`?chave=eq.${encodeURIComponent(o.chave)}`);
+      console.info('[minimo] religado automaticamente:',o.chave,'→',alvo);
+      o.chave=alvo; candidatas=candidatas.filter(c=>c!==alvo); mudou=true;
+    }
+    if(mudou){
+      showToast('Mínimos de itens renomeados foram religados automaticamente.','ok',5000);
+      if(typeof _renderDashGraficoEstoqueMin==='function') _renderDashGraficoEstoqueMin();
+      if(typeof atualizarBadgeMinimo==='function') atualizarBadgeMinimo();
+    }
+  }catch(e){ console.warn('[minimo] religamento automático falhou', e); }
+  finally{ _religandoMinimos=false; }
 }
 
 // Religa manualmente um mínimo órfão (nome que não existe mais no estoque) a
