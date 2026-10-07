@@ -2018,6 +2018,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
   <!-- Filtros toolbar -->
   <div class="toolbar" style="margin-bottom:16px">
     <input type="text" id="buscaDepto" placeholder="Buscar PDV, cliente, departamento..." oninput="renderDepartamentos()" style="flex:1">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap;cursor:pointer" title="Esconde PDVs/departamentos que ainda não tiveram nenhum material debitado do estoque"><input type="checkbox" id="chkDeptoSoComDebito" onchange="try{localStorage.setItem('sl_depto_so_debito',this.checked?'1':'0')}catch(e){};renderDepartamentos()"> Só com estoque debitado</label>
     <select id="filtroDeptoTipo" onchange="renderDepartamentos()">
       <option value="">Todos</option>
       <option value="pdv">📋 PDVs</option>
@@ -5228,7 +5229,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-07 · build 280';
+const APP_BUILD='2026-10-07 · build 281';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18811,6 +18812,9 @@ function renderDepartamentos(){
   // 1. Each PDV = one cost center
   // 2. Fixed departments (for requisitions NOT linked to a PDV)
   let centros=[];
+  const chkDeb=document.getElementById('chkDeptoSoComDebito');
+  if(chkDeb && !chkDeb.dataset.init){ chkDeb.dataset.init='1'; let v='1'; try{ v=localStorage.getItem('sl_depto_so_debito')??'1'; }catch(e){} chkDeb.checked=(v!=='0'); }
+  const soComDebito=!!chkDeb?.checked && !busca; // ao buscar, mostra tudo que bate com a busca
 
   // PDVs (usando tabela pdvs, não pedidosVenda)
   if(!filtTipo||filtTipo==='pdv'){
@@ -18822,6 +18826,7 @@ function renderDepartamentos(){
       const reqs=_reqsDoPDVCentro(p);
       let matUsados=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
       if(!matUsados) matUsados=_saidasDoPDVCentro(p).length;
+      if(soComDebito && !matUsados) return;
       const opsCount=ordens.filter(o=>o.pdv_id===p.id).length;
       centros.push({id:p.id,tipo:'pdv',nome:nrLabel,cliente:p.cliente||'',status:p.status,cor:getCor(p.equipamento||'COMERCIAL'),total:0,matUsados,opsCount,pvData:p});
     });
@@ -18834,6 +18839,7 @@ function renderDepartamentos(){
       if(busca&&!(d.nome||'').toLowerCase().includes(busca)) return;
       const reqs=requisicoes.filter(r=>r.departamento===d.nome&&!r.pdv_id&&r.status==='Atendida');
       const matUsados=reqs.reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
+      if(soComDebito && !matUsados) return;
       centros.push({id:d.id,tipo:'fixo',nome:d.nome||'(sem nome)',cor:d.cor||getCor(d.nome),matUsados,opsCount:0,reqs,custom:departamentos.some(dd=>dd.id===d.id)});
     });
   }
@@ -18866,7 +18872,7 @@ function renderDepartamentos(){
   // List
   const listaEl=document.getElementById('deptoLista');
   if(!listaEl) return;
-  if(!centros.length){listaEl.innerHTML='<div style="text-align:center;padding:40px;color:#bdbdbd">Nenhum centro de custo encontrado</div>';return;}
+  if(!centros.length){listaEl.innerHTML='<div style="text-align:center;padding:40px;color:#bdbdbd">Nenhum centro de custo encontrado'+(soComDebito?'<br><small>(filtro "Só com estoque debitado" ligado)</small>':'')+'</div>';return;}
 
   // Vista em cards compactos, no mesmo estilo dos cards da Lista de Compras:
   // grid denso (minmax 130px), card colorido pela cor do centro, número/nome
