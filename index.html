@@ -1458,23 +1458,27 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div id="estoqueToolbar" style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fafbfa">
         <button class="btn primary" style="font-size:12px;white-space:nowrap" onclick="abrirModalEstoque('mp',null)">+ Novo Item</button>
         <input type="text" id="buscaEstoque" placeholder="Buscar código, descrição, material..." oninput="renderEstoque()" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <select id="filtroEstBarracao" onchange="renderEstoque()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
-          <option value="">Ambos barracões</option>
-          <option value="Barracão 1">Barracão 1</option>
-          <option value="Barracão 2">Barracão 2</option>
-        </select>
         <span id="estCatAtualBadge" style="font-size:12px;color:#546e7a;font-weight:600"></span>
         <button id="btnEstOrdem" class="btn" onclick="toggleOrdemEstoque()" style="font-size:12px;white-space:nowrap" title="Ordenar pela data da última movimentação">🕐 Última movimentação</button>
-        <button id="btnEstOcultar0" class="btn" onclick="toggleOcultarZero()" style="font-size:12px;white-space:nowrap" title="Ocultar itens com saldo zero">👁 Ocultar Zero</button>
-        <button id="btnEstMostrarOcultos" class="btn" onclick="toggleMostrarOcultos()" style="font-size:12px;white-space:nowrap" title="Ver os itens que você escondeu (pra restaurar)">🙈 Ocultos</button>
         <button id="btnEstAgrupar" class="btn" onclick="toggleAgruparTamanho()" style="font-size:12px;white-space:nowrap" title="Agrupar em blocos por tamanho e tipo (ex: 4.1/2&quot; Corte, 4.1/2&quot; Flap, 7&quot; Corte...)">🗂️ Agrupar</button>
         <div style="position:relative;display:inline-block">
           <button id="btnEstMaisMenu" class="btn" onclick="toggleEstMaisMenu(event)" style="font-size:12px" title="Mais opções">⋮ Mais</button>
           <div id="estMaisMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.14);z-index:60;min-width:190px;max-width:min(190px, calc(100vw - 24px));overflow:hidden">
+            <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
+              <div style="font-size:10px;font-weight:700;color:#546e7a;text-transform:uppercase;margin-bottom:4px">Barracão</div>
+              <select id="filtroEstBarracao" onchange="renderEstoque();fecharEstMaisMenu()" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+                <option value="">Ambos barracões</option>
+                <option value="Barracão 1">Barracão 1</option>
+                <option value="Barracão 2">Barracão 2</option>
+              </select>
+            </div>
+            <button id="btnEstOcultar0" class="btn" onclick="toggleOcultarZero();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px" title="Ocultar itens com saldo zero">👁 Ocultar Zero</button>
+            <button id="btnEstMostrarOcultos" class="btn" onclick="toggleMostrarOcultos();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px" title="Ver os itens que você escondeu (pra restaurar)">🙈 Ocultos</button>
             <button class="btn" onclick="abrirGerenciarCategorias();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px">🏷️ Categorias</button>
             <button class="btn" onclick="codificarItensEmLote();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px;background:#1565c0;color:#fff">🔢 Codificar Itens</button>
             <button class="btn" onclick="exportarExcelEstoque();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px">📊 Excel</button>
             <button class="btn" onclick="abrirGerenciarMinimos();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px">🎯 Mínimos por Especificação</button>
+            <button id="btnEstLixeira" class="btn" onclick="abrirLixeiraEstoque();fecharEstMaisMenu()" style="display:block;width:100%;text-align:left;border:none;border-radius:0;font-size:12px;padding:9px 12px;border-top:1px solid var(--border)" title="Itens excluídos ficam aqui até você apagar de vez ou restaurar">🗑️ Lixeira</button>
           </div>
         </div>
         <button class="btn" onclick="abrirAlertaMinimo()" id="btnAlertaMinimo" style="font-size:12px" title="Itens abaixo do estoque mínimo">⚠️ Estoque mínimo</button>
@@ -1486,7 +1490,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <div id="estBarraSelecao" style="display:none;align-items:center;gap:10px;padding:8px 14px;background:#fff3e0;border-bottom:1px solid #ffcc80">
         <span style="font-size:12px;font-weight:700;color:#e65100"><span id="estSelecaoCount">0</span> selecionado(s)</span>
         <button class="btn btn-sm" style="background:#f3e5f5;color:#6a1b9a;border-color:#ce93d8" onclick="estOcultarSelecionados()">🙈 Ocultar</button>
-        <button class="btn btn-sm danger" onclick="estExcluirSelecionados()">🗑 Excluir selecionados</button>
+        <button class="btn btn-sm danger" onclick="estExcluirSelecionados()">🗑 Mover para a lixeira</button>
         <button class="btn btn-sm" onclick="estLimparSelecao()">✕ Cancelar seleção</button>
       </div>
 
@@ -2319,6 +2323,22 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <button class="btn" onclick="abrirConfigTelegram()">⚙️ Configurar Telegram</button>
       </div>
       <div id="listaAlertaMinimo" style="max-height:56vh;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalLixeiraEstoque">
+  <div class="modal" style="width:720px;max-width:97vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px">🗑️ Lixeira do Estoque</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalLixeiraEstoque')">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <p style="font-size:12px;color:var(--gray);margin:0">Itens excluídos ficam aqui. Restaurar devolve o item com o saldo e o histórico de movimentações.</p>
+        <button id="btnEsvaziarLixeira" class="btn btn-sm danger" onclick="esvaziarLixeiraEstoque()">Esvaziar lixeira</button>
+      </div>
+      <div id="listaLixeiraEstoque" style="max-height:56vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px"></div>
     </div>
   </div>
 </div>
@@ -5202,13 +5222,13 @@ async function exportarExcelEPI(){
 }
 // ═══════════════════════════ FIM EPI ═════════════════════════════════════
 
-let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[], desenhosRecebidos=[], montagensRecebidas=[], itensDesenhoRecebido=[], minimosGenericos=[], operadoresMaquina=[], terceirizadosCadastro=[], fundidosItens=[], carregamentos=[];
+let itens=[], cotacoes=[], fornecedores=[], emails=[], pdvs=[], comprasInternas=[], produtosPDV=[], etapasProduto=[], ordens=[], temposOP=[], setoresPDV=[], pecasProjeto=[], sessoesTrab=[], estoqueItens=[], estoqueMov=[], clientesFiscal=[], notasFiscais=[], clientes=[], pedidosVenda=[], pedidosCompra=[], requisicoes=[], departamentos=[], contasPagar=[], contasReceber=[], contasCorrente=[], entradasNFe=[], desenhosRecebidos=[], montagensRecebidas=[], itensDesenhoRecebido=[], minimosGenericos=[], operadoresMaquina=[], terceirizadosCadastro=[], fundidosItens=[], carregamentos=[], estoqueLixeira=[]; let _lixeiraColunaOk=false;
 let editItemId=null, editFornId=null, editPDVId=null, editCIId=null, editProdutoId=null, etapaProdutoAtual=null, ordemAtual=null, setorAtual=null, pecaAtual=null, estoqueAtualId=null, estoqueSubAtual='mp', movTipoAtual='entrada';
 let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-07 · build 274';
+const APP_BUILD='2026-10-07 · build 275';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5465,6 +5485,18 @@ async function loadAll(silencioso){
       api('GET','operadores_maquina','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('operadoresMaquina'); console.warn('operadoresMaquina:',e.message); return operadoresMaquina; }),
       api('GET','terceirizados_cadastro','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('terceirizadosCadastro'); console.warn('terceirizadosCadastro:',e.message); return terceirizadosCadastro; }),
     ]);
+    // Itens na lixeira (excluido_em preenchido) saem das listas normais — tudo
+    // no sistema continua enxergando só os itens ativos. Os movimentos deles
+    // também ficam de fora, mas continuam no banco pra restaurar sem perder saldo.
+    if(Array.isArray(estoqueItens) && !_loadAllFalhas.includes('estoqueItens')){
+      if(estoqueItens.length) _lixeiraColunaOk = ('excluido_em' in estoqueItens[0]);
+      estoqueLixeira = estoqueItens.filter(i=>i&&i.excluido_em);
+      if(estoqueLixeira.length){
+        const _idsLx=new Set(estoqueLixeira.map(i=>i.id));
+        estoqueItens = estoqueItens.filter(i=>!_idsLx.has(i.id));
+        estoqueMov = (estoqueMov||[]).filter(m=>!_idsLx.has(m.item_id));
+      }
+    }
     if(_loadAllFalhas.length){
       console.warn('[loadAll] não atualizaram (mantido o que já tinha):', _loadAllFalhas.join(', '));
       _loadAllTentativas++;
@@ -13122,13 +13154,10 @@ function estLimparSelecao(){ estSelecionados.clear(); renderEstoque(); }
 async function estExcluirSelecionados(){
   const ids=[...estSelecionados];
   if(!ids.length) return;
-  if(!confirm(`Excluir ${ids.length} item(ns) selecionado(s) do estoque? Isso também apaga as movimentações deles.`)) return;
+  if(!confirm(`Mover ${ids.length} item(ns) selecionado(s) para a lixeira? Dá para restaurar depois em ⋮ Mais → Lixeira.`)) return;
   try{
-    for(const id of ids){
-      await api('DELETE','estoque_movimentacoes','',`?item_id=eq.${id}`);
-      await api('DELETE','estoque_itens','',`?id=eq.${id}`);
-    }
-    showToast(`${ids.length} item(ns) excluído(s)!`);
+    if(!(await _moverParaLixeira(ids))) return;
+    showToast(`${ids.length} item(ns) movido(s) para a lixeira`);
     estSelecionados.clear();
     await loadAll();
     renderEstoque();
@@ -13181,6 +13210,84 @@ async function restaurarItemEstoque(id){
     renderEstoque();
   }catch(e){ showToast('Erro ao restaurar item','err'); }
 }
+
+// ===== LIXEIRA DO ESTOQUE =====
+// Excluir um item só o marca (excluido_em) — ele some das listas, mas as
+// movimentações ficam guardadas, então restaurar devolve o saldo certinho.
+async function _moverParaLixeira(ids){
+  if(!_lixeiraColunaOk){
+    showToast('A lixeira ainda não foi ativada no banco: rode o arquivo criar_lixeira_estoque.sql no Supabase (uma vez só).','err',10000);
+    return false;
+  }
+  const agora=new Date().toISOString();
+  for(const id of ids){
+    await api('PATCH','estoque_itens',{excluido_em:agora, excluido_por:usuarioLogado?.nome||null},`?id=eq.${id}`);
+  }
+  return true;
+}
+function _atualizarIndicadorMais(){
+  const btn=document.getElementById('btnEstMaisMenu');
+  const n=(estOcultarZero?1:0)+(estMostrarOcultos?1:0)+(document.getElementById('filtroEstBarracao')?.value?1:0);
+  if(btn){
+    btn.innerHTML='⋮ Mais'+(n?` <span style="background:#e65100;color:#fff;border-radius:9px;padding:0 6px;font-size:11px;font-weight:700">${n}</span>`:'');
+    btn.style.borderColor=n?'#e65100':'';
+    btn.title=n?`${n} filtro(s) ativo(s) dentro de "Mais"`:'Mais opções';
+  }
+  const lb=document.getElementById('btnEstLixeira');
+  if(lb){ const nl=(estoqueLixeira||[]).length; lb.textContent='🗑️ Lixeira'+(nl?` (${nl})`:''); }
+}
+function abrirLixeiraEstoque(){ renderLixeiraEstoque(); abrirModal('modalLixeiraEstoque'); }
+function renderLixeiraEstoque(){
+  const el=document.getElementById('listaLixeiraEstoque'); if(!el) return;
+  const lista=[...(estoqueLixeira||[])].sort((a,b)=>String(b.excluido_em).localeCompare(String(a.excluido_em)));
+  const btnVazia=document.getElementById('btnEsvaziarLixeira'); if(btnVazia) btnVazia.style.display=lista.length?'':'none';
+  if(!lista.length){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--gray)">A lixeira está vazia.</div>'; return; }
+  const esc=t=>String(t??'').replace(/</g,'&lt;');
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#f5f7f5">
+      <th style="text-align:left;padding:6px 8px">Item</th><th style="text-align:left;padding:6px 8px">Categoria</th>
+      <th style="text-align:left;padding:6px 8px">Excluído em</th><th></th></tr></thead>
+    <tbody>${lista.map(i=>{
+      const dt=i.excluido_em?new Date(i.excluido_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'—';
+      return `<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:6px 8px"><b>${esc(i.descricao||i.tipo_peca)}</b>${i.codigo?`<div style="font-size:10px;color:var(--gray)">${esc(i.codigo)}</div>`:''}</td>
+        <td style="padding:6px 8px;color:#546e7a">${esc(i.categoria||'')}</td>
+        <td style="padding:6px 8px;color:#546e7a;white-space:nowrap">${dt}${i.excluido_por?`<div style="font-size:10px">${esc(i.excluido_por)}</div>`:''}</td>
+        <td style="padding:6px 8px;white-space:nowrap;text-align:right">
+          <button class="btn btn-sm primary" onclick="restaurarDaLixeira('${i.id}')">↩ Restaurar</button>
+          <button class="btn btn-sm danger" onclick="apagarDefinitivoLixeira('${i.id}')" title="Apaga de vez, com as movimentações">✕</button>
+        </td></tr>`;}).join('')}</tbody></table>`;
+}
+async function restaurarDaLixeira(id){
+  try{
+    await api('PATCH','estoque_itens',{excluido_em:null, excluido_por:null},`?id=eq.${id}`);
+    showToast('Item restaurado!');
+    await loadAll(); renderLixeiraEstoque(); renderEstoque();
+  }catch(e){ showToast('Erro ao restaurar','err'); console.error(e); }
+}
+async function apagarDefinitivoLixeira(id){
+  const it=(estoqueLixeira||[]).find(x=>x.id===id);
+  if(!confirm(`Apagar DE VEZ "${it?.descricao||'este item'}"? Isso apaga também as movimentações dele e não dá para desfazer.`)) return;
+  try{
+    await api('DELETE','estoque_movimentacoes','',`?item_id=eq.${id}`);
+    await api('DELETE','estoque_itens','',`?id=eq.${id}`);
+    showToast('Item apagado definitivamente');
+    await loadAll(); renderLixeiraEstoque(); renderEstoque();
+  }catch(e){ showToast('Erro ao apagar','err'); console.error(e); }
+}
+async function esvaziarLixeiraEstoque(){
+  const lista=[...(estoqueLixeira||[])]; if(!lista.length) return;
+  if(!confirm(`Apagar DE VEZ os ${lista.length} item(ns) da lixeira, com as movimentações? Não dá para desfazer.`)) return;
+  try{
+    for(const i of lista){
+      await api('DELETE','estoque_movimentacoes','',`?item_id=eq.${i.id}`);
+      await api('DELETE','estoque_itens','',`?id=eq.${i.id}`);
+    }
+    showToast('Lixeira esvaziada');
+    await loadAll(); renderLixeiraEstoque(); renderEstoque();
+  }catch(e){ showToast('Erro ao esvaziar a lixeira','err'); console.error(e); }
+}
+// ===== FIM LIXEIRA DO ESTOQUE =====
 
 function toggleEstMaisMenu(event){
   if(event) event.stopPropagation();
@@ -13282,6 +13389,7 @@ let estMovItemId = null, estMovTipo = null;
 
 function renderEstoque(){
   if(typeof atualizarBadgeMinimo==='function') setTimeout(atualizarBadgeMinimo,0);
+  if(typeof _atualizarIndicadorMais==='function') _atualizarIndicadorMais();
   if(typeof _aplicarBtnOcultarZero==='function') _aplicarBtnOcultarZero();
   if(typeof _aplicarBtnAgrupar==='function') _aplicarBtnAgrupar();
   if(typeof _aplicarBtnMostrarOcultos==='function') _aplicarBtnMostrarOcultos();
@@ -13817,7 +13925,7 @@ function gerarProximoCodigo(categoria) {
   // Busca todos os itens com código que começa com esse prefixo
   const regex = new RegExp('^' + prefixo.replace('.', '\\.') + '\\.(\\d+)$');
   let maxSeq = 0;
-  estoqueItens.forEach(item => {
+  [...estoqueItens, ...(estoqueLixeira||[])].forEach(item => {
     if(item.codigo) {
       const match = item.codigo.match(regex);
       if(match) {
@@ -14070,11 +14178,10 @@ async function salvarEstoque(){
 }
 
 async function deletarEstoqueItem(id){
-  if(!confirm('Excluir este item do estoque?')) return;
+  if(!confirm('Mover este item para a lixeira? Dá para restaurar depois em ⋮ Mais → Lixeira.')) return;
   try{
-    await api('DELETE','estoque_movimentacoes','',`?item_id=eq.${id}`);
-    await api('DELETE','estoque_itens','',`?id=eq.${id}`);
-    showToast('Item removido!');
+    if(!(await _moverParaLixeira([id]))) return;
+    showToast('Item movido para a lixeira');
     await loadAll();
     renderEstoque();
   }catch(e){showToast('Erro','err');}
