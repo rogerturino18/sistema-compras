@@ -5228,22 +5228,40 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-07 · build 279';
+const APP_BUILD='2026-10-07 · build 280';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 // Aviso de nova versão: consulta o index.html publicado e, se a build mudou, mostra uma faixa "Atualizar" (sem recarregar sozinho para não perder o que está sendo digitado).
-let _verAvisada=false;
+let _verAvisada=false, _ultAtividade=Date.now(), _verNovaPendente=false;
+['keydown','input','mousedown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{_ultAtividade=Date.now();},true));
+// Seguro p/ recarregar: nenhum modal aberto, nenhum campo com foco/preenchendo e sem atividade há 30s
+function _seguroRecarregar(){
+  if(document.querySelector('.modal-bg.open')) return false;
+  const a=document.activeElement; if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+  return Date.now()-_ultAtividade>30000;
+}
+function _tentarAutoRecarregar(){
+  if(!_verNovaPendente) return;
+  if(_seguroRecarregar()||(document.hidden===false&&_voltouDaAba&&_seguroSemEspera())){ location.reload(); }
+}
+let _voltouDaAba=false;
+function _seguroSemEspera(){ // ao voltar para a aba: só exige sem modal/campo em edição
+  if(document.querySelector('.modal-bg.open')) return false;
+  const a=document.activeElement; return !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+}
+setInterval(_tentarAutoRecarregar,10000);
 async function _checarNovaVersao(){
-  if(_verAvisada || location.protocol==='file:') return;
+  if(location.protocol==='file:') return;
+  if(_verNovaPendente){ _tentarAutoRecarregar(); return; }
   try{
     const r=await fetch(location.pathname+'?_v='+Date.now(),{cache:'no-store'});
     if(!r.ok) return;
     const m=(await r.text()).match(/const APP_BUILD='([^']+)'/);
     if(m && m[1]!==APP_BUILD){
-      _verAvisada=true;
+      _verAvisada=true; _verNovaPendente=true;
       const d=document.createElement('div');
       d.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:#1b5e20;color:#fff;padding:10px 16px;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-size:14px;max-width:92vw';
       d.innerHTML='<span>🔄 Nova versão disponível ('+m[1].replace(/^.*build\s*/,'build ')+')</span><button style="background:#fff;color:#1b5e20;border:0;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer" onclick="location.reload()">Atualizar</button><button style="background:transparent;color:#fff;border:0;cursor:pointer;font-size:16px" onclick="this.parentNode.remove()">✕</button>';
@@ -5252,7 +5270,7 @@ async function _checarNovaVersao(){
   }catch(e){}
 }
 setInterval(_checarNovaVersao,120000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) _checarNovaVersao(); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ _voltouDaAba=true; setTimeout(()=>{_voltouDaAba=false;},4000); _checarNovaVersao().then(()=>{ if(_verNovaPendente&&_seguroSemEspera()) location.reload(); }); } });
 setTimeout(_checarNovaVersao,15000);
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
