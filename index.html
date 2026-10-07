@@ -5228,7 +5228,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-07 · build 276';
+const APP_BUILD='2026-10-07 · build 277';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18731,6 +18731,15 @@ function getCor(nome){
   return cores[nome]||(departamentos.find(d=>d.nome===nome)?.cor)||'#546e7a';
 }
 
+// Requisições de um "PDV" do Departamentos: as ligadas pelo pdv_id e também as
+// feitas só pelo NOME do departamento (ex: "INDUSTRIA", que é um PDV sem
+// número) — sem isso, esse tipo de PDV aparecia sem materiais e sem valor.
+function _reqsDoPDVCentro(p){
+  const nz=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+  const alvos=new Set([nz(p.numero),nz('PDV '+p.numero),nz(rotuloPDV(p,true)),nz(rotuloPDV(p,false))].filter(Boolean));
+  return requisicoes.filter(r=>r.pdv_id===p.id || (!r.pdv_id && alvos.has(nz(r.departamento))));
+}
+
 function renderDepartamentos(){
   const busca=(document.getElementById('buscaDepto')?.value||'').toLowerCase();
   const filtTipo=document.getElementById('filtroDeptoTipo')?.value||'';
@@ -18748,7 +18757,7 @@ function renderDepartamentos(){
       const nrLabel=String(p.numero).startsWith('PDV')?p.numero:'PDV '+p.numero;
       const label=`${nrLabel}${p.cliente?' — '+p.cliente.substring(0,30):''}`;
       if(busca&&!label.toLowerCase().includes(busca)) return;
-      const reqs=requisicoes.filter(r=>r.pdv_id===p.id);
+      const reqs=_reqsDoPDVCentro(p);
       const matUsados=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
       const opsCount=ordens.filter(o=>o.pdv_id===p.id).length;
       centros.push({id:p.id,tipo:'pdv',nome:nrLabel,cliente:p.cliente||'',status:p.status,cor:getCor(p.equipamento||'COMERCIAL'),total:0,matUsados,opsCount,pvData:p});
@@ -18848,7 +18857,7 @@ function abrirCentroCusto(id, tipo){
     titulo=`${nrLabel} — ${p.cliente||''}`;
     cor=getCor(p.equipamento||'COMERCIAL');
 
-    const reqs=requisicoes.filter(r=>r.pdv_id===p.id);
+    const reqs=_reqsDoPDVCentro(p);
     const opsLocal=ordens.filter(o=>o.pdv_id===p.id);
     const matTotal=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.reduce((ss,it)=>ss+(it.qtd||0),0):0),0);
 
