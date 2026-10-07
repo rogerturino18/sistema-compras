@@ -5228,7 +5228,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-07 · build 277';
+const APP_BUILD='2026-10-07 · build 278';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18740,6 +18740,30 @@ function _reqsDoPDVCentro(p){
   return requisicoes.filter(r=>r.pdv_id===p.id || (!r.pdv_id && alvos.has(nz(r.departamento))));
 }
 
+// Saídas de estoque de um PDV (as mesmas da aba Movimentações).
+function _saidasDoPDVCentro(p){
+  const pdvN=String(p.numero).toLowerCase();
+  return (estoqueMov||[]).filter(m=>{
+    if(m.tipo!=='saida') return false;
+    if(m.pdv_id===p.id) return true;
+    const obs=(m.observacao||'').toLowerCase();
+    return obs.includes(pdvN)||obs.includes('pdv '+pdvN);
+  });
+}
+// Quando o PDV não tem requisição vinculada (ex: INDUSTRIA), os materiais usados
+// vêm direto das saídas de estoque — cada saída vira uma "retirada" com o item
+// real do estoque (e portanto o valor dele), igual à lista dos demais PDVs.
+function _reqsDeSaidasEstoque(saidas){
+  return (saidas||[]).map(m=>{
+    const est=(estoqueItens||[]).find(i=>i.id===m.item_id);
+    const mReq=String(m.observacao||'').match(/Req\.?\s*N[º°o]?\s*(\d+)/i);
+    return {id:'mov-'+m.id, _mov:true, status:'Atendida', numero:mReq?mReq[1]:'', data:String(m.data||m.created_at||'').slice(0,10),
+      solicitante:m.criado_por||'', departamento:'',
+      itens:[{item_id:m.item_id, descricao:est?(est.descricao||est.tipo_peca):(m.descricao||'Item removido'), material:est?.material||'',
+              qtd:Number(m.quantidade)||0, unidade:m.unidade_saida||est?.unidade||''}]};
+  });
+}
+
 function renderDepartamentos(){
   const busca=(document.getElementById('buscaDepto')?.value||'').toLowerCase();
   const filtTipo=document.getElementById('filtroDeptoTipo')?.value||'';
@@ -18758,7 +18782,8 @@ function renderDepartamentos(){
       const label=`${nrLabel}${p.cliente?' — '+p.cliente.substring(0,30):''}`;
       if(busca&&!label.toLowerCase().includes(busca)) return;
       const reqs=_reqsDoPDVCentro(p);
-      const matUsados=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
+      let matUsados=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.length:0),0);
+      if(!matUsados) matUsados=_saidasDoPDVCentro(p).length;
       const opsCount=ordens.filter(o=>o.pdv_id===p.id).length;
       centros.push({id:p.id,tipo:'pdv',nome:nrLabel,cliente:p.cliente||'',status:p.status,cor:getCor(p.equipamento||'COMERCIAL'),total:0,matUsados,opsCount,pvData:p});
     });
@@ -18859,7 +18884,7 @@ function abrirCentroCusto(id, tipo){
 
     const reqs=_reqsDoPDVCentro(p);
     const opsLocal=ordens.filter(o=>o.pdv_id===p.id);
-    const matTotal=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.reduce((ss,it)=>ss+(it.qtd||0),0):0),0);
+    let matTotal=reqs.filter(r=>r.status==='Atendida').reduce((s,r)=>s+(Array.isArray(r.itens)?r.itens.reduce((ss,it)=>ss+(it.qtd||0),0):0),0);
 
     // Movimentações de estoque vinculadas a este PDV
     const movs=estoqueMov.filter(m=>{
@@ -18870,6 +18895,10 @@ function abrirCentroCusto(id, tipo){
     });
     const entradas=movs.filter(m=>m.tipo==='entrada');
     const saidas=movs.filter(m=>m.tipo==='saida');
+    // Sem requisições vinculadas: usa as saídas de estoque como materiais usados.
+    const temItensReq=reqs.some(r=>r.status==='Atendida'&&Array.isArray(r.itens)&&r.itens.length);
+    const reqsMat=temItensReq?reqs:_reqsDeSaidasEstoque(saidas);
+    if(!temItensReq) matTotal=reqsMat.reduce((n,r)=>n+(r.itens[0]?.qtd||0),0);
 
     document.getElementById('modalCCStats').innerHTML=`
       <div style="padding:14px 16px;text-align:center;border-right:1px solid #e0e0e0">
@@ -18897,7 +18926,7 @@ function abrirCentroCusto(id, tipo){
         <div style="font-size:18px;font-weight:800;color:#e65100">${opsLocal.length}</div>
       </div>`;
 
-    document.getElementById('ccReqConteudo').innerHTML=renderCCMateriais(reqs);
+    document.getElementById('ccReqConteudo').innerHTML=renderCCMateriais(reqsMat);
     document.getElementById('ccOPConteudo').innerHTML=renderCCMovimentacoes(movs, p);
     document.getElementById('ccInfoConteudo').innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
@@ -18948,7 +18977,8 @@ async function definirValorMaterialCC(key){
   const norm=s=>(s||'').trim().toUpperCase().replace(/\s+/g,' ');
   const alvo=[]; // {req, idxs}
   let nomeExib='';
-  (_ccMatReqsCache||[]).filter(r=>r.status==='Atendida').forEach(r=>{
+  const soDoEstoque=(_ccMatReqsCache||[]).some(r=>r._mov);
+  (_ccMatReqsCache||[]).filter(r=>r.status==='Atendida'&&!r._mov).forEach(r=>{
     const itArr=Array.isArray(r.itens)?r.itens:[]; const idxs=[];
     itArr.forEach((it,i)=>{
       if(norm(it.descricao)+'|'+norm(it.material)!==key) return;
@@ -18958,7 +18988,7 @@ async function definirValorMaterialCC(key){
     });
     if(idxs.length) alvo.push({r,idxs});
   });
-  if(!alvo.length){ showToast('Nada a definir nesse material'); return; }
+  if(!alvo.length){ showToast(soDoEstoque?'Esses materiais vêm do estoque — preencha o valor no cadastro do item (Estoque → editar).':'Nada a definir nesse material', soDoEstoque?'err':undefined, 6000); return; }
   const atual=Number((alvo[0].r.itens[alvo[0].idxs[0]]||{}).valor_unit)||'';
   const txt=prompt(`Valor unitário (R$) de:\n${nomeExib}\n\nVai valer para ${alvo.reduce((n,a)=>n+a.idxs.length,0)} retirada(s) neste material.`, atual?String(atual).replace('.',','):'');
   if(txt===null) return;
