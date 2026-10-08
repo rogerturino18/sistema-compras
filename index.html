@@ -4680,6 +4680,23 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 
 
 
+<!-- MODAL RELIGAR REQUISIÇÕES -->
+<div class="modal-bg" id="modalReligarReq">
+<div class="modal" style="max-width:880px;width:96vw">
+  <div class="modal-header">
+    <h3>🔗 Religar materiais de requisições</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalReligarReq')" title="Fechar">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" style="max-height:74vh;overflow:auto">
+    <div style="font-size:12px;color:#546e7a;margin-bottom:10px">Estes materiais foram retirados em requisições, mas o item do estoque original foi apagado/refeito, então ficam sem valor em Departamentos. Escolha o item atual do estoque correspondente e clique em <b>Religar</b> — só muda o vínculo, não mexe em quantidades nem saldo.</div>
+    <datalist id="dlItensEstoqueReligar"></datalist>
+    <div id="listaReligarReq"></div>
+  </div>
+</div>
+</div>
+
 <!-- MODAL DIAGNÓSTICO DO SISTEMA -->
 <div class="modal-bg" id="modalDiagnostico">
 <div class="modal" style="max-width:860px;width:96vw">
@@ -4881,7 +4898,9 @@ function _perfRegistrarApi(tabela, ms, kb, rows, erro){
 let _sbRealtimeCanal = null;
 let _realtimeReloadTimer = null;
 let _realtimeTentativas = 0;
-let _ultRecargaRT = 0;
+let _ultRecargaRT = 0; const _rtPendentes = new Set();
+// Tabelas que o loadAll sabe baixar sozinhas (qualquer outra → recarga completa, por segurança).
+const _RT_TABELAS_CONHECIDAS = new Set(['itens','cotacoes','fornecedores','emails_enviados','pdvs','compras_internas','produtos_pdv','etapas_produto','tempos_op','setores_pdv','pecas_projeto','sessoes_trabalho','estoque_itens','estoque_movimentacoes','clientes_fiscal','notas_fiscais','clientes','pedidos_venda','pedidos_compra','requisicoes_material','departamentos','contas_pagar','contas_receber','contas_corrente','entradas_nfe','desenhos_recebidos','montagens_recebidas','itens_desenho_recebido','minimos_genericos','operadores_maquina','terceirizados_cadastro']);
 function _agendarRecargaRealtime(payload){
   // Conta quem está disparando recargas (a tela de diagnóstico mostra a tabela "barulhenta").
   try{
@@ -4891,6 +4910,7 @@ function _agendarRecargaRealtime(payload){
   // Recarregar TUDO (32 tabelas + redesenhar telas) a cada mudança deixava o sistema
   // lento quando várias pessoas trabalham ao mesmo tempo. Agora agrupa as mudanças e
   // recarrega no máximo 1 vez a cada 10 s (a mudança nunca se perde — só espera).
+  try{ if(payload&&payload.table) _rtPendentes.add(payload.table); else _rtPendentes.add('*'); }catch(e){}
   if(_realtimeReloadTimer) return;
   const espera=Math.max(800, _ultRecargaRT+10000-Date.now());
   _realtimeReloadTimer = setTimeout(()=>{
@@ -4898,7 +4918,10 @@ function _agendarRecargaRealtime(payload){
     if(document.hidden) return; // volta ao foco → visibilitychange recarrega
     if(typeof usuarioLogado!=='undefined' && usuarioLogado && typeof loadAll==='function'){
       _ultRecargaRT=Date.now(); _perf.rtRecargas.push(Date.now()); if(_perf.rtRecargas.length>200) _perf.rtRecargas.shift();
-      loadAll(true);
+      const pend=[..._rtPendentes]; _rtPendentes.clear();
+      const parcial = pend.length && pend.every(t=>_RT_TABELAS_CONHECIDAS.has(t)) && (Date.now()-_ultCargaCompleta<300000);
+      if(parcial){ const set=new Set(pend); set.add('ordens_producao_lista'); loadAll(true,set); } // view de ordens: sempre junto
+      else loadAll(true);
     }
   }, espera);
 }
@@ -5256,7 +5279,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-08 · build 282';
+const APP_BUILD='2026-10-08 · build 283';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5515,7 +5538,12 @@ let _loadAllTentativas = 0; // conta tentativas seguidas com falha, pra não fic
 // segundo plano) — não trava a tela nem mostra "Carregando..." (ver
 // _cargaSilenciosaAtiva acima). Chamadas normais (login, F5 etc.) continuam
 // mostrando o carregamento como sempre.
-async function loadAll(silencioso){
+// tabelas = Set com os nomes das tabelas que mudaram (recarga automática). Só elas são baixadas
+// de novo; as demais mantêm o que já está na tela. Sem argumento, baixa tudo (login, F5, salvar...).
+let _ultCargaCompleta = 0;
+async function loadAll(silencioso, tabelas){
+  const _deve = nome => !(tabelas instanceof Set) || tabelas.has(nome);
+  if(!(tabelas instanceof Set)) _ultCargaCompleta = Date.now();
   if(silencioso) _cargaSilenciosaAtiva = true;
   const _tLoad0=performance.now();
   try {
@@ -5525,50 +5553,53 @@ async function loadAll(silencioso){
     // até dar F5 (o F5 funcionava só porque tentava de novo, com sorte).
     const _loadAllFalhas = [];
     [itens,cotacoes,fornecedores,emails,pdvs,comprasInternas,produtosPDV,etapasProduto,ordens,temposOP,setoresPDV,pecasProjeto,sessoesTrab,estoqueItens,estoqueMov,clientesFiscal,notasFiscais,clientes,pedidosVenda,pedidosCompra,requisicoes,departamentos,contasPagar,contasReceber,contasCorrente,entradasNFe,desenhosRecebidos,montagensRecebidas,itensDesenhoRecebido,minimosGenericos,operadoresMaquina,terceirizadosCadastro]=await Promise.all([
-      api('GET','itens','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('itens'); console.warn('itens:',e.message); return itens; }),
-      api('GET','cotacoes','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('cotacoes'); console.warn('cotacoes:',e.message); return cotacoes; }),
-      api('GET','fornecedores','','?order=razao_social.asc').catch(e=>{ _loadAllFalhas.push('fornecedores'); console.warn('fornecedores:',e.message); return fornecedores; }),
-      api('GET','emails_enviados','','?order=enviado_em.desc&limit=50').catch(e=>{ _loadAllFalhas.push('emails'); console.warn('emails:',e.message); return emails; }),
-      api('GET','pdvs','','?order=numero.asc&ativo=eq.true').catch(e=>{ _loadAllFalhas.push('pdvs'); console.warn('pdvs:',e.message); return pdvs; }),
-      api('GET','compras_internas','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('comprasInternas'); console.warn('comprasInternas:',e.message); return comprasInternas; }),
-      api('GET','produtos_pdv','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('produtosPDV'); console.warn('produtosPDV:',e.message); return produtosPDV; }),
-      api('GET','etapas_produto','','?order=iniciado_em.asc').catch(e=>{ _loadAllFalhas.push('etapasProduto'); console.warn('etapasProduto:',e.message); return etapasProduto; }),
-      api('GET','ordens_producao_lista','','?order=numero.desc').catch(e=>{ _loadAllFalhas.push('ordens'); console.warn('ordens:',e.message); return ordens; }),
-      api('GET','tempos_op','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('temposOP'); console.warn('temposOP:',e.message); return temposOP; }),
-      api('GET','setores_pdv','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('setoresPDV'); console.warn('setoresPDV:',e.message); return setoresPDV; }),
-      api('GET','pecas_projeto','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('pecasProjeto'); console.warn('pecasProjeto:',e.message); return pecasProjeto; }),
-      api('GET','sessoes_trabalho','','?order=iniciado_em.desc').catch(e=>{ _loadAllFalhas.push('sessoesTrab'); console.warn('sessoesTrab:',e.message); return sessoesTrab; }),
-      apiAll('estoque_itens','?order=descricao.asc').catch(e=>{ _loadAllFalhas.push('estoqueItens'); console.warn('estoqueItens:',e.message); return estoqueItens; }),
-      buscarMovimentacoesEstoque().catch(e=>{ _loadAllFalhas.push('estoqueMov'); console.warn('estoqueMov:',e.message); return estoqueMov; }),
-      api('GET','clientes_fiscal','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('clientesFiscal'); console.warn('clientesFiscal:',e.message); return clientesFiscal; }),
-      api('GET','notas_fiscais','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('notasFiscais'); console.warn('notasFiscais:',e.message); return notasFiscais; }),
-      api('GET','clientes','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('clientes'); console.warn('clientes:',e.message); return clientes; }),
-      api('GET','pedidos_venda','','?order=numero.desc').catch(e=>{ _loadAllFalhas.push('pedidosVenda'); console.warn('pedidosVenda:',e.message); return pedidosVenda; }),
-      api('GET','pedidos_compra','','?order=numero.desc').catch(e=>{ _loadAllFalhas.push('pedidosCompra'); console.warn('pedidosCompra:',e.message); return pedidosCompra; }),
-      api('GET','requisicoes_material','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('requisicoes'); console.warn('requisicoes:',e.message); return requisicoes; }),
-      api('GET','departamentos','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('departamentos'); console.warn('departamentos:',e.message); return departamentos; }),
-      api('GET','contas_pagar','','?order=vencimento.asc').catch(e=>{ _loadAllFalhas.push('contasPagar'); console.warn('contasPagar:',e.message); return contasPagar; }),
-      api('GET','contas_receber','','?order=vencimento.asc').catch(e=>{ _loadAllFalhas.push('contasReceber'); console.warn('contasReceber:',e.message); return contasReceber; }),
-      api('GET','contas_corrente','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('contasCorrente'); console.warn('contasCorrente:',e.message); return contasCorrente; }),
-      api('GET','entradas_nfe','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('entradasNFe'); console.warn('entradasNFe:',e.message); return entradasNFe; }),
-      api('GET','desenhos_recebidos','','?order=data_recebimento.desc').catch(e=>{ _loadAllFalhas.push('desenhosRecebidos'); console.warn('desenhosRecebidos:',e.message); return desenhosRecebidos; }),
-      api('GET','montagens_recebidas','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('montagensRecebidas'); console.warn('montagensRecebidas:',e.message); return montagensRecebidas; }),
-      api('GET','itens_desenho_recebido','','?order=item_numero.asc').catch(e=>{ _loadAllFalhas.push('itensDesenhoRecebido'); console.warn('itensDesenhoRecebido:',e.message); return itensDesenhoRecebido; }),
-      api('GET','minimos_genericos','','?order=chave.asc').catch(e=>{ _loadAllFalhas.push('minimosGenericos'); console.warn('minimosGenericos:',e.message); return minimosGenericos; }),
-      api('GET','operadores_maquina','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('operadoresMaquina'); console.warn('operadoresMaquina:',e.message); return operadoresMaquina; }),
-      api('GET','terceirizados_cadastro','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('terceirizadosCadastro'); console.warn('terceirizadosCadastro:',e.message); return terceirizadosCadastro; }),
+      _deve('itens') ? api('GET','itens','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('itens'); console.warn('itens:',e.message); return itens; }) : itens,
+      _deve('cotacoes') ? api('GET','cotacoes','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('cotacoes'); console.warn('cotacoes:',e.message); return cotacoes; }) : cotacoes,
+      _deve('fornecedores') ? api('GET','fornecedores','','?order=razao_social.asc').catch(e=>{ _loadAllFalhas.push('fornecedores'); console.warn('fornecedores:',e.message); return fornecedores; }) : fornecedores,
+      _deve('emails_enviados') ? api('GET','emails_enviados','','?order=enviado_em.desc&limit=50').catch(e=>{ _loadAllFalhas.push('emails'); console.warn('emails:',e.message); return emails; }) : emails,
+      _deve('pdvs') ? api('GET','pdvs','','?order=numero.asc&ativo=eq.true').catch(e=>{ _loadAllFalhas.push('pdvs'); console.warn('pdvs:',e.message); return pdvs; }) : pdvs,
+      _deve('compras_internas') ? api('GET','compras_internas','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('comprasInternas'); console.warn('comprasInternas:',e.message); return comprasInternas; }) : comprasInternas,
+      _deve('produtos_pdv') ? api('GET','produtos_pdv','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('produtosPDV'); console.warn('produtosPDV:',e.message); return produtosPDV; }) : produtosPDV,
+      _deve('etapas_produto') ? api('GET','etapas_produto','','?order=iniciado_em.asc').catch(e=>{ _loadAllFalhas.push('etapasProduto'); console.warn('etapasProduto:',e.message); return etapasProduto; }) : etapasProduto,
+      _deve('ordens_producao_lista') ? api('GET','ordens_producao_lista','','?order=numero.desc').catch(e=>{ _loadAllFalhas.push('ordens'); console.warn('ordens:',e.message); return ordens; }) : ordens,
+      _deve('tempos_op') ? api('GET','tempos_op','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('temposOP'); console.warn('temposOP:',e.message); return temposOP; }) : temposOP,
+      _deve('setores_pdv') ? api('GET','setores_pdv','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('setoresPDV'); console.warn('setoresPDV:',e.message); return setoresPDV; }) : setoresPDV,
+      _deve('pecas_projeto') ? api('GET','pecas_projeto','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('pecasProjeto'); console.warn('pecasProjeto:',e.message); return pecasProjeto; }) : pecasProjeto,
+      _deve('sessoes_trabalho') ? api('GET','sessoes_trabalho','','?order=iniciado_em.desc').catch(e=>{ _loadAllFalhas.push('sessoesTrab'); console.warn('sessoesTrab:',e.message); return sessoesTrab; }) : sessoesTrab,
+      _deve('estoque_itens') ? apiAll('estoque_itens','?order=descricao.asc').catch(e=>{ _loadAllFalhas.push('estoqueItens'); console.warn('estoqueItens:',e.message); return estoqueItens; }) : estoqueItens,
+      _deve('estoque_movimentacoes') ? buscarMovimentacoesEstoque().catch(e=>{ _loadAllFalhas.push('estoqueMov'); console.warn('estoqueMov:',e.message); return estoqueMov; }) : estoqueMov,
+      _deve('clientes_fiscal') ? api('GET','clientes_fiscal','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('clientesFiscal'); console.warn('clientesFiscal:',e.message); return clientesFiscal; }) : clientesFiscal,
+      _deve('notas_fiscais') ? api('GET','notas_fiscais','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('notasFiscais'); console.warn('notasFiscais:',e.message); return notasFiscais; }) : notasFiscais,
+      _deve('clientes') ? api('GET','clientes','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('clientes'); console.warn('clientes:',e.message); return clientes; }) : clientes,
+      _deve('pedidos_venda') ? api('GET','pedidos_venda','','?order=numero.desc').catch(e=>{ _loadAllFalhas.push('pedidosVenda'); console.warn('pedidosVenda:',e.message); return pedidosVenda; }) : pedidosVenda,
+      _deve('pedidos_compra') ? api('GET','pedidos_compra','','?order=numero.desc').catch(e=>{ _loadAllFalhas.push('pedidosCompra'); console.warn('pedidosCompra:',e.message); return pedidosCompra; }) : pedidosCompra,
+      _deve('requisicoes_material') ? api('GET','requisicoes_material','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('requisicoes'); console.warn('requisicoes:',e.message); return requisicoes; }) : requisicoes,
+      _deve('departamentos') ? api('GET','departamentos','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('departamentos'); console.warn('departamentos:',e.message); return departamentos; }) : departamentos,
+      _deve('contas_pagar') ? api('GET','contas_pagar','','?order=vencimento.asc').catch(e=>{ _loadAllFalhas.push('contasPagar'); console.warn('contasPagar:',e.message); return contasPagar; }) : contasPagar,
+      _deve('contas_receber') ? api('GET','contas_receber','','?order=vencimento.asc').catch(e=>{ _loadAllFalhas.push('contasReceber'); console.warn('contasReceber:',e.message); return contasReceber; }) : contasReceber,
+      _deve('contas_corrente') ? api('GET','contas_corrente','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('contasCorrente'); console.warn('contasCorrente:',e.message); return contasCorrente; }) : contasCorrente,
+      _deve('entradas_nfe') ? api('GET','entradas_nfe','','?order=created_at.desc').catch(e=>{ _loadAllFalhas.push('entradasNFe'); console.warn('entradasNFe:',e.message); return entradasNFe; }) : entradasNFe,
+      _deve('desenhos_recebidos') ? api('GET','desenhos_recebidos','','?order=data_recebimento.desc').catch(e=>{ _loadAllFalhas.push('desenhosRecebidos'); console.warn('desenhosRecebidos:',e.message); return desenhosRecebidos; }) : desenhosRecebidos,
+      _deve('montagens_recebidas') ? api('GET','montagens_recebidas','','?order=created_at.asc').catch(e=>{ _loadAllFalhas.push('montagensRecebidas'); console.warn('montagensRecebidas:',e.message); return montagensRecebidas; }) : montagensRecebidas,
+      _deve('itens_desenho_recebido') ? api('GET','itens_desenho_recebido','','?order=item_numero.asc').catch(e=>{ _loadAllFalhas.push('itensDesenhoRecebido'); console.warn('itensDesenhoRecebido:',e.message); return itensDesenhoRecebido; }) : itensDesenhoRecebido,
+      _deve('minimos_genericos') ? api('GET','minimos_genericos','','?order=chave.asc').catch(e=>{ _loadAllFalhas.push('minimosGenericos'); console.warn('minimosGenericos:',e.message); return minimosGenericos; }) : minimosGenericos,
+      _deve('operadores_maquina') ? api('GET','operadores_maquina','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('operadoresMaquina'); console.warn('operadoresMaquina:',e.message); return operadoresMaquina; }) : operadoresMaquina,
+      _deve('terceirizados_cadastro') ? api('GET','terceirizados_cadastro','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('terceirizadosCadastro'); console.warn('terceirizadosCadastro:',e.message); return terceirizadosCadastro; }) : terceirizadosCadastro,
     ]);
     // Itens na lixeira (excluido_em preenchido) saem das listas normais — tudo
     // no sistema continua enxergando só os itens ativos. Os movimentos deles
     // também ficam de fora, mas continuam no banco pra restaurar sem perder saldo.
-    if(Array.isArray(estoqueItens) && !_loadAllFalhas.includes('estoqueItens')){
+    if(_deve('estoque_itens') && Array.isArray(estoqueItens) && !_loadAllFalhas.includes('estoqueItens')){
       if(estoqueItens.length) _lixeiraColunaOk = ('excluido_em' in estoqueItens[0]);
       estoqueLixeira = estoqueItens.filter(i=>i&&i.excluido_em);
       if(estoqueLixeira.length){
         const _idsLx=new Set(estoqueLixeira.map(i=>i.id));
         estoqueItens = estoqueItens.filter(i=>!_idsLx.has(i.id));
-        estoqueMov = (estoqueMov||[]).filter(m=>!_idsLx.has(m.item_id));
       }
+    }
+    if((_deve('estoque_itens')||_deve('estoque_movimentacoes')) && estoqueLixeira.length){
+      const _idsLx2=new Set(estoqueLixeira.map(i=>i.id));
+      estoqueMov = (estoqueMov||[]).filter(m=>!_idsLx2.has(m.item_id));
     }
     if(_loadAllFalhas.length){
       console.warn('[loadAll] não atualizaram (mantido o que já tinha):', _loadAllFalhas.join(', '));
@@ -5625,7 +5656,8 @@ function renderAll(){
   renderCotacoes(); renderComparar();
   renderStatsCI(); renderCI();
   renderFornCheck(); renderItemCheck(); renderEmails();
-  renderEstoque();
+  // A lista do Estoque é a mais pesada (milhares de elementos): só redesenha se a aba estiver aberta (ao entrar nela, showTab já desenha).
+  if(document.getElementById('tab11')?.classList.contains('active')) renderEstoque();
   if(typeof renderPedidosVenda==="function") renderPedidosVenda();
   if(typeof renderClientes==="function") renderClientes();
   if(typeof renderPedidosCompra==="function") renderPedidosCompra();
@@ -20797,6 +20829,72 @@ async function desfazerRecebimentoCR(id){
 }
 
 
+
+// ═════════ 🔗 RELIGAR MATERIAIS DE REQUISIÇÕES (item apagado/refeito) ═════════
+function _grupoReqOrfas(){
+  const ids=new Set((estoqueItens||[]).map(i=>i.id));
+  const norm=x=>String(x||'').trim().toUpperCase().replace(/\s+/g,' ');
+  const g={};
+  (requisicoes||[]).forEach(r=>(Array.isArray(r.itens)?r.itens:[]).forEach(it=>{
+    if(!it.item_id || ids.has(it.item_id)) return;
+    const k=norm(it.descricao); if(!k) return;
+    (g[k]||(g[k]={chave:k,desc:it.descricao,linhas:0,qtd:0,reqs:new Set()}));
+    g[k].linhas++; g[k].qtd+=Number(it.qtd)||0; g[k].reqs.add(r.id);
+  }));
+  return Object.values(g).sort((a,b)=>b.linhas-a.linhas);
+}
+function abrirReligarRequisicoes(){
+  document.getElementById('datalistFix')?.remove();
+  const dl=document.getElementById('dlItensEstoqueReligar');
+  const rotulo=i=>(i.descricao||i.tipo_peca||'')+(i.codigo?' ['+i.codigo+']':'');
+  if(dl) dl.innerHTML=(estoqueItens||[]).map(i=>`<option value="${rotulo(i).replace(/"/g,'&quot;')}"></option>`).join('');
+  abrirModal('modalReligarReq');
+  renderReligarRequisicoes();
+}
+function renderReligarRequisicoes(){
+  const el=document.getElementById('listaReligarReq'); if(!el) return;
+  const grupos=_grupoReqOrfas();
+  if(!grupos.length){ el.innerHTML='<div style="padding:24px;text-align:center;color:#2e7d32;font-weight:700">✅ Nenhum material sem item no estoque.</div>'; return; }
+  el.innerHTML=grupos.map((g,idx)=>{
+    const sug=(estoqueItens||[]).map(i=>({i,sim:_similaridadeMinimo(g.desc,i.descricao||'')})).filter(x=>x.sim>=0.5).sort((a,b)=>b.sim-a.sim).slice(0,5);
+    const rotulo=i=>(i.descricao||'')+(i.codigo?' ['+i.codigo+']':'');
+    return `<div style="padding:10px;border-bottom:1px solid #eee">
+      <div style="font-weight:700">${(g.desc||'').replace(/</g,'&lt;')}</div>
+      <div style="font-size:11px;color:#78909c;margin:2px 0 6px">${g.linhas} linha(s) em ${g.reqs.size} requisição(ões) · qtd total ${g.qtd}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="rlSel_${idx}" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:12px;max-width:340px">
+          <option value="">${sug.length?'Sugestões…':'(sem sugestão parecida)'}</option>
+          ${sug.map(x=>`<option value="${x.i.id}">${Math.round(x.sim*100)}% — ${rotulo(x.i).replace(/</g,'&lt;')}</option>`).join('')}
+        </select>
+        <input id="rlTxt_${idx}" list="dlItensEstoqueReligar" placeholder="…ou digite/pesquise outro item" style="flex:1;min-width:200px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+        <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="religarGrupoReq(${idx})">Religar</button>
+      </div></div>`;
+  }).join('');
+}
+async function religarGrupoReq(idx){
+  const grupos=_grupoReqOrfas(); const g=grupos[idx]; if(!g) return;
+  let id=document.getElementById('rlSel_'+idx)?.value||'';
+  const txt=(document.getElementById('rlTxt_'+idx)?.value||'').trim();
+  const rotulo=i=>(i.descricao||i.tipo_peca||'')+(i.codigo?' ['+i.codigo+']':'');
+  if(txt){ const f=(estoqueItens||[]).find(i=>rotulo(i)===txt||String(i.descricao||'').trim()===txt); if(!f){ showToast('Item não encontrado — escolha da lista','err'); return; } id=f.id; }
+  if(!id){ showToast('Escolha o item do estoque','err'); return; }
+  const alvo=(estoqueItens||[]).find(i=>i.id===id); if(!alvo) return;
+  if(!confirm(`Religar "${g.desc}" (${g.linhas} linha(s)) ao item:\n\n${rotulo(alvo)}\n\nConfirmar?`)) return;
+  const ids=new Set((estoqueItens||[]).map(i=>i.id));
+  const norm=x=>String(x||'').trim().toUpperCase().replace(/\s+/g,' ');
+  try{
+    for(const r of (requisicoes||[])){
+      if(!g.reqs.has(r.id)) continue;
+      const novos=(r.itens||[]).map(it=>(it.item_id && !ids.has(it.item_id) && norm(it.descricao)===g.chave)?{...it,item_id:id}:it);
+      await api('PATCH','requisicoes_material',{itens:novos},`?id=eq.${r.id}`);
+      r.itens=novos;
+    }
+    showToast('Religado! '+g.linhas+' linha(s) corrigida(s).');
+    renderReligarRequisicoes();
+    if(document.getElementById('modalDiagnostico')?.classList.contains('open')) rodarDiagnostico();
+  }catch(e){ showToast('Erro ao religar: '+(e.message||e),'err'); console.error(e); }
+}
+
 // ═════════ 🩺 DIAGNÓSTICO DO SISTEMA ═════════
 function abrirDiagnostico(){
   document.getElementById('userMenu')?.classList.remove('open');
@@ -20867,7 +20965,7 @@ async function rodarDiagnostico(){
     const ids=new Set((estoqueItens||[]).map(i=>i.id));
     let linhasSemItem=0;
     (requisicoes||[]).filter(r=>r.status==='Atendida').forEach(r=>(Array.isArray(r.itens)?r.itens:[]).forEach(it=>{ if(it.item_id && !ids.has(it.item_id)) linhasSemItem++; }));
-    add(linhasSemItem?'aviso':'ok','Requisições com item que não existe mais no estoque', linhasSemItem?linhasSemItem+' linha(s) — ficam sem valor em Departamentos.':'Nenhuma.');
+    add(linhasSemItem?'aviso':'ok','Requisições com item que não existe mais no estoque', linhasSemItem?linhasSemItem+' linha(s) — ficam sem valor em Departamentos. <button class="btn btn-primary" style="padding:3px 10px;font-size:11px;margin-left:6px" onclick="abrirReligarRequisicoes()">🔗 Corrigir agora</button>':'Nenhuma.');
     const grupos=_saldoPorChaveGenerica(); const orf=(minimosGenericos||[]).filter(m=>!grupos[m.chave]);
     add(orf.length?'aviso':'ok','Mínimos sem item correspondente', orf.length?orf.length+': '+orf.slice(0,4).map(m=>m.chave).join(', ')+(orf.length>4?'…':'')+' — abra Estoque → Mínimos para religar.':'Nenhum.');
     const movSem=(estoqueMov||[]).filter(m=>m.item_id && !ids.has(m.item_id)).length;
