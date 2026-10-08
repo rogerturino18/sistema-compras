@@ -1083,6 +1083,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
   <div class="user-menu-item" onclick="abrirModalPerfil()">👤 Meu perfil</div>
   <div class="user-menu-item" id="menuBtnUsuarios" onclick="abrirGestaoUsuarios()" style="display:none">👥 Gestão de Usuários</div>
   <div class="user-menu-item" id="menuBtnBemVindo" onclick="dispararEmailBemVindo()" style="display:none">📧 E-mail de boas-vindas</div>
+  <div class="user-menu-item" onclick="abrirDiagnostico()">🩺 Diagnóstico do sistema</div>
   <div class="user-menu-item danger" onclick="fazerLogout()">🚪 Sair</div>
   <div style="padding:8px 14px;font-size:10px;color:#b0bec5;border-top:1px solid #eee;text-align:center" id="appVersaoLabel">versão —</div>
 </div>
@@ -4679,6 +4680,20 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 
 
 
+<!-- MODAL DIAGNÓSTICO DO SISTEMA -->
+<div class="modal-bg" id="modalDiagnostico">
+<div class="modal" style="max-width:860px;width:96vw">
+  <div class="modal-header">
+    <h3>🩺 Diagnóstico do sistema</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="rodarDiagnostico()" title="Rodar de novo">↻</button>
+      <button class="modal-header-btn" onclick="fecharModal('modalDiagnostico')" title="Fechar">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" id="diagCorpo" style="max-height:72vh;overflow:auto;font-size:13px">Verificando…</div>
+</div>
+</div>
+
 <!-- MODAL PERFIL (fora de qualquer panel) -->
 <div class="modal-bg" id="modalPerfil">
 <div class="modal">
@@ -4856,24 +4871,36 @@ const RESEND_KEY='re_jGEqPVW3_MLzktXZDieed4ZyACnhTNNFZ';
 // todo o resto do app continua funcionando exatamente como antes, via fetch()
 // direto no PostgREST (api()/apiAll()) — o realtime só decide QUANDO chamar
 // loadAll() de novo, não substitui como os dados são buscados.
+// ── Diagnóstico de desempenho (usado pela tela 🩺 Diagnóstico do sistema) ──
+const _perf = { tabelas:{}, loadAll:[], renderAll:[], realtime:{}, rtRecargas:[], erros:[], inicio:Date.now() };
+function _perfRegistrarApi(tabela, ms, kb, rows, erro){
+  const t=_perf.tabelas[tabela]||(_perf.tabelas[tabela]={n:0,totalMs:0,maxMs:0,ultMs:0,kb:0,rows:0,erros:0});
+  t.n++; t.totalMs+=ms; t.ultMs=ms; if(ms>t.maxMs) t.maxMs=ms;
+  if(erro){ t.erros++; } else { t.kb=kb; if(rows!=null) t.rows=rows; }
+}
 let _sbRealtimeCanal = null;
 let _realtimeReloadTimer = null;
 let _realtimeTentativas = 0;
-function _agendarRecargaRealtime(){
-  // Várias mudanças costumam chegar juntas (ex: salvar uma ordem mexe em 2-3
-  // tabelas de uma vez) — espera um pouco de silêncio antes de recarregar, pra
-  // não disparar loadAll() repetidas vezes à toa por causa da mesma ação.
-  clearTimeout(_realtimeReloadTimer);
+let _ultRecargaRT = 0;
+function _agendarRecargaRealtime(payload){
+  // Conta quem está disparando recargas (a tela de diagnóstico mostra a tabela "barulhenta").
+  try{
+    const tb=payload&&payload.table;
+    if(tb){ const r=_perf.realtime[tb]||(_perf.realtime[tb]={n:0,ult:0}); r.n++; r.ult=Date.now(); }
+  }catch(e){}
+  // Recarregar TUDO (32 tabelas + redesenhar telas) a cada mudança deixava o sistema
+  // lento quando várias pessoas trabalham ao mesmo tempo. Agora agrupa as mudanças e
+  // recarrega no máximo 1 vez a cada 10 s (a mudança nunca se perde — só espera).
+  if(_realtimeReloadTimer) return;
+  const espera=Math.max(800, _ultRecargaRT+10000-Date.now());
   _realtimeReloadTimer = setTimeout(()=>{
-    if(document.hidden) return; // aba em segundo plano — recarrega quando voltar ao foco (ver visibilitychange abaixo)
-    // silencioso=true: essa recarga é automática, em segundo plano — não deve
-    // travar a tela nem mostrar "Carregando..." (ver _apiIniciarChamada). Sem
-    // isso, toda vez que a pessoa minimizava e voltava pro app, a tela ficava
-    // bloqueada com "Carregando..." até as ~31 tabelas responderem de novo —
-    // o que no celular, logo depois de voltar do segundo plano (rede ainda
-    // se reconectando), dava a impressão de ter travado.
-    if(typeof usuarioLogado!=='undefined' && usuarioLogado && typeof loadAll==='function') loadAll(true);
-  }, 800);
+    _realtimeReloadTimer=null;
+    if(document.hidden) return; // volta ao foco → visibilitychange recarrega
+    if(typeof usuarioLogado!=='undefined' && usuarioLogado && typeof loadAll==='function'){
+      _ultRecargaRT=Date.now(); _perf.rtRecargas.push(Date.now()); if(_perf.rtRecargas.length>200) _perf.rtRecargas.shift();
+      loadAll(true);
+    }
+  }, espera);
 }
 function _iniciarRealtime(){
   try{
@@ -5229,7 +5256,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-07 · build 281';
+const APP_BUILD='2026-10-08 · build 282';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5258,9 +5285,10 @@ async function _checarNovaVersao(){
   if(location.protocol==='file:') return;
   if(_verNovaPendente){ _tentarAutoRecarregar(); return; }
   try{
-    const r=await fetch(location.pathname+'?_v='+Date.now(),{cache:'no-store'});
+    // Arquivo minúsculo (versao.json) em vez de baixar o index.html de 3 MB a cada checagem.
+    const r=await fetch('/versao.json?_v='+Date.now(),{cache:'no-store'});
     if(!r.ok) return;
-    const m=(await r.text()).match(/const APP_BUILD='([^']+)'/);
+    const j=await r.json(); const m=j&&j.build?[null,j.build]:null;
     if(m && m[1]!==APP_BUILD){
       _verAvisada=true; _verNovaPendente=true;
       const d=document.createElement('div');
@@ -5417,6 +5445,7 @@ function _apiFinalizarChamada(){
 
 async function api(method,table,data=null,filter=''){
   _apiIniciarChamada();
+  const _t0=performance.now(); let _erro=true, _kb=0, _rows=null;
   try{
     const res=await fetch(`${SB_URL}/rest/v1/${table}${filter}`,{
       method,
@@ -5425,8 +5454,11 @@ async function api(method,table,data=null,filter=''){
     });
     const text=await res.text();
     if(!res.ok) throw new Error(text);
-    return text?JSON.parse(text):[];
+    const out=text?JSON.parse(text):[];
+    _erro=false; _kb=text.length/1024; _rows=Array.isArray(out)?out.length:null;
+    return out;
   } finally {
+    if(method==='GET') _perfRegistrarApi(table, performance.now()-_t0, _kb, _rows, _erro);
     _apiFinalizarChamada();
   }
 }
@@ -5442,6 +5474,7 @@ async function apiAll(table, query=''){
     if(page.length<pageSize) break;
     offset+=pageSize;
   }
+  try{ if(_perf.tabelas[table]) _perf.tabelas[table].rows=all.length; }catch(e){}
   return all;
 }
 
@@ -5484,6 +5517,7 @@ let _loadAllTentativas = 0; // conta tentativas seguidas com falha, pra não fic
 // mostrando o carregamento como sempre.
 async function loadAll(silencioso){
   if(silencioso) _cargaSilenciosaAtiva = true;
+  const _tLoad0=performance.now();
   try {
     // Se alguma dessas ~31 chamadas falhar (rede instável, timeout), NÃO
     // trocamos mais o dado por vazio — mantemos o que já estava carregado.
@@ -5550,7 +5584,10 @@ async function loadAll(silencioso){
     }
     if(!_loadAllFalhas.length && typeof _autoReligarMinimosOrfaos==='function') _autoReligarMinimosOrfaos();
     _iniciarRealtime(); // só faz algo na 1ª vez — depois fica escutando sozinho
+    const _tRend0=performance.now();
+    _perf.loadAll.push({ms:Math.round(_tRend0-_tLoad0),silencioso:!!silencioso,em:Date.now()}); if(_perf.loadAll.length>30) _perf.loadAll.shift();
     renderAll();
+    _perf.renderAll.push({ms:Math.round(performance.now()-_tRend0),em:Date.now()}); if(_perf.renderAll.length>30) _perf.renderAll.shift();
     // Após um F5, a aba já estava aberta ANTES de os dados chegarem, então ela
     // renderizou vazia. Aqui, com os dados em mãos, redesenhamos SÓ O CONTEÚDO
     // da aba ativa (sem trocar de tela) — resolve de forma geral (Entradas e
@@ -20759,9 +20796,102 @@ async function desfazerRecebimentoCR(id){
   }catch(e){ showToast('Erro: '+e.message,'err'); console.error(e); }
 }
 
+
+// ═════════ 🩺 DIAGNÓSTICO DO SISTEMA ═════════
+function abrirDiagnostico(){
+  document.getElementById('userMenu')?.classList.remove('open');
+  abrirModal('modalDiagnostico');
+  rodarDiagnostico();
+}
+async function rodarDiagnostico(){
+  const el=document.getElementById('diagCorpo'); if(!el) return;
+  el.innerHTML='<div style="padding:20px;text-align:center;color:#78909c">⏳ Verificando…</div>';
+  const checks=[]; // {nivel:'ok'|'aviso'|'erro', titulo, detalhe}
+  const add=(nivel,titulo,detalhe)=>checks.push({nivel,titulo,detalhe:detalhe||''});
+  const fmtMs=ms=>ms>=1000?(ms/1000).toFixed(1)+' s':Math.round(ms)+' ms';
+  const med=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+
+  // 1) Conexão com o banco
+  try{
+    const t0=performance.now(); await api('GET','pdvs','','?select=id&limit=1'); const ms=performance.now()-t0;
+    add(ms>1500?'erro':ms>600?'aviso':'ok','Conexão com o banco', 'Resposta em '+fmtMs(ms)+(ms>600?' — lenta: confira a internet/Wi-Fi deste computador.':''));
+  }catch(e){ add('erro','Conexão com o banco','Falhou: '+(e.message||e).toString().slice(0,120)); }
+
+  // 2) Carga completa (loadAll) e redesenho
+  const la=_perf.loadAll.map(x=>x.ms), ra=_perf.renderAll.map(x=>x.ms);
+  if(la.length){
+    const m=med(la), ult=la[la.length-1];
+    add(m>6000?'erro':m>3000?'aviso':'ok','Carregar todos os dados','Última: '+fmtMs(ult)+' · média: '+fmtMs(m)+' ('+la.length+' cargas desde que abriu)');
+  } else add('aviso','Carregar todos os dados','Ainda sem medição — aguarde a primeira carga.');
+  if(ra.length){
+    const m=med(ra), ult=ra[ra.length-1];
+    add(m>1500?'erro':m>600?'aviso':'ok','Redesenhar as telas','Última: '+fmtMs(ult)+' · média: '+fmtMs(m)+(m>600?' — travadas curtas a cada atualização.':''));
+  }
+
+  // 3) Recargas automáticas (tempo real)
+  const agora=Date.now(), ult10=_perf.rtRecargas.filter(t=>agora-t<600000).length;
+  const rt=Object.entries(_perf.realtime).sort((a,b)=>b[1].n-a[1].n);
+  const totEv=rt.reduce((s,[,v])=>s+v.n,0);
+  add(ult10>=40?'erro':ult10>=15?'aviso':'ok','Atualizações automáticas (outras pessoas mexendo)',
+    ult10+' recargas completas nos últimos 10 min · '+totEv+' mudanças recebidas'+(rt.length?' · mais frequente: <b>'+rt[0][0]+'</b> ('+rt[0][1].n+')':'')+(_sbRealtimeCanal?'':' · ⚠️ tempo real não conectado'));
+
+  // 4) Tamanho/tempo por tabela
+  const tabs=Object.entries(_perf.tabelas).map(([nome,t])=>({nome,...t,mediaMs:t.n?t.totalMs/t.n:0}));
+  const pesadas=tabs.filter(t=>t.kb>1500||t.rows>8000).sort((a,b)=>b.kb-a.kb);
+  add(pesadas.length?'aviso':'ok','Tabelas grandes', pesadas.length?pesadas.map(t=>t.nome+' ('+t.rows+' linhas, '+(t.kb/1024).toFixed(1)+' MB)').join(' · ')+' — são baixadas inteiras a cada recarga.':'Nenhuma tabela excessivamente grande.');
+  const lentas=tabs.filter(t=>t.mediaMs>1500).sort((a,b)=>b.mediaMs-a.mediaMs);
+  if(lentas.length) add('aviso','Tabelas lentas para baixar', lentas.slice(0,5).map(t=>t.nome+' ('+fmtMs(t.mediaMs)+')').join(' · '));
+  const comErro=tabs.filter(t=>t.erros>0);
+  if(comErro.length) add('erro','Falhas ao baixar tabelas', comErro.map(t=>t.nome+' ('+t.erros+'×)').join(' · '));
+
+  // 5) Erros de JavaScript
+  const errs=_perf.erros;
+  add(errs.length>=5?'erro':errs.length?'aviso':'ok','Erros internos nesta sessão', errs.length?errs.slice(-5).map(e=>'• '+e.msg+' (linha '+e.linha+')').join('<br>'):'Nenhum erro registrado.');
+
+  // 6) Memória / peso da tela
+  try{
+    const nos=document.getElementsByTagName('*').length;
+    add(nos>40000?'erro':nos>20000?'aviso':'ok','Peso da tela (elementos no navegador)', nos.toLocaleString('pt-BR')+' elementos'+(nos>20000?' — feche abas/telas que não usa ou dê F5.':''));
+    if(performance.memory){ const mb=performance.memory.usedJSHeapSize/1048576; add(mb>600?'erro':mb>350?'aviso':'ok','Memória do sistema no navegador', mb.toFixed(0)+' MB'+(mb>350?' — dê um F5 para liberar.':'')); }
+  }catch(e){}
+  try{ let b=0; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); b+=k.length+(localStorage.getItem(k)||'').length; } add(b>3e6?'aviso':'ok','Dados salvos no navegador',(b/1048576).toFixed(2)+' MB'); }catch(e){}
+
+  // 7) Versão
+  try{
+    const r=await fetch('/versao.json?_v='+Date.now(),{cache:'no-store'});
+    if(r.ok){ const j=await r.json(); add(j.build===APP_BUILD?'ok':'aviso','Versão do sistema', j.build===APP_BUILD?APP_BUILD:'Esta tela está na '+APP_BUILD+' e existe '+j.build+' — dê F5.'); }
+  }catch(e){}
+
+  // 8) Integridade dos dados
+  try{
+    const ids=new Set((estoqueItens||[]).map(i=>i.id));
+    let linhasSemItem=0;
+    (requisicoes||[]).filter(r=>r.status==='Atendida').forEach(r=>(Array.isArray(r.itens)?r.itens:[]).forEach(it=>{ if(it.item_id && !ids.has(it.item_id)) linhasSemItem++; }));
+    add(linhasSemItem?'aviso':'ok','Requisições com item que não existe mais no estoque', linhasSemItem?linhasSemItem+' linha(s) — ficam sem valor em Departamentos.':'Nenhuma.');
+    const grupos=_saldoPorChaveGenerica(); const orf=(minimosGenericos||[]).filter(m=>!grupos[m.chave]);
+    add(orf.length?'aviso':'ok','Mínimos sem item correspondente', orf.length?orf.length+': '+orf.slice(0,4).map(m=>m.chave).join(', ')+(orf.length>4?'…':'')+' — abra Estoque → Mínimos para religar.':'Nenhum.');
+    const movSem=(estoqueMov||[]).filter(m=>m.item_id && !ids.has(m.item_id)).length;
+    add(movSem>50?'aviso':'ok','Movimentações de itens que não existem mais', movSem?movSem+' movimentação(ões) (ex.: itens apagados/lixeira).':'Nenhuma.');
+    const nomes={}; (estoqueItens||[]).forEach(i=>{ const k=String(i.descricao||'').trim().toUpperCase(); if(k) nomes[k]=(nomes[k]||0)+1; });
+    const dup=Object.entries(nomes).filter(([,n])=>n>1);
+    add(dup.length?'aviso':'ok','Itens de estoque com nome repetido', dup.length?dup.length+' nome(s): '+dup.slice(0,4).map(([k,n])=>k+' ('+n+'×)').join(', ')+(dup.length>4?'…':''):'Nenhum.');
+  }catch(e){ add('aviso','Verificação dos dados','Não foi possível concluir: '+e.message); }
+
+  // Resumo
+  const nE=checks.filter(c=>c.nivel==='erro').length, nA=checks.filter(c=>c.nivel==='aviso').length;
+  const cor={ok:'#2e7d32',aviso:'#ef6c00',erro:'#c62828'}, ico={ok:'✅',aviso:'⚠️',erro:'❌'};
+  const resumo=nE?`<b style="color:#c62828">${nE} problema(s)</b>`+(nA?` e ${nA} aviso(s)`:''):nA?`<b style="color:#ef6c00">${nA} aviso(s)</b>, nenhum problema grave`:`<b style="color:#2e7d32">Tudo certo</b>`;
+  const ordem={erro:0,aviso:1,ok:2};
+  el.innerHTML=`<div style="padding:10px 12px;background:#f5f7f6;border-radius:8px;margin-bottom:10px">${resumo} · ${checks.length} verificações · sessão aberta há ${Math.round((Date.now()-_perf.inicio)/60000)} min</div>`+
+    checks.slice().sort((a,b)=>ordem[a.nivel]-ordem[b.nivel]).map(c=>`<div style="display:flex;gap:10px;padding:8px 10px;border-bottom:1px solid #eee;border-left:4px solid ${cor[c.nivel]}"><span>${ico[c.nivel]}</span><div style="flex:1"><div style="font-weight:700">${c.titulo}</div><div style="color:#546e7a;font-size:12px;margin-top:2px">${c.detalhe}</div></div></div>`).join('')+
+    `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">📊 Tempo e tamanho por tabela</summary><table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px"><tr style="text-align:left;background:#f5f7f6"><th style="padding:4px 6px">Tabela</th><th>Linhas</th><th>Tamanho</th><th>Última</th><th>Média</th><th>Mais lenta</th></tr>${tabs.sort((a,b)=>b.kb-a.kb).map(t=>`<tr style="border-bottom:1px solid #f0f0f0"><td style="padding:3px 6px">${t.nome}</td><td>${t.rows}</td><td>${t.kb>=1024?(t.kb/1024).toFixed(1)+' MB':t.kb.toFixed(0)+' KB'}</td><td>${fmtMs(t.ultMs)}</td><td>${fmtMs(t.mediaMs)}</td><td>${fmtMs(t.maxMs)}</td></tr>`).join('')}</table></details>`+
+    (rt.length?`<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">📡 Mudanças recebidas por tabela (desde que abriu)</summary><div style="font-size:12px;margin-top:6px">${rt.map(([n,v])=>n+': '+v.n).join(' · ')}</div></details>`:'');
+}
+
 // ===== PROTEÇÃO GLOBAL CONTRA ERROS =====
 window.addEventListener('error', function(e){
   console.error('[ERRO GLOBAL]', e.message, 'linha:', e.lineno, e.filename);
+  try{ _perf.erros.push({msg:e.message,linha:e.lineno,em:Date.now()}); if(_perf.erros.length>30) _perf.erros.shift(); }catch(_){}
   // Não trava o sistema — só loga
   // Se a tela de login ainda não passou, não faz nada
   if(!document.getElementById('appMain')) return;
@@ -20773,6 +20903,7 @@ window.addEventListener('error', function(e){
 
 window.addEventListener('unhandledrejection', function(e){
   console.error('[PROMISE REJEITADA]', e.reason);
+  try{ _perf.erros.push({msg:String(e.reason&&e.reason.message||e.reason),linha:'promise',em:Date.now()}); if(_perf.erros.length>30) _perf.erros.shift(); }catch(_){}
   if(typeof showToast==='function'&&e.reason?.message){
     showToast('⚠️ '+e.reason.message,'err',4000);
   }
