@@ -3920,6 +3920,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div class="form-group full">
           <label>Nome do Terceirizado *</label>
           <div id="terc_nome_wrap"></div>
+          <label id="terc_dividir_lbl" style="display:none;margin-top:8px;font-size:12px;font-weight:700;color:#e65100;cursor:pointer"><input type="checkbox" id="terc_dividir" onchange="tercToggleDividir(this.checked)" style="margin-right:6px">✂️ Dividir a quantidade entre mais de um terceirizado</label>
+          <div id="terc_dividir_box" style="display:none;margin-top:8px;border:1px dashed #ef6c00;border-radius:10px;padding:10px;background:#fffaf3"></div>
         </div>
         <div class="form-group">
           <label>Data de Envio *</label>
@@ -3953,6 +3955,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     </div>
     <div class="modal-body">
       <div id="retorno_info" style="background:#e8f5e9;border-radius:10px;padding:12px;font-size:13px;color:#2e7d32;font-weight:600;margin-bottom:4px"></div>
+      <div id="retorno_envios" style="display:none;margin:8px 0;border:1px solid #ffcc80;border-radius:10px;padding:10px;background:#fffaf3"></div>
       <div class="form-grid">
         <div class="form-group full">
           <label>Data de Retorno *</label>
@@ -4900,7 +4903,7 @@ let _realtimeReloadTimer = null;
 let _realtimeTentativas = 0;
 let _ultRecargaRT = 0; const _rtPendentes = new Set();
 // Tabelas que o loadAll sabe baixar sozinhas (qualquer outra → recarga completa, por segurança).
-const _RT_TABELAS_CONHECIDAS = new Set(['itens','cotacoes','fornecedores','emails_enviados','pdvs','compras_internas','produtos_pdv','etapas_produto','tempos_op','setores_pdv','pecas_projeto','sessoes_trabalho','estoque_itens','estoque_movimentacoes','clientes_fiscal','notas_fiscais','clientes','pedidos_venda','pedidos_compra','requisicoes_material','departamentos','contas_pagar','contas_receber','contas_corrente','entradas_nfe','desenhos_recebidos','montagens_recebidas','itens_desenho_recebido','minimos_genericos','operadores_maquina','terceirizados_cadastro']);
+const _RT_TABELAS_CONHECIDAS = new Set(['ordem_envios_terc','ordens_producao','itens','cotacoes','fornecedores','emails_enviados','pdvs','compras_internas','produtos_pdv','etapas_produto','tempos_op','setores_pdv','pecas_projeto','sessoes_trabalho','estoque_itens','estoque_movimentacoes','clientes_fiscal','notas_fiscais','clientes','pedidos_venda','pedidos_compra','requisicoes_material','departamentos','contas_pagar','contas_receber','contas_corrente','entradas_nfe','desenhos_recebidos','montagens_recebidas','itens_desenho_recebido','minimos_genericos','operadores_maquina','terceirizados_cadastro']);
 function _agendarRecargaRealtime(payload){
   // Conta quem está disparando recargas (a tela de diagnóstico mostra a tabela "barulhenta").
   try{
@@ -5279,7 +5282,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-08 · build 283';
+const APP_BUILD='2026-10-09 · build 284';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5586,6 +5589,10 @@ async function loadAll(silencioso, tabelas){
       _deve('operadores_maquina') ? api('GET','operadores_maquina','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('operadoresMaquina'); console.warn('operadoresMaquina:',e.message); return operadoresMaquina; }) : operadoresMaquina,
       _deve('terceirizados_cadastro') ? api('GET','terceirizados_cadastro','','?order=nome.asc').catch(e=>{ _loadAllFalhas.push('terceirizadosCadastro'); console.warn('terceirizadosCadastro:',e.message); return terceirizadosCadastro; }) : terceirizadosCadastro,
     ]);
+    if(_tercEnviosOk && _deve('ordem_envios_terc')){
+      try{ ordemEnviosTerc = await api('GET','ordem_envios_terc','','?order=created_at.asc'); }
+      catch(e){ if(/relation|does not exist|PGRST205|404/i.test(String(e.message))) _tercEnviosOk=false; }
+    }
     // Itens na lixeira (excluido_em preenchido) saem das listas normais — tudo
     // no sistema continua enxergando só os itens ativos. Os movimentos deles
     // também ficam de fora, mas continuam no banco pra restaurar sem perder saldo.
@@ -9066,7 +9073,7 @@ function renderOrdens(){
               : '';
             // Nome do terceirizado embaixo do caminhão — direto no HTML da célula,
             // sem observar a página (evita o loop que travava o sistema antes).
-            const rotulo = `<div>${badgeDiasTerc}🚚</div>${nome?`<div style="font-size:9px;font-weight:700;color:#fff;line-height:1.15;margin-top:2px;max-width:56px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal">${nomeEsc}</div>`:''}`;
+            const rotulo = `<div>${badgeDiasTerc}🚚</div>${nome?`<div style="font-size:9px;font-weight:700;color:#fff;line-height:1.15;margin-top:2px;max-width:56px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:${nomeEsc.includes(' + ')?3:2};-webkit-box-orient:vertical;white-space:normal">${nomeEsc.split(' + ').join('<br>')}</div>`:''}`;
             return `<td onclick="retornarTerceirizado('${o.id}')"
               style="background:${COR_OPERACAO['Terceirizado']};color:#fff;border:1px solid ${COR_OPERACAO['Terceirizado']};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
               title="Terceirizado com ${nomeEsc||'—'} — ${diasTerc!==null?diasTerc+' dia(s) — ':''}clique para registrar retorno" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${rotulo}</td>`;
@@ -21007,6 +21014,8 @@ window.addEventListener('unhandledrejection', function(e){
   }
 });
 let _tercOrdemId = null;
+let ordemEnviosTerc=[]; let _tercEnviosOk=true; // envios parciais (tabela ordem_envios_terc)
+let _tercDividir=false;
 
 let _tercVoltaParaScan=null; // se veio do painel do scanner de QR, guarda o id da ordem pra reabrir o painel depois de confirmar
 function terceirizarOrdem(id){
@@ -21031,14 +21040,83 @@ function terceirizarOrdem(id){
   // ser reaproveitado aqui, senão o contador de dias conta desde a data errada.
   document.getElementById('terc_data').value = hoje();
   document.getElementById('terc_obs').value = o.terceirizado_obs||'';
+  // Divisão da quantidade entre vários terceirizados (só quando a ordem tem quantidade > 1)
+  _tercDividir=false;
+  const _chk=document.getElementById('terc_dividir'); if(_chk) _chk.checked=false;
+  const _box=document.getElementById('terc_dividir_box'); if(_box){ _box.style.display='none'; _box.innerHTML=''; }
+  const _wrapN=document.getElementById('terc_nome_wrap'); if(_wrapN) _wrapN.style.display='';
+  const _lbl=document.getElementById('terc_dividir_lbl'); if(_lbl) _lbl.style.display=(Number(o.quantidade)||0)>1?'block':'none';
   abrirModal('modalTerceirizar');
 }
 
+
+// ── Dividir a quantidade de uma ordem entre vários terceirizados ──
+function _tercNomesOpcoes(){ return (terceirizadosCadastro||[]).map(t=>`<option value="${String(t.nome).replace(/"/g,'&quot;')}"></option>`).join(''); }
+function tercToggleDividir(on){
+  _tercDividir=!!on;
+  const box=document.getElementById('terc_dividir_box'), wrap=document.getElementById('terc_nome_wrap');
+  if(!box) return;
+  box.style.display=on?'block':'none'; if(wrap) wrap.style.display=on?'none':'';
+  if(on){
+    const o=ordens.find(x=>x.id===_tercOrdemId); const q=Number(o?.quantidade)||0;
+    box.innerHTML=`<datalist id="dlTercNomes">${_tercNomesOpcoes()}</datalist>
+      <div style="font-size:12px;color:#546e7a;margin-bottom:6px">Quantidade da ordem: <b>${q}</b>. Informe quanto vai para cada terceirizado — a ordem continua sendo uma só.</div>
+      <div id="terc_div_linhas"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="tercAddLinha()">+ Adicionar terceirizado</button>
+        <span id="terc_div_soma" style="font-size:12px;font-weight:700"></span>
+      </div>`;
+    tercAddLinha(); tercAddLinha();
+    const ls=box.querySelectorAll('.terc-div-qtd'); if(ls[0]) ls[0].value=q; tercAtualizaSoma();
+  }
+}
+function tercAddLinha(){
+  const c=document.getElementById('terc_div_linhas'); if(!c) return;
+  const d=document.createElement('div'); d.style.cssText='display:flex;gap:8px;margin-bottom:6px;align-items:center';
+  d.innerHTML=`<input class="terc-div-nome" list="dlTercNomes" placeholder="Terceirizado" style="flex:1;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+    <input class="terc-div-qtd" type="number" min="1" step="1" placeholder="Qtd" oninput="tercAtualizaSoma()" style="width:80px;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+    <button type="button" onclick="this.parentNode.remove();tercAtualizaSoma()" title="Remover" style="border:0;background:transparent;cursor:pointer;font-size:15px">✕</button>`;
+  c.appendChild(d);
+}
+function tercAtualizaSoma(){
+  const o=ordens.find(x=>x.id===_tercOrdemId); const q=Number(o?.quantidade)||0;
+  const soma=[...document.querySelectorAll('.terc-div-qtd')].reduce((t,i)=>t+(Number(i.value)||0),0);
+  const el=document.getElementById('terc_div_soma'); if(!el) return;
+  const resto=q-soma;
+  el.style.color=resto<0?'#c62828':resto===0?'#2e7d32':'#ef6c00';
+  el.textContent=`Enviando ${soma} de ${q}`+(resto>0?` · ${resto} ficam na fábrica`:resto<0?` · passou ${-resto}!`:' ✓');
+}
+function _tercLerDivisao(){
+  const linhas=[...document.querySelectorAll('#terc_div_linhas > div')].map(d=>({
+    nome:d.querySelector('.terc-div-nome').value.trim(), qtd:Number(d.querySelector('.terc-div-qtd').value)||0})).filter(l=>l.nome||l.qtd);
+  return linhas;
+}
+function _tercRotuloDivisao(l){ return l.map(x=>`${x.nome} (${x.qtd})`).join(' + '); }
+async function _tercSalvarEnvios(ordemId, linhas, data, prazo, obs){
+  if(!_tercEnviosOk) return;
+  try{
+    // Antes de gravar, fecha qualquer envio parcial antigo ainda aberto dessa ordem (reenvio)
+    await api('PATCH','ordem_envios_terc',{data_retorno:data},`?ordem_id=eq.${ordemId}&data_retorno=is.null`).catch(()=>{});
+    await api('POST','ordem_envios_terc',linhas.map(l=>({ordem_id:ordemId,terceirizado_nome:l.nome,quantidade:l.qtd,data_envio:data,prazo_dias:prazo||null,obs:obs||null})));
+  }catch(e){ console.warn('[envios terc]',e.message); showToast('⚠️ A ordem foi enviada, mas o detalhe por terceirizado não foi salvo (rode o SQL criar_envios_terceirizados).','err',8000); }
+}
+
 async function confirmarTerceirizar(){
-  const nome = document.getElementById('terc_nome').value.trim();
+  let nome = _tercDividir ? '' : document.getElementById('terc_nome').value.trim();
   const data = document.getElementById('terc_data').value;
   const obs  = document.getElementById('terc_obs').value.trim();
   const prazo = parseInt(document.getElementById('terc_prazo')?.value)||null;
+  let _divisao=null;
+  if(_tercDividir){
+    const o0=ordens.find(x=>x.id===_tercOrdemId); const q=Number(o0?.quantidade)||0;
+    _divisao=_tercLerDivisao();
+    if(_divisao.length<2){ showToast('Informe pelo menos 2 terceirizados (ou desmarque a divisão)','err'); return; }
+    if(_divisao.some(l=>!l.nome||!(l.qtd>0))){ showToast('Preencha nome e quantidade de cada terceirizado','err'); return; }
+    if(new Set(_divisao.map(l=>l.nome.toLowerCase())).size!==_divisao.length){ showToast('Terceirizado repetido na divisão','err'); return; }
+    const soma=_divisao.reduce((t,l)=>t+l.qtd,0);
+    if(soma>q){ showToast(`A soma (${soma}) passa da quantidade da ordem (${q})`,'err'); return; }
+    nome=_tercRotuloDivisao(_divisao);
+  }
   if(!nome){ showToast('Informe o nome do terceirizado','err'); return; }
   if(!data){ showToast('Informe a data de envio','err'); return; }
 
@@ -21090,6 +21168,8 @@ async function confirmarTerceirizar(){
       }
     }
 
+    if(_divisao) await _tercSalvarEnvios(_tercOrdemId,_divisao,data,prazo,obs);
+    else if(_tercEnviosOk) api('PATCH','ordem_envios_terc',{data_retorno:data},`?ordem_id=eq.${_tercOrdemId}&data_retorno=is.null`).catch(()=>{});
     fecharModal('modalTerceirizar');
     await loadAll();
     renderOrdens();
@@ -21113,6 +21193,16 @@ function retornarTerceirizado(id){
     `<b>Ordem #${o.numero}</b> — ${o.descricao||''}<br>`+
     `<span style="font-size:12px;font-weight:400">Terceirizado: ${o.terceirizado_nome||'—'} · Enviado: ${o.terceirizado_data?new Date(o.terceirizado_data+'T12:00').toLocaleDateString('pt-BR'):'—'}</span>`;
   document.getElementById('retorno_data').value = hoje();
+  const _envBox=document.getElementById('retorno_envios');
+  if(_envBox){
+    const abertos=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(id)&&!e.data_retorno);
+    if(abertos.length>=2){
+      _envBox.style.display='block';
+      _envBox.innerHTML=`<div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:6px">✂️ Ordem dividida — marque quem já devolveu:</div>`+
+        abertos.map(e=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" class="ret-env" value="${e.id}" checked style="width:16px;height:16px"> <b>${String(e.terceirizado_nome).replace(/</g,'&lt;')}</b> — ${e.quantidade} un</label>`).join('')+
+        `<div style="font-size:11px;color:#78909c;margin-top:4px">Se desmarcar algum, a ordem continua terceirizada só com os que faltam.</div>`;
+    } else { _envBox.style.display='none'; _envBox.innerHTML=''; }
+  }
   document.querySelectorAll('[name="retorno_acao"]').forEach(r=>r.checked=false);
   ['retorno_opt_fin','retorno_opt_fab'].forEach(id=>{
     const el=document.getElementById(id);
@@ -21131,8 +21221,29 @@ function selecionarRetorno(tipo){
 async function confirmarRetornoTerc(){
   const acao = document.querySelector('[name="retorno_acao"]:checked')?.value;
   const dataRetorno = document.getElementById('retorno_data').value;
-  if(!acao){ showToast('Selecione o que fazer com a ordem','err'); return; }
   if(!dataRetorno){ showToast('Informe a data de retorno','err'); return; }
+  // Ordem dividida: devolução parcial mantém a ordem terceirizada com os que faltam
+  const _chks=[...document.querySelectorAll('.ret-env')];
+  if(_chks.length){
+    const marcados=_chks.filter(c=>c.checked).map(c=>c.value);
+    if(!marcados.length){ showToast('Marque quem devolveu','err'); return; }
+    if(marcados.length<_chks.length){
+      try{
+        await api('PATCH','ordem_envios_terc',{data_retorno:dataRetorno},`?id=in.(${marcados.join(',')})`);
+        const faltam=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(_tercOrdemId)&&!e.data_retorno&&!marcados.includes(String(e.id)));
+        const novoNome=faltam.map(e=>`${e.terceirizado_nome} (${e.quantidade})`).join(' + ');
+        await api('PATCH','ordens_producao',{terceirizado_nome:novoNome},`?id=eq.${_tercOrdemId}`);
+        const devolveu=(ordemEnviosTerc||[]).filter(e=>marcados.includes(String(e.id))).map(e=>`${e.terceirizado_nome} (${e.quantidade})`).join(' + ');
+        fecharModal('modalRetornoTerc'); await loadAll(); renderOrdens();
+        showToast(`📦 ${devolveu} devolveu. Falta: ${novoNome}`);
+        if(_tercVoltaParaScan){ const id=_tercVoltaParaScan; _tercVoltaParaScan=null; abrirAcoesOrdemPorScan(id); }
+      }catch(e){ console.error(e); showToast('❌ Erro: '+(e.message||e),'err',6000); }
+      return;
+    }
+    // todos devolveram → fecha todos os envios e segue o fluxo normal abaixo
+    try{ await api('PATCH','ordem_envios_terc',{data_retorno:dataRetorno},`?id=in.(${marcados.join(',')})`); }catch(e){ console.warn(e); }
+  }
+  if(!acao){ showToast('Selecione o que fazer com a ordem','err'); return; }
   try{
     const novoStatus = acao==='finalizado' ? 'concluido' : 'aguardando';
     const bodyPatch = {
