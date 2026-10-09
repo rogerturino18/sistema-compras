@@ -2805,6 +2805,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       </div>
     </div>
     <div id="at_tempoLabel" style="font-size:12px;margin-top:2px;min-height:20px;padding:4px 0"></div>
+    <div id="at_fds_box"></div>
     <div style="display:grid;grid-template-columns:1fr;gap:4px">
       <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase">OU informe diretamente em minutos</label>
       <input type="number" id="at_minutos" placeholder="Ex: 120  (se não preencheu datas acima)" min="1" oninput="_calcTempManual()" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
@@ -4372,6 +4373,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <label>Tempo Útil Trabalhado</label>
         <div id="op_tempo_total" style="background:#e8f5e9;border-radius:8px;padding:12px;font-size:20px;font-weight:700;color:#2e7d32;text-align:center;letter-spacing:1px">—</div>
         <div id="op_tempo_detalhe" style="font-size:11px;color:var(--gray);text-align:center;margin-top:4px"></div>
+        <div id="op_fds_box"></div>
       </div>
     </div>
   </div>
@@ -5294,7 +5296,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-09 · build 290';
+const APP_BUILD='2026-10-09 · build 291';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9497,7 +9499,52 @@ function minutosUteisNoDia(data, inicioMin, fimMin){
   return total;
 }
 
-function calcularHorasUteis(inicio, fim){
+// ── Hora extra em fim de semana ──
+// Sábado/domingo NÃO contam por padrão. Quando o período tem fim de semana, a tela mostra os dias
+// e a pessoa marca os que foram trabalhados (e quantos minutos) — esses minutos são somados.
+const _fdsEstado = {op:{}, at:{}}; // por tela: { 'AAAA-MM-DD': {on:bool, min:number} }
+function _chaveDia(d){ const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+function _fdsNoPeriodo(inicio, fim){
+  const lista=[]; if(!inicio||!fim||fim<=inicio) return lista;
+  const dia=new Date(inicio); dia.setHours(0,0,0,0);
+  const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  for(let guard=0; dia<fim && guard<400; guard++){
+    const dow=dia.getDay();
+    if(dow===0||dow===6){
+      const ini=Math.max(0, dia.toDateString()===inicio.toDateString()? inicio.getHours()*60+inicio.getMinutes():0);
+      const fimMin=dia.toDateString()===fim.toDateString()? fim.getHours()*60+fim.getMinutes():24*60;
+      // minutos "padrão" do dia (mesmo expediente dos dias úteis), recortado pelo início/fim informados
+      const m=Math.max(0,Math.min(fimMin,TURNO_MANHA_FIM)-Math.max(ini,TURNO_MANHA_INI))+Math.max(0,Math.min(fimMin,TURNO_TARDE_FIM)-Math.max(ini,TURNO_TARDE_INI));
+      lista.push({key:_chaveDia(dia), rotulo:`${DIAS[dow]} ${String(dia.getDate()).padStart(2,'0')}/${String(dia.getMonth()+1).padStart(2,'0')}`, minPadrao:m});
+    }
+    dia.setDate(dia.getDate()+1);
+  }
+  return lista;
+}
+function _fdsExtras(tela){ // minutos extras marcados: { chave: minutos }
+  const e={}, st=_fdsEstado[tela]||{};
+  Object.keys(st).forEach(k=>{ if(st[k].on && st[k].min>0) e[k]=st[k].min; });
+  return e;
+}
+function _renderFDS(tela, boxId, inicio, fim, aoMudar){
+  const box=document.getElementById(boxId); if(!box) return;
+  const lista=_fdsNoPeriodo(inicio,fim);
+  const st=_fdsEstado[tela]||(_fdsEstado[tela]={});
+  Object.keys(st).forEach(k=>{ if(!lista.some(x=>x.key===k)) delete st[k]; });
+  if(!lista.length){ box.innerHTML=''; return; }
+  lista.forEach(x=>{ if(!st[x.key]) st[x.key]={on:false,min:x.minPadrao}; });
+  box.innerHTML=`<div style="margin-top:8px;border:1px dashed #1565c0;border-radius:10px;padding:10px;background:#f3f8ff">
+    <div style="font-size:12px;font-weight:700;color:#1565c0;margin-bottom:2px">📅 Fim de semana no período</div>
+    <div style="font-size:11px;color:#546e7a;margin-bottom:6px">Sábado e domingo não contam. Se houve trabalho (hora extra), marque o dia e confira os minutos trabalhados.</div>
+    ${lista.map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <input type="checkbox" ${st[x.key].on?'checked':''} onchange="_fdsEstado['${tela}']['${x.key}'].on=this.checked;${aoMudar}" style="width:18px;height:18px;flex:none;padding:0;margin:0;cursor:pointer">
+      <span style="width:84px;font-size:13px;font-weight:600">${x.rotulo}</span>
+      <input type="number" min="0" max="1440" value="${st[x.key].min}" oninput="_fdsEstado['${tela}']['${x.key}'].min=Math.max(0,parseInt(this.value)||0);${aoMudar}" style="width:84px;flex:none;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
+      <span style="font-size:12px;color:#78909c">min trabalhados</span></div>`).join('')}
+  </div>`;
+}
+
+function calcularHorasUteis(inicio, fim, extras){
   if(!inicio||!fim||fim<=inicio) return {minutos:0, texto:'—', detalhe:''};
   let total=0;
   const cur=new Date(inicio);
@@ -9519,10 +9566,14 @@ function calcularHorasUteis(inicio, fim){
     if(cur.getDay()!==0&&cur.getDay()!==6) diasContados++;
     cur.setTime(proximoDia.getTime());
   }
+  let extraTotal=0;
+  if(extras){ _fdsNoPeriodo(inicio,fim).forEach(x=>{ if(extras[x.key]>0) extraTotal+=extras[x.key]; }); }
+  const util=total; total+=extraTotal;
   const h=Math.floor(total/60);
   const m=total%60;
   const texto=`${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}min`;
-  const detalhe=diasContados>1?`${diasContados} dias úteis · ${total} minutos úteis`:`${total} minutos úteis`;
+  let detalhe=diasContados>1?`${diasContados} dias úteis · ${util} minutos úteis`:`${util} minutos úteis`;
+  if(extraTotal) detalhe+=` + ${extraTotal} min de hora extra (fim de semana)`;
   return {minutos:total, texto, detalhe};
 }
 
@@ -9531,11 +9582,12 @@ function calcularTempoOp(){
   const fimVal=_valDataHora('op_fim_fim');
   const elTotal=document.getElementById('op_tempo_total');
   const elDetalhe=document.getElementById('op_tempo_detalhe');
-  if(!iniVal||!fimVal){elTotal.textContent='—';elDetalhe.textContent='';return;}
+  if(!iniVal||!fimVal){elTotal.textContent='—';elDetalhe.textContent='';const b=document.getElementById('op_fds_box'); if(b) b.innerHTML='';return;}
   // Usa parseLocalDate para evitar problema de fuso horário
   const ini=parseLocalDate(iniVal), fim=parseLocalDate(fimVal);
   if(fim<=ini){elTotal.textContent='❌ Fim antes do início';elTotal.style.color='#c62828';elDetalhe.textContent='';return;}
-  const {texto,detalhe}=calcularHorasUteis(ini,fim);
+  _renderFDS('op','op_fds_box',ini,fim,'calcularTempoOp()');
+  const {texto,detalhe}=calcularHorasUteis(ini,fim,_fdsExtras('op'));
   elTotal.textContent=texto;
   elTotal.style.color='#2e7d32';
   elDetalhe.textContent=detalhe;
@@ -9616,7 +9668,7 @@ async function confirmarFinalizarOp(){
   if(!iniVal||!fimVal){showToast('Preencha início e fim','err');return;}
   const ini=parseLocalDate(iniVal), fim=parseLocalDate(fimVal);
   if(fim<=ini){showToast('Fim deve ser após o início','err');return;}
-  const {minutos}=calcularHorasUteis(ini,fim);
+  const {minutos}=calcularHorasUteis(ini,fim,_fdsExtras('op'));
   // Salva como ISO string no horário local (sem converter para UTC)
   const toISO=d=>{
     const pad=n=>String(n).padStart(2,'0');
@@ -9628,7 +9680,7 @@ async function confirmarFinalizarOp(){
       dt_hr_final:toISO(fim),
       duracao_minutos:minutos
     },`?id=eq.${tempoOpAtualId}`);
-    showToast('Operação concluída! Tempo: '+calcularHorasUteis(ini,fim).texto);
+    showToast('Operação concluída! Tempo: '+calcularHorasUteis(ini,fim,_fdsExtras('op')).texto);
     fecharModal('modalFinalizarOp');
     await loadAll();
   }catch(e){showToast('Erro','err');console.error(e);}
@@ -16346,6 +16398,8 @@ function abrirModal(id){
 function fecharModal(id){
   const m=document.getElementById(id);
   if(!m) return;
+  if(id==='modalFinalizarOp'){ _fdsEstado.op={}; const b=document.getElementById('op_fds_box'); if(b) b.innerHTML=''; }
+  if(id==='modalAdicionarTempo'){ _fdsEstado.at={}; const b=document.getElementById('at_fds_box'); if(b) b.innerHTML=''; }
   m.classList.remove('open','minimized');
   m.style.zIndex='';
   m.style.display='';
@@ -21583,11 +21637,12 @@ function _calcTempManual(){
     const dtIni=typeof parseLocalDate==='function'?parseLocalDate(ini):new Date(ini);
     const dtFim=typeof parseLocalDate==='function'?parseLocalDate(fim):new Date(fim);
     if(dtFim>dtIni){
-      const {minutos,texto,detalhe}=calcularHorasUteis(dtIni,dtFim);
+      _renderFDS('at','at_fds_box',dtIni,dtFim,'_calcTempManual()');
+      const {minutos,texto,detalhe}=calcularHorasUteis(dtIni,dtFim,_fdsExtras('at'));
       if(minEl) minEl.value=minutos;
       if(lbl) lbl.innerHTML=
         `<b style="color:#1565c0">⏱️ ${texto}</b> `+
-        `<span style="color:#9e9e9e;font-size:11px">${detalhe} · sem FDS e almoço</span>`;
+        `<span style="color:#9e9e9e;font-size:11px">${detalhe} · sem almoço</span>`;
     } else if(dtFim<=dtIni){
       if(lbl) lbl.innerHTML='<span style="color:#c62828">❌ Data final deve ser maior que inicial</span>';
     }
