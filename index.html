@@ -3917,10 +3917,16 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="modal-body">
       <div id="terc_info" style="background:#fff3e0;border-radius:10px;padding:12px;font-size:13px;color:#e65100;font-weight:600;margin-bottom:4px"></div>
       <div class="form-grid">
-        <div class="form-group full">
-          <label>Nome do Terceirizado *</label>
+        <div class="form-group full" id="terc_modo_wrap" style="display:none">
+          <label>Para quem vai a ordem?</label>
+          <div style="display:flex;gap:8px">
+            <button type="button" id="terc_modo_um" onclick="tercToggleDividir(false)" style="flex:1;padding:10px 6px;border-radius:10px;border:2px solid #e65100;background:#e65100;color:#fff;font-weight:700;font-size:13px;cursor:pointer">🚚 Tudo para um só</button>
+            <button type="button" id="terc_modo_div" onclick="tercToggleDividir(true)" style="flex:1;padding:10px 6px;border-radius:10px;border:2px solid #e65100;background:#fff;color:#e65100;font-weight:700;font-size:13px;cursor:pointer">✂️ Dividir entre vários</button>
+          </div>
+        </div>
+        <div class="form-group full" id="terc_nome_grupo">
+          <label id="terc_nome_label">Nome do Terceirizado *</label>
           <div id="terc_nome_wrap"></div>
-          <label id="terc_dividir_lbl" style="display:none;margin-top:8px;font-size:12px;font-weight:700;color:#e65100;cursor:pointer"><input type="checkbox" id="terc_dividir" onchange="tercToggleDividir(this.checked)" style="margin-right:6px">✂️ Dividir a quantidade entre mais de um terceirizado</label>
           <div id="terc_dividir_box" style="display:none;margin-top:8px;border:1px dashed #ef6c00;border-radius:10px;padding:10px;background:#fffaf3"></div>
         </div>
         <div class="form-group">
@@ -5282,7 +5288,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-09 · build 284';
+const APP_BUILD='2026-10-09 · build 285';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21042,10 +21048,12 @@ function terceirizarOrdem(id){
   document.getElementById('terc_obs').value = o.terceirizado_obs||'';
   // Divisão da quantidade entre vários terceirizados (só quando a ordem tem quantidade > 1)
   _tercDividir=false;
-  const _chk=document.getElementById('terc_dividir'); if(_chk) _chk.checked=false;
   const _box=document.getElementById('terc_dividir_box'); if(_box){ _box.style.display='none'; _box.innerHTML=''; }
   const _wrapN=document.getElementById('terc_nome_wrap'); if(_wrapN) _wrapN.style.display='';
-  const _lbl=document.getElementById('terc_dividir_lbl'); if(_lbl) _lbl.style.display=(Number(o.quantidade)||0)>1?'block':'none';
+  const _mw=document.getElementById('terc_modo_wrap'); if(_mw) _mw.style.display=(Number(o.quantidade)||0)>1?'':'none';
+  tercToggleDividir(false);
+  const _lb0=document.getElementById('terc_nome_label'); if(_lb0) _lb0.textContent='Nome do Terceirizado *';
+  if(infoEl && (Number(o.quantidade)||0)>0) infoEl.innerHTML += ` <span style="font-weight:700">· ${o.quantidade} peça(s)</span>`;
   abrirModal('modalTerceirizar');
 }
 
@@ -21056,14 +21064,18 @@ function tercToggleDividir(on){
   _tercDividir=!!on;
   const box=document.getElementById('terc_dividir_box'), wrap=document.getElementById('terc_nome_wrap');
   if(!box) return;
+  const bUm=document.getElementById('terc_modo_um'), bDiv=document.getElementById('terc_modo_div');
+  if(bUm&&bDiv){ bUm.style.background=on?'#fff':'#e65100'; bUm.style.color=on?'#e65100':'#fff'; bDiv.style.background=on?'#e65100':'#fff'; bDiv.style.color=on?'#fff':'#e65100'; }
+  const lb=document.getElementById('terc_nome_label'); if(lb) lb.textContent=on?'Quanto vai para cada terceirizado? *':'Nome do Terceirizado *';
   box.style.display=on?'block':'none'; if(wrap) wrap.style.display=on?'none':'';
   if(on){
     const o=ordens.find(x=>x.id===_tercOrdemId); const q=Number(o?.quantidade)||0;
     box.innerHTML=`<datalist id="dlTercNomes">${_tercNomesOpcoes()}</datalist>
-      <div style="font-size:12px;color:#546e7a;margin-bottom:6px">Quantidade da ordem: <b>${q}</b>. Informe quanto vai para cada terceirizado — a ordem continua sendo uma só.</div>
+      <div style="font-size:12px;color:#546e7a;margin-bottom:8px">A ordem tem <b>${q} peça(s)</b>. Escreva o nome de cada terceirizado e quantas peças vão para ele. Continua sendo <b>uma só ordem</b>.</div>
+      <div style="display:flex;gap:8px;font-size:11px;font-weight:700;color:#78909c;margin-bottom:3px"><span style="flex:1">TERCEIRIZADO</span><span style="width:84px">PEÇAS</span><span style="width:22px"></span></div>
       <div id="terc_div_linhas"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-        <button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="tercAddLinha()">+ Adicionar terceirizado</button>
+        <button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="tercAddLinha()">+ Mais um terceirizado</button>
         <span id="terc_div_soma" style="font-size:12px;font-weight:700"></span>
       </div>`;
     tercAddLinha(); tercAddLinha();
@@ -21073,9 +21085,9 @@ function tercToggleDividir(on){
 function tercAddLinha(){
   const c=document.getElementById('terc_div_linhas'); if(!c) return;
   const d=document.createElement('div'); d.style.cssText='display:flex;gap:8px;margin-bottom:6px;align-items:center';
-  d.innerHTML=`<input class="terc-div-nome" list="dlTercNomes" placeholder="Terceirizado" style="flex:1;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:13px">
-    <input class="terc-div-qtd" type="number" min="1" step="1" placeholder="Qtd" oninput="tercAtualizaSoma()" style="width:80px;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:13px">
-    <button type="button" onclick="this.parentNode.remove();tercAtualizaSoma()" title="Remover" style="border:0;background:transparent;cursor:pointer;font-size:15px">✕</button>`;
+  d.innerHTML=`<input class="terc-div-nome" list="dlTercNomes" placeholder="Ex: Wellington" style="flex:1;min-width:0;width:auto;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+    <input class="terc-div-qtd" type="number" min="1" step="1" placeholder="0" oninput="tercAtualizaSoma()" style="width:84px;flex:none;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
+    <button type="button" onclick="this.parentNode.remove();tercAtualizaSoma()" title="Remover" style="width:22px;flex:none;border:0;background:transparent;cursor:pointer;font-size:15px;padding:0">✕</button>`;
   c.appendChild(d);
 }
 function tercAtualizaSoma(){
