@@ -1275,7 +1275,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <input type="text" id="buscaProjeto" placeholder="Buscar PDV, cliente ou setor..." oninput="renderProjetos()" style="flex:1;min-width:150px">
     <select id="filtroProjPDV" onchange="renderProjetos()"><option value="">Todos os PDVs</option></select>
     <button class="btn primary" onclick="abrirModalPDV(null)" id="btnNovoPDV">+ Novo PDV</button>
-    <button class="btn" onclick="abrirMesclarPDVs()" style="background:#fce4ec;border-color:#f8bbd0;color:#ad1457" title="Junta dois PDVs cadastrados por engano com o mesmo número">🔗 Mesclar PDVs duplicados</button>
+    <button class="btn" onclick="abrirMesclarPDVs()" style="background:#fce4ec;border-color:#f8bbd0;color:#ad1457" title="Unifica PDVs duplicados que têm o mesmo número">🔗 Mesclar PDVs duplicados</button>
   </div>
   <div id="listaProjetos"></div>
 </div>
@@ -3944,7 +3944,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       </div>
     </div>
     <div id="terc_apagar_hist_wrap" style="display:none;padding:0 22px 8px">
-      <button class="btn" onclick="apagarHistoricoTerceirizado()" style="width:100%;color:#c62828;border-color:#ef9a9a;background:#fff5f5;font-weight:700">🗑️ Apagar o histórico de terceirizado desta ordem (foi teste/engano)</button>
+      <button class="btn" onclick="apagarHistoricoTerceirizado()" style="width:100%;color:#c62828;border-color:#ef9a9a;background:#fff5f5;font-weight:700">🗑️ Excluir histórico de terceirizado desta ordem</button>
     </div>
     <div class="modal-actions" style="padding:0 22px 22px">
       <button class="btn" onclick="fecharModal('modalTerceirizar')">Cancelar</button>
@@ -3992,7 +3992,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       </div>
     </div>
     <div style="padding:0 22px 8px">
-      <button class="btn" onclick="cancelarEnvioTerceirizado()" style="width:100%;color:#c62828;border-color:#ef9a9a;background:#fff5f5;font-weight:700">↩️ Enviei por engano — cancelar este envio</button>
+      <button class="btn" onclick="cancelarEnvioTerceirizado()" style="width:100%;color:#c62828;border-color:#ef9a9a;background:#fff5f5;font-weight:700">↩️ Cancelar envio ao terceirizado</button>
     </div>
     <div class="modal-actions" style="padding:0 22px 22px">
       <button class="btn" onclick="fecharModal('modalRetornoTerc')">Fechar</button>
@@ -5294,7 +5294,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-09 · build 287';
+const APP_BUILD='2026-10-09 · build 288';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11502,7 +11502,7 @@ async function restaurarPDVConcluido(desenhoId){
 async function deletarOrdem(id){
   const o = ordens.find(x=>x.id===id);
   const desc = o ? `Ordem Nº ${o.numero} — ${o.descricao||'sem descrição'}` : 'esta ordem de produção';
-  if(!confirm(`Excluir ${desc}?\n\nEla ficará na Lixeira por 30 dias, podendo ser restaurada se for engano.`)) return;
+  if(!confirm(`Excluir ${desc}?\n\nEla ficará na Lixeira por 30 dias, podendo ser restaurada.`)) return;
   try{
     await api('PATCH','ordens_producao',{excluida_em:new Date().toISOString()},`?id=eq.${id}`);
     showToast('Ordem movida para a Lixeira!');
@@ -15192,7 +15192,7 @@ function toggleAmbiente(){
     btn.style.background=FOCUS_NFE_HOMOLOG?'#fff3e0':'#e8f5e9';
     btn.style.color=FOCUS_NFE_HOMOLOG?'#e65100':'#2e7d32';
   }
-  showToast(FOCUS_NFE_HOMOLOG?'Ambiente: Homologação (testes)':'Ambiente: Produção (real!)');
+  showToast(FOCUS_NFE_HOMOLOG?'Ambiente: Homologação (testes)':'Ambiente: Produção');
 }
 
 function renderFiscal(){
@@ -21103,7 +21103,7 @@ function tercAtualizaSoma(){
   const el=document.getElementById('terc_div_soma'); if(!el) return;
   const resto=q-soma;
   el.style.color=resto<0?'#c62828':resto===0?'#2e7d32':'#ef6c00';
-  el.textContent=`Enviando ${soma} de ${q}`+(resto>0?` · ${resto} ficam na fábrica`:resto<0?` · passou ${-resto}!`:' ✓');
+  el.textContent=`Enviando ${soma} de ${q}`+(resto>0?` · ${resto} ficam na fábrica`:resto<0?` · excede em ${-resto}`:' ✓');
 }
 function _tercLerDivisao(){
   const linhas=[...document.querySelectorAll('#terc_div_linhas > div')].map(d=>({
@@ -21233,7 +21233,7 @@ function retornarTerceirizado(id){
 // Desfaz um envio ao terceirizado feito por engano: a ordem volta para "Aguardando" como se nunca tivesse saído.
 async function cancelarEnvioTerceirizado(){
   const o=ordens.find(x=>x.id===_tercOrdemId); if(!o) return;
-  if(!confirm(`Cancelar o envio da Ordem Nº ${o.numero} para ${o.terceirizado_nome||'o terceirizado'}?\n\nA ordem volta para "Aguardando" e o envio é apagado do histórico.`)) return;
+  if(!confirm(`Cancelar o envio da Ordem Nº ${o.numero} para ${o.terceirizado_nome||'o terceirizado'}?\n\nA ordem volta para "Aguardando" e o envio é removido do histórico.`)) return;
   try{
     await api('PATCH','ordens_producao',{status:'aguardando',terceirizado_nome:null,terceirizado_data:null,terceirizado_prazo:null,terceirizado_obs:null,terceirizado_retorno:null},`?id=eq.${_tercOrdemId}`);
     if(_tercEnviosOk) await api('DELETE','ordem_envios_terc','',`?ordem_id=eq.${_tercOrdemId}&data_retorno=is.null`).catch(e=>console.warn(e));
@@ -21247,7 +21247,7 @@ async function cancelarEnvioTerceirizado(){
 // Apaga de vez a passagem pelo terceirizado de uma ordem que já voltou (teste ou clique errado).
 async function apagarHistoricoTerceirizado(){
   const o=ordens.find(x=>x.id===_tercOrdemId); if(!o) return;
-  if(!confirm(`Apagar o histórico de terceirizado da Ordem Nº ${o.numero} (${o.terceirizado_nome||'—'})?\n\nO ✓ verde some da coluna Terceirizado.`)) return;
+  if(!confirm(`Excluir o histórico de terceirizado da Ordem Nº ${o.numero} (${o.terceirizado_nome||'—'})?\n\nO ✓ verde some da coluna Terceirizado.`)) return;
   const patch={terceirizado_nome:null,terceirizado_data:null,terceirizado_prazo:null,terceirizado_obs:null,terceirizado_retorno:null};
   let reabriu=false;
   if(o.status==='concluido' && confirm(`A Ordem Nº ${o.numero} está CONCLUÍDA.\n\nReabrir como "Aguardando"?\n\nOK = reabrir · Cancelar = manter concluída`)){ patch.status='aguardando'; reabriu=true; }
@@ -21256,7 +21256,7 @@ async function apagarHistoricoTerceirizado(){
     if(_tercEnviosOk) await api('DELETE','ordem_envios_terc','',`?ordem_id=eq.${_tercOrdemId}`).catch(e=>console.warn(e));
     fecharModal('modalTerceirizar');
     await loadAll(); renderOrdens();
-    showToast(`🗑️ Histórico apagado — Ordem Nº ${o.numero}${reabriu?' reaberta (Aguardando)':''}`);
+    showToast(`🗑️ Histórico excluído — Ordem Nº ${o.numero}${reabriu?' reaberta (Aguardando)':''}`);
   }catch(e){ console.error(e); showToast('❌ Erro ao apagar: '+(e.message||e),'err',6000); }
 }
 
