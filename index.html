@@ -5294,7 +5294,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-09 · build 289';
+const APP_BUILD='2026-10-09 · build 290';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17139,6 +17139,10 @@ async function abrirAcoesOrdemPorScan(ordemId){
         <button class="modal-header-btn" onclick="fecharModal('modalAcoesOrdemScan')">✕</button>
       </div>
       <div style="padding:16px 18px calc(28px + env(safe-area-inset-bottom, 0px))">
+        <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:4px">📍 PDV</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:2px">${pdv?rotuloPDV(pdv,true):'—'}</div>
+        <div style="font-size:12px;color:var(--gray);margin-bottom:14px">${pdv?.equipamento||''}</div>
+
         <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:4px">📦 Peça</div>
         <div style="font-size:15px;font-weight:700;margin-bottom:2px">${o.descricao||'—'}</div>
         <div style="font-size:12px;color:var(--gray);margin-bottom:8px">${[o.desenho?'Desenho '+o.desenho:null,o.material,o.quantidade?'Qtd '+o.quantidade:null].filter(Boolean).join(' · ')||'—'}</div>
@@ -17147,10 +17151,6 @@ async function abrirAcoesOrdemPorScan(ordemId){
               ? `<button class="btn" style="width:100%;margin-bottom:14px" onclick="abrirFotoOrdem('${o.id}')">📄 Ver PDF do desenho</button>`
               : `<img src="${o.foto_desenho}" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;background:#f5f7f5;cursor:pointer;margin-bottom:14px" onclick="abrirFotoOrdem('${o.id}')" title="Toque para ver em tela cheia">`)
           : `<button class="btn" style="width:100%;margin-bottom:14px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="abrirFotoOrdem('${o.id}')">⚠️📷 Anexar foto do desenho</button>`}
-
-        <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:4px">📍 PDV</div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:2px">${pdv?rotuloPDV(pdv,true):'—'}</div>
-        <div style="font-size:12px;color:var(--gray);margin-bottom:14px">${pdv?.equipamento||''}</div>
 
         <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:4px">🧭 Onde ela está</div>
         ${statusHtml}
