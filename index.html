@@ -5296,7 +5296,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-09 · build 291';
+const APP_BUILD='2026-10-09 · build 292';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9510,11 +9510,11 @@ function _fdsNoPeriodo(inicio, fim){
   const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   for(let guard=0; dia<fim && guard<400; guard++){
     const dow=dia.getDay();
-    if(dow===0||dow===6){
+    if(dow===6){ // só sábado (domingo nunca trabalha)
       const ini=Math.max(0, dia.toDateString()===inicio.toDateString()? inicio.getHours()*60+inicio.getMinutes():0);
       const fimMin=dia.toDateString()===fim.toDateString()? fim.getHours()*60+fim.getMinutes():24*60;
-      // minutos "padrão" do dia (mesmo expediente dos dias úteis), recortado pelo início/fim informados
-      const m=Math.max(0,Math.min(fimMin,TURNO_MANHA_FIM)-Math.max(ini,TURNO_MANHA_INI))+Math.max(0,Math.min(fimMin,TURNO_TARDE_FIM)-Math.max(ini,TURNO_TARDE_INI));
+      // sábado: só até o meio-dia (07:00–12:00), recortado pelo início/fim informados
+      const m=Math.max(0,Math.min(fimMin,TURNO_MANHA_FIM)-Math.max(ini,TURNO_MANHA_INI));
       lista.push({key:_chaveDia(dia), rotulo:`${DIAS[dow]} ${String(dia.getDate()).padStart(2,'0')}/${String(dia.getMonth()+1).padStart(2,'0')}`, minPadrao:m});
     }
     dia.setDate(dia.getDate()+1);
@@ -9534,12 +9534,12 @@ function _renderFDS(tela, boxId, inicio, fim, aoMudar){
   if(!lista.length){ box.innerHTML=''; return; }
   lista.forEach(x=>{ if(!st[x.key]) st[x.key]={on:false,min:x.minPadrao}; });
   box.innerHTML=`<div style="margin-top:8px;border:1px dashed #1565c0;border-radius:10px;padding:10px;background:#f3f8ff">
-    <div style="font-size:12px;font-weight:700;color:#1565c0;margin-bottom:2px">📅 Fim de semana no período</div>
-    <div style="font-size:11px;color:#546e7a;margin-bottom:6px">Sábado e domingo não contam. Se houve trabalho (hora extra), marque o dia e confira os minutos trabalhados.</div>
+    <div style="font-size:12px;font-weight:700;color:#1565c0;margin-bottom:2px">📅 Sábado no período</div>
+    <div style="font-size:11px;color:#546e7a;margin-bottom:6px">Sábado e domingo não contam. Se houve hora extra no sábado (até 12:00), marque o dia e confira os minutos trabalhados.</div>
     ${lista.map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
       <input type="checkbox" ${st[x.key].on?'checked':''} onchange="_fdsEstado['${tela}']['${x.key}'].on=this.checked;${aoMudar}" style="width:18px;height:18px;flex:none;padding:0;margin:0;cursor:pointer">
       <span style="width:84px;font-size:13px;font-weight:600">${x.rotulo}</span>
-      <input type="number" min="0" max="1440" value="${st[x.key].min}" oninput="_fdsEstado['${tela}']['${x.key}'].min=Math.max(0,parseInt(this.value)||0);${aoMudar}" style="width:84px;flex:none;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
+      <input type="number" min="0" max="${x.minPadrao}" value="${st[x.key].min}" oninput="_fdsEstado['${tela}']['${x.key}'].min=Math.min(${x.minPadrao},Math.max(0,parseInt(this.value)||0));${aoMudar}" style="width:84px;flex:none;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
       <span style="font-size:12px;color:#78909c">min trabalhados</span></div>`).join('')}
   </div>`;
 }
@@ -9567,13 +9567,13 @@ function calcularHorasUteis(inicio, fim, extras){
     cur.setTime(proximoDia.getTime());
   }
   let extraTotal=0;
-  if(extras){ _fdsNoPeriodo(inicio,fim).forEach(x=>{ if(extras[x.key]>0) extraTotal+=extras[x.key]; }); }
+  if(extras){ _fdsNoPeriodo(inicio,fim).forEach(x=>{ if(extras[x.key]>0) extraTotal+=Math.min(extras[x.key],x.minPadrao); }); }
   const util=total; total+=extraTotal;
   const h=Math.floor(total/60);
   const m=total%60;
   const texto=`${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}min`;
   let detalhe=diasContados>1?`${diasContados} dias úteis · ${util} minutos úteis`:`${util} minutos úteis`;
-  if(extraTotal) detalhe+=` + ${extraTotal} min de hora extra (fim de semana)`;
+  if(extraTotal) detalhe+=` + ${extraTotal} min de hora extra (sábado)`;
   return {minutos:total, texto, detalhe};
 }
 
