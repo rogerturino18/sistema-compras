@@ -4703,7 +4703,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
   <div class="modal-header">
     <h3>🔗 Religar materiais de requisições</h3>
     <div class="modal-header-actions">
-      <button class="modal-header-btn" onclick="fecharModal('modalReligarReq')" title="Fechar">✕</button>
+      <button class="modal-header-btn" onclick="fecharReligarRequisicoes()" title="Fechar">✕</button>
     </div>
   </div>
   <div class="modal-body" style="max-height:74vh;overflow:auto">
@@ -5296,7 +5296,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-09 · build 292';
+const APP_BUILD='2026-10-09 · build 293';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -20916,8 +20916,15 @@ function _grupoReqOrfas(){
   }));
   return Object.values(g).sort((a,b)=>b.linhas-a.linhas);
 }
+// O Diagnóstico e esta tela têm a mesma camada; por isso o Diagnóstico fecha ao abrir esta e volta ao fechá-la.
+let _religarVeioDoDiag=false;
+function fecharReligarRequisicoes(){
+  fecharModal('modalReligarReq');
+  if(_religarVeioDoDiag){ _religarVeioDoDiag=false; abrirDiagnostico(); }
+}
 function abrirReligarRequisicoes(){
-  document.getElementById('datalistFix')?.remove();
+  _religarVeioDoDiag=!!document.getElementById('modalDiagnostico')?.classList.contains('open');
+  if(_religarVeioDoDiag) fecharModal('modalDiagnostico');
   const dl=document.getElementById('dlItensEstoqueReligar');
   const rotulo=i=>(i.descricao||i.tipo_peca||'')+(i.codigo?' ['+i.codigo+']':'');
   if(dl) dl.innerHTML=(estoqueItens||[]).map(i=>`<option value="${rotulo(i).replace(/"/g,'&quot;')}"></option>`).join('');
@@ -20964,7 +20971,6 @@ async function religarGrupoReq(idx){
     }
     showToast('Religado! '+g.linhas+' linha(s) corrigida(s).');
     renderReligarRequisicoes();
-    if(document.getElementById('modalDiagnostico')?.classList.contains('open')) rodarDiagnostico();
   }catch(e){ showToast('Erro ao religar: '+(e.message||e),'err'); console.error(e); }
 }
 
