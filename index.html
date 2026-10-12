@@ -5296,7 +5296,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-12 · build 295';
+const APP_BUILD='2026-10-12 · build 296';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11287,10 +11287,10 @@ const _miniOrdem = {}; // id -> dataURL (ou 'pdf')
 const _MINI_TTL = 7*24*3600*1000;
 function _miniLer(id){
   if(_miniOrdem[id]) return _miniOrdem[id];
-  try{ const r=JSON.parse(localStorage.getItem('sl_mini_'+id)||'null'); if(r && Date.now()-r.t<_MINI_TTL){ _miniOrdem[id]=r.v; return r.v; } }catch(e){}
+  try{ const r=JSON.parse(localStorage.getItem('sl_mini_'+id)||'null'); if(r && r.v!=='pdf' && Date.now()-r.t<_MINI_TTL){ _miniOrdem[id]=r.v; return r.v; } }catch(e){}
   return null;
 }
-function _miniSalvar(id,v){ _miniOrdem[id]=v; try{ localStorage.setItem('sl_mini_'+id,JSON.stringify({t:Date.now(),v})); }catch(e){} }
+function _miniSalvar(id,v){ _miniOrdem[id]=v; if(v==='pdf') return; try{ localStorage.setItem('sl_mini_'+id,JSON.stringify({t:Date.now(),v})); }catch(e){} }
 function _miniLimpar(id){ delete _miniOrdem[id]; try{ localStorage.removeItem('sl_mini_'+id); }catch(e){} }
 function _miniaturaOrdemHtml(o){
   const v=_miniLer(o.id);
@@ -11301,10 +11301,24 @@ function _miniaturaOrdemHtml(o){
   return `<div ${clique} data-mini-ordem="${o.id}" style="${base}">📷</div>`;
 }
 let _miniFila=[], _miniAtivos=0;
+// Primeira página do PDF renderizada como miniatura (pdf.js). Se falhar, cai no selo "PDF".
+async function _miniPdf(dataUrl){
+  try{
+    await _carregarPdfJs();
+    const bin=atob(dataUrl.split(',')[1]); const buf=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+    const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+    const pg=await pdf.getPage(1); const v0=pg.getViewport({scale:1}); const L=140, esc=L/Math.max(v0.width,v0.height); const v=pg.getViewport({scale:esc});
+    const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(v.width)); c.height=Math.max(1,Math.round(v.height));
+    const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+    await pg.render({canvasContext:ctx,viewport:v}).promise;
+    try{ pdf.destroy(); }catch(e){}
+    return c.toDataURL('image/jpeg',0.75);
+  }catch(e){ return null; }
+}
 function _miniGerar(dataUrl){
   return new Promise(res=>{
     if(!dataUrl) return res(null);
-    if(_ehPdfBase64(dataUrl)) return res('pdf');
+    if(_ehPdfBase64(dataUrl)) return _miniPdf(dataUrl).then(r=>res(r||'pdf'));
     const img=new Image();
     img.onload=()=>{ try{ const L=96, esc=Math.min(1,L/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*esc)); c.height=Math.max(1,Math.round(img.height*esc)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',0.7)); }catch(e){ res(null); } };
     img.onerror=()=>res(null); img.src=dataUrl;
