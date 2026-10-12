@@ -5296,7 +5296,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-12 · build 294';
+const APP_BUILD='2026-10-12 · build 295';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9132,9 +9132,9 @@ function renderOrdens(){
       }).join('');
 
       return `<tr style="border-bottom:1px solid #b0bec5${st==='concluido'?';background:#eef7ee' : ''}">
-        <td style="padding:8px 2px;text-align:center">
+        <td style="padding:8px 6px;text-align:center;min-width:60px;width:60px">
           ${o.tem_foto_desenho
-            ? `<button class="btn btn-sm" style="padding:2px 5px" onclick="abrirFotoOrdem('${o.id}')" title="Ver foto do desenho">📷</button>`
+            ? _miniaturaOrdemHtml(o)
             : `<button class="btn btn-sm" style="padding:2px 5px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="abrirFotoOrdem('${o.id}')" title="Sem foto do desenho — clique para anexar">⚠️</button>`}
         </td>
         <td style="padding:8px 10px;font-weight:700;color:#263238;white-space:nowrap">
@@ -9214,15 +9214,15 @@ function renderOrdens(){
         </span>
       </div>
       ${isMobile ? `<div style="padding:10px">${cardsMobile}</div>` : `<div style="overflow-x:auto">
-<table style="width:100%;min-width:1606px;border-collapse:collapse;font-size:12px;table-layout:fixed">
+<table style="width:100%;min-width:1640px;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
-            <col style="width:34px"><col style="width:100px"><col style="width:90px"><col style="width:174px"><col style="width:80px">
+            <col style="width:62px"><col style="width:100px"><col style="width:90px"><col style="width:174px"><col style="width:80px">
 ${COLS_FIXAS.map(()=>'<col style="width:92px">').join('')}
             <col style="width:110px">
           </colgroup>
           <tbody>
             <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
-              <th style="padding:8px 2px;text-align:center;color:#546e7a;font-size:13px" title="Foto do desenho anexada?">📷</th>
+              <th style="width:60px;min-width:60px;padding:8px 6px;text-align:center;color:#546e7a;font-size:13px" title="Foto do desenho anexada?">📷</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase;user-select:none">
                 <span onclick="toggleOrdemProd('numero')" style="cursor:pointer" title="Ordenar por número da ordem">Ordem${estOrdemProdCampo==='numero'?(estOrdemProdDir===1?' ▲':' ▼'):''}</span>
                 <span onclick="event.stopPropagation();toggleOrdemProd('dias')" style="cursor:pointer;margin-left:6px;opacity:${estOrdemProdCampo==='dias'?1:0.45}" title="Ordenar por dias abertos (mais antiga primeiro)">🕐${estOrdemProdCampo==='dias'?(estOrdemProdDir===1?'▲':'▼'):''}</span>
@@ -9252,6 +9252,7 @@ ${COLS_FIXAS.map(op=>`<th style="height:42px;padding:6px;text-align:center;verti
     <div data-scroll-ordens="${_pdvOrdemSelecionado}">${renderBlocoPdvOrdens(grupoSelecionado)}</div>`;
     const elS=div.querySelector('[data-scroll-ordens]');
     if(elS){ const salvo=scrollsSalvosOrdens[_pdvOrdemSelecionado]; if(salvo) elS.scrollTop=salvo; }
+    _observarMiniaturasOrdens();
     return;
   }
 
@@ -11278,6 +11279,60 @@ function verFotoDesenhoOrdemGrande(){
 // formulário inteiro de editar ordem. Salva na hora, assim que a foto é
 // escolhida (não precisa clicar em "salvar" depois).
 // ═══════════════════════════════════════════
+
+// ── Miniatura da foto do desenho na lista de Ordens ──
+// A foto completa é pesada (e não vem na lista), então a miniatura é gerada sob demanda, só das linhas
+// que aparecem na tela, e guardada no navegador (localStorage) por 7 dias — da 2ª vez em diante é instantâneo.
+const _miniOrdem = {}; // id -> dataURL (ou 'pdf')
+const _MINI_TTL = 7*24*3600*1000;
+function _miniLer(id){
+  if(_miniOrdem[id]) return _miniOrdem[id];
+  try{ const r=JSON.parse(localStorage.getItem('sl_mini_'+id)||'null'); if(r && Date.now()-r.t<_MINI_TTL){ _miniOrdem[id]=r.v; return r.v; } }catch(e){}
+  return null;
+}
+function _miniSalvar(id,v){ _miniOrdem[id]=v; try{ localStorage.setItem('sl_mini_'+id,JSON.stringify({t:Date.now(),v})); }catch(e){} }
+function _miniLimpar(id){ delete _miniOrdem[id]; try{ localStorage.removeItem('sl_mini_'+id); }catch(e){} }
+function _miniaturaOrdemHtml(o){
+  const v=_miniLer(o.id);
+  const base='width:46px;height:46px;border-radius:8px;border:1px solid #cfd8dc;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto;background:#f5f7f6;overflow:hidden;font-size:16px';
+  const clique=`onclick="abrirFotoOrdem('${o.id}')" title="Ver foto do desenho"`;
+  if(v==='pdf') return `<div ${clique} style="${base};font-size:11px;font-weight:700;color:#c62828;flex-direction:column;line-height:1.1">📄<span>PDF</span></div>`;
+  if(v) return `<div ${clique} style="${base}"><img src="${v}" alt="" style="width:100%;height:100%;object-fit:cover"></div>`;
+  return `<div ${clique} data-mini-ordem="${o.id}" style="${base}">📷</div>`;
+}
+let _miniFila=[], _miniAtivos=0;
+function _miniGerar(dataUrl){
+  return new Promise(res=>{
+    if(!dataUrl) return res(null);
+    if(_ehPdfBase64(dataUrl)) return res('pdf');
+    const img=new Image();
+    img.onload=()=>{ try{ const L=96, esc=Math.min(1,L/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*esc)); c.height=Math.max(1,Math.round(img.height*esc)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',0.7)); }catch(e){ res(null); } };
+    img.onerror=()=>res(null); img.src=dataUrl;
+  });
+}
+async function _miniProcessar(){
+  while(_miniAtivos<3 && _miniFila.length){
+    const id=_miniFila.shift(); _miniAtivos++;
+    (async()=>{
+      try{
+        const o=ordens.find(x=>x.id===id); if(!o) return;
+        const tinha=o.foto_desenho!==undefined;
+        const foto=await _buscarFotoOrdem(id);
+        const mini=await _miniGerar(foto);
+        if(!tinha) delete o.foto_desenho; // libera a foto grande da memória; ao abrir, busca de novo
+        if(mini){ _miniSalvar(id,mini); document.querySelectorAll(`[data-mini-ordem="${id}"]`).forEach(el=>{ const n=document.createElement('div'); n.innerHTML=_miniaturaOrdemHtml(o); el.replaceWith(n.firstElementChild); }); }
+      }catch(e){} finally{ _miniAtivos--; _miniProcessar(); }
+    })();
+  }
+}
+let _miniObs=null;
+function _observarMiniaturasOrdens(){
+  const els=document.querySelectorAll('[data-mini-ordem]'); if(!els.length) return;
+  if(!('IntersectionObserver' in window)){ els.forEach(e=>{ _miniFila.push(e.dataset.miniOrdem); }); _miniProcessar(); return; }
+  if(!_miniObs) _miniObs=new IntersectionObserver(es=>{ es.forEach(en=>{ if(en.isIntersecting){ _miniObs.unobserve(en.target); const id=en.target.dataset.miniOrdem; if(id && !_miniFila.includes(id)) _miniFila.push(id); } }); _miniProcessar(); },{rootMargin:'120px'});
+  els.forEach(e=>_miniObs.observe(e));
+}
+
 async function abrirFotoOrdem(id){
   const o=ordens.find(x=>x.id===id);
   if(!o) return;
@@ -11334,7 +11389,7 @@ async function _salvarFotoOrdemLista(input, ordemId){
     const dataUrl=await _comprimirFotoParaBase64(file, 2200, 0.92);
     await api('PATCH','ordens_producao',{foto_desenho:dataUrl},`?id=eq.${ordemId}`);
     const o=ordens.find(x=>x.id===ordemId);
-    if(o){ o.foto_desenho=dataUrl; o.tem_foto_desenho=true; }
+    if(o){ o.foto_desenho=dataUrl; o.tem_foto_desenho=true; _miniLimpar(ordemId); }
     showToast('Foto salva!');
     if(conteudo) conteudo.innerHTML=_fotoOrdemConteudoHtml(o);
     if(typeof renderOrdens==='function') renderOrdens();
@@ -11353,7 +11408,7 @@ async function _removerFotoOrdemLista(ordemId){
   try{
     await api('PATCH','ordens_producao',{foto_desenho:null},`?id=eq.${ordemId}`);
     const o=ordens.find(x=>x.id===ordemId);
-    if(o){ o.foto_desenho=null; o.tem_foto_desenho=false; }
+    if(o){ o.foto_desenho=null; o.tem_foto_desenho=false; _miniLimpar(ordemId); }
     showToast('Foto removida');
     if(conteudo) conteudo.innerHTML=_fotoOrdemConteudoHtml(o);
     if(typeof renderOrdens==='function') renderOrdens();
