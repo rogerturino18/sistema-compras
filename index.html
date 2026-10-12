@@ -5296,14 +5296,14 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-09 · build 293';
+const APP_BUILD='2026-10-12 · build 294';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
 const moduloOculto = id => MODULOS_OCULTOS.includes(id);
 try{ console.log('%cSL Óleos — '+APP_BUILD,'color:#2e7d32;font-weight:bold;font-size:13px'); }catch(e){}
 // Aviso de nova versão: consulta o index.html publicado e, se a build mudou, mostra uma faixa "Atualizar" (sem recarregar sozinho para não perder o que está sendo digitado).
-let _verAvisada=false, _ultAtividade=Date.now(), _verNovaPendente=false;
+let _verNovaBuild='', _verAvisada=false, _ultAtividade=Date.now(), _verNovaPendente=false;
 ['keydown','input','mousedown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{_ultAtividade=Date.now();},true));
 // Seguro p/ recarregar: nenhum modal aberto, nenhum campo com foco/preenchendo e sem atividade há 30s
 function _seguroRecarregar(){
@@ -5311,9 +5311,23 @@ function _seguroRecarregar(){
   const a=document.activeElement; if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
   return Date.now()-_ultAtividade>30000;
 }
+// Recarrega buscando o arquivo de novo (ignora cache do navegador/CDN) e nunca entra em laço:
+// se já recarregou 2x para a mesma versão e continua antiga, para e avisa.
+async function _recarregarNova(automatico){
+  let g={b:'',n:0,t:0};
+  try{ g=JSON.parse(sessionStorage.getItem('sl_reload_guard')||'null')||g; }catch(e){}
+  const alvo=_verNovaBuild||'?';
+  if(g.b===alvo && Date.now()-g.t<600000){ g.n++; } else { g={b:alvo,n:1,t:Date.now()}; }
+  if(automatico && g.n>2){ _verNovaPendente=false; const t=document.getElementById('sl-nova-versao-txt'); if(t) t.textContent='A versão nova ainda não chegou neste endereço. Aguarde alguns minutos e clique em Atualizar.'; return; }
+  try{ sessionStorage.setItem('sl_reload_guard',JSON.stringify(g)); }catch(e){}
+  try{ await fetch(location.pathname,{cache:'reload'}); }catch(e){}
+  try{ const u=new URL(location.href); u.searchParams.set('_v',Date.now()); location.replace(u.toString()); }catch(e){ location.reload(); }
+}
+// Tira o ?_v= da barra de endereço depois de carregar
+try{ const u=new URL(location.href); if(u.searchParams.has('_v')){ u.searchParams.delete('_v'); history.replaceState(null,'',u.pathname+u.search+u.hash); } }catch(e){}
 function _tentarAutoRecarregar(){
   if(!_verNovaPendente) return;
-  if(_seguroRecarregar()||(document.hidden===false&&_voltouDaAba&&_seguroSemEspera())){ location.reload(); }
+  if(_seguroRecarregar()||(document.hidden===false&&_voltouDaAba&&_seguroSemEspera())){ _recarregarNova(true); }
 }
 let _voltouDaAba=false;
 function _seguroSemEspera(){ // ao voltar para a aba: só exige sem modal/campo em edição
@@ -5329,17 +5343,18 @@ async function _checarNovaVersao(){
     const r=await fetch('/versao.json?_v='+Date.now(),{cache:'no-store'});
     if(!r.ok) return;
     const j=await r.json(); const m=j&&j.build?[null,j.build]:null;
-    if(m && m[1]!==APP_BUILD){
-      _verAvisada=true; _verNovaPendente=true;
+    const _num=x=>String(x||'').match(/build\s*(\d+)/i)?.[1]||x;
+    if(m && _num(m[1])!==_num(APP_BUILD)){
+      _verAvisada=true; _verNovaPendente=true; _verNovaBuild=m[1];
       const d=document.createElement('div');
       d.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:#1b5e20;color:#fff;padding:10px 16px;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-size:14px;max-width:92vw';
-      d.innerHTML='<span>🔄 Nova versão disponível ('+m[1].replace(/^.*build\s*/,'build ')+')</span><button style="background:#fff;color:#1b5e20;border:0;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer" onclick="location.reload()">Atualizar</button><button style="background:transparent;color:#fff;border:0;cursor:pointer;font-size:16px" onclick="this.parentNode.remove()">✕</button>';
+      d.innerHTML='<span id="sl-nova-versao-txt">🔄 Nova versão disponível ('+m[1].replace(/^.*build\s*/,'build ')+')</span><button style="background:#fff;color:#1b5e20;border:0;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer" onclick="_recarregarNova(false)">Atualizar</button><button style="background:transparent;color:#fff;border:0;cursor:pointer;font-size:16px" onclick="this.parentNode.remove()">✕</button>';
       document.body.appendChild(d);
     }
   }catch(e){}
 }
 setInterval(_checarNovaVersao,120000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ _voltouDaAba=true; setTimeout(()=>{_voltouDaAba=false;},4000); _checarNovaVersao().then(()=>{ if(_verNovaPendente&&_seguroSemEspera()) location.reload(); }); } });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ _voltouDaAba=true; setTimeout(()=>{_voltouDaAba=false;},4000); _checarNovaVersao().then(()=>{ if(_verNovaPendente&&_seguroSemEspera()) _recarregarNova(true); }); } });
 setTimeout(_checarNovaVersao,15000);
 (function _setVer(){ const el=document.getElementById('appVersaoLabel'); if(el){ el.textContent='versão '+APP_BUILD; } else { document.addEventListener('DOMContentLoaded',_setVer); } })();
 let sortCol='', sortDir='asc';
