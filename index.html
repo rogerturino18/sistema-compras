@@ -5297,7 +5297,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 299';
+const APP_BUILD='2026-10-13 · build 300';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9145,7 +9145,7 @@ function renderOrdens(){
           </div>
           ${o.dt_abertura?`<div style="font-weight:400;font-size:10px;color:#90a4ae;margin-top:2px">📅 ${o.dt_abertura.split('T')[0].split('-').reverse().join('/')}</div>`:''}
         </td>
-        <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#1f6b4f;white-space:nowrap">${o.desenho||'—'}</td>
+        <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#1f6b4f;white-space:nowrap">${o.desenho||'—'}${(()=>{ if(st==='concluido') return ''; const rep=_ordensMesmaPeca(o).filter(x=>x.status!=='concluido'); return rep.length?`<div style="font-size:9px;font-weight:700;color:#ef6c00;margin-top:2px" title="Outra ordem ativa da mesma peça: Nº ${rep.map(x=>x.numero).join(', Nº ')}">⚠️ repetida · Nº ${rep.map(x=>x.numero).join(', ')}</div>`:''; })()}</td>
         <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px">
             ${o.descricao||'—'}
@@ -11751,14 +11751,14 @@ function _checarDesenhoDuplicadoNaEstrutura(noId, desenhoDigitado){
 
   (itensDesenhoRecebido||[]).forEach(i=>{
     if(i.id===noId) return;
-    if((i.desenho_peca||'').trim().toLowerCase()!==desenhoNorm) return;
+    if(_normDesenho(i.desenho_peca)!==desenhoNorm) return;
     const eq=_equipamentoDoItem(i);
     const pdv=eq?(pdvs||[]).find(p=>p.id===eq.pdv_id):null;
     achados.push({nome:i.denominacao||'—', temOP:!!i.ordem_id, pdvTexto:pdv?rotuloPDV(pdv,true):(eq?.nome_equipamento||'—')});
   });
   (montagensRecebidas||[]).forEach(m=>{
     if(m.id===noId) return;
-    if((m.numero_desenho||'').trim().toLowerCase()!==desenhoNorm) return;
+    if(_normDesenho(m.numero_desenho)!==desenhoNorm) return;
     const eq=_equipamentoDaMontagem(m);
     const pdv=eq?(pdvs||[]).find(p=>p.id===eq.pdv_id):null;
     achados.push({nome:m.nome_montagem||'—', temOP:!!m.ordem_id, pdvTexto:pdv?rotuloPDV(pdv,true):(eq?.nome_equipamento||'—')});
@@ -11809,11 +11809,27 @@ let _pendingProsseguirAposDuplicado=null;
 //     itens da Estrutura apontavam pro mesmo desenho.
 // Se achar duplicidade, abre o alerta e só chama "prosseguir" se o usuário confirmar
 // ("Criar mesmo assim"); senão, chama "prosseguir" direto.
-function _checarDesenhoDuplicadoEProsseguir(desenho, origemId, prosseguir){
-  const desenhoNorm=String(desenho||'').trim().toLowerCase();
-  if(!desenhoNorm){ prosseguir(); return; }
+// Compara desenhos ignorando maiúsculas, espaços, hífens e pontuação ("2-19383" = "2 19383" = "2–19383").
+function _normDesenho(d){ return String(d||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+// Outras ordens da mesma peça: mesmo desenho, ou — no mesmo PDV — descrição praticamente igual (pega erro de digitação).
+function _ordensMesmaPeca(ref, ignorarId){
+  const nd=_normDesenho(ref.desenho);
+  return (ordens||[]).filter(o=>{
+    if(o.id===ref.id || o.id===ignorarId) return false;
+    if(nd && _normDesenho(o.desenho)===nd) return true;
+    if(ref.pdv_id && o.pdv_id===ref.pdv_id && ref.descricao && o.descricao){
+      try{ return _similaridadeMinimo(ref.descricao,o.descricao)>=0.8; }catch(e){ return false; }
+    }
+    return false;
+  });
+}
+function _checarDesenhoDuplicadoEProsseguir(desenho, origemId, prosseguir, extra){
+  const desenhoNorm=_normDesenho(desenho);
+  const extraAchadas=extra?_ordensMesmaPeca({desenho,pdv_id:extra.pdvId,descricao:extra.descricao}):[];
+  if(!desenhoNorm && !extraAchadas.length){ prosseguir(); return; }
 
-  const ordensAchadas=(ordens||[]).filter(o=>(o.desenho||'').trim().toLowerCase()===desenhoNorm);
+  const ordensAchadas=desenhoNorm?(ordens||[]).filter(o=>_normDesenho(o.desenho)===desenhoNorm):[];
+  extraAchadas.forEach(o=>{ if(!ordensAchadas.some(x=>x.id===o.id)) ordensAchadas.push(o); });
   const idsJaListados=new Set(ordensAchadas.map(o=>o.id));
 
   (itensDesenhoRecebido||[]).forEach(i=>{
@@ -11874,9 +11890,12 @@ async function salvarOrdem(){
   // Alerta de desenho duplicado — só ao CRIAR (não ao editar). A origem a excluir
   // é o item/montagem que já deu origem a ESTA ordem (se veio do "Criar OP"),
   // senão nenhum item é excluído da checagem.
-  if(!editOrdemId && obj.desenho){
-    _checarDesenhoDuplicadoEProsseguir(obj.desenho, itemDesenhoOrigemId||montagemOrigemId||null, ()=>_prosseguirSalvarOrdem(obj, contexto));
-    return;
+  if(!editOrdemId){
+    const duplicou=(obj.desenho && _normDesenho(obj.desenho)) || _ordensMesmaPeca({desenho:obj.desenho,pdv_id:obj.pdv_id,descricao:obj.descricao}).length;
+    if(duplicou){
+      _checarDesenhoDuplicadoEProsseguir(obj.desenho, itemDesenhoOrigemId||montagemOrigemId||null, ()=>_prosseguirSalvarOrdem(obj, contexto), {pdvId:obj.pdv_id,descricao:obj.descricao});
+      return;
+    }
   }
   await _prosseguirSalvarOrdem(obj, contexto);
 }
@@ -11892,7 +11911,7 @@ function _abrirAlertaDesenhoDuplicado(desenho, duplicadas){
   }).join('');
   const el=document.getElementById('alertaDesenhoDuplicadoConteudo');
   if(el) el.innerHTML=`
-    <p style="margin-bottom:10px;font-size:13px">Já existe ${duplicadas.length>1?'mais de uma ordem':'uma ordem'} com o desenho <b>${desenho}</b> cadastrada:</p>
+    <p style="margin-bottom:10px;font-size:13px">Já existe ${duplicadas.length>1?'mais de uma ordem':'uma ordem'} ${desenho?'com o desenho <b>'+desenho+'</b> ou':'com'} peça muito parecida neste PDV:</p>
     ${linhas}
     <p style="margin-top:10px;font-size:12px;color:var(--gray)">Confira se não é a mesma peça já produzida (ou em produção) antes de criar uma ordem nova.</p>`;
   abrirModal('modalAlertaDesenhoDuplicado');
