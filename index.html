@@ -5297,7 +5297,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 302';
+const APP_BUILD='2026-10-13 · build 303';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5383,6 +5383,7 @@ async function fazerLogin(){
     if(!res||!res.length){showLoginError('E-mail ou senha incorretos');return;}
     usuarioLogado=res[0];
     localStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
+    _sessaoEspelhar(usuarioLogado);
     document.documentElement.classList.add('sessao-salva');
     document.getElementById('loginBg').style.display='none';
     document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
@@ -5400,6 +5401,7 @@ function showLoginError(msg){
 }
 
 function fazerLogout(){
+  _sessaoLimparEspelho();
   localStorage.removeItem('sl_usuario');
   localStorage.removeItem('sl_aba_atual');
   document.documentElement.classList.remove('sessao-salva');
@@ -16673,13 +16675,34 @@ function showToast(msg,type='ok',duracao=3000){
 }
 
 // Verificar sessão ao carregar
-window.addEventListener('load',()=>{
+// A sessão fica no navegador (localStorage). Alguns navegadores/celulares apagam esse armazenamento sozinhos
+// (modo economia, limpeza ao fechar, iOS após dias sem uso) e o usuário cai na tela de login. Para reduzir isso:
+// 1) pede ao navegador para tornar o armazenamento permanente; 2) guarda também só o ID do usuário num cookie
+// de 1 ano, que restaura a sessão se o localStorage tiver sido apagado.
+function _sessaoEspelhar(u){
+  try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  try{ if(u&&u.id) document.cookie='sl_uid='+encodeURIComponent(u.id)+';max-age=31536000;path=/;SameSite=Lax'+(location.protocol==='https:'?';Secure':''); }catch(e){}
+}
+function _sessaoLimparEspelho(){ try{ document.cookie='sl_uid=;max-age=0;path=/;SameSite=Lax'; }catch(e){} }
+function _sessaoLerEspelho(){ try{ const m=document.cookie.match(/(?:^|;\s*)sl_uid=([^;]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+window.addEventListener('load',async()=>{
   const loginEl=document.getElementById('loginBg');
   const appEl=document.getElementById('appContent');
-  const saved=localStorage.getItem('sl_usuario');
+  let saved=localStorage.getItem('sl_usuario');
+  if(!saved){
+    const uid=_sessaoLerEspelho();
+    if(uid){
+      try{
+        const r=await api('GET','usuarios','',`?id=eq.${encodeURIComponent(uid)}&ativo=eq.true`);
+        if(r&&r[0]){ localStorage.setItem('sl_usuario',JSON.stringify(r[0])); document.documentElement.classList.add('sessao-salva'); saved=localStorage.getItem('sl_usuario'); }
+        else _sessaoLimparEspelho();
+      }catch(e){}
+    }
+  }
   if(saved){
     try{
       usuarioLogado=JSON.parse(saved);
+      _sessaoEspelhar(usuarioLogado);
       if(loginEl) loginEl.style.display='none';
       document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
       document.getElementById('userName').textContent=usuarioLogado.nome;
