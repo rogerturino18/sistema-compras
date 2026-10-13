@@ -5297,7 +5297,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 300';
+const APP_BUILD='2026-10-13 · build 301';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10599,7 +10599,7 @@ function _abrirModalOrdemDoItemDesenho(itemId){
     // padrão — força a aparecer agora que os campos já estão preenchidos, senão o
     // usuário vê só o PDV e a peça, sem nenhum dado visível do que está sendo criado.
     document.getElementById('grp_ord_detalhes').style.display='block';
-    document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId = itemId;
+    document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId = itemId; _dupJaConfirmadoPara = itemId+'|'+_normDesenho(item.desenho_peca);
   }, 150);
 }
 
@@ -10630,7 +10630,7 @@ function _abrirModalOrdemDaMontagem(montagemId){
     if(!optManual){ optManual=document.createElement('option'); optManual.value='manual'; optManual.textContent='⚠️ Preenchimento manual'; selPeca.appendChild(optManual); }
     selPeca.value='manual';
     document.getElementById('grp_ord_detalhes').style.display='block';
-    document.getElementById('modalOrdem').dataset.montagemOrigemId = montagemId;
+    document.getElementById('modalOrdem').dataset.montagemOrigemId = montagemId; _dupJaConfirmadoPara = montagemId+'|'+_normDesenho(montagem.numero_desenho);
   }, 150);
 }
 
@@ -10839,7 +10839,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
   const linhaItem = no => {
     const temFilhos = (filhosPorId[no.id]||[]).length>0;
     const statusHtml = no.item_tipo==='fabricar'
-      ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`)
+      ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `${(()=>{ const ja=_ordensMesmaPeca({desenho:no.desenho_peca,id:null}).filter(x=>x.status!=='concluido'); return ja.length?`<span title="Já existe OP aberta com este desenho: Nº ${ja.map(x=>x.numero).join(', Nº ')}" style="color:#ef6c00;font-weight:700;font-size:10px;white-space:nowrap;margin-right:6px">⚠️ já tem OP Nº ${ja.map(x=>x.numero).join(', ')}</span>`:''; })()}<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`)
       : _statusComercial(no).html;
     const prontoItem = no.item_tipo==='fabricar' ? !!no.ordem_id : !_statusComercial(no).pendente;
     return `<div data-tipo-item="${no.item_tipo}" onclick="${temFilhos?`_navegarArvore('${desenhoId}','${no.id}')`:''}" class="arv-linha" style="padding:7px 12px 7px 9px;cursor:${temFilhos?'pointer':'default'};border-bottom:1px solid #f5f5f5;border-left:3px solid ${prontoItem?'#2e7d32':'#ef6c00'};background:#fff">
@@ -11439,6 +11439,7 @@ async function _removerFotoOrdemLista(ordemId){
 async function abrirModalOrdem(id){
   editOrdemId = id || null;
   delete document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId;
+  _dupJaConfirmadoPara=null;
   delete document.getElementById('modalOrdem').dataset.montagemOrigemId;
   const o = id ? ordens.find(x=>x.id===id) : null;
   document.getElementById('modalOrdemTitulo').textContent = id ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção';
@@ -11797,6 +11798,7 @@ function _limparCampoDesenhoDuplicado(){
 }
 
 let _pendingProsseguirAposDuplicado=null;
+let _dupJaConfirmadoPara=null; // item/montagem cujo aviso de duplicidade já foi confirmado (evita perguntar duas vezes no mesmo fluxo)
 
 // Checagem central de desenho duplicado, usada tanto pelo botão "Criar OP" (item
 // ou montagem da Estrutura de Equipamentos) quanto pelo salvamento manual da Ordem.
@@ -11890,7 +11892,8 @@ async function salvarOrdem(){
   // Alerta de desenho duplicado — só ao CRIAR (não ao editar). A origem a excluir
   // é o item/montagem que já deu origem a ESTA ordem (se veio do "Criar OP"),
   // senão nenhum item é excluído da checagem.
-  if(!editOrdemId){
+  const jaConfirmado=(itemDesenhoOrigemId||montagemOrigemId) && _dupJaConfirmadoPara===((itemDesenhoOrigemId||montagemOrigemId)+'|'+_normDesenho(obj.desenho));
+  if(!editOrdemId && !jaConfirmado){
     const duplicou=(obj.desenho && _normDesenho(obj.desenho)) || _ordensMesmaPeca({desenho:obj.desenho,pdv_id:obj.pdv_id,descricao:obj.descricao}).length;
     if(duplicou){
       _checarDesenhoDuplicadoEProsseguir(obj.desenho, itemDesenhoOrigemId||montagemOrigemId||null, ()=>_prosseguirSalvarOrdem(obj, contexto), {pdvId:obj.pdv_id,descricao:obj.descricao});
