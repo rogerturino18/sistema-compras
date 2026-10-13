@@ -5306,7 +5306,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 310';
+const APP_BUILD='2026-10-13 · build 311';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11241,6 +11241,16 @@ function _tagFotoDesenho(dataUrl, estiloImg){
 // Abre a foto numa aba nova, sozinha na página — ali o zoom de pinça do
 // celular (ou Ctrl+scroll no computador) funciona normal, do jeito que o
 // navegador já sabe fazer, sem eu precisar reinventar nada.
+// Amplia uma foto na própria tela (sem abrir outra aba); clique, toque ou Esc fecham.
+function _lightboxFoto(src){
+  document.getElementById('lightboxFoto')?.remove();
+  const d=document.createElement('div'); d.id='lightboxFoto';
+  d.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+  d.innerHTML=`<img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px"><span style="position:absolute;top:14px;right:18px;color:#fff;font-size:26px;font-weight:700">✕</span>`;
+  const fechar=()=>{ d.remove(); document.removeEventListener('keydown',esc); };
+  const esc=e=>{ if(e.key==='Escape') fechar(); };
+  d.onclick=fechar; document.addEventListener('keydown',esc); document.body.appendChild(d);
+}
 function _abrirImagemTelaCheia(src){
   if(!src) return;
   if(_ehPdfBase64(src)){ _abrirPdfBase64(src); return; }
@@ -22849,27 +22859,26 @@ function _prontoSecaoHtml(o,p){
       <div class="os-h" style="margin:0">Conferência da peça pronta</div>
       ${registrado?'<span style="font-size:10px;font-weight:700;color:#2e7d32;background:#e8f5e9;border-radius:10px;padding:2px 8px">Registrada</span>':'<span style="font-size:10px;font-weight:700;color:#78909c;background:#eceff1;border-radius:10px;padding:2px 8px">Pendente</span>'}
     </div>
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start">
-      <div>
-        <label style="font-size:12px;color:#546e7a;font-weight:600">Peso da peça (kg)</label>
-        <div style="position:relative;margin-top:4px">
-          <input type="text" id="pronto_peso" inputmode="decimal" placeholder="0,000" value="${peso}" style="width:100%;padding:11px 38px 11px 12px;border:1px solid #cfd8dc;border-radius:8px;font-size:16px;font-weight:600;text-align:right">
-          <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#90a4ae;pointer-events:none">kg</span>
-        </div>
-        <div style="font-size:11px;color:#90a4ae;margin-top:6px;line-height:1.35">O peso informado é incluído na lista de Pesos de Itens (cliente e desenho desta ordem).</div>
+    <div style="font-size:12px;color:#546e7a;font-weight:600;margin-bottom:6px">Registro fotográfico</div>
+    ${foto
+      ? `<div style="position:relative;height:300px;border-radius:10px;border:1px solid #cfd8dc;background:#eef2ef;cursor:zoom-in;overflow:hidden" onclick="_lightboxFoto(this.querySelector('img').src)" title="Clique para ampliar">
+           <img src="${foto}" style="width:100%;height:100%;object-fit:contain;display:block">
+           <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:600;padding:4px 10px;border-radius:14px">🔍 Clique para ampliar</span>
+         </div>`
+      : `<div style="height:150px;border:1px dashed #b0bec5;border-radius:10px;background:#fafbfa;display:flex;align-items:center;justify-content:center;font-size:12px;color:#90a4ae;text-align:center;padding:6px">Nenhuma foto anexada</div>`}
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <label class="btn btn-sm" style="flex:1;text-align:center;cursor:pointer;margin:0;font-size:12px">${foto?'Substituir foto':'Anexar foto'}
+        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="_prontoEscolherFoto(this,'${o.id}')"></label>
+      ${foto?`<button class="btn btn-sm" style="color:#c62828;border-color:#ef9a9a;font-size:12px" onclick="_prontoRemoverFoto('${o.id}')">Remover</button>`:''}
+    </div>
+    ${pend&&pend!=='REMOVER'?'<div style="font-size:11px;color:#ef6c00;margin-top:4px">Foto ainda não registrada.</div>':''}
+    <div style="margin-top:14px">
+      <label style="font-size:12px;color:#546e7a;font-weight:600">Peso da peça (kg)</label>
+      <div style="position:relative;margin-top:4px">
+        <input type="text" id="pronto_peso" inputmode="decimal" placeholder="0,000" value="${peso}" style="width:100%;padding:11px 38px 11px 12px;border:1px solid #cfd8dc;border-radius:8px;font-size:16px;font-weight:600;text-align:right">
+        <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#90a4ae;pointer-events:none">kg</span>
       </div>
-      <div>
-        <div style="font-size:12px;color:#546e7a;font-weight:600;margin-bottom:4px">Registro fotográfico</div>
-        ${foto
-          ? `<img src="${foto}" onclick="_abrirImagemTelaCheia(this.src)" title="Clique para ampliar" style="width:100%;height:96px;object-fit:cover;border-radius:8px;border:1px solid #cfd8dc;cursor:pointer">`
-          : `<div style="height:96px;border:1px dashed #b0bec5;border-radius:8px;background:#fafbfa;display:flex;align-items:center;justify-content:center;font-size:11px;color:#90a4ae;text-align:center;padding:6px">Nenhuma foto anexada</div>`}
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <label class="btn btn-sm" style="flex:1;text-align:center;cursor:pointer;margin:0;font-size:12px">${foto?'Substituir':'Anexar foto'}
-            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="_prontoEscolherFoto(this,'${o.id}')"></label>
-          ${foto?`<button class="btn btn-sm" style="color:#c62828;border-color:#ef9a9a;font-size:12px" onclick="_prontoRemoverFoto('${o.id}')">Remover</button>`:''}
-        </div>
-        ${pend&&pend!=='REMOVER'?'<div style="font-size:11px;color:#ef6c00;margin-top:4px">Foto ainda não registrada.</div>':''}
-      </div>
+      <div style="font-size:11px;color:#90a4ae;margin-top:6px;line-height:1.35">O peso informado é incluído na lista de Pesos de Itens (cliente e desenho desta ordem).</div>
     </div>
     <button class="btn primary" id="btnProntoSalvar" style="width:100%;margin-top:12px;padding:11px;font-size:13px" onclick="_prontoSalvar('${o.id}')">Registrar conferência</button>
   </div>`;
