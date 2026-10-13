@@ -5297,7 +5297,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 298';
+const APP_BUILD='2026-10-13 · build 299';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -27330,7 +27330,10 @@ async function buscarPorChaveNFe(){
 // ═══════════════════════════════════════════
 async function _sincronizarNsuComNuvem(){
   try{
-    const r=await api('GET','config_sistema','','?chave=eq.nfe_ult_nsu&select=valor');
+    const rr=await api('GET','config_sistema','','?chave=in.(nfe_ult_nsu,nfe_bloqueio_ate)&select=chave,valor');
+    const r=(rr||[]).filter(x=>x.chave==='nfe_ult_nsu');
+    const blq=parseInt((rr||[]).find(x=>x.chave==='nfe_bloqueio_ate')?.valor||'0',10)||0;
+    if(blq>(parseInt(localStorage.getItem('nfe_bloqueio_ate')||'0',10)||0)) localStorage.setItem('nfe_bloqueio_ate',String(blq));
     const nsuNuvem=r?.[0]?.valor;
     const nsuLocal=localStorage.getItem('nfe_ult_nsu');
     if(nsuNuvem && (!nsuLocal || parseInt(nsuNuvem,10)>parseInt(nsuLocal,10))){
@@ -27346,6 +27349,20 @@ async function _publicarNsuNaNuvem(nsu){
     else await api('POST','config_sistema',{chave:'nfe_ult_nsu', valor:nsu, atualizado_em:new Date().toISOString()});
   }catch(e){ console.warn('[NFe] Não consegui publicar o NSU na nuvem:', e.message); }
 }
+// ── Pausa pedida pela SEFAZ (cStat 656 "Consumo Indevido") ──
+// A SEFAZ bloqueia a consulta do CNPJ por ~1 hora, para TODO mundo. O horário fica salvo aqui e na nuvem,
+// e enquanto a pausa estiver valendo nenhum computador/celular consulta de novo (cada tentativa só estende o bloqueio).
+function _nfeBloqueioAte(){ return parseInt(localStorage.getItem('nfe_bloqueio_ate')||'0',10)||0; }
+function _nfeLiberaTxt(){ return new Date(_nfeBloqueioAte()).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+async function _nfeMarcarBloqueio(){
+  const ate=Date.now()+62*60*1000;
+  localStorage.setItem('nfe_bloqueio_ate',String(ate));
+  try{
+    const r=await api('GET','config_sistema','','?chave=eq.nfe_bloqueio_ate&select=chave');
+    if(r&&r.length) await api('PATCH','config_sistema',{valor:String(ate),atualizado_em:new Date().toISOString()},'?chave=eq.nfe_bloqueio_ate');
+    else await api('POST','config_sistema',{chave:'nfe_bloqueio_ate',valor:String(ate),atualizado_em:new Date().toISOString()});
+  }catch(e){}
+}
 function reiniciarNsuNFe(){
   localStorage.removeItem('nfe_ult_nsu');
   _publicarNsuNaNuvem('000000000000000');
@@ -27353,6 +27370,11 @@ function reiniciarNsuNFe(){
 
 async function buscarNFeSEFAZ(silencioso=false){
   await _sincronizarNsuComNuvem(); // garante que parte do ponto mais avançado, mesmo se outro lugar já buscou
+  if(Date.now()<_nfeBloqueioAte()){
+    const txt=`A SEFAZ pediu uma pausa nas consultas. Nova consulta liberada às ${_nfeLiberaTxt()}.`;
+    if(!silencioso){ nfeAtualizarStatus('⏳ Consulta em pausa','warn',txt); showToast('⏳ '+txt,'ok',8000); }
+    return;
+  }
   const cfg=getNFeBackendConfig();
   if(!cfg.url||!cfg.apiKey){
     if(!silencioso) abrirModalNFeConfig();
@@ -27428,7 +27450,15 @@ async function buscarNFeSEFAZ(silencioso=false){
   }catch(e){
     console.error('[NF-e SEFAZ] Erro:', e);
     const msg=e.message||String(e);
+    if(msg.includes('cStat 656')){
+      await _nfeMarcarBloqueio();
+      const txt=`A SEFAZ pediu uma pausa nas consultas (limite de uso). Nova consulta liberada às ${_nfeLiberaTxt()}. As notas já importadas não são afetadas.`;
+      nfeAtualizarStatus('⏳ Consulta em pausa','warn',txt);
+      if(!silencioso) showToast('⏳ '+txt,'ok',9000);
+      return;
+    }
     nfeAtualizarStatus('❌ Erro na consulta','err',msg.substring(0,120));
+    if(silencioso){ console.warn('[NF-e SEFAZ] consulta automática falhou:',msg); return; }
     if(msg.includes('Failed to fetch')||msg.includes('NetworkError')||msg.includes('CORS')){
       showToast('❌ Sem conexão com o backend. URL: '+(cfg.url||'nenhuma'),'err',8000);
     } else {
@@ -27444,7 +27474,8 @@ async function buscarTodasNFe(forcarDoZero){
   const cfg=getNFeBackendConfig();
   if(!cfg.url||!cfg.apiKey){ abrirModalNFeConfig(); return; }
 
-  if(!forcarDoZero) await _sincronizarNsuComNuvem(); // garante que parte do ponto mais avançado, mesmo se outro lugar já buscou
+  await _sincronizarNsuComNuvem(); // garante que parte do ponto mais avançado, mesmo se outro lugar já buscou (e traz a pausa da SEFAZ)
+  if(Date.now()<_nfeBloqueioAte()){ showToast(`⏳ A SEFAZ pediu uma pausa nas consultas. Nova consulta liberada às ${_nfeLiberaTxt()}.`,'ok',8000); return; }
 
   // Continua de onde parou (mesmo checkpoint usado por "Buscar Novas") em vez de
   // sempre reiniciar do zero — reiniciar do zero a cada clique refaz todos os lotes
@@ -27572,6 +27603,7 @@ async function buscarTodasNFe(forcarDoZero){
     if(msg.includes('Failed to fetch')||msg.includes('NetworkError')){
       showToast('❌ Sem conexão com o backend. URL: '+(cfg.url||'nenhuma'),'err',8000);
     } else if(msg.includes('cStat 656')){
+      await _nfeMarcarBloqueio();
       showToast(`⏳ SEFAZ pediu pra esperar (Consumo Indevido) — ${totalImportadas} nota(s) importada(s) até agora. O progresso foi salvo: espere ~1h e clique em "Buscar Histórico" de novo que ele continua de onde parou, sem refazer o que já trouxe.`,'err',10000);
     } else {
       showToast('❌ Erro: '+msg,'err',8000);
