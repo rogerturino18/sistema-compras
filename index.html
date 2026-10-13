@@ -5306,7 +5306,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 311';
+const APP_BUILD='2026-10-13 · build 312';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12380,7 +12380,7 @@ async function imprimirFichaProduto(id){
   const desenhoBox=desenhoFoto?(_ehPdfBase64(desenhoFoto)?`<div class="ph">Desenho em PDF — consulte o arquivo da ordem</div>`:`<img src="${desenhoFoto}" class="img">`):`<div class="ph">Desenho não anexado</div>`;
   const obs=String(o.observacao||'').replace(/\s*\[Finalizada manualmente[^\]]*\]/g,'').trim();
 
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ficha de Produto Nº ${esc(o.numero)}</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ficha de Produto Nº ${esc(o.numero)}</title>
   <style>
     @page{ size:A4; margin:0; }
     *{ box-sizing:border-box; }
@@ -12422,6 +12422,17 @@ async function imprimirFichaProduto(id){
     .assin{ display:flex; gap:22px; margin-top:34px } .assin div{ flex:1; border-top:1px solid #455a64; padding-top:4px; text-align:center; font-size:10px; color:#546e7a }
     .rodape{ margin-top:22px; padding-top:10px; border-top:1px solid #eceeed; font-size:9.5px; color:#90a4ae; text-align:center; }
     tr{ page-break-inside:avoid }
+    @media (max-width:640px){
+      .folha{ margin:0; padding:14px 12px; border-radius:0; box-shadow:none; }
+      .cabecalho{ flex-direction:column; align-items:flex-start; gap:10px; }
+      .cabecalho .empresa{ text-align:left; white-space:normal; }
+      .cabecalho .titulo{ font-size:17px; }
+      .info{ flex-direction:column; gap:8px; }
+      .produto{ flex-direction:column; }
+      .fotoBox{ width:100%; }
+      table.itens th,table.itens td{ padding:5px 5px; font-size:10px; }
+      .assin{ flex-direction:column; gap:26px; }
+    }
     @media print{ html,body{ background:#fff; } .folha{ margin:0; padding:14mm 12mm; box-shadow:none; border-radius:0; max-width:none; width:100%; } }
   </style></head><body><div class="folha">
     <div class="cabecalho">
