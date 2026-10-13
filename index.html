@@ -5297,7 +5297,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 303';
+const APP_BUILD='2026-10-13 · build 304';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21451,6 +21451,17 @@ async function confirmarTerceirizar(){
   }
 }
 
+// Quando o detalhe por terceirizado não está na tabela (ex.: SQL ainda não rodado), reconstrói a divisão a partir do
+// nome gravado na ordem: "Wellington (45) + Axion (5)" -> [{Wellington,45},{Axion,5}].
+function _tercEnviosVirtuais(o){
+  const partes=String(o?.terceirizado_nome||'').split(' + ').map(t=>t.trim()).filter(Boolean);
+  const v=partes.map((t,i)=>{ const m=t.match(/^(.*?)\s*\((\d+)\)$/); return m?{id:'v'+i,ordem_id:o.id,terceirizado_nome:m[1],quantidade:Number(m[2])}:null; });
+  return (v.length>=2 && v.every(Boolean))?v:[];
+}
+function _tercEnviosAbertos(o){
+  const abertos=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(o.id)&&!e.data_retorno);
+  return abertos.length>=2?abertos:_tercEnviosVirtuais(o);
+}
 function retornarTerceirizado(id){
   _tercVoltaParaScan=null; // reset — só volta pro painel do scanner quando o botão de lá marcar de novo, logo abaixo
   const o = ordens.find(x=>x.id===id);
@@ -21463,7 +21474,7 @@ function retornarTerceirizado(id){
   document.getElementById('retorno_data').value = hoje();
   const _envBox=document.getElementById('retorno_envios');
   if(_envBox){
-    const abertos=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(id)&&!e.data_retorno);
+    const abertos=_tercEnviosAbertos(o);
     if(abertos.length>=2){
       _envBox.style.display='block';
       _envBox.innerHTML=`<div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:6px">✂️ Ordem dividida — marque quem já devolveu:</div>`+
@@ -21525,13 +21536,16 @@ async function confirmarRetornoTerc(){
   if(_chks.length){
     const marcados=_chks.filter(c=>c.checked).map(c=>c.value);
     if(!marcados.length){ showToast('Marque quem devolveu','err'); return; }
+    const _oRet=ordens.find(x=>x.id===_tercOrdemId);
+    const _virtual=marcados.some(m=>String(m).startsWith('v'));
+    const _fonte=_virtual?_tercEnviosVirtuais(_oRet):(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(_tercOrdemId));
     if(marcados.length<_chks.length){
       try{
-        await api('PATCH','ordem_envios_terc',{data_retorno:dataRetorno},`?id=in.(${marcados.join(',')})`);
-        const faltam=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(_tercOrdemId)&&!e.data_retorno&&!marcados.includes(String(e.id)));
+        if(!_virtual) await api('PATCH','ordem_envios_terc',{data_retorno:dataRetorno},`?id=in.(${marcados.join(',')})`);
+        const faltam=_fonte.filter(e=>!e.data_retorno&&!marcados.includes(String(e.id)));
         const novoNome=faltam.map(e=>`${e.terceirizado_nome} (${e.quantidade})`).join(' + ');
         await api('PATCH','ordens_producao',{terceirizado_nome:novoNome},`?id=eq.${_tercOrdemId}`);
-        const devolveu=(ordemEnviosTerc||[]).filter(e=>marcados.includes(String(e.id))).map(e=>`${e.terceirizado_nome} (${e.quantidade})`).join(' + ');
+        const devolveu=_fonte.filter(e=>marcados.includes(String(e.id))).map(e=>`${e.terceirizado_nome} (${e.quantidade})`).join(' + ');
         fecharModal('modalRetornoTerc'); await loadAll(); renderOrdens();
         showToast(`📦 ${devolveu} devolveu. Falta: ${novoNome}`);
         if(_tercVoltaParaScan){ const id=_tercVoltaParaScan; _tercVoltaParaScan=null; abrirAcoesOrdemPorScan(id); }
@@ -21539,7 +21553,7 @@ async function confirmarRetornoTerc(){
       return;
     }
     // todos devolveram → fecha todos os envios e segue o fluxo normal abaixo
-    try{ await api('PATCH','ordem_envios_terc',{data_retorno:dataRetorno},`?id=in.(${marcados.join(',')})`); }catch(e){ console.warn(e); }
+    if(!_virtual){ try{ await api('PATCH','ordem_envios_terc',{data_retorno:dataRetorno},`?id=in.(${marcados.join(',')})`); }catch(e){ console.warn(e); } }
   }
   if(!acao){ showToast('Selecione o que fazer com a ordem','err'); return; }
   try{
