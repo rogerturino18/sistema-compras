@@ -4082,14 +4082,14 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 
 <div class="modal-bg" id="modalAlertaDesenhoDuplicado">
 <div class="modal" style="max-width:480px">
-  <div class="modal-header" style="background:#ef6c00">
-    <h3>⚠️ Desenho já cadastrado</h3>
+  <div class="modal-header" style="background:#ef6c00" id="alertaDupHeader">
+    <h3 id="alertaDupTitulo">⚠️ Desenho já cadastrado</h3>
     <div class="modal-header-actions">
       <button class="modal-header-btn" onclick="cancelarCriarOrdemDuplicada()" title="Fechar">✕</button>
     </div>
   </div>
   <div class="modal-body" id="alertaDesenhoDuplicadoConteudo"></div>
-  <div class="modal-actions" style="padding:0 22px 22px">
+  <div class="modal-actions" style="padding:0 22px 22px" id="alertaDupAcoes">
     <button class="btn" onclick="cancelarCriarOrdemDuplicada()">Cancelar</button>
     <button class="btn primary" style="background:#ef6c00;border-color:#ef6c00" onclick="confirmarCriarOrdemDuplicada()">Criar mesmo assim</button>
   </div>
@@ -5297,7 +5297,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 301';
+const APP_BUILD='2026-10-13 · build 302';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9145,7 +9145,7 @@ function renderOrdens(){
           </div>
           ${o.dt_abertura?`<div style="font-weight:400;font-size:10px;color:#90a4ae;margin-top:2px">📅 ${o.dt_abertura.split('T')[0].split('-').reverse().join('/')}</div>`:''}
         </td>
-        <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#1f6b4f;white-space:nowrap">${o.desenho||'—'}${(()=>{ if(st==='concluido') return ''; const rep=_ordensMesmaPeca(o).filter(x=>x.status!=='concluido'); return rep.length?`<div style="font-size:9px;font-weight:700;color:#ef6c00;margin-top:2px" title="Outra ordem ativa da mesma peça: Nº ${rep.map(x=>x.numero).join(', Nº ')}">⚠️ repetida · Nº ${rep.map(x=>x.numero).join(', ')}</div>`:''; })()}</td>
+        <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#1f6b4f;white-space:nowrap">${o.desenho||'—'}${(()=>{ if(st==='concluido') return ''; const rep=_ordensMesmaPeca(o).filter(x=>x.status!=='concluido'); return rep.length?`<div style="font-size:9px;font-weight:700;color:#ef6c00;margin-top:2px" title="Outra ordem ativa da mesma peça: Nº ${rep.map(x=>x.numero).join(', Nº ')}">⚠️ repetida</div>`:''; })()}</td>
         <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px">
             ${o.descricao||'—'}
@@ -10574,7 +10574,7 @@ function _equipamentoDaMontagem(montagem){ return _equipamentoDoNo(montagem, 'mo
 function criarOPdoItemDesenho(itemId){
   const item = itensDesenhoRecebido.find(i=>i.id===itemId);
   if(!item) return;
-  _checarDesenhoDuplicadoEProsseguir(item.desenho_peca, itemId, ()=>_abrirModalOrdemDoItemDesenho(itemId));
+  _checarDesenhoDuplicadoEProsseguir(item.desenho_peca, itemId, ()=>_abrirModalOrdemDoItemDesenho(itemId), {pdvId:_equipamentoDoItem(item)?.pdv_id||null, descricao:item.denominacao, vincular:{tipo:'item',id:itemId}});
 }
 function _abrirModalOrdemDoItemDesenho(itemId){
   const item = itensDesenhoRecebido.find(i=>i.id===itemId);
@@ -10608,7 +10608,7 @@ function _abrirModalOrdemDoItemDesenho(itemId){
 function criarOPdaMontagem(montagemId){
   const montagem = montagensRecebidas.find(m=>m.id===montagemId);
   if(!montagem) return;
-  _checarDesenhoDuplicadoEProsseguir(montagem.numero_desenho, montagemId, ()=>_abrirModalOrdemDaMontagem(montagemId));
+  _checarDesenhoDuplicadoEProsseguir(montagem.numero_desenho, montagemId, ()=>_abrirModalOrdemDaMontagem(montagemId), {pdvId:_equipamentoDaMontagem(montagem)?.pdv_id||null, descricao:montagem.nome, vincular:{tipo:'montagem',id:montagemId}});
 }
 function _abrirModalOrdemDaMontagem(montagemId){
   const montagem = montagensRecebidas.find(m=>m.id===montagemId);
@@ -10839,7 +10839,7 @@ function _renderArvoreCascata(desenhoId, termoBusca){
   const linhaItem = no => {
     const temFilhos = (filhosPorId[no.id]||[]).length>0;
     const statusHtml = no.item_tipo==='fabricar'
-      ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `${(()=>{ const ja=_ordensMesmaPeca({desenho:no.desenho_peca,id:null}).filter(x=>x.status!=='concluido'); return ja.length?`<span title="Já existe OP aberta com este desenho: Nº ${ja.map(x=>x.numero).join(', Nº ')}" style="color:#ef6c00;font-weight:700;font-size:10px;white-space:nowrap;margin-right:6px">⚠️ já tem OP Nº ${ja.map(x=>x.numero).join(', ')}</span>`:''; })()}<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`)
+      ? (no.ordem_id ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>` : `${(()=>{ const pdvEq=_equipamentoDoItem(no)?.pdv_id||null; const ja=_ordensMesmaPeca({desenho:no.desenho_peca,id:null,pdv_id:pdvEq,descricao:no.denominacao}).filter(x=>x.status!=='concluido' && (x.pdv_id||null)===pdvEq); if(ja.length) return `<span title="Já existe OP aberta desta peça neste PDV — não é criada outra" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="color:#ef6c00;font-weight:700;font-size:11px">⚠️ OP Nº ${ja.map(x=>x.numero).join(', ')} já aberta</span><button class="btn btn-sm" onclick="event.stopPropagation();vincularAoOrdemExistente('item','${no.id}','${ja[0].id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap" title="Liga esta linha da estrutura à OP já existente, sem criar outra">🔗 Vincular</button></span>`; return `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdoItemDesenho('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`; })()}`)
       : _statusComercial(no).html;
     const prontoItem = no.item_tipo==='fabricar' ? !!no.ordem_id : !_statusComercial(no).pendente;
     return `<div data-tipo-item="${no.item_tipo}" onclick="${temFilhos?`_navegarArvore('${desenhoId}','${no.id}')`:''}" class="arv-linha" style="padding:7px 12px 7px 9px;cursor:${temFilhos?'pointer':'default'};border-bottom:1px solid #f5f5f5;border-left:3px solid ${prontoItem?'#2e7d32':'#ef6c00'};background:#fff">
@@ -11847,6 +11847,9 @@ function _checarDesenhoDuplicadoEProsseguir(desenho, origemId, prosseguir, extra
     if(o && !idsJaListados.has(o.id)){ idsJaListados.add(o.id); ordensAchadas.push(o); }
   });
 
+  const abertas=extra?ordensAchadas.filter(o=>o.status!=='concluido' && (o.pdv_id||null)===(extra.pdvId||null)):[];
+  if(abertas.length){ _pendingProsseguirAposDuplicado=null; _abrirBloqueioDuplicada(abertas, extra.vincular||null); return; }
+  if(extra && extra.soBloqueio){ prosseguir(); return; }
   if(ordensAchadas.length){
     _pendingProsseguirAposDuplicado=prosseguir;
     _abrirAlertaDesenhoDuplicado(desenho, ordensAchadas);
@@ -11893,10 +11896,11 @@ async function salvarOrdem(){
   // é o item/montagem que já deu origem a ESTA ordem (se veio do "Criar OP"),
   // senão nenhum item é excluído da checagem.
   const jaConfirmado=(itemDesenhoOrigemId||montagemOrigemId) && _dupJaConfirmadoPara===((itemDesenhoOrigemId||montagemOrigemId)+'|'+_normDesenho(obj.desenho));
-  if(!editOrdemId && !jaConfirmado){
+  if(!editOrdemId){
     const duplicou=(obj.desenho && _normDesenho(obj.desenho)) || _ordensMesmaPeca({desenho:obj.desenho,pdv_id:obj.pdv_id,descricao:obj.descricao}).length;
     if(duplicou){
-      _checarDesenhoDuplicadoEProsseguir(obj.desenho, itemDesenhoOrigemId||montagemOrigemId||null, ()=>_prosseguirSalvarOrdem(obj, contexto), {pdvId:obj.pdv_id,descricao:obj.descricao});
+      const vinc=itemDesenhoOrigemId?{tipo:'item',id:itemDesenhoOrigemId}:(montagemOrigemId?{tipo:'montagem',id:montagemOrigemId}:null);
+      _checarDesenhoDuplicadoEProsseguir(obj.desenho, itemDesenhoOrigemId||montagemOrigemId||null, ()=>_prosseguirSalvarOrdem(obj, contexto), {pdvId:obj.pdv_id||null,descricao:obj.descricao,vincular:vinc,soBloqueio:!!jaConfirmado});
       return;
     }
   }
@@ -11917,7 +11921,39 @@ function _abrirAlertaDesenhoDuplicado(desenho, duplicadas){
     <p style="margin-bottom:10px;font-size:13px">Já existe ${duplicadas.length>1?'mais de uma ordem':'uma ordem'} ${desenho?'com o desenho <b>'+desenho+'</b> ou':'com'} peça muito parecida neste PDV:</p>
     ${linhas}
     <p style="margin-top:10px;font-size:12px;color:var(--gray)">Confira se não é a mesma peça já produzida (ou em produção) antes de criar uma ordem nova.</p>`;
+  _alertaDupModo('aviso');
   abrirModal('modalAlertaDesenhoDuplicado');
+}
+
+// Alterna o mesmo modal entre "aviso" (pode criar mesmo assim) e "bloqueio" (não pode criar).
+function _alertaDupModo(modo){
+  const t=document.getElementById('alertaDupTitulo'), h=document.getElementById('alertaDupHeader');
+  if(modo==='aviso'){ if(t) t.textContent='⚠️ Desenho já cadastrado'; if(h) h.style.background='#ef6c00';
+    const a=document.getElementById('alertaDupAcoes'); if(a) a.innerHTML=`<button class="btn" onclick="cancelarCriarOrdemDuplicada()">Cancelar</button>
+    <button class="btn primary" style="background:#ef6c00;border-color:#ef6c00" onclick="confirmarCriarOrdemDuplicada()">Criar mesmo assim</button>`; }
+}
+// Bloqueio: já existe OP aberta da mesma peça no mesmo PDV — não deixa criar outra.
+function _abrirBloqueioDuplicada(abertas, vincular){
+  const o1=abertas[0];
+  const linhas=abertas.map(o=>`<div style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12px"><b>Nº ${o.numero}</b> — ${o.descricao||'—'}<br><span style="color:var(--gray)">${o.desenho?'Desenho '+o.desenho+' · ':''}Qtd ${o.quantidade||1}${o.status?' · '+o.status:''}${o.terceirizado_nome?' · terceirizado com '+o.terceirizado_nome:''}</span></div>`).join('');
+  const el=document.getElementById('alertaDesenhoDuplicadoConteudo');
+  if(el) el.innerHTML=`<p style="margin-bottom:10px;font-size:13px">Esta peça já tem ${abertas.length>1?'ordens abertas':'uma ordem aberta'} neste PDV:</p>${linhas}
+    <p style="margin-top:10px;font-size:12px;color:var(--gray)">Não é possível criar uma segunda ordem para a mesma peça no mesmo PDV. Se precisar de mais peças, aumente a quantidade da ordem existente.</p>`;
+  const t=document.getElementById('alertaDupTitulo'), h=document.getElementById('alertaDupHeader');
+  if(t) t.textContent='🚫 Peça já tem ordem aberta'; if(h) h.style.background='#c62828';
+  const a=document.getElementById('alertaDupAcoes');
+  if(a) a.innerHTML=`<button class="btn" onclick="cancelarCriarOrdemDuplicada()">Fechar</button>
+    ${vincular?`<button class="btn" onclick="vincularAoOrdemExistente('${vincular.tipo}','${vincular.id}','${o1.id}')">🔗 Vincular à OP Nº ${o1.numero}</button>`:''}
+    <button class="btn primary" onclick="fecharModal('modalAlertaDesenhoDuplicado');fecharModal('modalOrdem');abrirModalOrdem('${o1.id}')">Abrir OP Nº ${o1.numero}</button>`;
+  abrirModal('modalAlertaDesenhoDuplicado');
+}
+async function vincularAoOrdemExistente(tipo,idNo,ordemId){
+  try{
+    await api('PATCH',tipo==='montagem'?'montagens_recebidas':'itens_desenho_recebido',{ordem_id:ordemId},`?id=eq.${idNo}`);
+    fecharModal('modalAlertaDesenhoDuplicado'); fecharModal('modalOrdem');
+    showToast('Peça vinculada à ordem existente');
+    await loadAll();
+  }catch(e){ showToast('Não foi possível vincular','err'); }
 }
 
 function confirmarCriarOrdemDuplicada(){
