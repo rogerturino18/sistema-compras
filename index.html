@@ -5297,7 +5297,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-12 · build 297';
+const APP_BUILD='2026-10-13 · build 298';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9157,6 +9157,7 @@ function renderOrdens(){
         ${celulas}
         <td style="padding:6px 4px;text-align:center;line-height:1.9">
           ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado — fecha a ordem e qualquer etapa em aberto, mesmo sem o tempo registrado certinho">✅</button>`:''}
+          ${st==='concluido'?`<button class="btn btn-sm" style="background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="reverterOrdemConcluida('${o.id}')" title="Reverter conclusão">↩️</button>`:''}
           <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" title="Imprimir">🖨️</button>
           <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" title="Excluir">🗑</button>
@@ -11578,6 +11579,25 @@ async function _forcarConclusaoOrdemSemConfirmar(o){
     concluido_em:agora,
     observacao:(o.observacao?o.observacao+' ':'')+nota
   },`?id=eq.${o.id}`);
+}
+
+// Desfaz a conclusão de uma ordem (ex.: concluída por engano pelo scanner). Volta para "Aguardando"
+// e, se a conclusão tinha fechado uma etapa em aberto (mesmo horário de término), reabre essa etapa.
+// Depois reabre o painel da ordem na mesma tela, já atualizado.
+async function reverterOrdemConcluida(id, voltaPainel){
+  const o=(ordens||[]).find(x=>x.id===id);
+  if(!o || o.status!=='concluido') return;
+  if(!confirm(`Reverter a conclusão da Ordem Nº ${o.numero}?\n\nEla volta a aparecer como em produção (não concluída).`)) return;
+  try{
+    const fim=o.concluido_em?new Date(o.concluido_em).getTime():null;
+    const fechadasNaConclusao=fim?(temposOP||[]).filter(t=>t.ordem_id===o.id && t.dt_hr_final && Math.abs(new Date(t.dt_hr_final).getTime()-fim)<2000):[];
+    for(const t of fechadasNaConclusao){ await api('PATCH','tempos_op',{dt_hr_final:null},`?id=eq.${t.id}`); }
+    const obs=String(o.observacao||'').replace(/\s*\[Finalizada manualmente\/forçado[^\]]*\]/g,'').trim();
+    await api('PATCH','ordens_producao',{status:'aguardando',concluido_por:null,concluido_em:null,observacao:obs||null},`?id=eq.${o.id}`);
+    showToast('Conclusão revertida — ordem em produção novamente');
+    await loadAll(true);
+    if(voltaPainel) abrirAcoesOrdemPorScan(id);
+  }catch(e){ showToast('Não foi possível reverter a conclusão','err'); }
 }
 
 // Finaliza a ordem à força — pra quando o registro de tempo falhou e a ordem
@@ -17260,6 +17280,9 @@ async function abrirAcoesOrdemPorScan(ordemId){
     botoes.push(`<div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:4px 0 8px">Iniciar operação</div>`);
     botoes.push(`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">${OPERACOES_PROD.map(op=>`<button class="btn" style="flex:1 1 45%;padding:12px 6px;font-size:13px" onclick="fecharModal('modalAcoesOrdemScan');abrirRegistrarTempoDireto('${o.id}','${op.replace(/'/g,"\\'")}',true)">⏱️ ${op}</button>`).join('')}</div>`);
     botoes.push(`<button class="btn" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="fecharModal('modalAcoesOrdemScan');terceirizarOrdem('${o.id}');_tercVoltaParaScan='${o.id}';">🚚 Enviar para terceirizado</button>`);
+  }
+  if(concluida){
+    botoes.push(`<button class="btn" style="width:100%;padding:14px;font-size:14px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="reverterOrdemConcluida('${o.id}',true)">↩️ Reverter conclusão</button>`);
   }
   if(!concluida){
     botoes.push(`<button class="btn" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px" onclick="fecharModal('modalAcoesOrdemScan');adicionarOperacaoNaOrdem('${o.id}');_tempoDiretoVoltaParaScan='${o.id}';">⏱️ Registrar tempo manual</button>`);
