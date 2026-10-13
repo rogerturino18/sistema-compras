@@ -2448,6 +2448,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <button class="btn primary" onclick="pesoAbrirModal()">+ Novo item</button>
       <button class="btn" onclick="document.getElementById('pesoImportInput').click()" title="Importar planilha (NOME DA PEÇA, DES., CLIENTE, PESO)">📥 Importar planilha</button>
       <button class="btn" onclick="exportarPesos()">📊 Excel</button>
+      <button class="btn" style="color:#c62828;border-color:#ef9a9a" onclick="pesosZerarLista()" title="Apaga todos os itens da lista de pesos">🗑️ Zerar lista</button>
       <input type="file" id="pesoImportInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarPesos(this)">
     </div>
   </div>
@@ -5297,7 +5298,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 304';
+const APP_BUILD='2026-10-13 · build 305';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17302,6 +17303,7 @@ async function abrirAcoesOrdemPorScan(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
   if(!o){ showToast('Ordem não encontrada','err'); return; }
   if(o.tem_foto_desenho) await _buscarFotoOrdem(ordemId); // já em cache depois da 1ª vez na sessão
+  const _prontoDados=await _prontoCarregar(ordemId);
   const pdv=pdvs.find(p=>p.id===o.pdv_id);
   const temposReaisOrdem=(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao&&t.operacao!=='REPROCESSAR'&&!t.historico_only);
   const tempoAtivo=temposReaisOrdem.find(t=>!t.dt_hr_final);
@@ -17399,6 +17401,8 @@ async function abrirAcoesOrdemPorScan(ordemId){
         ${statusHtml}
 
         ${historicoHtml}
+
+        ${_prontoSecaoHtml(o,_prontoDados)}
 
         <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:16px 0 8px;padding-top:14px;border-top:1px solid #eee">🛠️ O que fazer agora</div>
         ${botoes.join('')}
@@ -22617,6 +22621,107 @@ async function pesoSalvar(){
     pesosPopularClientes();
     renderPesos();
   }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); console.error(e); }
+}
+
+// Apaga TODOS os itens da lista de pesos. Pede confirmação digitando ZERAR, porque não dá para desfazer.
+async function pesosZerarLista(){
+  if(!pesosTabelaOk){ showToast('A tabela de pesos ainda não existe','err'); return; }
+  if(!pesosItens.length){ showToast('A lista já está vazia'); return; }
+  if(!confirm(`Zerar a lista de pesos?\n\nIsso apaga os ${pesosItens.length} itens cadastrados e não pode ser desfeito.\n\nDica: use o botão "📊 Excel" antes para guardar uma cópia.`)) return;
+  const txt=prompt('Para confirmar, digite ZERAR:');
+  if(String(txt||'').trim().toUpperCase()!=='ZERAR'){ showToast('Operação cancelada'); return; }
+  try{
+    await api('DELETE','pesos_itens','',`?id=not.is.null`);
+    pesosItens=[]; pesosPopularClientes(); renderPesos();
+    showToast('Lista de pesos zerada');
+  }catch(e){ showToast('Erro ao zerar a lista: '+(e.message||e),'err',7000); }
+}
+
+// ── Peça pronta (painel do scanner): peso + foto do produto acabado ──
+// O peso entra na lista "Pesos de Itens" (atualiza se a peça já existe para o cliente); peso e foto também ficam na ordem.
+let _prontoColOk=true; const _prontoFotoPend={};
+async function _prontoCarregar(id){
+  const o=ordens.find(x=>x.id===id); if(!o) return {};
+  if(o._pronto) return o._pronto;
+  if(!_prontoColOk) return {};
+  try{ const r=await api('GET','ordens_producao','',`?id=eq.${id}&select=peso_pronto,foto_pronto`); o._pronto=r?.[0]||{}; return o._pronto; }
+  catch(e){ if(/column|does not exist|42703|PGRST204/i.test(String(e.message))) _prontoColOk=false; return {}; }
+}
+function _prontoSecaoHtml(o,p){
+  const pend=_prontoFotoPend[o.id];
+  const foto=pend==='REMOVER'?null:(pend||p.foto_pronto||null);
+  const peso=p.peso_pronto!=null?String(p.peso_pronto).replace('.',','):'';
+  return `<div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:16px 0 8px;padding-top:14px;border-top:1px solid #eee">⚖️ Peça pronta</div>
+    <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:10px">
+      <div style="flex:1"><label style="font-size:12px;color:#546e7a;font-weight:600">Peso (kg)</label>
+        <input type="text" id="pronto_peso" inputmode="decimal" placeholder="0,000" value="${peso}" style="width:100%;padding:12px;border:1px solid #cfd8dc;border-radius:8px;font-size:16px;margin-top:4px"></div>
+    </div>
+    <div style="margin-bottom:10px">
+      ${foto?`<img src="${foto}" onclick="_abrirImagemTelaCheia(this.src)" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;background:#f5f7f5;margin-bottom:8px;cursor:pointer">`:''}
+      <div style="display:flex;gap:8px">
+        <label class="btn" style="flex:1;text-align:center;padding:12px;font-size:14px;cursor:pointer;margin:0">📷 ${foto?'Trocar foto':'Foto do produto pronto'}
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="_prontoEscolherFoto(this,'${o.id}')"></label>
+        ${foto?`<button class="btn" style="padding:12px;color:#c62828;border-color:#ef9a9a" onclick="_prontoRemoverFoto('${o.id}')" title="Remover foto">🗑</button>`:''}
+      </div>
+      ${pend&&pend!=='REMOVER'?'<div style="font-size:11px;color:#ef6c00;margin-top:4px">Foto ainda não salva — toque em "Salvar peso e foto".</div>':''}
+    </div>
+    <button class="btn primary" id="btnProntoSalvar" style="width:100%;padding:14px;font-size:14px;margin-bottom:6px" onclick="_prontoSalvar('${o.id}')">💾 Salvar peso e foto</button>`;
+}
+async function _prontoEscolherFoto(input,id){
+  const f=input.files&&input.files[0]; if(!f) return;
+  try{ _prontoFotoPend[id]=await _comprimirFotoParaBase64(f,1600,0.85); }catch(e){ showToast(e.message||'Não consegui ler a foto','err'); return; }
+  const pesoDigitado=document.getElementById('pronto_peso')?.value||'';
+  await abrirAcoesOrdemPorScan(id);
+  const el=document.getElementById('pronto_peso'); if(el){ el.value=pesoDigitado; try{ el.scrollIntoView({block:'center'}); }catch(e){} }
+}
+async function _prontoRemoverFoto(id){
+  _prontoFotoPend[id]='REMOVER';
+  const pesoDigitado=document.getElementById('pronto_peso')?.value||'';
+  await abrirAcoesOrdemPorScan(id);
+  const el=document.getElementById('pronto_peso'); if(el){ el.value=pesoDigitado; try{ el.scrollIntoView({block:'center'}); }catch(e){} }
+}
+async function _prontoPesoNaLista(o,peso){
+  if(!pesosItens.length){ try{ const r=await pesosCarregarTudo(); if(r){ pesosItens=r; pesosTabelaOk=true; } }catch(e){} }
+  if(!pesosTabelaOk) throw new Error('A tabela de pesos ainda não foi criada (abra a tela Pesos de Itens)');
+  const pdv=pdvs.find(x=>x.id===o.pdv_id);
+  const cliente=(pdv?.cliente||'').trim()||null;
+  const nd=_normDesenho(o.desenho), nc=String(cliente||'').toLowerCase().trim();
+  const existente=pesosItens.find(x=>{
+    const mesmoCli=String(x.cliente||'').toLowerCase().trim()===nc;
+    if(nd) return _normDesenho(x.desenho)===nd && mesmoCli;
+    return mesmoCli && String(x.nome_peca||'').toLowerCase().trim()===String(o.descricao||'').toLowerCase().trim();
+  });
+  if(existente){ await api('PATCH','pesos_itens',{peso},`?id=eq.${existente.id}`); existente.peso=peso; return 'atualizado'; }
+  const res=await api('POST','pesos_itens',{nome_peca:o.descricao||'—',desenho:o.desenho||null,cliente,peso});
+  if(Array.isArray(res)&&res[0]) pesosItens.push(res[0]);
+  return 'incluido';
+}
+async function _prontoSalvar(id){
+  const o=ordens.find(x=>x.id===id); if(!o) return;
+  const txt=(document.getElementById('pronto_peso')?.value||'').trim();
+  const peso=txt?pesosNum(txt):null;
+  if(txt && (peso==null||peso<=0)){ showToast('Peso inválido','err'); return; }
+  const pend=_prontoFotoPend[id];
+  if(peso==null && !pend){ showToast('Informe o peso ou anexe a foto','err'); return; }
+  const btn=document.getElementById('btnProntoSalvar'); if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
+  let avisos=[], msg=[];
+  try{
+    if(peso!=null){
+      try{ const r=await _prontoPesoNaLista(o,peso); msg.push(r==='atualizado'?'peso atualizado na lista':'peso incluído na lista de Pesos de Itens'); }
+      catch(e){ avisos.push('Peso não entrou na lista: '+(e.message||e)); }
+    }
+    const patch={}; if(peso!=null) patch.peso_pronto=peso; if(pend) patch.foto_pronto=pend==='REMOVER'?null:pend;
+    try{
+      await api('PATCH','ordens_producao',patch,`?id=eq.${id}`);
+      o._pronto={...(o._pronto||{}),...patch}; delete _prontoFotoPend[id];
+      if(pend) msg.push(pend==='REMOVER'?'foto removida':'foto salva');
+    }catch(e){
+      avisos.push('Peso/foto não foram guardados na ordem — falta rodar o SQL adicionar_peso_foto_pronto.sql no Supabase.');
+    }
+  }finally{
+    if(avisos.length) showToast('⚠️ '+avisos.join(' · '),'err',9000); else showToast('✅ '+(msg.join(' · ')||'Salvo'));
+    if(document.getElementById('modalAcoesOrdemScan')) abrirAcoesOrdemPorScan(id);
+  }
 }
 
 async function pesoDeletar(id){
