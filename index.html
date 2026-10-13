@@ -5298,7 +5298,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 306';
+const APP_BUILD='2026-10-13 · build 307';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9148,7 +9148,7 @@ function renderOrdens(){
           </div>
           ${o.dt_abertura?`<div style="font-weight:400;font-size:10px;color:#90a4ae;margin-top:2px">📅 ${o.dt_abertura.split('T')[0].split('-').reverse().join('/')}</div>`:''}
         </td>
-        <td onclick="abrirAcoesOrdemPorScan('${o.id}')" title="Abrir resumo da ordem" style="padding:8px 10px;font-size:13px;font-weight:700;color:#1f6b4f;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-color:#a5d6a7;text-underline-offset:3px">${o.desenho||'—'}</td>
+        <td onclick="abrirAcoesOrdemPorScan('${o.id}',true)" title="Abrir resumo da ordem" style="padding:8px 10px;font-size:13px;font-weight:700;color:#1f6b4f;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-color:#a5d6a7;text-underline-offset:3px">${o.desenho||'—'}</td>
         <td style="padding:8px 10px;font-size:12px;color:#37474f;max-width:200px">
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px">
             ${o.descricao||'—'}
@@ -17299,7 +17299,9 @@ ${QRCODE_LIB_SRC}
 // Painel de ações após o scan — mesma lógica de status já usada na tela de
 // Ordens, mas montada aqui de novo porque aquela é uma função local da
 // renderização da tabela.
-async function abrirAcoesOrdemPorScan(ordemId){
+let _osConsulta=false; // true = aberto pelo número do desenho na lista (só consulta + conferência, sem os botões de ação)
+async function abrirAcoesOrdemPorScan(ordemId, consulta){
+  if(consulta!==undefined) _osConsulta=!!consulta; else if(!document.getElementById('modalAcoesOrdemScan')) _osConsulta=false;
   const o=ordens.find(x=>x.id===ordemId);
   if(!o){ showToast('Ordem não encontrada','err'); return; }
   if(o.tem_foto_desenho) await _buscarFotoOrdem(ordemId); // já em cache depois da 1ª vez na sessão
@@ -17337,7 +17339,7 @@ async function abrirAcoesOrdemPorScan(ordemId){
 
   // ---- Histórico — cada passagem já concluída por uma máquina ----
   const historicoHtml = concluidosOrdenados.length ? `
-    <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:14px 0 6px">📋 Histórico</div>
+    <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:14px 0 6px">Histórico de etapas</div>
     <div style="max-height:160px;overflow-y:auto;border:1px solid #eee;border-radius:10px">
       ${concluidosOrdenados.map(t=>`
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid #f4f4f4;font-size:12px">
@@ -17360,8 +17362,8 @@ async function abrirAcoesOrdemPorScan(ordemId){
     botoes.push(`<button class="btn primary" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px" onclick="fecharModal('modalAcoesOrdemScan');abrirFinalizarOp('${tempoAtivo.id}')">✅ Concluir etapa em andamento (${tempoAtivo.operacao})</button>`);
     botoes.push(`<button class="btn" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px" onclick="fecharModal('modalAcoesOrdemScan');pausarEtapaOrdem('${tempoAtivo.id}')">⏸ Pausar (voltar para Aguardando)</button>`);
   } else if(!concluida){
-    botoes.push(`<div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:4px 0 8px">Iniciar operação</div>`);
-    botoes.push(`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">${OPERACOES_PROD.map(op=>`<button class="btn" style="flex:1 1 45%;padding:12px 6px;font-size:13px" onclick="fecharModal('modalAcoesOrdemScan');abrirRegistrarTempoDireto('${o.id}','${op.replace(/'/g,"\\'")}',true)">⏱️ ${op}</button>`).join('')}</div>`);
+    botoes.push(`<div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:0 0 8px">Iniciar operação</div>`);
+    botoes.push(`<div class="os-ops">${OPERACOES_PROD.map(op=>`<button class="btn" style="padding:12px 6px;font-size:13px" onclick="fecharModal('modalAcoesOrdemScan');abrirRegistrarTempoDireto('${o.id}','${op.replace(/'/g,"\\'")}',true)">⏱️ ${op}</button>`).join('')}</div>`);
     botoes.push(`<button class="btn" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="fecharModal('modalAcoesOrdemScan');terceirizarOrdem('${o.id}');_tercVoltaParaScan='${o.id}';">🚚 Enviar para terceirizado</button>`);
   }
   if(concluida){
@@ -17377,35 +17379,58 @@ async function abrirAcoesOrdemPorScan(ordemId){
   modal.id='modalAcoesOrdemScan';
   modal.className='modal-bg';
   modal.style.cssText='display:flex;align-items:center;justify-content:center;z-index:900';
+  if(!document.getElementById('os-scan-css')){
+    const st=document.createElement('style'); st.id='os-scan-css';
+    st.textContent=`#modalAcoesOrdemScan .os-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;grid-template-areas:"id" "acoes" "pronto"}
+#modalAcoesOrdemScan .os-id{grid-area:id;display:flex;flex-direction:column;gap:14px;min-width:0}
+#modalAcoesOrdemScan .os-pronto{grid-area:pronto}
+#modalAcoesOrdemScan .os-acoes{grid-area:acoes}
+@media(min-width:900px){
+  #modalAcoesOrdemScan .os-modal{width:min(1060px,94vw)!important;max-height:90vh!important}
+  #modalAcoesOrdemScan .os-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-areas:"id acoes" "id pronto";grid-template-rows:auto 1fr;align-items:start;gap:16px 20px}
+}
+@media(min-width:900px){ #modalAcoesOrdemScan .os-grid.os-consulta{grid-template-areas:"id pronto";grid-template-rows:auto} }
+#modalAcoesOrdemScan .os-card{border:1px solid #e3e8e5;border-radius:12px;padding:14px 16px;background:#fff}
+#modalAcoesOrdemScan .os-h{font-size:11px;letter-spacing:.6px;color:#607d8b;font-weight:700;text-transform:uppercase;margin-bottom:8px}
+#modalAcoesOrdemScan .os-ops{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:10px}
+#modalAcoesOrdemScan .os-acoes .btn{margin-bottom:8px}`;
+    document.head.appendChild(st);
+  }
   modal.innerHTML=`
-    <div class="modal" style="width:440px;max-width:96vw;max-height:80vh !important;max-height:80svh !important;overflow-y:auto !important;-webkit-overflow-scrolling:touch">
+    <div class="modal os-modal" style="width:440px;max-width:96vw;max-height:88vh !important;overflow-y:auto !important;-webkit-overflow-scrolling:touch">
       <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
         <h3 style="margin:0;font-size:17px">Ordem Nº ${o.numero}</h3>
         <button class="modal-header-btn" onclick="fecharModal('modalAcoesOrdemScan')">✕</button>
       </div>
-      <div style="padding:16px 18px calc(28px + env(safe-area-inset-bottom, 0px))">
-        <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:4px">📍 PDV</div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:2px">${pdv?rotuloPDV(pdv,true):'—'}</div>
-        <div style="font-size:12px;color:var(--gray);margin-bottom:14px">${pdv?.equipamento||''}</div>
-
-        <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:4px">📦 Peça</div>
-        <div style="font-size:15px;font-weight:700;margin-bottom:2px">${o.descricao||'—'}</div>
-        <div style="font-size:12px;color:var(--gray);margin-bottom:8px">${[o.desenho?'Desenho '+o.desenho:null,o.material,o.quantidade?'Qtd '+o.quantidade:null].filter(Boolean).join(' · ')||'—'}</div>
-        ${o.tem_foto_desenho
-          ? (_ehPdfBase64(o.foto_desenho)
-              ? `<button class="btn" style="width:100%;margin-bottom:14px" onclick="abrirFotoOrdem('${o.id}')">📄 Ver PDF do desenho</button>`
-              : `<img src="${o.foto_desenho}" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;background:#f5f7f5;cursor:pointer;margin-bottom:14px" onclick="abrirFotoOrdem('${o.id}')" title="Toque para ver em tela cheia">`)
-          : `<button class="btn" style="width:100%;margin-bottom:14px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="abrirFotoOrdem('${o.id}')">⚠️📷 Anexar foto do desenho</button>`}
-
-        <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:4px">🧭 Onde ela está</div>
-        ${statusHtml}
-
-        ${historicoHtml}
-
-        ${_prontoSecaoHtml(o,_prontoDados)}
-
-        <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:16px 0 8px;padding-top:14px;border-top:1px solid #eee">🛠️ O que fazer agora</div>
-        ${botoes.join('')}
+      <div style="padding:16px 18px calc(24px + env(safe-area-inset-bottom, 0px))">
+        <div class="os-grid${_osConsulta?' os-consulta':''}">
+          <div class="os-id">
+            <div class="os-card">
+              <div class="os-h">Identificação</div>
+              <div style="font-size:12px;color:var(--gray)">PDV</div>
+              <div style="font-size:14px;font-weight:600">${pdv?rotuloPDV(pdv,true):'—'}</div>
+              <div style="font-size:12px;color:var(--gray);margin-bottom:12px">${pdv?.equipamento||''}</div>
+              <div style="font-size:12px;color:var(--gray)">Peça</div>
+              <div style="font-size:16px;font-weight:700;margin-bottom:2px">${o.descricao||'—'}</div>
+              <div style="font-size:12px;color:var(--gray);margin-bottom:10px">${[o.desenho?'Desenho '+o.desenho:null,o.material,o.quantidade?'Qtd '+o.quantidade:null].filter(Boolean).join(' · ')||'—'}</div>
+              ${o.tem_foto_desenho
+                ? (_ehPdfBase64(o.foto_desenho)
+                    ? `<button class="btn" style="width:100%" onclick="abrirFotoOrdem('${o.id}')">📄 Ver PDF do desenho</button>`
+                    : `<img src="${o.foto_desenho}" style="width:100%;max-height:260px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;background:#f5f7f5;cursor:pointer" onclick="abrirFotoOrdem('${o.id}')" title="Clique para ver em tela cheia">`)
+                : `<button class="btn" style="width:100%;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="abrirFotoOrdem('${o.id}')">Anexar foto do desenho</button>`}
+            </div>
+            <div class="os-card">
+              <div class="os-h">Situação atual</div>
+              ${statusHtml}
+              ${historicoHtml}
+            </div>
+          </div>
+          <div class="os-pronto">${_prontoSecaoHtml(o,_prontoDados)}</div>
+          ${_osConsulta?'':`<div class="os-acoes os-card">
+            <div class="os-h">Ações</div>
+            ${botoes.join('')}
+          </div>`}
+        </div>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -22651,21 +22676,36 @@ function _prontoSecaoHtml(o,p){
   const pend=_prontoFotoPend[o.id];
   const foto=pend==='REMOVER'?null:(pend||p.foto_pronto||null);
   const peso=p.peso_pronto!=null?String(p.peso_pronto).replace('.',','):'';
-  return `<div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:16px 0 8px;padding-top:14px;border-top:1px solid #eee">⚖️ Peça pronta</div>
-    <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:10px">
-      <div style="flex:1"><label style="font-size:12px;color:#546e7a;font-weight:600">Peso (kg)</label>
-        <input type="text" id="pronto_peso" inputmode="decimal" placeholder="0,000" value="${peso}" style="width:100%;padding:12px;border:1px solid #cfd8dc;border-radius:8px;font-size:16px;margin-top:4px"></div>
+  const registrado=p.peso_pronto!=null||!!p.foto_pronto;
+  return `<div class="os-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="os-h" style="margin:0">Conferência da peça pronta</div>
+      ${registrado?'<span style="font-size:10px;font-weight:700;color:#2e7d32;background:#e8f5e9;border-radius:10px;padding:2px 8px">Registrada</span>':'<span style="font-size:10px;font-weight:700;color:#78909c;background:#eceff1;border-radius:10px;padding:2px 8px">Pendente</span>'}
     </div>
-    <div style="margin-bottom:10px">
-      ${foto?`<img src="${foto}" onclick="_abrirImagemTelaCheia(this.src)" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;background:#f5f7f5;margin-bottom:8px;cursor:pointer">`:''}
-      <div style="display:flex;gap:8px">
-        <label class="btn" style="flex:1;text-align:center;padding:12px;font-size:14px;cursor:pointer;margin:0">📷 ${foto?'Trocar foto':'Foto do produto pronto'}
-          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="_prontoEscolherFoto(this,'${o.id}')"></label>
-        ${foto?`<button class="btn" style="padding:12px;color:#c62828;border-color:#ef9a9a" onclick="_prontoRemoverFoto('${o.id}')" title="Remover foto">🗑</button>`:''}
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start">
+      <div>
+        <label style="font-size:12px;color:#546e7a;font-weight:600">Peso da peça (kg)</label>
+        <div style="position:relative;margin-top:4px">
+          <input type="text" id="pronto_peso" inputmode="decimal" placeholder="0,000" value="${peso}" style="width:100%;padding:11px 38px 11px 12px;border:1px solid #cfd8dc;border-radius:8px;font-size:16px;font-weight:600;text-align:right">
+          <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#90a4ae;pointer-events:none">kg</span>
+        </div>
+        <div style="font-size:11px;color:#90a4ae;margin-top:6px;line-height:1.35">O peso informado é incluído na lista de Pesos de Itens (cliente e desenho desta ordem).</div>
       </div>
-      ${pend&&pend!=='REMOVER'?'<div style="font-size:11px;color:#ef6c00;margin-top:4px">Foto ainda não salva — toque em "Salvar peso e foto".</div>':''}
+      <div>
+        <div style="font-size:12px;color:#546e7a;font-weight:600;margin-bottom:4px">Registro fotográfico</div>
+        ${foto
+          ? `<img src="${foto}" onclick="_abrirImagemTelaCheia(this.src)" title="Clique para ampliar" style="width:100%;height:96px;object-fit:cover;border-radius:8px;border:1px solid #cfd8dc;cursor:pointer">`
+          : `<div style="height:96px;border:1px dashed #b0bec5;border-radius:8px;background:#fafbfa;display:flex;align-items:center;justify-content:center;font-size:11px;color:#90a4ae;text-align:center;padding:6px">Nenhuma foto anexada</div>`}
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <label class="btn btn-sm" style="flex:1;text-align:center;cursor:pointer;margin:0;font-size:12px">${foto?'Substituir':'Anexar foto'}
+            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="_prontoEscolherFoto(this,'${o.id}')"></label>
+          ${foto?`<button class="btn btn-sm" style="color:#c62828;border-color:#ef9a9a;font-size:12px" onclick="_prontoRemoverFoto('${o.id}')">Remover</button>`:''}
+        </div>
+        ${pend&&pend!=='REMOVER'?'<div style="font-size:11px;color:#ef6c00;margin-top:4px">Foto ainda não registrada.</div>':''}
+      </div>
     </div>
-    <button class="btn primary" id="btnProntoSalvar" style="width:100%;padding:14px;font-size:14px;margin-bottom:6px" onclick="_prontoSalvar('${o.id}')">💾 Salvar peso e foto</button>`;
+    <button class="btn primary" id="btnProntoSalvar" style="width:100%;margin-top:12px;padding:11px;font-size:13px" onclick="_prontoSalvar('${o.id}')">Registrar conferência</button>
+  </div>`;
 }
 async function _prontoEscolherFoto(input,id){
   const f=input.files&&input.files[0]; if(!f) return;
@@ -22702,7 +22742,7 @@ async function _prontoSalvar(id){
   const peso=txt?pesosNum(txt):null;
   if(txt && (peso==null||peso<=0)){ showToast('Peso inválido','err'); return; }
   const pend=_prontoFotoPend[id];
-  if(peso==null && !pend){ showToast('Informe o peso ou anexe a foto','err'); return; }
+  if(peso==null && !pend){ showToast('Informe o peso ou anexe a foto da peça','err'); return; }
   const btn=document.getElementById('btnProntoSalvar'); if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
   let avisos=[], msg=[];
   try{
