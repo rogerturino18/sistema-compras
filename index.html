@@ -5337,7 +5337,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 323';
+const APP_BUILD='2026-10-14 · build 324';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18693,8 +18693,15 @@ function renderMovEstoque(){
 
   if(!lista.length){tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:24px;color:#bdbdbd">Nenhuma movimentação encontrada</td></tr>`;return;}
 
+  // Mostra só uma parte por vez (a tela com milhares de linhas pesava no navegador).
+  const _assin=[busca,filtTipo,filtDepto,filtDtDe,filtDtAte].join('|');
+  if(_assin!==_movAssinatura){ _movAssinatura=_assin; _movLimite=100; }
+  const _totalLista=lista.length;
+  lista=lista.slice(0,_movLimite);
+  const _itensPorId=new Map(estoqueItens.map(i=>[i.id,i]));
+
   tbody.innerHTML=lista.map(m=>{
-    const item=estoqueItens.find(i=>i.id===m.item_id);
+    const item=_itensPorId.get(m.item_id);
     const nome=item?.tipo_peca||item?.descricao||'Item removido';
     const mat=item?.material||'—';
     const dt=(m.data||m.created_at||'').substring(0,10);
@@ -18725,8 +18732,11 @@ function renderMovEstoque(){
         <button class="btn btn-sm danger" onclick="excluirMov('${m.id}')" title="Excluir movimentação">🗑</button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + (_totalLista>_movLimite
+    ? `<tr><td colspan="10" style="text-align:center;padding:14px"><button class="btn" onclick="_movLimite+=100;renderMovEstoque()">Mostrar mais 100 (exibindo ${_movLimite} de ${_totalLista})</button></td></tr>`
+    : `<tr><td colspan="10" style="text-align:center;padding:10px;color:#9e9e9e;font-size:11px">${_totalLista} movimentação(ões)</td></tr>`);
 }
+let _movLimite=100, _movAssinatura='';
 
 function limparFiltrosMov(){
   ['buscaMov','filtroMovDtDe','filtroMovDtAte'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
