@@ -4930,6 +4930,25 @@ function _perfRegistrarApi(tabela, ms, kb, rows, erro){
   t.n++; t.totalMs+=ms; t.ultMs=ms; if(ms>t.maxMs) t.maxMs=ms;
   if(erro){ t.erros++; } else { t.kb=kb; if(rows!=null) t.rows=rows; }
 }
+// ── Recarga inteligente após salvar ──
+// Registra quais tabelas receberam gravação (POST/PATCH/DELETE, inclusive chamadas diretas) para que o
+// loadAll() seguinte baixe só essas, em vez das ~32 tabelas inteiras (cada salvar custava 2-3 s no celular).
+const _tabsEscritas = new Set(); let _escritaFora = false;
+(function(){
+  try{
+    const f0=window.fetch.bind(window); const base=SB_URL+'/rest/v1/';
+    window.fetch=function(input,init){
+      try{
+        const m=String((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+        if(m!=='GET'&&m!=='HEAD'){
+          const u=typeof input==='string'?input:(input&&input.url)||'';
+          if(u.startsWith(base)){ const t=u.slice(base.length).split('?')[0]; if(t.startsWith('rpc/')) _escritaFora=true; else _tabsEscritas.add(t); }
+        }
+      }catch(e){}
+      return f0(input,init);
+    };
+  }catch(e){}
+})();
 let _sbRealtimeCanal = null;
 let _realtimeReloadTimer = null;
 let _realtimeTentativas = 0;
@@ -5318,7 +5337,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 320';
+const APP_BUILD='2026-10-14 · build 321';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5598,6 +5617,14 @@ let _loadAllTentativas = 0; // conta tentativas seguidas com falha, pra não fic
 // de novo; as demais mantêm o que já está na tela. Sem argumento, baixa tudo (login, F5, salvar...).
 let _ultCargaCompleta = 0;
 async function loadAll(silencioso, tabelas){
+  // Chamada comum (sem lista de tabelas) logo depois de gravar: baixa só o que mudou. Sem gravação registrada,
+  // ou com tabela/RPC fora da lista conhecida, ou se a última carga completa passou de 5 min → carga completa (como antes).
+  if(!(tabelas instanceof Set)){
+    const esc=[..._tabsEscritas]; const fora=_escritaFora; _tabsEscritas.clear(); _escritaFora=false;
+    if(esc.length && !fora && esc.every(t=>_RT_TABELAS_CONHECIDAS.has(t)) && (Date.now()-_ultCargaCompleta<300000)){
+      tabelas=new Set(esc); if(tabelas.has('ordens_producao')) tabelas.add('ordens_producao_lista');
+    }
+  }
   const _deve = nome => !(tabelas instanceof Set) || tabelas.has(nome);
   if(!(tabelas instanceof Set)) _ultCargaCompleta = Date.now();
   if(silencioso) _cargaSilenciosaAtiva = true;
