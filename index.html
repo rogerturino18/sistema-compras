@@ -813,6 +813,8 @@ body{padding-top:70px}
   transform:scale(0.96);
 }
 .mob-nav-btn .mob-icon{font-size:22px;line-height:1}
+.mob-nav-btn{flex:1 1 0;min-width:0!important;padding:4px 0!important;font-size:9px!important;letter-spacing:0!important;text-transform:none!important;text-align:center}
+#mobileNav{padding:0 2px!important}
 
 /* ===== ESTRUTURA INTERNA — NAVEGAÇÃO PROFISSIONAL =====
    Reorganiza visualmente o aplicativo inteiro; não altera cliques nem dados. */
@@ -5306,7 +5308,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-13 · build 313';
+const APP_BUILD='2026-10-14 · build 314';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -16429,7 +16431,7 @@ function aplicarPermissoes(){
   // Antes esse botão só sumia por falta de permissão — nunca por estar na lista
   // de ocultos, então o admin (que "vê tudo") continuava vendo Financeiro no
   // celular mesmo depois de pedir pra ocultar o módulo.
-  const mobOcultosMap={'financeiro':'mobnav_fin'};
+  const mobOcultosMap={'financeiro':'mobnav_fin','expedicao':'mobnav_exp'};
   Object.entries(mobOcultosMap).forEach(([g,btnId])=>{
     if(moduloOculto(g)){
       const btn=document.getElementById(btnId);
@@ -16479,7 +16481,7 @@ function aplicarPermissoes(){
   });
 
   // 4. Oculta/mostra botões da barra de navegação mobile (mobnav_*)
-  const mobMapPerm={'compras':'mobnav_comp','projetos':'mobnav_comp','producao':'mobnav_prod','vendas':'mobnav_vend','estoque':'mobnav_est','financeiro':'mobnav_fin'};
+  const mobMapPerm={'compras':'mobnav_comp','projetos':'mobnav_comp','producao':'mobnav_prod','vendas':'mobnav_vend','estoque':'mobnav_est','financeiro':'mobnav_fin','expedicao':'mobnav_exp'};
   Object.entries(mobMapPerm).forEach(([g,btnId])=>{
     const btn=document.getElementById(btnId);
     if(!btn) return;
@@ -16713,18 +16715,24 @@ let _modalZ=200;
 // do modal em vez de rolar o próprio modal (dava pra ver o dashboard rolando
 // atrás enquanto o modal ficava parado, sem chegar nos botões de baixo).
 let _modaisAbertosCount = 0;
-function _travarScrollFundo(){
-  _modaisAbertosCount++;
-  document.body.style.overflow='hidden';
-  document.documentElement.style.overflow='hidden';
+// O travamento é DERIVADO do que está aberto na tela (qualquer .modal-bg.open), e não de um
+// contador de aberturas/fechamentos. Com contador, um modal removido do HTML sem passar por
+// fecharModal (ou aberto duas vezes) deixava a rolagem travada para sempre no celular.
+function _sincronizarScrollFundo(){
+  const aberto=[...document.querySelectorAll('.modal-bg.open')].some(m=>m.getClientRects().length>0);
+  _modaisAbertosCount = aberto?1:0;
+  document.body.style.overflow = aberto?'hidden':'';
+  document.documentElement.style.overflow = aberto?'hidden':'';
 }
-function _destravarScrollFundo(){
-  _modaisAbertosCount = Math.max(0, _modaisAbertosCount-1);
-  if(_modaisAbertosCount===0){
-    document.body.style.overflow='';
-    document.documentElement.style.overflow='';
-  }
-}
+function _travarScrollFundo(){ _sincronizarScrollFundo(); }
+function _destravarScrollFundo(){ _sincronizarScrollFundo(); }
+(function(){
+  let t=null;
+  const agendar=()=>{ if(t) return; t=requestAnimationFrame(()=>{ t=null; _sincronizarScrollFundo(); }); };
+  const iniciar=()=>{ new MutationObserver(agendar).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']}); };
+  if(document.body) iniciar(); else document.addEventListener('DOMContentLoaded',iniciar);
+  document.addEventListener('visibilitychange',agendar);
+})();
 
 function abrirModal(id){
   const m=document.getElementById(id);
@@ -16960,7 +16968,7 @@ function sbToggle(group){
   var ico=document.getElementById('sbico_'+group);
   if(ico){ico.style.background='#2e7d32';ico.style.color='#fff';}
   // Highlight mobile nav button
-  var mobMap={'compras':'mobnav_comp','projetos':'mobnav_comp','producao':'mobnav_prod','vendas':'mobnav_vend','estoque':'mobnav_est','financeiro':'mobnav_fin'};
+  var mobMap={'compras':'mobnav_comp','projetos':'mobnav_comp','producao':'mobnav_prod','vendas':'mobnav_vend','estoque':'mobnav_est','financeiro':'mobnav_fin','expedicao':'mobnav_exp'};
   var mobBtn=document.getElementById(mobMap[group]||'');
   if(mobBtn) mobBtn.classList.add('active');
   sbAgendarRecolhimento(group);
@@ -28466,6 +28474,9 @@ function salvarConfigNFe(){
   </div>
   <div class="mob-nav-btn" id="mobnav_vend" onclick="sbToggle('vendas')">
     <span class="mob-icon">🧾</span><span>Vendas</span>
+  </div>
+  <div class="mob-nav-btn" id="mobnav_exp" onclick="sbToggle('expedicao')">
+    <span class="mob-icon">🚛</span><span>Expedição</span>
   </div>
   <div class="mob-nav-btn" id="mobnav_fin" onclick="sbToggle('financeiro')">
     <span class="mob-icon">💰</span><span>Financeiro</span>
