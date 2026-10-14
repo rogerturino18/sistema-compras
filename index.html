@@ -5308,7 +5308,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 314';
+const APP_BUILD='2026-10-14 · build 315';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12435,7 +12435,7 @@ async function imprimirFichaProduto(id){
       table.itens th,table.itens td{ padding:5px 5px; font-size:10px; }
       .assin{ flex-direction:column; gap:26px; }
     }
-    @media print{ html,body{ background:#fff; } .folha{ margin:0; padding:14mm 12mm; box-shadow:none; border-radius:0; max-width:none; width:100%; } }
+    @media print{ html,body{ background:#fff; } .folha{ margin:0; padding:10mm 10mm; box-shadow:none; border-radius:0; max-width:none; width:100%; } .fotoBox .area{ min-height:40mm; } .secao-titulo{ margin:12px 0 6px; } .cabecalho{ margin-bottom:10px; padding-bottom:10px; } .assin{ margin-top:22px; } .rodape{ margin-top:12px; } }
   </style></head><body><div class="folha">
     <div class="cabecalho">
       <div class="marca">
@@ -12489,7 +12489,19 @@ async function imprimirFichaProduto(id){
   const w=window.open('','_blank');
   if(!w){ showToast('O navegador bloqueou a janela da ficha. Libere pop-ups para este site.','err',7000); return; }
   w.document.write(html); w.document.close();
-  const imprimir=()=>{ try{ w.print(); }catch(e){} };
+  // Garante UMA página A4: mede o conteúdo na largura útil da folha e, se passar da altura, reduz a escala só na impressão.
+  const ajustar=()=>{ try{
+    const d=w.document, f=d.querySelector('.folha'); if(!f) return;
+    let z=d.getElementById('zmFicha'); if(!z){ z=d.createElement('style'); z.id='zmFicha'; d.head.appendChild(z); }
+    z.textContent='';
+    const ant=f.getAttribute('style')||'';
+    f.setAttribute('style','width:190mm;max-width:none;margin:0;padding:0;box-shadow:none;position:absolute;left:-9999px;top:0');
+    const h=f.scrollHeight; f.setAttribute('style',ant);
+    const alvo=(297-20)*96/25.4;
+    if(h>alvo){ const k=Math.floor(alvo/h*98)/100; z.textContent='@media print{.folha{zoom:'+k+'}}'; }
+  }catch(e){} };
+  try{ w.addEventListener('beforeprint',ajustar); }catch(e){}
+  const imprimir=()=>{ ajustar(); try{ w.print(); }catch(e){} };
   const imgs=[...w.document.images].filter(i=>!i.complete);
   if(!imgs.length) setTimeout(imprimir,300);
   else { let n=imgs.length, ok=false; const go=()=>{ if(ok) return; ok=true; imprimir(); }; imgs.forEach(i=>{ i.onload=i.onerror=()=>{ if(--n<=0) go(); }; }); setTimeout(go,2500); }
