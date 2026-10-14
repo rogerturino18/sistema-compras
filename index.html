@@ -3922,7 +3922,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 <div class="modal-bg" id="modalTerceirizar">
   <div class="modal" style="max-width:480px;width:95vw">
     <div class="modal-header">
-      <h3>🚚 Enviar para Terceirizado</h3>
+      <h3 id="terc_titulo">🚚 Enviar para Terceirizado</h3>
       <div class="modal-header-actions">
         <button class="modal-header-btn" onclick="fecharModal('modalTerceirizar')">✕</button>
       </div>
@@ -3947,6 +3947,10 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
           <input type="date" id="terc_data">
         </div>
         <div class="form-group">
+          <label>Data de Retorno</label>
+          <input type="date" id="terc_retorno">
+        </div>
+        <div class="form-group full">
           <label>Prazo estimado (dias)</label>
           <input type="number" id="terc_prazo" placeholder="Ex: 5" min="1">
         </div>
@@ -3959,9 +3963,11 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div id="terc_apagar_hist_wrap" style="display:none;padding:0 22px 8px">
       <button class="btn" onclick="apagarHistoricoTerceirizado()" style="width:100%;color:#c62828;border-color:#ef9a9a;background:#fff5f5;font-weight:700">🗑️ Excluir histórico de terceirizado desta ordem</button>
     </div>
-    <div class="modal-actions" style="padding:0 22px 22px">
+    <div class="modal-actions" style="padding:0 22px 22px;flex-wrap:wrap;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="fecharModal('modalTerceirizar')">Cancelar</button>
-      <button class="btn primary" style="background:#e65100;border-color:#e65100" onclick="confirmarTerceirizar()">🚚 Enviar para Terceirizado</button>
+      <button class="btn" id="terc_btn_reenviar" style="display:none;color:#e65100;border-color:#ffcc80;background:#fff3e0;font-weight:700" onclick="tercEnviarNovamente()">🚚 Enviar novamente</button>
+      <button class="btn primary" id="terc_btn_salvar" style="display:none;background:#2e7d32;border-color:#2e7d32" onclick="salvarEdicaoTerceirizado()">💾 Salvar alterações</button>
+      <button class="btn primary" id="terc_btn_enviar" style="background:#e65100;border-color:#e65100" onclick="confirmarTerceirizar()">🚚 Enviar para Terceirizado</button>
     </div>
   </div>
 </div>
@@ -5308,7 +5314,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 318';
+const APP_BUILD='2026-10-14 · build 319';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21534,6 +21540,7 @@ window.addEventListener('unhandledrejection', function(e){
 let _tercOrdemId = null;
 let ordemEnviosTerc=[]; let _tercEnviosOk=true; // envios parciais (tabela ordem_envios_terc)
 let _tercDividir=false;
+let _tercModoEdicao=false, _tercEdicaoDividida=false;
 
 let _tercVoltaParaScan=null; // se veio do painel do scanner de QR, guarda o id da ordem pra reabrir o painel depois de confirmar
 function terceirizarOrdem(id){
@@ -21567,14 +21574,21 @@ function terceirizarOrdem(id){
   tercToggleDividir(false);
   const _lb0=document.getElementById('terc_nome_label'); if(_lb0) _lb0.textContent='Nome do Terceirizado *';
   if(infoEl && (Number(o.quantidade)||0)>0) infoEl.innerHTML += ` <span style="font-weight:700">· ${o.quantidade} peça(s)</span>`;
-  // Histórico do envio anterior (quando a ordem já passou por terceirizado): quem, quando saiu, quando voltou, dias, prazo e serviço
-  if(infoEl){
-    const _bd=d=>d?new Date(String(d).slice(0,10)+'T12:00').toLocaleDateString('pt-BR'):'—';
-    const _ps=_tercPassagens(o);
-    if(_ps.length) infoEl.innerHTML += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #ffcc80;font-weight:400;color:#37474f">
-      <div style="font-size:11px;font-weight:700;color:#e65100;text-transform:uppercase;margin-bottom:4px">${o.status==='terceirizado'?'Envio em andamento':'Último envio'}</div>
-      ${_ps.map(x=>`<div style="font-size:12px;margin-bottom:4px"><b>${x.nome||'—'}</b>${x.qtd?' ('+x.qtd+' un)':''} · enviado ${_bd(x.envio)} · ${x.emAndamento?'<b style="color:#e65100">ainda não voltou</b>':'<b style="color:#2e7d32">voltou em '+_bd(x.retorno)+'</b>'}${x.dias!=null?' · '+x.dias+' dia'+(x.dias===1?'':'s'):''}${x.prazo?' · prazo '+x.prazo+' d':''}${x.obs?'<br><span style="color:#78909c">Serviço: '+String(x.obs).replace(/</g,'&lt;')+'</span>':''}</div>`).join('')}
-    </div>`;
+  // Ordem que já passou por terceirizado e não está lá agora: a janela serve para CORRIGIR as datas (envio/retorno), prazo e serviço.
+  const _passT=_tercPassagens(o);
+  const _edicao=o.status!=='terceirizado' && !!(o.terceirizado_nome||o.terceirizado_data);
+  _tercModoEdicao=_edicao; _tercEdicaoDividida=_passT.length>=2;
+  const _d10=v=>v?String(v).slice(0,10):'';
+  const _show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  const _tt=document.getElementById('terc_titulo'); if(_tt) _tt.textContent=_edicao?'🚚 Dados do terceirizado':'🚚 Enviar para Terceirizado';
+  _show('terc_btn_enviar',!_edicao); _show('terc_btn_salvar',_edicao); _show('terc_btn_reenviar',_edicao&&!_tercEdicaoDividida);
+  const _rt=document.getElementById('terc_retorno');
+  if(_rt){ _rt.disabled=!_edicao; _rt.value=_edicao?_d10(o.terceirizado_retorno):''; }
+  document.getElementById('terc_prazo').value=_edicao?(o.terceirizado_prazo||''):'';
+  if(_edicao){
+    document.getElementById('terc_data').value=_d10(o.terceirizado_data)||hoje();
+    _show('terc_modo_wrap',false);
+    if(_tercEdicaoDividida){ document.getElementById('terc_nome_wrap').innerHTML=`<div style="padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;font-size:13px">${o.terceirizado_nome}</div><div style="font-size:11px;color:var(--gray);margin-top:4px">Ordem dividida: as datas valem para todos os terceirizados.</div>`; }
   }
   abrirModal('modalTerceirizar');
 }
@@ -21635,6 +21649,37 @@ async function _tercSalvarEnvios(ordemId, linhas, data, prazo, obs){
   }catch(e){ console.warn('[envios terc]',e.message); showToast('⚠️ A ordem foi enviada, mas o detalhe por terceirizado não foi salvo (rode o SQL criar_envios_terceirizados).','err',8000); }
 }
 
+async function salvarEdicaoTerceirizado(){
+  const o=ordens.find(x=>x.id===_tercOrdemId); if(!o) return;
+  const envio=document.getElementById('terc_data').value;
+  const retorno=document.getElementById('terc_retorno').value||null;
+  const obs=document.getElementById('terc_obs').value.trim()||null;
+  const prazo=parseInt(document.getElementById('terc_prazo').value)||null;
+  if(!envio){ showToast('Informe a data de envio','err'); return; }
+  if(retorno && retorno<envio){ showToast('A data de retorno não pode ser anterior à data de envio','err'); return; }
+  const patch={terceirizado_data:envio,terceirizado_retorno:retorno,terceirizado_prazo:prazo,terceirizado_obs:obs};
+  if(!_tercEdicaoDividida){
+    const nome=document.getElementById('terc_nome')?.value.trim();
+    if(!nome){ showToast('Informe o nome do terceirizado','err'); return; }
+    patch.terceirizado_nome=nome;
+  }
+  try{
+    await api('PATCH','ordens_producao',patch,`?id=eq.${_tercOrdemId}`);
+    if(_tercEnviosOk && (ordemEnviosTerc||[]).some(e=>String(e.ordem_id)===String(_tercOrdemId))){
+      await api('PATCH','ordem_envios_terc',{data_envio:envio,data_retorno:retorno,prazo_dias:prazo,obs:obs},`?ordem_id=eq.${_tercOrdemId}`).catch(e=>console.warn(e));
+    }
+    fecharModal('modalTerceirizar');
+    await loadAll(); renderOrdens();
+    showToast('Dados do terceirizado atualizados');
+    if(_tercVoltaParaScan){ const id=_tercVoltaParaScan; _tercVoltaParaScan=null; abrirAcoesOrdemPorScan(id); }
+  }catch(e){ console.error(e); showToast('❌ Erro ao salvar: '+(e.message||e),'err',6000); }
+}
+function tercEnviarNovamente(){
+  document.getElementById('terc_data').value=hoje();
+  document.getElementById('terc_retorno').value='';
+  confirmarTerceirizar();
+}
+
 async function confirmarTerceirizar(){
   let nome = _tercDividir ? '' : document.getElementById('terc_nome').value.trim();
   const data = document.getElementById('terc_data').value;
@@ -21661,7 +21706,8 @@ async function confirmarTerceirizar(){
       terceirizado_nome = '${nome.replace(/'/g,"''")}',
       terceirizado_data = '${data}',
       terceirizado_obs  = ${obs?`'${obs.replace(/'/g,"''")}'`:'NULL'},
-      terceirizado_prazo = ${prazo||'NULL'}
+      terceirizado_prazo = ${prazo||'NULL'},
+      terceirizado_retorno = NULL
     WHERE id = '${_tercOrdemId}'
   `;
 
@@ -21678,7 +21724,7 @@ async function confirmarTerceirizar(){
       const r2 = await fetch(`${SB_URL}/rest/v1/ordens_producao?id=eq.${_tercOrdemId}`,{
         method:'PATCH',
         headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},
-        body: JSON.stringify({status:'terceirizado',terceirizado_nome:nome,terceirizado_data:data,terceirizado_obs:obs||null,terceirizado_prazo:prazo})
+        body: JSON.stringify({status:'terceirizado',terceirizado_nome:nome,terceirizado_data:data,terceirizado_obs:obs||null,terceirizado_prazo:prazo,terceirizado_retorno:null})
       });
       if(!r2.ok){
         const errText = await r2.text();
