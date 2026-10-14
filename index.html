@@ -5308,7 +5308,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 315';
+const APP_BUILD='2026-10-14 · build 316';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9208,6 +9208,7 @@ function renderOrdens(){
           ${badgeEtapaMobile(o)}
           <div style="display:flex;gap:4px">
             ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado">✅</button>`:''}
+            ${st==='concluido'?`<button class="btn btn-sm" style="background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="reverterOrdemConcluida('${o.id}')" title="Reverter conclusão">↩️</button>`:''}
             <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
             <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" title="Imprimir">🖨️</button>
             <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" title="Excluir">🗑</button>
@@ -11636,7 +11637,7 @@ async function reverterOrdemConcluida(id, voltaPainel){
     await api('PATCH','ordens_producao',{status:'aguardando',concluido_por:null,concluido_em:null,observacao:obs||null},`?id=eq.${o.id}`);
     showToast('Conclusão revertida — ordem em produção novamente');
     await loadAll(true);
-    if(voltaPainel) abrirAcoesOrdemPorScan(id);
+    if(voltaPainel) abrirAcoesOrdemPorScan(id,false);
   }catch(e){ showToast('Não foi possível reverter a conclusão','err'); }
 }
 
@@ -17630,6 +17631,7 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
             <div class="os-card">
               <div class="os-h">Situação atual</div>
               ${statusHtml}
+              ${concluida&&_osConsulta?`<button class="btn" style="width:100%;margin:2px 0 10px;padding:12px;font-size:14px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80;font-weight:700" onclick="reverterOrdemConcluida('${o.id}',true)">↩️ Reverter conclusão (reabrir para lançar tempo)</button>`:''}
               ${historicoHtml}
             </div>
           </div>
