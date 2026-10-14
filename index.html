@@ -5308,7 +5308,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 316';
+const APP_BUILD='2026-10-14 · build 317';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12379,7 +12379,7 @@ async function imprimirFichaProduto(id){
   filhos.forEach(i=>mat.push({nome:i.denominacao||'—',cod:i.desenho_peca||'',qtd:i.quantidade,un:i.unidade||'un',material:i.material||'',pu:i.peso!=null?Number(i.peso):null,origem:i.item_tipo==='fabricar'?'Fabricar':(i.item_tipo?'Comprar':'')}));
   const trMat=mat.length?mat.map(m=>`<tr><td>${esc(m.nome)}</td><td>${esc(m.cod)||'—'}</td><td>${esc(m.material)||'—'}</td><td class="center">${esc(m.qtd)} ${esc(m.un)}</td><td class="num">${m.pu!=null?kg(m.pu):'—'}</td><td class="center">${esc(m.origem)||'—'}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;padding:14px;color:#90a4ae">Nenhum material ou componente cadastrado</td></tr>`;
   const linhasProc=temposOrd.map(t=>`<tr><td>${esc(t.operacao)}</td><td>${esc(t.operador||'—')}</td><td class="center">${fDH(t.dt_hr_inicial)}</td><td class="center">${t.dt_hr_final?fDH(t.dt_hr_final):'Em andamento'}</td><td class="center">${fDur(t.duracao_minutos)}</td></tr>`);
-  if(o.terceirizado_nome) linhasProc.push(`<tr><td>Terceirizado</td><td>${esc(o.terceirizado_nome)}</td><td class="center">${dBR(o.terceirizado_data)}</td><td class="center">${o.terceirizado_retorno?dBR(o.terceirizado_retorno):(o.status==='terceirizado'?'Em andamento':'—')}</td><td class="center">—</td></tr>`);
+  _tercPassagens(o).forEach(x=>linhasProc.push(`<tr><td>Terceirizado${x.obs?`<div style="font-size:9.5px;color:#607d6b;font-weight:400">${esc(x.obs)}</div>`:''}</td><td>${esc(x.nome||'—')}${x.qtd?` (${esc(x.qtd)} un)`:''}</td><td class="center">${dBR(x.envio)}</td><td class="center">${x.retorno?dBR(x.retorno):'Em andamento'}</td><td class="center">${x.dias!=null?x.dias+' d':'—'}</td></tr>`));
   const desenhoBox=desenhoFoto?(_ehPdfBase64(desenhoFoto)?`<div class="ph">Desenho em PDF — consulte o arquivo da ordem</div>`:`<img src="${desenhoFoto}" class="img">`):`<div class="ph">Desenho não anexado</div>`;
   const obs=String(o.observacao||'').replace(/\s*\[Finalizada manualmente[^\]]*\]/g,'').trim();
 
@@ -12479,7 +12479,7 @@ async function imprimirFichaProduto(id){
     </table></div>
 
     <div class="secao-titulo">Sequência de Fabricação</div>
-    <table class="itens"><thead><tr><th>Operação</th><th>Operador</th><th class="center">Início</th><th class="center">Término</th><th class="center">Tempo</th></tr></thead><tbody>${linhasProc.length?linhasProc.join(''):'<tr><td colspan="5" style="text-align:center;padding:14px;color:#90a4ae">Nenhuma etapa registrada</td></tr>'}</tbody></table>
+    <table class="itens"><thead><tr><th>Operação</th><th>Operador / Terceirizado</th><th class="center">Início / Envio</th><th class="center">Término / Retorno</th><th class="center">Tempo</th></tr></thead><tbody>${linhasProc.length?linhasProc.join(''):'<tr><td colspan="5" style="text-align:center;padding:14px;color:#90a4ae">Nenhuma etapa registrada</td></tr>'}</tbody></table>
 
     <div class="secao-titulo">Observações</div>
     <div class="observacoes">${esc(obs)||'&nbsp;'}</div>
@@ -17542,6 +17542,23 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
     statusHtml=`<div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;color:#616161;padding:10px 12px;border-radius:10px;font-weight:700;font-size:13px">⏳ Aguardando início</div>`;
   }
 
+  // ---- Terceirizados — envio, retorno, dias e serviço solicitado ----
+  const _bd=d=>d?new Date(String(d).slice(0,10)+'T12:00').toLocaleDateString('pt-BR'):'—';
+  const _passTerc=_tercPassagens(o);
+  const tercHtml=_passTerc.length?`
+    <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:14px 0 6px">Terceirizados</div>
+    <div style="border:1px solid #ffe0b2;border-radius:10px;overflow:hidden">
+      ${_passTerc.map(x=>`
+        <div style="padding:8px 10px;border-bottom:1px solid #fff3e0;font-size:12px;background:${x.emAndamento?'#fff8ef':'#fff'}">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+            <div style="font-weight:700;color:#37474f">🚚 ${x.nome||'—'}${x.qtd?` <span style="font-weight:600;color:var(--gray)">(${x.qtd} un)</span>`:''}</div>
+            <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;${x.emAndamento?'background:#ffe0b2;color:#e65100':'background:#e8f5e9;color:#2e7d32'}">${x.emAndamento?'Com o terceirizado':'Devolvido'}</span>
+          </div>
+          <div style="color:var(--gray);font-size:11px;margin-top:2px">Enviado ${_bd(x.envio)} → ${x.emAndamento?'em andamento':'retornou '+_bd(x.retorno)}${x.dias!=null?' · <b>'+x.dias+' dia'+(x.dias===1?'':'s')+'</b>':''}${x.prazo?' · prazo '+x.prazo+' d'+(x.emAndamento&&x.dias>x.prazo?' <b style="color:#c62828">(atrasado)</b>':''):''}</div>
+          ${x.obs?`<div style="color:#546e7a;font-size:11px;margin-top:2px">Serviço: ${String(x.obs).replace(/</g,'&lt;')}</div>`:''}
+        </div>`).join('')}
+    </div>`:'';
+
   // ---- Histórico — cada passagem já concluída por uma máquina ----
   const historicoHtml = concluidosOrdenados.length ? `
     <div style="font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;margin:14px 0 6px">Histórico de etapas</div>
@@ -17633,6 +17650,7 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
               ${statusHtml}
               ${concluida&&_osConsulta?`<button class="btn" style="width:100%;margin:2px 0 10px;padding:12px;font-size:14px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80;font-weight:700" onclick="reverterOrdemConcluida('${o.id}',true)">↩️ Reverter conclusão (reabrir para lançar tempo)</button>`:''}
               ${historicoHtml}
+              ${tercHtml}
             </div>
           </div>
           <div class="os-pronto">${_prontoSecaoHtml(o,_prontoDados)}</div>
@@ -21700,6 +21718,26 @@ function _tercEnviosVirtuais(o){
 function _tercEnviosAbertos(o){
   const abertos=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(o.id)&&!e.data_retorno);
   return abertos.length>=2?abertos:_tercEnviosVirtuais(o);
+}
+// Todas as passagens da ordem por terceirizado, prontas para exibir (resumo e ficha).
+// Usa o detalhe por terceirizado (ordem dividida) quando existe; senão, os dados gravados na própria ordem.
+function _tercPassagens(o){
+  if(!o) return [];
+  const linhas=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(o.id));
+  let lista=[];
+  if(linhas.length){
+    lista=linhas.map(e=>({nome:e.terceirizado_nome,qtd:e.quantidade,envio:e.data_envio,retorno:e.data_retorno||null,prazo:e.prazo_dias||null,obs:e.obs||null}));
+  } else if(o.terceirizado_nome){
+    const v=_tercEnviosVirtuais(o);
+    if(v.length) lista=v.map(e=>({nome:e.terceirizado_nome,qtd:e.quantidade,envio:o.terceirizado_data,retorno:o.status==='terceirizado'?null:(o.terceirizado_retorno||null),prazo:o.terceirizado_prazo||null,obs:o.terceirizado_obs||null}));
+    else lista=[{nome:o.terceirizado_nome,qtd:o.quantidade,envio:o.terceirizado_data,retorno:o.status==='terceirizado'?null:(o.terceirizado_retorno||null),prazo:o.terceirizado_prazo||null,obs:o.terceirizado_obs||null}];
+  }
+  const dia=d=>d?new Date(String(d).slice(0,10)+'T12:00'):null;
+  return lista.map(x=>{
+    const ini=dia(x.envio), fim=dia(x.retorno)||new Date();
+    const dias=ini?Math.max(0,Math.round((fim-ini)/86400000)):null;
+    return {...x,dias,emAndamento:!x.retorno};
+  });
 }
 function retornarTerceirizado(id){
   _tercVoltaParaScan=null; // reset — só volta pro painel do scanner quando o botão de lá marcar de novo, logo abaixo
