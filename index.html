@@ -4976,8 +4976,12 @@ function _iniciarRealtime(){
       .subscribe();
     // Quando a aba estava em segundo plano e volta ao foco, recarrega uma vez
     // pra garantir que não perdeu nada (rede pode ter caído sem avisar).
+    // Só recarrega tudo se ficou fora da tela por mais de 45 s — alternar rápido entre apps (câmera, WhatsApp)
+    // no celular não deve refazer o carregamento completo toda vez.
+    let _saiuEm=0;
     document.addEventListener('visibilitychange', ()=>{
-      if(!document.hidden && typeof usuarioLogado!=='undefined' && usuarioLogado) _agendarRecargaRealtime();
+      if(document.hidden){ _saiuEm=Date.now(); return; }
+      if(typeof usuarioLogado!=='undefined' && usuarioLogado && (!_saiuEm || Date.now()-_saiuEm>45000)) _agendarRecargaRealtime();
     });
   }catch(e){ console.warn('Atualização automática (realtime) não iniciada:', e); }
 }
@@ -5314,7 +5318,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 319';
+const APP_BUILD='2026-10-14 · build 320';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11277,7 +11281,7 @@ function _abrirImagemTelaCheiaOrdem(ordemId){
 function handleFotoDesenhoOrdem(input){
   const file = input.files[0];
   if(!file) return;
-  _comprimirFotoParaBase64(file, 2200, 0.92).then(dataUrl=>{
+  _comprimirFotoParaBase64(file, 1800, 0.85).then(dataUrl=>{
     _ordemFotoDesenhoBase64 = dataUrl;
     _mostrarPreviewFotoDesenhoOrdem(_ordemFotoDesenhoBase64);
   }).catch(e=>showToast(e.message,'err'));
@@ -11448,7 +11452,7 @@ async function _salvarFotoOrdemLista(input, ordemId){
   const conteudo=document.getElementById('fotoOrdemConteudo');
   if(conteudo) conteudo.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)">Salvando foto...</div>';
   try{
-    const dataUrl=await _comprimirFotoParaBase64(file, 2200, 0.92);
+    const dataUrl=await _comprimirFotoParaBase64(file, 1800, 0.85);
     await api('PATCH','ordens_producao',{foto_desenho:dataUrl},`?id=eq.${ordemId}`);
     const o=ordens.find(x=>x.id===ordemId);
     if(o){ o.foto_desenho=dataUrl; o.tem_foto_desenho=true; _miniLimpar(ordemId); }
