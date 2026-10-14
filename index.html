@@ -5308,7 +5308,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 317';
+const APP_BUILD='2026-10-14 · build 318';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21567,6 +21567,15 @@ function terceirizarOrdem(id){
   tercToggleDividir(false);
   const _lb0=document.getElementById('terc_nome_label'); if(_lb0) _lb0.textContent='Nome do Terceirizado *';
   if(infoEl && (Number(o.quantidade)||0)>0) infoEl.innerHTML += ` <span style="font-weight:700">· ${o.quantidade} peça(s)</span>`;
+  // Histórico do envio anterior (quando a ordem já passou por terceirizado): quem, quando saiu, quando voltou, dias, prazo e serviço
+  if(infoEl){
+    const _bd=d=>d?new Date(String(d).slice(0,10)+'T12:00').toLocaleDateString('pt-BR'):'—';
+    const _ps=_tercPassagens(o);
+    if(_ps.length) infoEl.innerHTML += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #ffcc80;font-weight:400;color:#37474f">
+      <div style="font-size:11px;font-weight:700;color:#e65100;text-transform:uppercase;margin-bottom:4px">${o.status==='terceirizado'?'Envio em andamento':'Último envio'}</div>
+      ${_ps.map(x=>`<div style="font-size:12px;margin-bottom:4px"><b>${x.nome||'—'}</b>${x.qtd?' ('+x.qtd+' un)':''} · enviado ${_bd(x.envio)} · ${x.emAndamento?'<b style="color:#e65100">ainda não voltou</b>':'<b style="color:#2e7d32">voltou em '+_bd(x.retorno)+'</b>'}${x.dias!=null?' · '+x.dias+' dia'+(x.dias===1?'':'s'):''}${x.prazo?' · prazo '+x.prazo+' d':''}${x.obs?'<br><span style="color:#78909c">Serviço: '+String(x.obs).replace(/</g,'&lt;')+'</span>':''}</div>`).join('')}
+    </div>`;
+  }
   abrirModal('modalTerceirizar');
 }
 
