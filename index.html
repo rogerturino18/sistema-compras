@@ -5337,7 +5337,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 324';
+const APP_BUILD='2026-10-14 · build 325';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5394,6 +5394,30 @@ async function _checarNovaVersao(){
     }
   }catch(e){}
 }
+// ── Modo manutenção: versao.json com "manutencao":true cobre a tela e bloqueia o uso ──
+let _emManutencao=false;
+async function _checarManutencao(){
+  if(location.protocol==='file:') return;
+  try{
+    const r=await fetch('/versao.json?_m='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return;
+    const j=await r.json();
+    if(j&&j.manutencao){
+      if(!_emManutencao){
+        _emManutencao=true;
+        const d=document.createElement('div'); d.id='sl-manutencao';
+        d.style.cssText='position:fixed;inset:0;z-index:2147483000;background:#0f3d24;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;font-family:inherit';
+        d.innerHTML='<div style="font-size:54px">🛠️</div><div style="font-size:22px;font-weight:700">Sistema em manutenção</div><div style="font-size:15px;max-width:420px;line-height:1.5;opacity:.9">Estamos melhorando a velocidade do sistema. Volte em alguns minutos — esta tela some sozinha quando terminar.</div><div style="font-size:12px;opacity:.6">Não é preciso fazer nada.</div>';
+        document.body.appendChild(d);
+        document.documentElement.style.overflow='hidden';
+      }
+    }else if(_emManutencao){
+      location.reload();
+    }
+  }catch(e){}
+}
+setInterval(_checarManutencao,20000);
+setTimeout(_checarManutencao,1500);
 setInterval(_checarNovaVersao,120000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ _voltouDaAba=true; setTimeout(()=>{_voltouDaAba=false;},4000); _checarNovaVersao().then(()=>{ if(_verNovaPendente&&_seguroSemEspera()) _recarregarNova(true); }); } });
 setTimeout(_checarNovaVersao,15000);
