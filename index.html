@@ -4912,8 +4912,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 </div>
 </div><!-- #appContent -->
 <script>
-const SB_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6a3Fjd3NyYWN2b3NkaHFrbWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjQwMTMsImV4cCI6MjA5MzEwMDAxM30.wRmRXfU9kGtPodxKC6tD69VoDlBNI7Su5DGqLYDBe9U';
+const SB_URL='https://ejksgpqnhvbuskfexbbn.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqa3NncHFuaHZidXNrZmV4YmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5OTk5NDgsImV4cCI6MjEwNzU3NTk0OH0.6mXkGhKLc_JPzt7-UgkohUENOK5nSgsNiOOr2k1USyE';
 const RESEND_KEY='re_jGEqPVW3_MLzktXZDieed4ZyACnhTNNFZ';
 
 // ===== ATUALIZAÇÃO AUTOMÁTICA (Realtime) =====
@@ -5337,7 +5337,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 325';
+const APP_BUILD='2026-10-14 · build 326';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -8201,7 +8201,7 @@ async function dispararEmails(){
       // Sempre inclui itens na URL — fallback quando emails_enviados tiver RLS
       const link=`${APP_URL}?cotacao=${emailId||''}&forn=${encodeURIComponent(forn.razao_social||forn.nome_fantasia)}&itens=${itemIds.join(',')}`;
 
-      const r=await fetch('https://kzkqcwsracvosdhqkmaf.supabase.co/functions/v1/send-email',{
+      const r=await fetch('https://ejksgpqnhvbuskfexbbn.supabase.co/functions/v1/send-email',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({from:`${nomeRemetente} <${remetente}>`,to:[forn.email],reply_to:remetente,subject:'Solicitação de Cotação — SL Óleos',html:html.replace('LINK_PLACEHOLDER',link)})
@@ -8276,7 +8276,7 @@ async function enviarEmailTeste(){
       </div>
     </div>`;
   try{
-    const r=await fetch('https://kzkqcwsracvosdhqkmaf.supabase.co/functions/v1/send-email',{
+    const r=await fetch('https://ejksgpqnhvbuskfexbbn.supabase.co/functions/v1/send-email',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({from:`SL Óleos <${remetenteSel}>`,to:[emailDestino],subject:'[TESTE] Solicitação de Cotação — SL Óleos',html})
@@ -16338,7 +16338,7 @@ async function dispararEmailBemVindo(){
 </div>
 </body></html>`;
     try{
-      const r=await fetch('https://kzkqcwsracvosdhqkmaf.supabase.co/functions/v1/send-email',{
+      const r=await fetch('https://ejksgpqnhvbuskfexbbn.supabase.co/functions/v1/send-email',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({from:'SL Óleos <adm.geral@sloleos.com.br>',to:[u.email],subject:'🎉 Bem-vindo ao Sistema de Gestão SL Óleos',html})
@@ -28680,8 +28680,8 @@ function salvarConfigNFe(){
 
   // Conecta ao Supabase e carrega os itens
   // Credenciais hardcoded — window.SB_KEY não funciona com const
-  const SUPA_URL='https://kzkqcwsracvosdhqkmaf.supabase.co';
-  const SUPA_KEY='sb_publishable_5Q5yuv9FvOVwNQ8B19Fv3w_vXG0VXqe';
+  const SUPA_URL='https://ejksgpqnhvbuskfexbbn.supabase.co';
+  const SUPA_KEY='sb_publishable_PNb4Jnt7CtmirQRBI_RNlQ_MIMVSJnv';
 
   async function apiPub(method,table,body,query=''){
     const r=await fetch(`${SUPA_URL}/rest/v1/${table}${query}`,{
