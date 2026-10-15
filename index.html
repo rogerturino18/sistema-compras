@@ -4948,6 +4948,18 @@ const _tabsEscritas = new Set(); let _escritaFora = false;
           if(u.startsWith(base)){ const t=u.slice(base.length).split('?')[0]; if(t.startsWith('rpc/')) _escritaFora=true; else _tabsEscritas.add(t); }
         }
       }catch(e){}
+      // Segurança (etapa 2): toda chamada ao banco leva o token da sessão; o banco só responde a quem está logado.
+      try{
+        const u2=typeof input==='string'?input:(input&&input.url)||'';
+        if(u2.startsWith(base)){
+          const tk=_tokenSessao();
+          if(tk){
+            const h=new Headers((init&&init.headers)||(input&&typeof input!=='string'&&input.headers)||{});
+            h.set('x-sl-token',tk);
+            init=Object.assign({},init||{},{headers:h});
+          }
+        }
+      }catch(e){}
       return f0(input,init);
     };
   }catch(e){}
@@ -4961,6 +4973,7 @@ const _RT_TABELAS_CONHECIDAS = new Set(['ordem_envios_terc','ordens_producao','i
 function _agendarRecargaRealtime(payload){
   // Conta quem está disparando recargas (a tela de diagnóstico mostra a tabela "barulhenta").
   try{
+    if(payload&&payload.new&&payload.new.tabela&&!payload.table) payload={table:payload.new.tabela};
     const tb=payload&&payload.table;
     if(tb){ const r=_perf.realtime[tb]||(_perf.realtime[tb]={n:0,ult:0}); r.n++; r.ult=Date.now(); }
   }catch(e){}
@@ -4994,7 +5007,7 @@ function _iniciarRealtime(){
     const cliente = window.supabase.createClient(SB_URL, SB_KEY);
     _sbRealtimeCanal = cliente
       .channel('sl-oleos-mudancas-globais')
-      .on('postgres_changes', {event:'*', schema:'public'}, _agendarRecargaRealtime)
+      .on('postgres_changes', {event:'*', schema:'public', table:'mudancas_tabelas'}, _agendarRecargaRealtime)
       .subscribe();
     // Quando a aba estava em segundo plano e volta ao foco, recarrega uma vez
     // pra garantir que não perdeu nada (rede pode ter caído sem avisar).
@@ -5340,7 +5353,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-15 · build 328';
+const APP_BUILD='2026-10-15 · build 329';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -28733,6 +28746,13 @@ function salvarConfigNFe(){
     return method==='DELETE'?null:r.json();
   }
 
+  async function rpcPub(nome,args){
+    const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify(args)});
+    if(!r.ok)throw new Error(await r.text());
+    return r.json();
+  }
+  const _UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   async function carregarFormulario(){
     const el=document.getElementById('fornFormConteudo');
     try{
@@ -28740,25 +28760,14 @@ function salvarConfigNFe(){
       let itemIds=(itensParam||'').split(',').filter(Boolean);
       let emailId=cotacaoId||null;
 
-      // Tenta buscar email record (opcional — pode falhar por RLS)
-      if(cotacaoId && !itemIds.length){
-        try{
-          const emails=await Promise.race([
-            apiPub('GET','emails_enviados','',`?id=eq.${cotacaoId}`),
-            new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000))
-          ]);
-          if(emails&&emails.length){
-            if(emails[0].respondido){ el.innerHTML='<div style="text-align:center;padding:40px;color:#2e7d32;font-size:16px">✅ Esta cotação já foi respondida. Obrigado!</div>'; return; }
-            const idsFromEmail=(emails[0].itens_ids||'').split(',').filter(Boolean);
-            if(idsFromEmail.length) itemIds=idsFromEmail;
-          }
-        }catch(e){ console.warn('emails_enviados RLS/timeout, usando itens da URL:', e.message); }
-      }
+      itemIds=itemIds.map(x=>x.trim()).filter(x=>_UUID_RE.test(x));
+      if(!itemIds.length && !(cotacaoId && _UUID_RE.test(cotacaoId))){ el.innerHTML='<div style="text-align:center;padding:40px;color:#c62828">❌ Link inválido.<br><small style="color:#9e9e9e">Entre em contato com o solicitante.</small></div>'; return; }
+      if(cotacaoId && !_UUID_RE.test(cotacaoId)) emailId=null;
 
-      if(!itemIds.length){ el.innerHTML='<div style="text-align:center;padding:40px;color:#c62828">❌ Link inválido.<br><small style="color:#9e9e9e">Entre em contato com o solicitante.</small></div>'; return; }
-
-      const itensList=await apiPub('GET','itens','',`?id=in.(${itemIds.join(',')})`);
-      if(!itensList||!itensList.length){ el.innerHTML='<div style="text-align:center;padding:40px;color:#c62828">❌ Itens não encontrados.<br><small style="color:#9e9e9e">O link pode ter expirado.</small></div>'; return; }
+      const resp=await rpcPub('cotacao_publica_itens',{p_email_id:(emailId&&_UUID_RE.test(emailId))?emailId:null,p_item_ids:itemIds});
+      if(resp&&resp.respondido){ el.innerHTML='<div style="text-align:center;padding:40px;color:#2e7d32;font-size:16px">✅ Esta cotação já foi respondida. Obrigado!</div>'; return; }
+      const itensList=(resp&&resp.itens)||[];
+      if(!itensList.length){ el.innerHTML='<div style="text-align:center;padding:40px;color:#c62828">❌ Itens não encontrados.<br><small style="color:#9e9e9e">O link pode ter expirado.</small></div>'; return; }
 
       const forn=decodeURIComponent(fornNome||'Fornecedor');
       const hoje=new Date().toLocaleDateString('pt-BR');
@@ -29151,19 +29160,11 @@ function salvarConfigNFe(){
     const btn=document.querySelector('#fornecedorFormBg button[onclick^="submeterCotacao"]');
     if(btn){ btn.disabled=true; btn.textContent='Enviando...'; }
     try{
-      for(const r of resultados){
-        await apiPub('POST','cotacoes',{
-          item_id:r.item_id, fornecedor:forn, preco:r.preco, qtd:r.qtd, unidade:r.unidade,
-          icms:r.icms||null, ipi:r.ipi||null, prazo_entrega:r.prazo||null, origem:r.origem||null,
-          valor_total:r.valor_total, valor_mercadoria:r.valor_mercadoria, valor_ipi:r.valor_ipi,
-          observacao:r.obs||obsGeral||null, obs_gerais:obsGeral||null,
-          num_proposta:numProposta||null, validade:validade||null,
-          cond_pagamento:condPag||null, cond_frete:condFrete||null,
-          arquivo_orcamento:window._arquivoCotacaoB64||null, arquivo_nome:window._arquivoCotacaoNome||null,
-          origem_entrada:'formulario_web', criado_em:new Date().toISOString()
-        });
-      }
-      if(emailId) await apiPub('PATCH','emails_enviados',{respondido:true,respondido_em:new Date().toISOString()},`?id=eq.${emailId}`);
+      await rpcPub('cotacao_publica_enviar',{
+        p_email_id:(emailId&&_UUID_RE.test(emailId))?emailId:null,
+        p_fornecedor:forn,
+        p_cotacoes:resultados.map(r=>({item_id:r.item_id,valor:r.preco,prazo:r.prazo,observacao:r.obs||obsGeral||null,valor_total:r.valor_total}))
+      });
       const totalGeral=resultados.reduce((s,r)=>s+r.valor_total,0);
       document.getElementById('fornFormConteudo').innerHTML=`
         <div style="text-align:center;padding:60px 20px;background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.08)">

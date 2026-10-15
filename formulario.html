@@ -129,6 +129,12 @@ function selecionarArquivo(e){
   fn.style.display='block';
 }
 
+async function rpc(nome,args){
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(args)});
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 async function uploadArquivo(cotacaoId){
   if(!arquivoSelecionado) return null;
   const ext=arquivoSelecionado.name.split('.').pop();
@@ -153,8 +159,9 @@ async function init(){
     return;
   }
   try {
-    const filter='?id=in.('+itemIds.join(',')+')';
-    itensData=await api('GET','itens','',filter);
+    const ids=itemIds.filter(x=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x));
+    const resp=await rpc('cotacao_publica_itens',{p_email_id:null,p_item_ids:ids});
+    itensData=(resp&&resp.itens)||[];
     document.getElementById('loadingDiv').style.display='none';
     document.getElementById('fornTitle').textContent=`Cotação — ${fornecedor}`;
     document.getElementById('fornSub').textContent=`Olá, ${fornecedor}! Preencha o valor unitário para cada item abaixo.`;
@@ -241,32 +248,21 @@ async function enviarCotacao(){
   const btn=document.getElementById('btnEnviar');
   btn.disabled=true; btn.textContent='Enviando...';
   try {
-    // Salva as cotações e pega o ID da primeira para associar o arquivo
-    let primeiroCotacaoId=null;
-    for(const it of itensData){
-      const val=Number(document.getElementById('val_'+it.id).value);
-      const qtd=Number(document.getElementById('qtd_'+it.id).value)||it.qtd||1;
-      const peso=Number(document.getElementById('peso_'+it.id).value)||null;
-      const total=Number(document.getElementById('total_'+it.id).value)||null;
-      const prazo=document.getElementById('prazo_'+it.id).value;
-      const obs=document.getElementById('obs_'+it.id).value;
-      const result=await api('POST','cotacoes',{
-        item_id:it.id, fornecedor, valor:val,
-        prazo:prazo?Number(prazo):null,
-        observacao:obs||null, respondido:true
-      });
-      if(!primeiroCotacaoId && result && result[0]) primeiroCotacaoId=result[0].id;
-    }
+    const cotacoes=itensData.map(it=>({
+      item_id:it.id,
+      valor:Number(document.getElementById('val_'+it.id).value),
+      prazo:document.getElementById('prazo_'+it.id).value||null,
+      peso:Number(document.getElementById('peso_'+it.id).value)||null,
+      valor_total:Number(document.getElementById('total_'+it.id).value)||null,
+      observacao:document.getElementById('obs_'+it.id).value||null
+    }));
+    const idsNovos=await rpc('cotacao_publica_enviar',{p_email_id:null,p_fornecedor:fornecedor,p_cotacoes:cotacoes});
 
     // Upload do arquivo se houver
-    if(arquivoSelecionado && primeiroCotacaoId){
+    if(arquivoSelecionado && idsNovos && idsNovos.length){
       btn.textContent='Enviando arquivo...';
-      const fileUrl=await uploadArquivo(primeiroCotacaoId);
-      if(fileUrl){
-        // Salva URL do arquivo em todas as cotações desta rodada
-        await api('PATCH','cotacoes',{arquivo_url:fileUrl},
-          `?fornecedor=eq.${encodeURIComponent(fornecedor)}&respondido=eq.true`);
-      }
+      const fileUrl=await uploadArquivo(idsNovos[0]);
+      if(fileUrl) await rpc('cotacao_publica_arquivo',{p_ids:idsNovos,p_url:fileUrl});
     }
 
     document.getElementById('formDiv').style.display='none';
