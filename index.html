@@ -1093,8 +1093,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 <div class="user-menu" id="userMenu">
   <div class="user-menu-item" onclick="abrirModalPerfil()">👤 Meu perfil</div>
   <div class="user-menu-item" id="menuBtnUsuarios" onclick="abrirGestaoUsuarios()" style="display:none">👥 Gestão de Usuários</div>
-  <div class="user-menu-item" id="menuBtnBemVindo" onclick="dispararEmailBemVindo()" style="display:none">📧 E-mail de boas-vindas</div>
-  <div class="user-menu-item" onclick="abrirDiagnostico()">🩺 Diagnóstico do sistema</div>
+    <div class="user-menu-item" onclick="abrirDiagnostico()">🩺 Diagnóstico do sistema</div>
   <div class="user-menu-item danger" onclick="fazerLogout()">🚪 Sair</div>
   <div style="padding:8px 14px;font-size:10px;color:#b0bec5;border-top:1px solid #eee;text-align:center" id="appVersaoLabel">versão —</div>
 </div>
@@ -2971,7 +2970,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <div class="form-grid" style="gap:10px">
         <div class="form-group"><label>Nome *</label><input id="nu_nome" placeholder="Ex: Financeiro SL"></div>
         <div class="form-group"><label>E-mail *</label><input id="nu_email" type="email" placeholder="financeiro@sloleos.com.br"></div>
-        <div class="form-group"><label>Senha *</label><input id="nu_senha" type="password" placeholder="Mínimo 6 caracteres"></div>
+        <div class="form-group"><label>Senha *</label><input id="nu_senha" type="password" placeholder="Mínimo 8 caracteres"></div>
         <div class="form-group"><label>Cargo / Setor</label><input id="nu_cargo" placeholder="Ex: Financeiro, Compras..."></div>
         <div class="form-group"><label>Perfil</label>
           <select id="nu_perfil">
@@ -3013,7 +3012,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <div class="form-grid" style="gap:10px">
         <div class="form-group full"><label>Nome *</label><input id="eu_nome"></div>
         <div class="form-group full"><label>E-mail *</label><input id="eu_email" type="email"></div>
-        <div class="form-group full"><label>Nova senha <span style="font-size:10px;color:var(--gray);font-weight:400">(em branco = não altera)</span></label><input id="eu_senha" type="password" placeholder="Nova senha"></div>
+        <div class="form-group full"><label>Nova senha <span style="font-size:10px;color:var(--gray);font-weight:400">(em branco = não altera; a pessoa terá que trocar no próximo acesso)</span></label><input id="eu_senha" type="password" placeholder="Mínimo 8 caracteres"></div>
         <div class="form-group"><label>Cargo / Setor</label><input id="eu_cargo"></div>
         <div class="form-group"><label>Status</label>
           <select id="eu_ativo">
@@ -4760,10 +4759,14 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
   <div class="form-grid">
     <div class="form-group full"><label>Nome</label><input id="fp_nome" placeholder="Seu nome"></div>
     <div class="form-group full"><label>E-mail</label><input id="fp_email" type="email" readonly style="background:#f5f7f5"></div>
-    <div class="form-group full"><label>Cargo</label><input id="fp_cargo" placeholder="Ex: Compras, Engenharia..."></div>
+    <div class="form-group full"><label>Cargo <span style="color:var(--gray);font-weight:400;text-transform:none">(só o administrador altera)</span></label><input id="fp_cargo" readonly style="background:#f5f7f5"></div>
     <div class="form-group full" style="border-top:1px solid #f0f4f0;padding-top:12px;margin-top:4px">
-      <label>Nova senha <span style="color:var(--gray);font-weight:400;text-transform:none">(deixe em branco para não alterar)</span></label>
-      <input id="fp_senha" type="password" placeholder="Nova senha">
+      <label>Senha atual <span style="color:var(--gray);font-weight:400;text-transform:none">(só preencha se for trocar a senha)</span></label>
+      <input id="fp_senha_atual" type="password" placeholder="Senha atual" autocomplete="current-password">
+    </div>
+    <div class="form-group full">
+      <label>Nova senha <span style="color:var(--gray);font-weight:400;text-transform:none">(mínimo 8 caracteres)</span></label>
+      <input id="fp_senha" type="password" placeholder="Nova senha" autocomplete="new-password">
     </div>
     <div class="form-group full"><label>Confirmar nova senha</label><input id="fp_senha2" type="password" placeholder="Confirmar senha"></div>
   </div>
@@ -5337,7 +5340,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-15 · build 327';
+const APP_BUILD='2026-10-15 · build 328';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5438,24 +5441,76 @@ function sortBy(col){
 }
 
 // ===== AUTH =====
+// ── Chamadas de segurança ao banco (login, senhas, usuários) ──
+const _MSG_SEG={SENHA_ATUAL_INCORRETA:'Senha atual incorreta',SENHA_CURTA:'A senha deve ter no mínimo 8 caracteres',SENHA_IGUAL:'A nova senha deve ser diferente da atual',SEM_PERMISSAO:'Você não tem permissão para isso',EMAIL_DUPLICADO:'E-mail já cadastrado',MUITAS_TENTATIVAS:'Muitas tentativas. Aguarde 15 minutos e tente de novo.',SESSAO_INVALIDA:'Sua sessão expirou. Entre novamente.',NOME_OBRIGATORIO:'Informe o nome',DADOS_OBRIGATORIOS:'Nome e e-mail são obrigatórios'};
+function _tokenSessao(){ try{ return localStorage.getItem('sl_token')||''; }catch(e){ return ''; } }
+async function _rpcSeg(nome,args){
+  const r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(args||{})});
+  const txt=await r.text(); let j=null; try{ j=txt?JSON.parse(txt):null; }catch(e){}
+  if(!r.ok){
+    const cod=String((j&&j.message)||'').trim();
+    const err=new Error(_MSG_SEG[cod]||cod||('Erro '+r.status)); err.codigo=cod; throw err;
+  }
+  return j;
+}
+function _msgErroSeg(e){ return (e&&e.message)||'Erro'; }
+function _aplicarSessao(resp){
+  usuarioLogado=resp.usuario;
+  localStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
+}
 async function fazerLogin(){
   const email=document.getElementById('loginEmail').value.trim().toLowerCase();
   const senha=document.getElementById('loginSenha').value;
   if(!email||!senha){showLoginError('Preencha e-mail e senha');return;}
   try{
-    const res=await api('GET','usuarios','',`?email=eq.${encodeURIComponent(email)}&senha=eq.${encodeURIComponent(senha)}&ativo=eq.true`);
-    if(!res||!res.length){showLoginError('E-mail ou senha incorretos');return;}
-    usuarioLogado=res[0];
-    localStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
-    _sessaoEspelhar(usuarioLogado);
+    const resp=await _rpcSeg('login_usuario',{p_email:email,p_senha:senha});
+    if(!resp||!resp.token){showLoginError('E-mail ou senha incorretos');return;}
+    localStorage.setItem('sl_token',resp.token);
+    _aplicarSessao(resp);
+    _sessaoEspelhar(resp.token);
     document.documentElement.classList.add('sessao-salva');
     document.getElementById('loginBg').style.display='none';
     document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
     document.getElementById('userName').textContent=usuarioLogado.nome;
     mostrarApp(); // mostra app (sem dados ainda)
+    if(resp.precisa_trocar) _abrirTrocaSenhaObrigatoria();
     await loadAll(); // carrega dados
-    // Após dados carregados, re-renderiza tiles e dashboard com dados reais — padrão para TODOS os usuários
-  }catch(e){showLoginError('Erro ao conectar. Tente novamente.');console.error(e);}
+  }catch(e){
+    if(e&&e.codigo==='MUITAS_TENTATIVAS') showLoginError(e.message);
+    else showLoginError('Erro ao conectar. Tente novamente.');
+    console.error(e);
+  }
+}
+
+// Tela que obriga a criar uma senha nova (primeiro acesso depois da proteção das senhas, ou senha redefinida pelo administrador)
+function _abrirTrocaSenhaObrigatoria(){
+  if(document.getElementById('sl-troca-senha')) return;
+  const d=document.createElement('div'); d.id='sl-troca-senha';
+  d.style.cssText='position:fixed;inset:0;z-index:2147482000;background:rgba(15,61,36,.96);display:flex;align-items:center;justify-content:center;padding:20px';
+  d.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:400px;width:100%;padding:26px;box-shadow:0 10px 40px rgba(0,0,0,.4)">
+    <div style="font-size:34px;text-align:center">🔐</div>
+    <h3 style="margin:6px 0 4px;text-align:center;color:#1b5e20">Crie sua nova senha</h3>
+    <p style="font-size:13px;color:#546e7a;text-align:center;margin:0 0 16px;line-height:1.5">Por segurança, é preciso trocar a senha antes de continuar. Use pelo menos 8 caracteres.</p>
+    <div class="form-group"><label>Senha atual</label><input id="ts_atual" type="password" autocomplete="current-password"></div>
+    <div class="form-group"><label>Nova senha</label><input id="ts_nova" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></div>
+    <div class="form-group"><label>Confirmar nova senha</label><input id="ts_nova2" type="password" autocomplete="new-password"></div>
+    <div id="ts_erro" style="color:#c62828;font-size:12px;min-height:16px;margin:4px 0"></div>
+    <button class="btn primary" style="width:100%" onclick="_salvarTrocaSenhaObrigatoria()">Salvar nova senha</button>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="fazerLogout()">Sair</button>
+  </div>`;
+  document.body.appendChild(d);
+  setTimeout(()=>document.getElementById('ts_atual')?.focus(),100);
+}
+async function _salvarTrocaSenhaObrigatoria(){
+  const at=document.getElementById('ts_atual').value, n1=document.getElementById('ts_nova').value, n2=document.getElementById('ts_nova2').value;
+  const er=document.getElementById('ts_erro');
+  if(!at||!n1){ er.textContent='Preencha todos os campos'; return; }
+  if(n1!==n2){ er.textContent='As senhas novas não coincidem'; return; }
+  try{
+    await _rpcSeg('alterar_minha_senha',{p_token:_tokenSessao(),p_atual:at,p_nova:n1});
+    document.getElementById('sl-troca-senha')?.remove();
+    showToast('✅ Senha alterada!');
+  }catch(e){ er.textContent=_msgErroSeg(e); if(e.codigo==='SESSAO_INVALIDA') fazerLogout(); }
 }
 
 function showLoginError(msg){
@@ -5465,7 +5520,10 @@ function showLoginError(msg){
 }
 
 function fazerLogout(){
+  const _tk=_tokenSessao(); if(_tk){ _rpcSeg('logout_usuario',{p_token:_tk}).catch(()=>{}); }
+  document.getElementById('sl-troca-senha')?.remove();
   _sessaoLimparEspelho();
+  localStorage.removeItem('sl_token');
   localStorage.removeItem('sl_usuario');
   localStorage.removeItem('sl_aba_atual');
   document.documentElement.classList.remove('sessao-salva');
@@ -5485,6 +5543,7 @@ function abrirModalPerfil(){
   document.getElementById('fp_nome').value=usuarioLogado.nome||'';
   document.getElementById('fp_email').value=usuarioLogado.email||'';
   document.getElementById('fp_cargo').value=usuarioLogado.cargo||'';
+  document.getElementById('fp_senha_atual').value='';
   document.getElementById('fp_senha').value='';
   document.getElementById('fp_senha2').value='';
   document.getElementById('userMenu').classList.remove('open');
@@ -5493,22 +5552,25 @@ function abrirModalPerfil(){
 
 async function salvarPerfil(){
   const nome=document.getElementById('fp_nome').value.trim();
-  const cargo=document.getElementById('fp_cargo').value.trim();
+  const atual=document.getElementById('fp_senha_atual').value;
   const senha=document.getElementById('fp_senha').value;
   const senha2=document.getElementById('fp_senha2').value;
   if(!nome){showToast('Nome é obrigatório','err');return;}
-  if(senha&&senha!==senha2){showToast('As senhas não coincidem','err');return;}
-  const obj={nome,cargo};
-  if(senha) obj.senha=senha;
+  if(senha){
+    if(!atual){showToast('Informe a senha atual para trocar a senha','err');return;}
+    if(senha!==senha2){showToast('As senhas não coincidem','err');return;}
+    if(senha.length<8){showToast('A senha deve ter no mínimo 8 caracteres','err');return;}
+  }
   try{
-    await api('PATCH','usuarios',obj,`?id=eq.${usuarioLogado.id}`);
-    usuarioLogado={...usuarioLogado,...obj};
+    const upd=await _rpcSeg('salvar_meu_perfil',{p_token:_tokenSessao(),p_nome:nome});
+    if(senha) await _rpcSeg('alterar_minha_senha',{p_token:_tokenSessao(),p_atual:atual,p_nova:senha});
+    usuarioLogado={...usuarioLogado,...upd};
     localStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
     document.getElementById('userAvatar').textContent=nome.substring(0,2).toUpperCase();
     document.getElementById('userName').textContent=nome;
-    showToast('Perfil atualizado!');
+    showToast(senha?'Perfil e senha atualizados!':'Perfil atualizado!');
     fecharModal('modalPerfil');
-  }catch(e){showToast('Erro ao salvar','err');}
+  }catch(e){ showToast(_msgErroSeg(e),'err'); if(e.codigo==='SESSAO_INVALIDA') fazerLogout(); }
 }
 
 // Fechar menu ao clicar fora
@@ -16285,11 +16347,12 @@ renderConteudoAba(n);
 
 async function dispararEmailBemVindo(){
   document.getElementById('userMenu').classList.remove('open');
+  showToast('Recurso desativado por segurança.','err'); return;
   const usuarios_lista=[
-    {nome:'Administrador', email:'adm.geral@sloleos.com.br', senha:'sl2024@adm', cargo:'Compras'},
-    {nome:'Engenharia (Sylvio)', email:'engenharia@sloleos.com.br', senha:'sl2024@eng', cargo:'Engenharia'},
-    {nome:'PCP', email:'pcp@sloleos.com.br', senha:'sl2024@pcp', cargo:'PCP'},
-    {nome:'Álvaro', email:'expedicao@sloleos.com.br', senha:'sl2024@exp', cargo:'Expedição'}
+    {nome:'Administrador', email:'adm.geral@sloleos.com.br', senha:'(removida)', cargo:'Compras'},
+    {nome:'Engenharia (Sylvio)', email:'engenharia@sloleos.com.br', senha:'(removida)', cargo:'Engenharia'},
+    {nome:'PCP', email:'pcp@sloleos.com.br', senha:'(removida)', cargo:'PCP'},
+    {nome:'Álvaro', email:'expedicao@sloleos.com.br', senha:'(removida)', cargo:'Expedição'}
   ];
   if(!confirm(`Enviar e-mail de boas-vindas para ${usuarios_lista.length} usuários?`)) return;
   showToast('Enviando e-mails...');
@@ -16658,16 +16721,16 @@ async function criarUsuario(){
   const perfil = document.getElementById('nu_perfil').value;
   if(!nome){ showToast('Informe o nome','err'); return; }
   if(!email||!email.includes('@')){ showToast('E-mail inválido','err'); return; }
-  if(!senha||senha.length<6){ showToast('Senha deve ter no mínimo 6 caracteres','err'); return; }
+  if(!senha||senha.length<8){ showToast('Senha deve ter no mínimo 8 caracteres','err'); return; }
   // Verifica duplicata
   if(todosUsuarios.some(u=>u.email.toLowerCase()===email)){ showToast('E-mail já cadastrado','err'); return; }
   try{
-    await api('POST','usuarios',{nome, email, senha, cargo:cargo||null, perfil, ativo:true});
-    showToast(`✅ Usuário "${nome}" criado com sucesso!`);
+    await _rpcSeg('admin_criar_usuario',{p_token:_tokenSessao(),p_nome:nome,p_email:email,p_senha:senha,p_cargo:cargo||null,p_perfil:perfil});
+    showToast(`✅ Usuário "${nome}" criado! No primeiro acesso ele(a) cria a própria senha.`,'ok',5000);
     todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
     renderListaUsuarios();
     ['nu_nome','nu_email','nu_senha','nu_cargo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  }catch(e){ showToast('Erro ao criar usuário: '+e.message,'err'); console.error(e); }
+  }catch(e){ showToast('Erro ao criar usuário: '+_msgErroSeg(e),'err'); console.error(e); }
 }
 
 function abrirEditarUsuario(id){
@@ -16708,30 +16771,17 @@ async function salvarEdicaoUsuario(){
     ativo: document.getElementById('eu_ativo').value==='true'
   };
   const novaSenha = document.getElementById('eu_senha').value;
-  if(novaSenha) obj.senha = novaSenha;
   if(!obj.nome||!obj.email){ showToast('Nome e e-mail são obrigatórios','err'); return; }
+  if(novaSenha && novaSenha.length<8){ showToast('A nova senha deve ter no mínimo 8 caracteres','err'); return; }
   try{
-    await api('PATCH','usuarios',obj,`?id=eq.${id}`);
-    showToast('✅ Usuário e permissões salvos!');
+    await _rpcSeg('admin_salvar_usuario',{p_token:_tokenSessao(),p_id:id,p_nome:obj.nome,p_email:obj.email,p_cargo:obj.cargo,p_perfil:obj.perfil,p_ativo:obj.ativo,p_nova_senha:novaSenha||null});
+    showToast(novaSenha?'✅ Salvo! A pessoa vai criar uma nova senha no próximo acesso.':'✅ Usuário e permissões salvos!','ok',4000);
     fecharModal('modalEditarUsuario');
     todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
     renderListaUsuarios();
   }catch(e){
-    const errMsg = String(e.message||e||'');
-    // Tenta sem perfil se coluna não existir no Supabase
-    if(errMsg.includes('400')||errMsg.includes('perfil')||errMsg.includes('column')){
-      const objSemPerfil={...obj}; delete objSemPerfil.perfil;
-      try{
-        await api('PATCH','usuarios',objSemPerfil,`?id=eq.${id}`);
-        showToast('⚠️ Dados salvos! Para ativar permissões, execute no Supabase:\nALTER TABLE usuarios ALTER COLUMN perfil TYPE TEXT;','err',6000);
-        fecharModal('modalEditarUsuario');
-        todosUsuarios = await api('GET','usuarios','','?order=nome.asc');
-        renderListaUsuarios();
-      }catch(e2){ showToast('Erro ao salvar: '+e2.message,'err'); }
-    } else {
-      showToast('Erro ao salvar: '+errMsg,'err');
-      console.error('[USUARIO]',e);
-    }
+    showToast('Erro ao salvar: '+_msgErroSeg(e),'err');
+    console.error('[USUARIO]',e);
   }
 }
 
@@ -16944,54 +16994,48 @@ function showToast(msg,type='ok',duracao=3000){
 // (modo economia, limpeza ao fechar, iOS após dias sem uso) e o usuário cai na tela de login. Para reduzir isso:
 // 1) pede ao navegador para tornar o armazenamento permanente; 2) guarda também só o ID do usuário num cookie
 // de 1 ano, que restaura a sessão se o localStorage tiver sido apagado.
-function _sessaoEspelhar(u){
+function _sessaoEspelhar(tk){
   try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
-  try{ if(u&&u.id) document.cookie='sl_uid='+encodeURIComponent(u.id)+';max-age=31536000;path=/;SameSite=Lax'+(location.protocol==='https:'?';Secure':''); }catch(e){}
+  try{ if(tk) document.cookie='sl_tk='+encodeURIComponent(tk)+';max-age=7776000;path=/;SameSite=Lax'+(location.protocol==='https:'?';Secure':''); }catch(e){}
 }
-function _sessaoLimparEspelho(){ try{ document.cookie='sl_uid=;max-age=0;path=/;SameSite=Lax'; }catch(e){} }
-function _sessaoLerEspelho(){ try{ const m=document.cookie.match(/(?:^|;\s*)sl_uid=([^;]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+function _sessaoLimparEspelho(){ try{ document.cookie='sl_tk=;max-age=0;path=/;SameSite=Lax'; document.cookie='sl_uid=;max-age=0;path=/;SameSite=Lax'; }catch(e){} }
+function _sessaoLerEspelho(){ try{ const m=document.cookie.match(/(?:^|;\s*)sl_tk=([^;]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
 window.addEventListener('load',async()=>{
   const loginEl=document.getElementById('loginBg');
   const appEl=document.getElementById('appContent');
-  let saved=localStorage.getItem('sl_usuario');
-  if(!saved){
-    const uid=_sessaoLerEspelho();
-    if(uid){
-      try{
-        const r=await api('GET','usuarios','',`?id=eq.${encodeURIComponent(uid)}&ativo=eq.true`);
-        if(r&&r[0]){ localStorage.setItem('sl_usuario',JSON.stringify(r[0])); document.documentElement.classList.add('sessao-salva'); saved=localStorage.getItem('sl_usuario'); }
-        else _sessaoLimparEspelho();
-      }catch(e){}
-    }
-  }
-  if(saved){
-    try{
-      usuarioLogado=JSON.parse(saved);
-      _sessaoEspelhar(usuarioLogado);
-      if(loginEl) loginEl.style.display='none';
-      document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
-      document.getElementById('userName').textContent=usuarioLogado.nome;
-      mostrarApp();
-      // Busca o registro ATUALIZADO do usuário (permissões podem ter mudado desde o login original,
-      // já que o localStorage guarda uma foto congelada do momento do login)
-      api('GET','usuarios','',`?id=eq.${usuarioLogado.id}`).then(res=>{
-        if(res&&res[0]){
-          usuarioLogado=res[0];
-          localStorage.setItem('sl_usuario',JSON.stringify(usuarioLogado));
-        }
-        loadAll();
-      }).catch(()=>loadAll());
-    }catch(e){
-      localStorage.removeItem('sl_usuario');
-      document.documentElement.classList.remove('sessao-salva');
-      if(appEl) appEl.style.display='none';
-      if(loginEl) loginEl.style.display='flex';
-    }
-  } else {
+  const _mostrarLogin=()=>{
+    try{ localStorage.removeItem('sl_usuario'); localStorage.removeItem('sl_token'); }catch(e){}
+    _sessaoLimparEspelho();
     document.documentElement.classList.remove('sessao-salva');
     if(appEl) appEl.style.display='none';
     if(loginEl) loginEl.style.display='flex';
+  };
+  // Sessão = token guardado no navegador (e espelhado num cookie, caso o navegador apague o armazenamento).
+  let token=_tokenSessao();
+  if(!token){
+    const tk=_sessaoLerEspelho();
+    if(tk){ token=tk; try{ localStorage.setItem('sl_token',tk); }catch(e){} }
   }
+  if(!token){ _mostrarLogin(); return; }
+  // O servidor confirma o token e devolve o usuário atualizado (permissões podem ter mudado desde o login).
+  let resp=null, offline=false;
+  try{ resp=await _rpcSeg('sessao_usuario',{p_token:token}); }catch(e){ offline=true; }
+  if(!offline && (!resp||!resp.usuario)){ _mostrarLogin(); return; }
+  if(offline){
+    // sem conexão agora: usa o último usuário salvo só para abrir a tela; os dados virão quando a rede voltar
+    let saved=null; try{ saved=JSON.parse(localStorage.getItem('sl_usuario')||'null'); }catch(e){}
+    if(!saved){ _mostrarLogin(); return; }
+    resp={usuario:saved,precisa_trocar:false};
+  }
+  _aplicarSessao(resp);
+  _sessaoEspelhar(token);
+  document.documentElement.classList.add('sessao-salva');
+  if(loginEl) loginEl.style.display='none';
+  document.getElementById('userAvatar').textContent=usuarioLogado.nome.substring(0,2).toUpperCase();
+  document.getElementById('userName').textContent=usuarioLogado.nome;
+  mostrarApp();
+  if(resp.precisa_trocar) _abrirTrocaSenhaObrigatoria();
+  loadAll();
 });
 
 // ===== SIDEBAR =====
