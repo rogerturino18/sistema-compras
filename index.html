@@ -5337,7 +5337,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-14 · build 326';
+const APP_BUILD='2026-10-15 · build 327';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21776,11 +21776,8 @@ async function confirmarTerceirizar(){
 
   try{
     // Tenta via RPC (bypassa schema cache)
-    const res = await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`,{
-      method:'POST',
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'},
-      body: JSON.stringify({sql})
-    });
+    // (segurança) a função exec_sql foi removida do banco — vai direto pelo PATCH normal
+    const res = {ok:false};
 
     if(!res.ok){
       // RPC não existe — tenta PATCH normal
