@@ -4950,7 +4950,7 @@ const _tabsEscritas = new Set(); let _escritaFora = false;
       // Segurança (etapa 2): toda chamada ao banco leva o token da sessão; o banco só responde a quem está logado.
       try{
         const u2=typeof input==='string'?input:(input&&input.url)||'';
-        if(u2.startsWith(base)){
+        if(u2.startsWith(base)||u2.startsWith(SB_URL+'/functions/v1/')){
           const tk=_tokenSessao();
           if(tk){
             const h=new Headers((init&&init.headers)||(input&&typeof input!=='string'&&input.headers)||{});
@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-15 · build 330';
+const APP_BUILD='2026-10-15 · build 331';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
