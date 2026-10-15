@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-15 · build 331';
+const APP_BUILD='2026-10-15 · build 332';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11919,7 +11919,7 @@ let _avisoDesenhoEstruturaNoId=null;
 // (2) outras montagens já salvas; (3) outras linhas sendo cadastradas agora mesmo
 // nesta mesma edição, ainda não salvas (evita duplicar dentro da própria digitação).
 function _checarDesenhoDuplicadoNaEstrutura(noId, desenhoDigitado){
-  const desenhoNorm=String(desenhoDigitado||'').trim().toLowerCase();
+  const desenhoNorm=_normDesenho(desenhoDigitado);
   if(!desenhoNorm) return;
   const achados=[];
 
@@ -11940,7 +11940,7 @@ function _checarDesenhoDuplicadoNaEstrutura(noId, desenhoDigitado){
   (_nosTemp||[]).forEach(n=>{
     if(!String(n.id).startsWith('tmp_') || n.id===noId) return;
     const desenhoN = n.tipo==='montagem' ? n.numero_desenho : n.desenho_peca;
-    if((desenhoN||'').trim().toLowerCase()!==desenhoNorm) return;
+    if(_normDesenho(desenhoN)!==desenhoNorm) return;
     achados.push({nome:(n.tipo==='montagem'?n.nome_montagem:n.denominacao)||'—', temOP:false, pdvTexto:'sendo cadastrado agora, neste mesmo equipamento'});
   });
 
