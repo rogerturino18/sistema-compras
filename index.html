@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 337';
+const APP_BUILD='2026-10-16 · build 338';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21875,7 +21875,7 @@ async function abrirRevisaoDup(){
       if(!ix) acao='<span style="font-size:11px;color:#2e7d32;font-weight:700">✔ manter</span>';
       else if(podeSoLinha) acao=`<button class="btn btn-sm danger" onclick="dupApagarLinha('${i.id}')">Apagar esta linha</button>`;
       else if(podeComOrdem) acao=`<button class="btn btn-sm danger" onclick="dupApagarLinhaEOrdem('${i.id}','${o.id}')">Apagar linha + OP Nº ${o.numero} (Lixeira)</button>`;
-      else acao='<span style="font-size:11px;color:#78909c;max-width:170px;text-align:right">tem OP própria já trabalhada — não apague por aqui</span>';
+      else acao=`<button class="btn btn-sm danger" onclick="dupApagarLinha('${i.id}')" title="Remove só a linha repetida da Estrutura. A OP Nº ${o?o.numero:''} continua no histórico, com tempos e conclusão.">Apagar só a linha (OP Nº ${o?o.numero:''} fica no histórico)</button>`;
       return `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border:2px solid ${ix?'#e0e0e0':'#2e7d32'};border-radius:8px;margin-bottom:6px">
         ${o&&o.tem_foto_desenho?'<div style="width:50px;flex:none">'+_miniaturaOrdemHtml(o)+'</div>':''}
         <div style="flex:1;font-size:12px"><b style="font-size:13px">${_eH(i.denominacao||'—')}</b> · ${_eH(i.desenho_peca||'')} · <b>${_eH(i.quantidade||'—')} pç</b>
@@ -21928,7 +21928,8 @@ async function dupApagarLinha(id){
   const i=(itensDesenhoRecebido||[]).find(x=>x.id===id); if(!i) return;
   if((itensDesenhoRecebido||[]).some(x=>x.item_pai_id===id)){ alert('Esta linha tem peças dentro dela. Remova ou mova as peças filhas primeiro (na Estrutura de Equipamentos).'); return; }
   if(i.item_compra_id && !confirm('Esta linha já tem um item de compra ligado. Apagar mesmo assim?\n\n(O item de compra NÃO é apagado, só a linha da Estrutura.)')) return;
-  if(!confirm(`Apagar a linha “${i.denominacao||''}” (${i.desenho_peca||''}) da Estrutura de Equipamentos?\n\nA Ordem de Produção ligada NÃO é afetada.`)) return;
+  const _oL=i.ordem_id?(ordens||[]).find(o=>o.id===i.ordem_id):null;
+  if(!confirm(`Apagar a linha “${i.denominacao||''}” (${i.desenho_peca||''}) da Estrutura de Equipamentos?\n\n`+(_oL?`A OP Nº ${_oL.numero} (${_oL.status==='concluido'?'concluída':_oL.status}) NÃO é apagada: continua no histórico, com tempos e fotos, só deixa de estar ligada a esta linha.`:'Não há OP ligada a esta linha.'))) return;
   try{
     await api('DELETE','itens_desenho_recebido','',`?id=eq.${id}`);
     showToast('Linha repetida apagada.');
