@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 341';
+const APP_BUILD='2026-10-16 · build 342';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21510,7 +21510,7 @@ function _grupoReqOrfas(){
   (requisicoes||[]).forEach(r=>(Array.isArray(r.itens)?r.itens:[]).forEach(it=>{
     if(!it.item_id || ids.has(it.item_id)) return;
     const k=norm(it.descricao); if(!k) return;
-    (g[k]||(g[k]={chave:k,desc:it.descricao,linhas:0,qtd:0,reqs:new Set()}));
+    (g[k]||(g[k]={chave:k,desc:it.descricao,linhas:0,qtd:0,reqs:new Set(),exemplo:it}));
     g[k].linhas++; g[k].qtd+=Number(it.qtd)||0; g[k].reqs.add(r.id);
   }));
   return Object.values(g).sort((a,b)=>b.linhas-a.linhas);
@@ -21547,6 +21547,7 @@ function renderReligarRequisicoes(){
         </select>
         <input id="rlTxt_${idx}" list="dlItensEstoqueReligar" placeholder="…ou digite/pesquise outro item" style="flex:1;min-width:200px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:12px">
         <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="religarGrupoReq(${idx})">Religar</button>
+        <button class="btn" style="padding:6px 12px;font-size:12px" onclick="criarItemEReligarReq(${idx})" title="Use quando o item não existe mais no estoque">➕ Criar no estoque e religar</button>
       </div></div>`;
   }).join('');
 }
@@ -21559,6 +21560,26 @@ async function religarGrupoReq(idx){
   if(!id){ showToast('Escolha o item do estoque','err'); return; }
   const alvo=(estoqueItens||[]).find(i=>i.id===id); if(!alvo) return;
   if(!confirm(`Religar "${g.desc}" (${g.linhas} linha(s)) ao item:\n\n${rotulo(alvo)}\n\nConfirmar?`)) return;
+  await _aplicarReligarReq(g,id);
+}
+async function criarItemEReligarReq(idx){
+  const g=_grupoReqOrfas()[idx]; if(!g) return;
+  const ex=g.exemplo||{};
+  const desc=String(g.desc||'').trim().toUpperCase();
+  const ja=(estoqueItens||[]).find(i=>String(i.descricao||'').trim().toUpperCase()===desc);
+  if(ja){ if(!confirm(`Já existe "${ja.descricao}" no estoque. Religar a ele em vez de criar outro?`)) return; await _aplicarReligarReq(g,ja.id); return; }
+  if(!confirm(`Criar o item no estoque e religar as ${g.linhas} linha(s)?\n\nNovo item: ${desc}\nUnidade: ${ex.unidade||'PC'} · Valor unitário: ${ex.valor_unit!=null?ex.valor_unit:'—'}\nSaldo inicial: 0\n\nO item novo nasce com saldo zero. Se a requisição já deu baixa de ${g.qtd} e o saldo aparecer negativo, registre a entrada correspondente no Estoque.`)) return;
+  try{
+    const novo={tipo:'materia_prima',descricao:desc,unidade:ex.unidade||'PC',qtd_inicial:0,
+      valor_unitario:ex.valor_unit!=null?ex.valor_unit:null,localizacao:ex.barracao||null,
+      observacao:'Recriado pelo Diagnóstico: o item original foi apagado e estava ligado a requisições.',criado_por:usuarioLogado?.nome||null};
+    const res=await api('POST','estoque_itens',novo);
+    const id=res?.[0]?.id; if(!id) throw new Error('não foi possível criar o item');
+    estoqueItens.push({...novo,id});
+    await _aplicarReligarReq(g,id);
+  }catch(e){ showToast('Erro ao criar o item: '+(e.message||e),'err'); console.error(e); }
+}
+async function _aplicarReligarReq(g,id){
   const ids=new Set((estoqueItens||[]).map(i=>i.id));
   const norm=x=>String(x||'').trim().toUpperCase().replace(/\s+/g,' ');
   try{
