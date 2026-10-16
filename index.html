@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 339';
+const APP_BUILD='2026-10-16 · build 340';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21864,8 +21864,8 @@ async function abrirRevisaoDup(){
     const xo=_dupInfoOrdem(p.orig), xd=_dupInfoOrdem(p.dup);
     const dica=sug?`<b>Sugestão:</b> mandar a <b>Nº ${sug.numero}</b> para a Lixeira — não foi iniciada, não tem tempo apontado nem terceiro, então nada de produção se perde. A linha da Estrutura passa a apontar para a Nº ${mant.numero}.`
       :(p.nivel===2?'<b>Atenção:</b> uma delas já está no terceiro. Não mexa sem falar com o terceiro; se foi mesmo repetida, avise-o antes que produza.'
-      :'<b>As duas já foram trabalhadas/concluídas</b> — não há o que mandar para a Lixeira (apagaria histórico de produção). Veja o quadro de quantidades abaixo: se a soma passa do necessário, houve excesso de peças (custo já ocorrido); se não passa, foi lote complementar. Em qualquer caso, marque “São peças diferentes” para tirar da lista.');
-    const botoesLixo=[p.orig,p.dup].filter(o=>_dupPodeLixeira(o)).map(o=>{ const outra=o===p.orig?p.dup:p.orig; return `<button class="btn btn-sm danger" onclick="dupMandarLixeira('${o.id}','${outra.id}')">🗑️ Mandar Nº ${o.numero} para a Lixeira</button>`; }).join('');
+      :'<b>As duas já foram trabalhadas/concluídas</b> — se uma delas foi lançada por engano, use “Mandar Nº … para a Lixeira” (o app avisa o que ela tem e dá para restaurar por 30 dias). Veja o quadro de quantidades abaixo: se a soma passa do necessário, houve excesso de peças (custo já ocorrido); se não passa, foi lote complementar. Em qualquer caso, marque “São peças diferentes” para tirar da lista.');
+    const botoesLixo=[p.orig,p.dup].map(o=>{ const outra=o===p.orig?p.dup:p.orig; const livre=_dupPodeLixeira(o); return `<button class="btn btn-sm danger" onclick="dupMandarLixeira('${o.id}','${outra.id}')" ${livre?'':'title="Esta ordem já foi trabalhada: o app avisa o que ela tem antes de mover. Dá para restaurar pela Lixeira."'}>🗑️ ${livre?'':'Duplicada: '}Mandar Nº ${o.numero} para a Lixeira</button>`; }).join('');
     return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:12px">
       <div style="display:flex;gap:8px;flex-wrap:wrap">${_dupCardOrdem(p.orig,sug===p.orig)}${_dupCardOrdem(p.dup,sug===p.dup)}</div>
       ${_dupNecessidade(p.orig,p.dup)}
@@ -21912,7 +21912,15 @@ async function dupIgnorar(chave){
 async function dupMandarLixeira(idLixo,idMantida){
   const o=(ordens||[]).find(x=>x.id===idLixo), m=(ordens||[]).find(x=>x.id===idMantida);
   if(!o||!m) return;
-  if(!_dupPodeLixeira(o)){ alert('Esta ordem já tem trabalho registrado (tempo, terceiro ou conclusão). Para não perder histórico, ela não pode ser mandada para a Lixeira por aqui.'); return; }
+  if(!_dupPodeLixeira(o)){
+    const x=_dupInfoOrdem(o); const tem=[];
+    if(o.status==='concluido') tem.push('está CONCLUÍDA'+(o.concluido_em?' em '+_dupFd(o.concluido_em):''));
+    if(o.status==='terceirizado') tem.push('está no TERCEIRO'+(o.terceirizado_nome?' ('+o.terceirizado_nome+')':''));
+    if(x.tempos.length) tem.push('tem '+_dupHm(x.minutos)+' de tempo apontado');
+    if(x.temTerc && o.status!=='terceirizado') tem.push('passou pelo terceiro'+(o.terceirizado_nome?' ('+o.terceirizado_nome+')':''));
+    if(o.tem_foto_desenho) tem.push('tem foto do desenho');
+    if(!confirm(`ATENÇÃO — a Ordem Nº ${o.numero} ${tem.join(', ')||'já foi trabalhada'}.\n\nMandar para a Lixeira tira a ordem das listas e dos relatórios. Nada é apagado de vez: dá para restaurar em ⋮ Mais → Lixeira por 30 dias.\n\nFaça isso só se ela foi mesmo lançada em duplicidade (a peça NÃO foi feita duas vezes). Continuar?`)) return;
+  }
   if(!confirm(`Mandar a Ordem Nº ${o.numero} (${o.descricao||''}) para a Lixeira?\n\nAs linhas da Estrutura ligadas a ela passam a apontar para a Ordem Nº ${m.numero}.\nVocê pode restaurar em ⋮ Mais → Lixeira por 30 dias.`)) return;
   try{
     await api('PATCH','itens_desenho_recebido',{ordem_id:m.id},`?ordem_id=eq.${o.id}`).catch(()=>{});
