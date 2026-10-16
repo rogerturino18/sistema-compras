@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 340';
+const APP_BUILD='2026-10-16 · build 341';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21615,7 +21615,8 @@ async function rodarDiagnostico(){
   const tabs=Object.entries(_perf.tabelas).map(([nome,t])=>({nome,...t,mediaMs:t.n?t.totalMs/t.n:0}));
   const pesadas=tabs.filter(t=>t.kb>1500||t.rows>8000).sort((a,b)=>b.kb-a.kb);
   add(pesadas.length?'aviso':'ok','Tabelas grandes', pesadas.length?pesadas.map(t=>t.nome+' ('+t.rows+' linhas, '+(t.kb/1024).toFixed(1)+' MB)').join(' · ')+' — são baixadas inteiras a cada recarga.':'Nenhuma tabela excessivamente grande.');
-  const lentas=tabs.filter(t=>t.mediaMs>1500).sort((a,b)=>b.mediaMs-a.mediaMs);
+  // Todas as tabelas são pedidas ao mesmo tempo; as últimas da fila marcam o tempo da carga inteira (~2 s), mesmo sendo pequenas. Só é "lenta" se for pesada de verdade ou passar muito do tempo da carga.
+  const lentas=tabs.filter(t=>t.mediaMs>1500&&(t.kb>300||t.mediaMs>3500)).sort((a,b)=>b.mediaMs-a.mediaMs);
   if(lentas.length) add('aviso','Tabelas lentas para baixar', lentas.slice(0,5).map(t=>t.nome+' ('+fmtMs(t.mediaMs)+')').join(' · '));
   const comErro=tabs.filter(t=>t.erros>0);
   if(comErro.length) add('erro','Falhas ao baixar tabelas', comErro.map(t=>t.nome+' ('+t.erros+'×)').join(' · '));
