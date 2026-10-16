@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-15 · build 332';
+const APP_BUILD='2026-10-16 · build 333';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21624,6 +21624,12 @@ async function rodarDiagnostico(){
     const dup=Object.entries(nomes).filter(([,n])=>n>1);
     add(dup.length?'aviso':'ok','Itens de estoque com nome repetido', dup.length?dup.length+' nome(s): '+dup.slice(0,4).map(([k,n])=>k+' ('+n+'×)').join(', ')+(dup.length>4?'…':''):'Nenhum.');
   }catch(e){ add('aviso','Verificação dos dados','Não foi possível concluir: '+e.message); }
+  try{
+    await _dupCarregarIgnoradas();
+    const dd=_dupCalcular(), nDup=dd.pares.length+dd.linhas.length;
+    add(nDup?'aviso':'ok','Possíveis duplicidades (ordens e linhas da Estrutura)', nDup?`${dd.pares.length} par(es) de ordens e ${dd.linhas.length} grupo(s) de linhas repetidas. <button class="btn btn-primary" style="padding:3px 10px;font-size:11px;margin-left:6px" onclick="fecharModal('modalDiagnostico');abrirRevisaoDup()">Revisar</button>`:'Nenhuma pendente.');
+  }catch(e){}
+
 
   // Resumo
   const nE=checks.filter(c=>c.nivel==='erro').length, nA=checks.filter(c=>c.nivel==='aviso').length;
@@ -21634,6 +21640,138 @@ async function rodarDiagnostico(){
     checks.slice().sort((a,b)=>ordem[a.nivel]-ordem[b.nivel]).map(c=>`<div style="display:flex;gap:10px;padding:8px 10px;border-bottom:1px solid #eee;border-left:4px solid ${cor[c.nivel]}"><span>${ico[c.nivel]}</span><div style="flex:1"><div style="font-weight:700">${c.titulo}</div><div style="color:#546e7a;font-size:12px;margin-top:2px">${c.detalhe}</div></div></div>`).join('')+
     `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">📊 Tempo e tamanho por tabela</summary><table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px"><tr style="text-align:left;background:#f5f7f6"><th style="padding:4px 6px">Tabela</th><th>Linhas</th><th>Tamanho</th><th>Última</th><th>Média</th><th>Mais lenta</th></tr>${tabs.sort((a,b)=>b.kb-a.kb).map(t=>`<tr style="border-bottom:1px solid #f0f0f0"><td style="padding:3px 6px">${t.nome}</td><td>${t.rows}</td><td>${t.kb>=1024?(t.kb/1024).toFixed(1)+' MB':t.kb.toFixed(0)+' KB'}</td><td>${fmtMs(t.ultMs)}</td><td>${fmtMs(t.mediaMs)}</td><td>${fmtMs(t.maxMs)}</td></tr>`).join('')}</table></details>`+
     (rt.length?`<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">📡 Mudanças recebidas por tabela (desde que abriu)</summary><div style="font-size:12px;margin-top:6px">${rt.map(([n,v])=>n+': '+v.n).join(' · ')}</div></details>`:'');
+}
+
+// ===== REVISÃO DE DUPLICIDADES (Diagnóstico → "Revisar") =====
+// Plano de ação dentro do sistema: lista ordens que parecem repetidas (mesmo desenho,
+// mesmo equipamento e mesma quantidade) e linhas repetidas na Estrutura de Equipamentos.
+// Nada é apagado sem confirmação; ordens vão para a Lixeira (30 dias) e a linha da
+// Estrutura passa a apontar para a ordem mantida.
+let _dupIgnoradas=null; // chaves de pares que o usuário marcou como "são peças diferentes"
+const _eH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function _dupCarregarIgnoradas(){
+  try{
+    const r=await api('GET','config_sistema','','?chave=eq.dup_revisao_ignoradas&select=valor');
+    _dupIgnoradas=new Set(r&&r[0]&&r[0].valor?JSON.parse(r[0].valor):[]);
+  }catch(e){ _dupIgnoradas=_dupIgnoradas||new Set(); }
+}
+async function _dupSalvarIgnoradas(){
+  const valor=JSON.stringify([..._dupIgnoradas]);
+  const r=await api('GET','config_sistema','','?chave=eq.dup_revisao_ignoradas&select=chave');
+  if(r&&r.length) await api('PATCH','config_sistema',{valor,atualizado_em:new Date().toISOString()},'?chave=eq.dup_revisao_ignoradas');
+  else await api('POST','config_sistema',{chave:'dup_revisao_ignoradas',valor,atualizado_em:new Date().toISOString()});
+}
+function _dupCalcular(){
+  const ign=_dupIgnoradas||new Set();
+  // 1) ordens: mesmo desenho + mesmo equipamento (PDV) + mesma quantidade
+  const ativas=(ordens||[]).filter(o=>!o.excluida_em && o.status!=='cancelado' && _normDesenho(o.desenho) && o.pdv_id);
+  const grupos={};
+  ativas.forEach(o=>{ const k=_normDesenho(o.desenho)+'|'+o.pdv_id+'|'+(Number(o.quantidade)||0); (grupos[k]=grupos[k]||[]).push(o); });
+  const pares=[];
+  Object.values(grupos).filter(g=>g.length>1).forEach(g=>{
+    g.sort((a,b)=>(a.numero||0)-(b.numero||0));
+    const orig=g[0];
+    g.slice(1).forEach(dup=>{
+      const chave=orig.numero+'-'+dup.numero; if(ign.has(chave)) return;
+      // quem sugerir mandar para a lixeira: a que ainda não andou (aguardando); a mais nova se as duas aguardam
+      let sugerida=null;
+      if(dup.status==='aguardando') sugerida=dup; else if(orig.status==='aguardando') sugerida=orig;
+      const algumaFora=[orig,dup].some(o=>o.status==='terceirizado');
+      const nivel=sugerida?1:(algumaFora?2:3);
+      pares.push({chave,orig,dup,sugerida,nivel});
+    });
+  });
+  pares.sort((a,b)=>a.nivel-b.nivel||(b.dup.numero-a.dup.numero));
+  // 2) linhas repetidas na Estrutura (mesmo desenho no mesmo equipamento)
+  const gl={};
+  (itensDesenhoRecebido||[]).forEach(i=>{
+    const c=_normDesenho(i.desenho_peca); if(!c) return;
+    const eq=_equipamentoDoItem(i); if(!eq) return;
+    const k=eq.id+'|'+c; (gl[k]=gl[k]||{eq,chave:c,linhas:[]}).linhas.push(i);
+  });
+  const linhas=[];
+  Object.entries(gl).filter(([,g])=>g.linhas.length>1).forEach(([k,g])=>{
+    const key='L:'+k; if(ign.has(key)) return;
+    g.linhas.sort((a,b)=>(b.ordem_id?1:0)-(a.ordem_id?1:0)||String(b.material||'').length-String(a.material||'').length);
+    linhas.push({key,eq:g.eq,linhas:g.linhas});
+  });
+  return {pares,linhas};
+}
+function _dupCardOrdem(o,destaque){
+  const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id);
+  const dt=o.created_at?new Date(o.created_at).toLocaleDateString('pt-BR'):'—';
+  return `<div style="flex:1;min-width:230px;padding:8px 10px;border:1px solid ${destaque?'#ef6c00':'#e0e0e0'};border-radius:8px;background:${destaque?'#fff8e1':'#fff'}">
+    <div style="font-weight:700">Nº ${o.numero} <span style="font-weight:400;color:#78909c">· ${_eH(o.status||'—')} · ${dt}</span></div>
+    <div style="font-size:12px">${_eH(o.descricao||'—')} · desenho <b>${_eH(o.desenho||'—')}</b> · qtd ${_eH(o.quantidade||'—')}</div>
+    <div style="font-size:11px;color:#78909c">${_eH(o.material||'—')}${pdv?' · '+_eH(rotuloPDV(pdv,true)):''}</div></div>`;
+}
+async function abrirRevisaoDup(){
+  if(!document.getElementById('modalRevisaoDup')){
+    document.body.insertAdjacentHTML('beforeend',`<div class="modal-bg" id="modalRevisaoDup"><div class="modal" style="max-width:900px">
+      <div class="modal-header"><h3>🔎 Revisão de duplicidades</h3><div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalRevisaoDup')" title="Fechar">✕</button></div></div>
+      <div class="modal-body" id="revDupCorpo" style="max-height:74vh;overflow:auto;font-size:13px"></div></div></div>`);
+  }
+  abrirModal('modalRevisaoDup');
+  const el=document.getElementById('revDupCorpo');
+  el.innerHTML='<div style="padding:20px;text-align:center;color:#78909c">⏳ Verificando…</div>';
+  await _dupCarregarIgnoradas();
+  const {pares,linhas}=_dupCalcular();
+  const bloco=(titulo,cor,lista)=>lista.length?`<div style="margin:14px 0 6px;font-weight:700;color:${cor}">${titulo} (${lista.length})</div>`+lista.join(''):'';
+  const cartao=p=>{
+    const sug=p.sugerida, mant=sug?(sug===p.dup?p.orig:p.dup):null;
+    const dica=sug?`Sugestão: mandar a <b>Nº ${sug.numero}</b> para a Lixeira — ainda não foi feita. A linha da Estrutura passa a apontar para a Nº ${mant.numero}.`
+      :(p.nivel===2?'Uma delas já está no terceiro. <b>Confira antes de mexer</b>: se foi mesmo repetida, fale com o terceiro.'
+      :'As duas já foram feitas. Se foi <b>refação</b> (peça quebrou/refeita) ou lote novo, escolha “São peças diferentes”. Se foi erro de cadastro, não há o que desfazer na produção — só ignore.');
+    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:10px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${_dupCardOrdem(p.orig,sug===p.orig)}${_dupCardOrdem(p.dup,sug===p.dup)}</div>
+      <div style="font-size:12px;margin:8px 0;color:#455a64">${dica}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${sug?`<button class="btn btn-sm danger" onclick="dupMandarLixeira('${sug.id}','${mant.id}')">🗑️ Mandar Nº ${sug.numero} para a Lixeira</button>`:''}
+        <button class="btn btn-sm" onclick="dupIgnorar('${p.chave}')">✓ São peças diferentes (manter as duas)</button></div></div>`;
+  };
+  const cartaoLinha=g=>{
+    const [manter,...resto]=g.linhas;
+    const rows=g.linhas.map((i,ix)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid ${ix?'#e0e0e0':'#2e7d32'};border-radius:8px;margin-bottom:6px">
+      <div style="flex:1"><b>${_eH(i.denominacao||'—')}</b> · ${_eH(i.desenho_peca||'')} · qtd ${_eH(i.quantidade||'—')}<br><span style="font-size:11px;color:#78909c">${_eH(i.material||'—')}${i.ordem_id?' · OP Nº '+_eH(((ordens||[]).find(o=>o.id===i.ordem_id)||{}).numero||'?'):' · sem OP'}</span></div>
+      ${ix?`<button class="btn btn-sm danger" onclick="dupApagarLinha('${i.id}')">Apagar esta linha</button>`:'<span style="font-size:11px;color:#2e7d32;font-weight:700">✔ manter</span>'}</div>`).join('');
+    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:10px">
+      <div style="font-size:12px;color:#455a64;margin-bottom:6px">Equipamento: <b>${_eH(g.eq.nome_equipamento||'—')}</b>. A peça aparece ${g.linhas.length}× — conta em dobro na lista de materiais e pode gerar compra em dobro.</div>
+      ${rows}<button class="btn btn-sm" onclick="dupIgnorar('${_eH(g.key)}')">✓ São peças diferentes (manter todas)</button></div>`;
+  };
+  const html=bloco('1. Ordens provavelmente repetidas — ainda não feitas','#c62828',pares.filter(p=>p.nivel===1).map(cartao))+
+    bloco('2. Ordens repetidas com uma delas no terceiro','#ef6c00',pares.filter(p=>p.nivel===2).map(cartao))+
+    bloco('3. Linhas repetidas na Estrutura de Equipamentos','#ef6c00',linhas.map(cartaoLinha))+
+    bloco('4. Ordens iguais já concluídas — conferir se foi refação','#546e7a',pares.filter(p=>p.nivel===3).map(cartao));
+  el.innerHTML=`<div style="padding:10px 12px;background:#f5f7f6;border-radius:8px">Como usar: resolva de cima para baixo. Nada é apagado de vez — ordens vão para a <b>Lixeira</b> (⋮ Mais → Lixeira, 30 dias para restaurar). “São peças diferentes” guarda sua decisão e o par some desta lista.</div>`+
+    (html||'<div style="padding:30px;text-align:center;color:#2e7d32;font-weight:700">✅ Nenhuma duplicidade pendente.</div>');
+}
+async function dupIgnorar(chave){
+  try{ if(!_dupIgnoradas) await _dupCarregarIgnoradas(); _dupIgnoradas.add(chave); await _dupSalvarIgnoradas(); abrirRevisaoDup(); }
+  catch(e){ showToast('Erro ao salvar a decisão','err'); console.error(e); }
+}
+async function dupMandarLixeira(idLixo,idMantida){
+  const o=(ordens||[]).find(x=>x.id===idLixo), m=(ordens||[]).find(x=>x.id===idMantida);
+  if(!o||!m) return;
+  if(!confirm(`Mandar a Ordem Nº ${o.numero} (${o.descricao||''}) para a Lixeira?\n\nAs linhas da Estrutura ligadas a ela passam a apontar para a Ordem Nº ${m.numero}.\nVocê pode restaurar em ⋮ Mais → Lixeira por 30 dias.`)) return;
+  try{
+    await api('PATCH','itens_desenho_recebido',{ordem_id:m.id},`?ordem_id=eq.${o.id}`).catch(()=>{});
+    await api('PATCH','montagens_recebidas',{ordem_id:m.id},`?ordem_id=eq.${o.id}`).catch(()=>{});
+    await api('PATCH','ordens_producao',{excluida_em:new Date().toISOString()},`?id=eq.${o.id}`);
+    showToast(`Ordem Nº ${o.numero} movida para a Lixeira.`);
+    await loadAll(); abrirRevisaoDup();
+  }catch(e){ showToast('Erro ao mover para a Lixeira','err'); console.error(e); }
+}
+async function dupApagarLinha(id){
+  const i=(itensDesenhoRecebido||[]).find(x=>x.id===id); if(!i) return;
+  if((itensDesenhoRecebido||[]).some(x=>x.item_pai_id===id)){ alert('Esta linha tem peças dentro dela. Remova ou mova as peças filhas primeiro (na Estrutura de Equipamentos).'); return; }
+  if(i.item_compra_id && !confirm('Esta linha já tem um item de compra ligado. Apagar mesmo assim?\n\n(O item de compra NÃO é apagado, só a linha da Estrutura.)')) return;
+  if(!confirm(`Apagar a linha “${i.denominacao||''}” (${i.desenho_peca||''}) da Estrutura de Equipamentos?\n\nA Ordem de Produção ligada NÃO é afetada.`)) return;
+  try{
+    await api('DELETE','itens_desenho_recebido','',`?id=eq.${id}`);
+    showToast('Linha repetida apagada.');
+    await loadAll(); abrirRevisaoDup();
+  }catch(e){ showToast('Erro ao apagar a linha','err'); console.error(e); }
 }
 
 // ===== PROTEÇÃO GLOBAL CONTRA ERROS =====
