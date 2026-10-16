@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 336';
+const APP_BUILD='2026-10-16 · build 337';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21739,6 +21739,24 @@ function _dupInfoOrdem(o){
 }
 // Só pode ir para a Lixeira sem perder histórico: não iniciada, sem tempo, sem terceiro.
 function _dupPodeLixeira(o){ const x=_dupInfoOrdem(o); return o.status==='aguardando' && !x.tempos.length && !x.temTerc; }
+let _dupProntoInfo={};
+async function _dupCarregarProntos(ids){
+  _dupProntoInfo={};
+  if(!ids.length) return;
+  try{
+    const l=ids.join(',');
+    const r=await api('GET','ordens_producao','',`?id=in.(${l})&foto_pronto=not.is.null&select=id`);
+    (r||[]).forEach(x=>{ _dupProntoInfo[x.id]=true; });
+  }catch(e){ console.warn('prontos:',e.message); }
+}
+// Tempo por operação: "Torno 2h10 · Furadeira 45min"
+function _dupTempoPorOperacao(x){
+  const m={}; x.tempos.forEach(t=>{ const k=t.operacao; m[k]=(m[k]||0)+(Number(t.duracao_minutos)||0); });
+  return Object.keys(m).map(k=>`${_eH(k)} <b>${_dupHm(m[k])}</b>`).join(' · ');
+}
+function _dupUltimoApont(x){
+  const ds=x.tempos.map(t=>t.created_at).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:null;
+}
 function _dupCardOrdem(o,destaque){
   const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id), x=_dupInfoOrdem(o);
   let situ;
@@ -21753,12 +21771,16 @@ function _dupCardOrdem(o,destaque){
     if(x.envios.length) linhasInfo.push('🚚 '+x.envios.map(e=>`${_eH(e.terceirizado_nome||'terceiro')}: ${_eH(e.quantidade||'?')} pç enviadas ${_dupFd(e.data_envio)}${e.prazo_dias?' (prazo '+_eH(e.prazo_dias)+' d)':''} — ${e.data_retorno?'<b style="color:#2e7d32">voltou '+_dupFd(e.data_retorno)+'</b>':'<b style="color:#e65100">ainda não voltou</b>'}`).join('<br>🚚 '));
     else linhasInfo.push(`🚚 ${_eH(o.terceirizado_nome||'terceiro')}: enviada ${_dupFd(o.terceirizado_data)}${o.terceirizado_prazo?' (prazo '+_eH(o.terceirizado_prazo)+' d)':''} — ${o.terceirizado_retorno?'<b style="color:#2e7d32">voltou '+_dupFd(o.terceirizado_retorno)+'</b>':'<b style="color:#e65100">ainda não voltou</b>'}`);
   }
-  linhasInfo.push(`🔗 ${x.linhas} linha(s) da Estrutura ligada(s)${o.peso_pronto?' · peso pronto '+_eH(o.peso_pronto)+' kg':''}`);
-  if(o.observacao) linhasInfo.push('📝 '+_eH(String(o.observacao).slice(0,140)));
+  if(x.tempos.length){ linhasInfo.push('🛠 '+_dupTempoPorOperacao(x)); const u=_dupUltimoApont(x); if(u) linhasInfo.push('Último apontamento em <b>'+_dupFd(u)+'</b>'); }
+  linhasInfo.push(`📷 Foto do desenho: ${o.tem_foto_desenho?'<b style="color:#2e7d32">tem</b>':'<b style="color:#c62828">não tem</b>'} · Foto da peça pronta: ${_dupProntoInfo[o.id]?'<b style="color:#2e7d32">tem</b>':'<b style="color:#78909c">não tem</b>'}`);
+  if(o.peso||o.peso_pronto) linhasInfo.push('⚖️ '+(o.peso?'peso previsto '+_eH(o.peso)+' kg':'')+(o.peso&&o.peso_pronto?' · ':'')+(o.peso_pronto?'peso pronto '+_eH(o.peso_pronto)+' kg':''));
+  linhasInfo.push(`🔗 ${x.linhas} linha(s) da Estrutura ligada(s)`);
+  if(o.observacao) linhasInfo.push('📝 '+_eH(String(o.observacao).slice(0,300)));
   return `<div style="flex:1;min-width:250px;padding:8px 10px;border:2px solid ${destaque?'#ef6c00':'#e0e0e0'};border-radius:8px;background:${destaque?'#fff8e1':'#fff'}">
+    <div style="display:flex;gap:8px;align-items:flex-start"><div style="width:50px;flex:none">${o.tem_foto_desenho?_miniaturaOrdemHtml(o):'<div style="width:46px;height:46px;border:1px dashed #ffcc80;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ef6c00;text-align:center;line-height:1.1">sem foto</div>'}</div><div style="flex:1">
     <div style="font-weight:700;font-size:14px">Nº ${o.numero} <span style="font-weight:400;color:#546e7a;font-size:12px">· ${_eH(o.quantidade||'—')} pç</span></div>
-    <div style="margin:3px 0">${situ}</div>
-    <div style="font-size:12px">${_eH(o.descricao||'—')} · desenho <b>${_eH(o.desenho||'—')}</b></div>
+    <div style="margin:3px 0">${situ}</div></div></div>
+    <div style="font-size:12px;margin-top:4px">${_eH(o.descricao||'—')} · desenho <b>${_eH(o.desenho||'—')}</b></div>
     <div style="font-size:11px;color:#78909c;margin-bottom:4px">${_eH(o.material||'—')}${pdv?' · '+_eH(rotuloPDV(pdv,true)):''}</div>
     <div style="font-size:11.5px;line-height:1.55;color:#37474f">${linhasInfo.join('<br>')}</div>
     <div style="margin-top:6px"><button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')">📄 Ver ficha</button></div></div>`;
@@ -21782,7 +21804,9 @@ function _dupResumoOrdemCurto(o){
     const volt=x.envios.length?x.envios.every(e=>e.data_retorno):!!o.terceirizado_retorno;
     partes.push(volt?'<span style="color:#2e7d32">terceiro: peças já voltaram</span>':'<span style="color:#e65100;font-weight:700">terceiro: ainda não voltaram</span>');
   }
-  partes.push('aberta em '+_dupFd(o.dt_abertura||o.created_at));
+  if(x.tempos.length) partes.push('🛠 '+_dupTempoPorOperacao(x));
+  partes.push('📷 desenho: '+(o.tem_foto_desenho?'sim':'<b style="color:#c62828">não</b>')+' · peça pronta: '+(_dupProntoInfo[o.id]?'sim':'não'));
+  partes.push('aberta em '+_dupFd(o.dt_abertura||o.created_at)+(o.criado_por?' por '+_eH(o.criado_por):''));
   return partes.join(' · ');
 }
 // Leitura do grupo: as linhas apontam para a mesma OP? Quanto a Estrutura pede vs quanto as OPs produzem?
@@ -21822,6 +21846,8 @@ async function abrirRevisaoDup(){
   el.innerHTML='<div style="padding:20px;text-align:center;color:#78909c">⏳ Verificando…</div>';
   await _dupCarregarIgnoradas();
   const {pares,linhas}=_dupCalcular();
+  const _idsDup=new Set(); pares.forEach(p=>{_idsDup.add(p.orig.id);_idsDup.add(p.dup.id);}); linhas.forEach(g=>g.linhas.forEach(i=>{ if(i.ordem_id)_idsDup.add(i.ordem_id); }));
+  await _dupCarregarProntos([..._idsDup]);
   const bloco=(titulo,cor,lista)=>lista.length?`<div style="margin:14px 0 6px;font-weight:700;color:${cor}">${titulo} (${lista.length})</div>`+lista.join(''):'';
   const cartao=p=>{
     const sug=p.sugerida, mant=sug?(sug===p.dup?p.orig:p.dup):null;
@@ -21851,6 +21877,7 @@ async function abrirRevisaoDup(){
       else if(podeComOrdem) acao=`<button class="btn btn-sm danger" onclick="dupApagarLinhaEOrdem('${i.id}','${o.id}')">Apagar linha + OP Nº ${o.numero} (Lixeira)</button>`;
       else acao='<span style="font-size:11px;color:#78909c;max-width:170px;text-align:right">tem OP própria já trabalhada — não apague por aqui</span>';
       return `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border:2px solid ${ix?'#e0e0e0':'#2e7d32'};border-radius:8px;margin-bottom:6px">
+        ${o&&o.tem_foto_desenho?'<div style="width:50px;flex:none">'+_miniaturaOrdemHtml(o)+'</div>':''}
         <div style="flex:1;font-size:12px"><b style="font-size:13px">${_eH(i.denominacao||'—')}</b> · ${_eH(i.desenho_peca||'')} · <b>${_eH(i.quantidade||'—')} pç</b>
         <br><span style="font-size:11px;color:#78909c">${_eH(i.material||'—')}${i.item_compra_id?' · 🛒 material já ligado a uma compra':''}</span>
         <br><span style="font-size:11.5px;color:#37474f">${_dupResumoOrdemCurto(o)}</span></div>
@@ -21866,6 +21893,7 @@ async function abrirRevisaoDup(){
     bloco('4. Ordens iguais já concluídas — conferir se foi refação','#546e7a',pares.filter(p=>p.nivel===3).map(cartao));
   el.innerHTML=`<div style="padding:10px 12px;background:#f5f7f6;border-radius:8px">Como usar: resolva de cima para baixo. Nada é apagado de vez — ordens vão para a <b>Lixeira</b> (⋮ Mais → Lixeira, 30 dias para restaurar). “São peças diferentes” guarda sua decisão e o par some desta lista.</div>`+
     (html||'<div style="padding:30px;text-align:center;color:#2e7d32;font-weight:700">✅ Nenhuma duplicidade pendente.</div>');
+  try{ _observarMiniaturasOrdens(); }catch(e){}
 }
 async function dupIgnorar(chave){
   try{ if(!_dupIgnoradas) await _dupCarregarIgnoradas(); _dupIgnoradas.add(chave); await _dupSalvarIgnoradas(); abrirRevisaoDup(); }
