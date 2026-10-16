@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 335';
+const APP_BUILD='2026-10-16 · build 336';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21720,7 +21720,7 @@ function _dupCalcular(){
   const linhas=[];
   Object.entries(gl).filter(([,g])=>g.linhas.length>1).forEach(([k,g])=>{
     const key='L:'+k; if(ign.has(key)) return;
-    g.linhas.sort((a,b)=>(b.ordem_id?1:0)-(a.ordem_id?1:0)||String(b.material||'').length-String(a.material||'').length);
+    g.linhas.sort((a,b)=>_dupPesoLinha(b)-_dupPesoLinha(a)||String(b.material||'').length-String(a.material||'').length);
     linhas.push({key,eq:g.eq,linhas:g.linhas});
   });
   return {pares,linhas};
@@ -21763,6 +21763,42 @@ function _dupCardOrdem(o,destaque){
     <div style="font-size:11.5px;line-height:1.55;color:#37474f">${linhasInfo.join('<br>')}</div>
     <div style="margin-top:6px"><button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')">📄 Ver ficha</button></div></div>`;
 }
+// Quanto "vida" a OP da linha tem: concluída > no terceiro > com tempo > aguardando > sem OP.
+function _dupOrdemDaLinha(i){ return i.ordem_id?(ordens||[]).find(o=>o.id===i.ordem_id):null; }
+function _dupPesoLinha(i){
+  const o=_dupOrdemDaLinha(i); if(!o) return 0;
+  if(o.status==='concluido') return 4; if(o.status==='terceirizado') return 3;
+  return _dupInfoOrdem(o).tempos.length?2:1;
+}
+// Resumo curto (uma ou duas linhas) da OP ligada a uma linha da Estrutura.
+function _dupResumoOrdemCurto(o){
+  if(!o) return '<span style="color:#78909c">sem OP — ainda não foi criada ordem para esta linha</span>';
+  const x=_dupInfoOrdem(o); const partes=[`<b>OP Nº ${o.numero}</b> · ${_eH(o.quantidade||'—')} pç`];
+  if(o.status==='concluido') partes.push(`<span style="color:#2e7d32;font-weight:700">✅ concluída em ${_dupFd(o.concluido_em)}${o.concluido_por?' por '+_eH(o.concluido_por):''}</span>`);
+  else if(o.status==='terceirizado') partes.push(`<span style="color:#e65100;font-weight:700">🚚 no terceiro${o.terceirizado_nome?' ('+_eH(o.terceirizado_nome)+')':''}</span>`);
+  else partes.push(x.tempos.length?'<span style="font-weight:700">em andamento</span>':'<span style="color:#546e7a">⏳ aguardando, nada feito</span>');
+  if(x.tempos.length) partes.push(`⏱ ${_dupHm(x.minutos)}${x.operadores.length?' ('+_eH(x.operadores.slice(0,2).join(', '))+')':''}`);
+  if(x.temTerc){
+    const volt=x.envios.length?x.envios.every(e=>e.data_retorno):!!o.terceirizado_retorno;
+    partes.push(volt?'<span style="color:#2e7d32">terceiro: peças já voltaram</span>':'<span style="color:#e65100;font-weight:700">terceiro: ainda não voltaram</span>');
+  }
+  partes.push('aberta em '+_dupFd(o.dt_abertura||o.created_at));
+  return partes.join(' · ');
+}
+// Leitura do grupo: as linhas apontam para a mesma OP? Quanto a Estrutura pede vs quanto as OPs produzem?
+function _dupLeituraGrupo(linhas){
+  const ids=[...new Set(linhas.map(i=>i.ordem_id).filter(Boolean))];
+  const ords=ids.map(id=>(ordens||[]).find(o=>o.id===id)).filter(Boolean);
+  const somaLinhas=linhas.reduce((a,i)=>a+(Number(i.quantidade)||0),0);
+  const somaOrdens=ords.reduce((a,o)=>a+(Number(o.quantidade)||0),0);
+  const nComOP=linhas.filter(i=>i.ordem_id).length;
+  let txt,cor,bg;
+  if(ids.length===1 && nComOP>1){ txt=`As ${nComOP} linhas apontam para a <b>mesma OP</b> (Nº ${ords[0]?ords[0].numero:'?'}). Só existe uma ordem, então a linha a mais é <b>repetida</b> e pode ser apagada sem perder produção.`; cor='#c62828'; bg='#ffebee'; }
+  else if(!ids.length){ txt='Nenhuma das linhas tem OP ainda. Apague as repetidas agora, <b>antes</b> de criar ordens.'; cor='#c62828'; bg='#ffebee'; }
+  else if(ids.length>1){ txt=`Cada linha tem uma OP diferente (${ords.map(o=>'Nº '+o.numero).join(' e ')}). As linhas pedem <b>${somaLinhas} pç</b> no total e as ordens somam <b>${somaOrdens} pç</b>. Se as duas ordens produziram a mesma peça para a mesma necessidade, houve excesso; se são lotes/quantidades diferentes, pode estar certo.`; cor='#ef6c00'; bg='#fff3e0'; }
+  else { txt=`Só uma linha tem OP (Nº ${ords[0]?ords[0].numero:'?'}); a(s) outra(s) estão sem ordem — são <b>sobra de cadastro</b>, seguras de apagar.`; cor='#ef6c00'; bg='#fff3e0'; }
+  return `<div style="margin:6px 0 8px;padding:6px 10px;background:${bg};border-left:4px solid ${cor};border-radius:6px;font-size:12px">${txt}</div>`;
+}
 // Quanto a Estrutura pede dessa peça no equipamento, versus quanto as ordens somam.
 function _dupNecessidade(orig,dup){
   const c=_normDesenho(orig.desenho);
@@ -21803,13 +21839,26 @@ async function abrirRevisaoDup(){
         <button class="btn btn-sm" onclick="dupIgnorar('${p.chave}')">✓ São peças diferentes (manter as duas)</button></div></div>`;
   };
   const cartaoLinha=g=>{
-    const [manter,...resto]=g.linhas;
-    const rows=g.linhas.map((i,ix)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid ${ix?'#e0e0e0':'#2e7d32'};border-radius:8px;margin-bottom:6px">
-      <div style="flex:1"><b>${_eH(i.denominacao||'—')}</b> · ${_eH(i.desenho_peca||'')} · qtd ${_eH(i.quantidade||'—')}<br><span style="font-size:11px;color:#78909c">${_eH(i.material||'—')}${i.ordem_id?' · OP Nº '+_eH(((ordens||[]).find(o=>o.id===i.ordem_id)||{}).numero||'?'):' · sem OP'}</span></div>
-      ${ix?`<button class="btn btn-sm danger" onclick="dupApagarLinha('${i.id}')">Apagar esta linha</button>`:'<span style="font-size:11px;color:#2e7d32;font-weight:700">✔ manter</span>'}</div>`).join('');
-    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:10px">
-      <div style="font-size:12px;color:#455a64;margin-bottom:6px">Equipamento: <b>${_eH(g.eq.nome_equipamento||'—')}</b>. A peça aparece ${g.linhas.length}× — conta em dobro na lista de materiais e pode gerar compra em dobro.</div>
-      ${rows}<button class="btn btn-sm" onclick="dupIgnorar('${_eH(g.key)}')">✓ São peças diferentes (manter todas)</button></div>`;
+    const manter=g.linhas[0];
+    const rows=g.linhas.map((i,ix)=>{
+      const o=_dupOrdemDaLinha(i);
+      const mesma=ix>0 && i.ordem_id && i.ordem_id===manter.ordem_id;
+      const podeSoLinha=ix>0 && (!i.ordem_id || mesma);
+      const podeComOrdem=ix>0 && !podeSoLinha && o && _dupPodeLixeira(o) && (itensDesenhoRecebido||[]).filter(x=>x.ordem_id===o.id).length===1;
+      let acao;
+      if(!ix) acao='<span style="font-size:11px;color:#2e7d32;font-weight:700">✔ manter</span>';
+      else if(podeSoLinha) acao=`<button class="btn btn-sm danger" onclick="dupApagarLinha('${i.id}')">Apagar esta linha</button>`;
+      else if(podeComOrdem) acao=`<button class="btn btn-sm danger" onclick="dupApagarLinhaEOrdem('${i.id}','${o.id}')">Apagar linha + OP Nº ${o.numero} (Lixeira)</button>`;
+      else acao='<span style="font-size:11px;color:#78909c;max-width:170px;text-align:right">tem OP própria já trabalhada — não apague por aqui</span>';
+      return `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border:2px solid ${ix?'#e0e0e0':'#2e7d32'};border-radius:8px;margin-bottom:6px">
+        <div style="flex:1;font-size:12px"><b style="font-size:13px">${_eH(i.denominacao||'—')}</b> · ${_eH(i.desenho_peca||'')} · <b>${_eH(i.quantidade||'—')} pç</b>
+        <br><span style="font-size:11px;color:#78909c">${_eH(i.material||'—')}${i.item_compra_id?' · 🛒 material já ligado a uma compra':''}</span>
+        <br><span style="font-size:11.5px;color:#37474f">${_dupResumoOrdemCurto(o)}</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${acao}${o?`<button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')">📄 Ver ficha</button>`:''}</div></div>`;
+    }).join('');
+    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:12px">
+      <div style="font-size:12px;color:#455a64;margin-bottom:4px">Equipamento: <b>${_eH(g.eq.nome_equipamento||'—')}</b>. A peça aparece <b>${g.linhas.length}×</b> — conta em dobro na lista de materiais e pode gerar compra em dobro.</div>
+      ${_dupLeituraGrupo(g.linhas)}${rows}<button class="btn btn-sm" onclick="dupIgnorar('${_eH(g.key)}')">✓ São peças diferentes (manter todas)</button></div>`;
   };
   const html=bloco('1. Ordens provavelmente repetidas — ainda não feitas','#c62828',pares.filter(p=>p.nivel===1).map(cartao))+
     bloco('2. Ordens repetidas com uma delas no terceiro','#ef6c00',pares.filter(p=>p.nivel===2).map(cartao))+
@@ -21834,6 +21883,18 @@ async function dupMandarLixeira(idLixo,idMantida){
     showToast(`Ordem Nº ${o.numero} movida para a Lixeira.`);
     await loadAll(); abrirRevisaoDup();
   }catch(e){ showToast('Erro ao mover para a Lixeira','err'); console.error(e); }
+}
+async function dupApagarLinhaEOrdem(idLinha,idOrdem){
+  const i=(itensDesenhoRecebido||[]).find(x=>x.id===idLinha), o=(ordens||[]).find(x=>x.id===idOrdem); if(!i||!o) return;
+  if(!_dupPodeLixeira(o)){ alert('Essa OP já tem trabalho registrado; não dá para mandar para a Lixeira por aqui.'); return; }
+  if((itensDesenhoRecebido||[]).some(x=>x.item_pai_id===idLinha)){ alert('Esta linha tem peças dentro dela. Remova ou mova as peças filhas primeiro.'); return; }
+  if(!confirm(`Apagar a linha “${i.denominacao||''}” da Estrutura E mandar a OP Nº ${o.numero} para a Lixeira?\n\nA OP não foi iniciada e não tem tempo nem terceiro. Dá para restaurar a OP em ⋮ Mais → Lixeira por 30 dias.`)) return;
+  try{
+    await api('DELETE','itens_desenho_recebido','',`?id=eq.${idLinha}`);
+    await api('PATCH','ordens_producao',{excluida_em:new Date().toISOString()},`?id=eq.${idOrdem}`);
+    showToast(`Linha apagada e OP Nº ${o.numero} movida para a Lixeira.`);
+    await loadAll(); abrirRevisaoDup();
+  }catch(e){ showToast('Erro ao concluir','err'); console.error(e); }
 }
 async function dupApagarLinha(id){
   const i=(itensDesenhoRecebido||[]).find(x=>x.id===id); if(!i) return;
