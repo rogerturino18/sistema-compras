@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 334';
+const APP_BUILD='2026-10-16 · build 335';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21703,7 +21703,7 @@ function _dupCalcular(){
       const chave=orig.numero+'-'+dup.numero; if(ign.has(chave)) return;
       // quem sugerir mandar para a lixeira: a que ainda não andou (aguardando); a mais nova se as duas aguardam
       let sugerida=null;
-      if(dup.status==='aguardando') sugerida=dup; else if(orig.status==='aguardando') sugerida=orig;
+      if(_dupPodeLixeira(dup)) sugerida=dup; else if(_dupPodeLixeira(orig)) sugerida=orig;
       const algumaFora=[orig,dup].some(o=>o.status==='terceirizado');
       const nivel=sugerida?1:(algumaFora?2:3);
       pares.push({chave,orig,dup,sugerida,nivel});
@@ -21725,13 +21725,54 @@ function _dupCalcular(){
   });
   return {pares,linhas};
 }
+function _dupFd(v){ if(!v) return '—'; const t=String(v); if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t.split('-').reverse().join('/'); const d=new Date(t); return isNaN(d)?t:d.toLocaleDateString('pt-BR'); }
+function _dupHm(min){ min=Math.round(Number(min)||0); if(!min) return '0 min'; const h=Math.floor(min/60), m=min%60; return (h?h+' h ':'')+(m?m+' min':'').trim(); }
+// Tudo que existe de "vida" numa ordem: apontamentos de tempo, envios ao terceiro, linhas da Estrutura ligadas.
+function _dupInfoOrdem(o){
+  const tempos=(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao);
+  const minutos=tempos.reduce((a,t)=>a+(Number(t.duracao_minutos)||0),0);
+  const operadores=[...new Set(tempos.map(t=>t.operador).filter(Boolean))];
+  const envios=(ordemEnviosTerc||[]).filter(e=>e.ordem_id===o.id);
+  const temTerc=!!(o.terceirizado_nome||envios.length||o.status==='terceirizado');
+  const linhas=(itensDesenhoRecebido||[]).filter(i=>i.ordem_id===o.id).length+(montagensRecebidas||[]).filter(m=>m.ordem_id===o.id).length;
+  return {tempos,minutos,operadores,envios,temTerc,linhas};
+}
+// Só pode ir para a Lixeira sem perder histórico: não iniciada, sem tempo, sem terceiro.
+function _dupPodeLixeira(o){ const x=_dupInfoOrdem(o); return o.status==='aguardando' && !x.tempos.length && !x.temTerc; }
 function _dupCardOrdem(o,destaque){
-  const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id);
-  const dt=o.created_at?new Date(o.created_at).toLocaleDateString('pt-BR'):'—';
-  return `<div style="flex:1;min-width:230px;padding:8px 10px;border:1px solid ${destaque?'#ef6c00':'#e0e0e0'};border-radius:8px;background:${destaque?'#fff8e1':'#fff'}">
-    <div style="font-weight:700">Nº ${o.numero} <span style="font-weight:400;color:#78909c">· ${_eH(o.status||'—')} · ${dt}</span></div>
-    <div style="font-size:12px">${_eH(o.descricao||'—')} · desenho <b>${_eH(o.desenho||'—')}</b> · qtd ${_eH(o.quantidade||'—')}</div>
-    <div style="font-size:11px;color:#78909c">${_eH(o.material||'—')}${pdv?' · '+_eH(rotuloPDV(pdv,true)):''}</div></div>`;
+  const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id), x=_dupInfoOrdem(o);
+  let situ;
+  if(o.status==='concluido') situ=`<span style="background:#e8f5e9;color:#2e7d32;font-weight:700;padding:1px 8px;border-radius:10px">✅ Concluída em ${_dupFd(o.concluido_em)}${o.concluido_por?' por '+_eH(o.concluido_por):''}</span>`;
+  else if(o.status==='terceirizado') situ=`<span style="background:#fff3e0;color:#e65100;font-weight:700;padding:1px 8px;border-radius:10px">🚚 No terceiro${o.terceirizado_nome?': '+_eH(o.terceirizado_nome):''}</span>`;
+  else situ=`<span style="background:#eceff1;color:#546e7a;font-weight:700;padding:1px 8px;border-radius:10px">⏳ ${x.tempos.length?'Em andamento':'Aguardando — nada feito ainda'}</span>`;
+  const linhasInfo=[];
+  linhasInfo.push(`Aberta em <b>${_dupFd(o.dt_abertura||o.created_at)}</b>${o.criado_por?' por '+_eH(o.criado_por):''}`);
+  if(x.tempos.length) linhasInfo.push(`⏱ <b>${_dupHm(x.minutos)}</b> trabalhadas em ${x.tempos.length} apontamento(s)${x.operadores.length?' ('+_eH(x.operadores.slice(0,3).join(', '))+(x.operadores.length>3?'…':'')+')':''}`);
+  else linhasInfo.push('⏱ Nenhum tempo apontado');
+  if(x.temTerc){
+    if(x.envios.length) linhasInfo.push('🚚 '+x.envios.map(e=>`${_eH(e.terceirizado_nome||'terceiro')}: ${_eH(e.quantidade||'?')} pç enviadas ${_dupFd(e.data_envio)}${e.prazo_dias?' (prazo '+_eH(e.prazo_dias)+' d)':''} — ${e.data_retorno?'<b style="color:#2e7d32">voltou '+_dupFd(e.data_retorno)+'</b>':'<b style="color:#e65100">ainda não voltou</b>'}`).join('<br>🚚 '));
+    else linhasInfo.push(`🚚 ${_eH(o.terceirizado_nome||'terceiro')}: enviada ${_dupFd(o.terceirizado_data)}${o.terceirizado_prazo?' (prazo '+_eH(o.terceirizado_prazo)+' d)':''} — ${o.terceirizado_retorno?'<b style="color:#2e7d32">voltou '+_dupFd(o.terceirizado_retorno)+'</b>':'<b style="color:#e65100">ainda não voltou</b>'}`);
+  }
+  linhasInfo.push(`🔗 ${x.linhas} linha(s) da Estrutura ligada(s)${o.peso_pronto?' · peso pronto '+_eH(o.peso_pronto)+' kg':''}`);
+  if(o.observacao) linhasInfo.push('📝 '+_eH(String(o.observacao).slice(0,140)));
+  return `<div style="flex:1;min-width:250px;padding:8px 10px;border:2px solid ${destaque?'#ef6c00':'#e0e0e0'};border-radius:8px;background:${destaque?'#fff8e1':'#fff'}">
+    <div style="font-weight:700;font-size:14px">Nº ${o.numero} <span style="font-weight:400;color:#546e7a;font-size:12px">· ${_eH(o.quantidade||'—')} pç</span></div>
+    <div style="margin:3px 0">${situ}</div>
+    <div style="font-size:12px">${_eH(o.descricao||'—')} · desenho <b>${_eH(o.desenho||'—')}</b></div>
+    <div style="font-size:11px;color:#78909c;margin-bottom:4px">${_eH(o.material||'—')}${pdv?' · '+_eH(rotuloPDV(pdv,true)):''}</div>
+    <div style="font-size:11.5px;line-height:1.55;color:#37474f">${linhasInfo.join('<br>')}</div>
+    <div style="margin-top:6px"><button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')">📄 Ver ficha</button></div></div>`;
+}
+// Quanto a Estrutura pede dessa peça no equipamento, versus quanto as ordens somam.
+function _dupNecessidade(orig,dup){
+  const c=_normDesenho(orig.desenho);
+  const qs=(itensDesenhoRecebido||[]).filter(i=>_normDesenho(i.desenho_peca)===c).filter(i=>{ const eq=_equipamentoDoItem(i); return eq && eq.pdv_id===orig.pdv_id; }).map(i=>Number(i.quantidade)||0);
+  const nec=qs.length?Math.max(...qs):null;
+  const soma=(Number(orig.quantidade)||0)+(Number(dup.quantidade)||0);
+  if(nec==null) return '';
+  return soma>nec
+    ? `<div style="margin:8px 0;padding:6px 10px;background:#ffebee;border-radius:6px;font-size:12px">⚖️ A Estrutura pede <b>${nec} pç</b>; as duas ordens somam <b>${soma} pç</b> → <b style="color:#c62828">excesso de ${soma-nec} pç</b> (indício de ordem em duplicidade).</div>`
+    : `<div style="margin:8px 0;padding:6px 10px;background:#e8f5e9;border-radius:6px;font-size:12px">⚖️ A Estrutura pede <b>${nec} pç</b>; as duas ordens somam <b>${soma} pç</b> → <b style="color:#2e7d32">não passa do necessário</b> (pode ser lote complementar, não duplicidade).</div>`;
 }
 async function abrirRevisaoDup(){
   if(!document.getElementById('modalRevisaoDup')){
@@ -21748,14 +21789,17 @@ async function abrirRevisaoDup(){
   const bloco=(titulo,cor,lista)=>lista.length?`<div style="margin:14px 0 6px;font-weight:700;color:${cor}">${titulo} (${lista.length})</div>`+lista.join(''):'';
   const cartao=p=>{
     const sug=p.sugerida, mant=sug?(sug===p.dup?p.orig:p.dup):null;
-    const dica=sug?`Sugestão: mandar a <b>Nº ${sug.numero}</b> para a Lixeira — ainda não foi feita. A linha da Estrutura passa a apontar para a Nº ${mant.numero}.`
-      :(p.nivel===2?'Uma delas já está no terceiro. <b>Confira antes de mexer</b>: se foi mesmo repetida, fale com o terceiro.'
-      :'As duas já foram feitas. Se foi <b>refação</b> (peça quebrou/refeita) ou lote novo, escolha “São peças diferentes”. Se foi erro de cadastro, não há o que desfazer na produção — só ignore.');
-    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:10px">
+    const xo=_dupInfoOrdem(p.orig), xd=_dupInfoOrdem(p.dup);
+    const dica=sug?`<b>Sugestão:</b> mandar a <b>Nº ${sug.numero}</b> para a Lixeira — não foi iniciada, não tem tempo apontado nem terceiro, então nada de produção se perde. A linha da Estrutura passa a apontar para a Nº ${mant.numero}.`
+      :(p.nivel===2?'<b>Atenção:</b> uma delas já está no terceiro. Não mexa sem falar com o terceiro; se foi mesmo repetida, avise-o antes que produza.'
+      :'<b>As duas já foram trabalhadas/concluídas</b> — não há o que mandar para a Lixeira (apagaria histórico de produção). Veja o quadro de quantidades abaixo: se a soma passa do necessário, houve excesso de peças (custo já ocorrido); se não passa, foi lote complementar. Em qualquer caso, marque “São peças diferentes” para tirar da lista.');
+    const botoesLixo=[p.orig,p.dup].filter(o=>_dupPodeLixeira(o)).map(o=>{ const outra=o===p.orig?p.dup:p.orig; return `<button class="btn btn-sm danger" onclick="dupMandarLixeira('${o.id}','${outra.id}')">🗑️ Mandar Nº ${o.numero} para a Lixeira</button>`; }).join('');
+    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:12px">
       <div style="display:flex;gap:8px;flex-wrap:wrap">${_dupCardOrdem(p.orig,sug===p.orig)}${_dupCardOrdem(p.dup,sug===p.dup)}</div>
+      ${_dupNecessidade(p.orig,p.dup)}
       <div style="font-size:12px;margin:8px 0;color:#455a64">${dica}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${sug?`<button class="btn btn-sm danger" onclick="dupMandarLixeira('${sug.id}','${mant.id}')">🗑️ Mandar Nº ${sug.numero} para a Lixeira</button>`:''}
+        ${botoesLixo}
         <button class="btn btn-sm" onclick="dupIgnorar('${p.chave}')">✓ São peças diferentes (manter as duas)</button></div></div>`;
   };
   const cartaoLinha=g=>{
@@ -21781,6 +21825,7 @@ async function dupIgnorar(chave){
 async function dupMandarLixeira(idLixo,idMantida){
   const o=(ordens||[]).find(x=>x.id===idLixo), m=(ordens||[]).find(x=>x.id===idMantida);
   if(!o||!m) return;
+  if(!_dupPodeLixeira(o)){ alert('Esta ordem já tem trabalho registrado (tempo, terceiro ou conclusão). Para não perder histórico, ela não pode ser mandada para a Lixeira por aqui.'); return; }
   if(!confirm(`Mandar a Ordem Nº ${o.numero} (${o.descricao||''}) para a Lixeira?\n\nAs linhas da Estrutura ligadas a ela passam a apontar para a Ordem Nº ${m.numero}.\nVocê pode restaurar em ⋮ Mais → Lixeira por 30 dias.`)) return;
   try{
     await api('PATCH','itens_desenho_recebido',{ordem_id:m.id},`?ordem_id=eq.${o.id}`).catch(()=>{});
