@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 338';
+const APP_BUILD='2026-10-16 · build 339';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21706,6 +21706,8 @@ function _dupCalcular(){
       if(_dupPodeLixeira(dup)) sugerida=dup; else if(_dupPodeLixeira(orig)) sugerida=orig;
       const algumaFora=[orig,dup].some(o=>o.status==='terceirizado');
       const nivel=sugerida?1:(algumaFora?2:3);
+      // Duas já concluídas cuja soma não passa do que a Estrutura pede = lote complementar, não duplicidade: não listar.
+      if(nivel===3){ const n=_dupNecessidadeNum(orig,dup); if(n.nec!=null && n.soma<=n.nec) return; }
       pares.push({chave,orig,dup,sugerida,nivel});
     });
   });
@@ -21757,10 +21759,16 @@ function _dupTempoPorOperacao(x){
 function _dupUltimoApont(x){
   const ds=x.tempos.map(t=>t.created_at).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:null;
 }
+function _dupDataConc(o){
+  if(o.concluido_em) return _dupFd(o.concluido_em);
+  const x=_dupInfoOrdem(o);
+  const d=[...x.envios.map(e=>e.data_retorno),o.terceirizado_retorno,..._dupUltimoApont(x)?[_dupUltimoApont(x)]:[]].filter(Boolean).sort().pop();
+  return d?_dupFd(d)+' (aprox.)':'data não registrada';
+}
 function _dupCardOrdem(o,destaque){
   const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id), x=_dupInfoOrdem(o);
   let situ;
-  if(o.status==='concluido') situ=`<span style="background:#e8f5e9;color:#2e7d32;font-weight:700;padding:1px 8px;border-radius:10px">✅ Concluída em ${_dupFd(o.concluido_em)}${o.concluido_por?' por '+_eH(o.concluido_por):''}</span>`;
+  if(o.status==='concluido') situ=`<span style="background:#e8f5e9;color:#2e7d32;font-weight:700;padding:1px 8px;border-radius:10px">✅ Concluída em ${_dupDataConc(o)}${o.concluido_por?' por '+_eH(o.concluido_por):''}</span>`;
   else if(o.status==='terceirizado') situ=`<span style="background:#fff3e0;color:#e65100;font-weight:700;padding:1px 8px;border-radius:10px">🚚 No terceiro${o.terceirizado_nome?': '+_eH(o.terceirizado_nome):''}</span>`;
   else situ=`<span style="background:#eceff1;color:#546e7a;font-weight:700;padding:1px 8px;border-radius:10px">⏳ ${x.tempos.length?'Em andamento':'Aguardando — nada feito ainda'}</span>`;
   const linhasInfo=[];
@@ -21796,7 +21804,7 @@ function _dupPesoLinha(i){
 function _dupResumoOrdemCurto(o){
   if(!o) return '<span style="color:#78909c">sem OP — ainda não foi criada ordem para esta linha</span>';
   const x=_dupInfoOrdem(o); const partes=[`<b>OP Nº ${o.numero}</b> · ${_eH(o.quantidade||'—')} pç`];
-  if(o.status==='concluido') partes.push(`<span style="color:#2e7d32;font-weight:700">✅ concluída em ${_dupFd(o.concluido_em)}${o.concluido_por?' por '+_eH(o.concluido_por):''}</span>`);
+  if(o.status==='concluido') partes.push(`<span style="color:#2e7d32;font-weight:700">✅ concluída em ${_dupDataConc(o)}${o.concluido_por?' por '+_eH(o.concluido_por):''}</span>`);
   else if(o.status==='terceirizado') partes.push(`<span style="color:#e65100;font-weight:700">🚚 no terceiro${o.terceirizado_nome?' ('+_eH(o.terceirizado_nome)+')':''}</span>`);
   else partes.push(x.tempos.length?'<span style="font-weight:700">em andamento</span>':'<span style="color:#546e7a">⏳ aguardando, nada feito</span>');
   if(x.tempos.length) partes.push(`⏱ ${_dupHm(x.minutos)}${x.operadores.length?' ('+_eH(x.operadores.slice(0,2).join(', '))+')':''}`);
@@ -21824,11 +21832,13 @@ function _dupLeituraGrupo(linhas){
   return `<div style="margin:6px 0 8px;padding:6px 10px;background:${bg};border-left:4px solid ${cor};border-radius:6px;font-size:12px">${txt}</div>`;
 }
 // Quanto a Estrutura pede dessa peça no equipamento, versus quanto as ordens somam.
-function _dupNecessidade(orig,dup){
+function _dupNecessidadeNum(orig,dup){
   const c=_normDesenho(orig.desenho);
   const qs=(itensDesenhoRecebido||[]).filter(i=>_normDesenho(i.desenho_peca)===c).filter(i=>{ const eq=_equipamentoDoItem(i); return eq && eq.pdv_id===orig.pdv_id; }).map(i=>Number(i.quantidade)||0);
-  const nec=qs.length?Math.max(...qs):null;
-  const soma=(Number(orig.quantidade)||0)+(Number(dup.quantidade)||0);
+  return {nec:qs.length?Math.max(...qs):null, soma:(Number(orig.quantidade)||0)+(Number(dup.quantidade)||0)};
+}
+function _dupNecessidade(orig,dup){
+  const {nec,soma}=_dupNecessidadeNum(orig,dup);
   if(nec==null) return '';
   return soma>nec
     ? `<div style="margin:8px 0;padding:6px 10px;background:#ffebee;border-radius:6px;font-size:12px">⚖️ A Estrutura pede <b>${nec} pç</b>; as duas ordens somam <b>${soma} pç</b> → <b style="color:#c62828">excesso de ${soma-nec} pç</b> (indício de ordem em duplicidade).</div>`
