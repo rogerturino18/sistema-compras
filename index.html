@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-17 · build 343';
+const APP_BUILD='2026-10-17 · build 344';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12575,7 +12575,8 @@ async function imprimirFichaProduto(id){
       .assin{ flex-direction:column; gap:26px; }
     }
     @media print{ html,body{ background:#fff; } .folha{ margin:0; padding:10mm 10mm; box-shadow:none; border-radius:0; max-width:none; width:100%; } .fotoBox .area{ min-height:40mm; } .secao-titulo{ margin:12px 0 6px; } .cabecalho{ margin-bottom:10px; padding-bottom:10px; } .assin{ margin-top:22px; } .rodape{ margin-top:12px; } }
-  </style></head><body><div class="folha">
+    .barra-acoes{position:sticky;top:0;z-index:50;display:flex;gap:8px;justify-content:center;padding:8px;background:#1b5e20;box-shadow:0 2px 8px rgba(0,0,0,.25)} .barra-acoes button{font:700 13px Arial,sans-serif;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#fff;color:#1b5e20} .barra-acoes button.sec{background:transparent;color:#fff;border:1px solid #fff} @media print{.barra-acoes{display:none!important}}
+  </style></head><body><div class="barra-acoes"><button onclick="window.print()">🖨️ Imprimir</button><button class="sec" onclick="window.close()">Fechar</button></div><div class="folha">
     <div class="cabecalho">
       <div class="marca">
         <img src="${LOGO_SL_OLEOS}" alt="SL Óleos">
@@ -12640,10 +12641,7 @@ async function imprimirFichaProduto(id){
     if(h>alvo){ const k=Math.floor(alvo/h*98)/100; z.textContent='@media print{.folha{zoom:'+k+'}}'; }
   }catch(e){} };
   try{ w.addEventListener('beforeprint',ajustar); }catch(e){}
-  const imprimir=()=>{ ajustar(); try{ w.print(); }catch(e){} };
-  const imgs=[...w.document.images].filter(i=>!i.complete);
-  if(!imgs.length) setTimeout(imprimir,300);
-  else { let n=imgs.length, ok=false; const go=()=>{ if(ok) return; ok=true; imprimir(); }; imgs.forEach(i=>{ i.onload=i.onerror=()=>{ if(--n<=0) go(); }; }); setTimeout(go,2500); }
+  // Abre só para visualizar; a impressão é pelo botão "Imprimir" da barra no topo (o ajuste de 1 página roda no beforeprint).
 }
 
 function imprimirOrdem(id){
@@ -12728,8 +12726,9 @@ function imprimirOrdem(id){
   .lbl { background:#eee; font-weight:700; text-align:center; font-size:10px; }
   #qrOrdem{position:absolute;top:0;right:0;text-align:center;font-size:8px;font-weight:700;color:#000}
   #qrOrdem img{display:block;margin:0 auto}
+  .barra-acoes{position:sticky;top:0;z-index:50;display:flex;gap:8px;justify-content:center;padding:8px;background:#1b5e20;box-shadow:0 2px 8px rgba(0,0,0,.25)} .barra-acoes button{font:700 13px Arial,sans-serif;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#fff;color:#1b5e20} .barra-acoes button.sec{background:transparent;color:#fff;border:1px solid #fff} @media print{.barra-acoes{display:none!important}}
 </style>
-</head><body>
+</head><body><div class="barra-acoes"><button onclick="window.print()">🖨️ Imprimir</button><button class="sec" onclick="window.close()">Fechar</button></div>
 <table>
   <colgroup>
     <col style="width:12%"><col style="width:16.5%"><col style="width:16.5%">
@@ -12791,34 +12790,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 <\/script>
 </body></html>`;
 
-  const win=window.open('','_blank','width=700,height=1000');
+  const win=window.open('','_blank','width=800,height=1000');
+  if(!win){ showToast('O navegador bloqueou a janela. Libere pop-ups para este site.','err',7000); return; }
   win.document.write(conteudo);
   win.document.close();
-
-  // Garante que a logo E o QR Code (as duas são <img>) terminem de carregar antes
-  // de imprimir — win.onload pode disparar cedo demais e uma das duas "some" da
-  // impressão. Espera todas as imagens, com um tempo máximo de segurança caso a
-  // internet caia (o QR vem de um servidor externo; a logo é local e sempre ok).
-  const imprimirAgora=()=>{
-    win.document.title='Ordem Nº '+o.numero;
-    win.print();
-    win.close();
-  };
-  const imagens=[...win.document.querySelectorAll('img')];
-  const pendentes=imagens.filter(img=>!img.complete);
-  if(pendentes.length){
-    let jaImprimiu=false;
-    const disparar=()=>{ if(jaImprimiu) return; jaImprimiu=true; imprimirAgora(); };
-    let restantes=pendentes.length;
-    pendentes.forEach(img=>{
-      const feito=()=>{ restantes--; if(restantes<=0) disparar(); };
-      img.addEventListener('load', feito);
-      img.addEventListener('error', feito);
-    });
-    setTimeout(disparar, 2500); // segurança: imprime mesmo se alguma imagem não carregar
-  } else {
-    setTimeout(imprimirAgora, 150);
-  }
+  win.document.title='Ordem Nº '+o.numero;
+  // Abre só para visualizar; imprime pelo botão "Imprimir" da barra no topo.
 }
 
 function getProjetista(nome){
