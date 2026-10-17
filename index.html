@@ -5352,7 +5352,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-16 · build 342';
+const APP_BUILD='2026-10-17 · build 343';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9932,6 +9932,8 @@ function criarOPdaPeca(pecaId){
 // parent_id apontando pro nó pai (null = direto no equipamento, raiz).
 // Isso permite profundidade infinita sem complicar o modelo.
 let _nosTemp = [];
+let _codigosBaselineEstrutura = {}; // quantas vezes cada código já existia ao abrir o equipamento (para avisar só do que é novo)
+function _contarCodigosNos(nos){ const m={}; (nos||[]).forEach(n=>{ const c=n.tipo==='montagem'?n.numero_desenho:n.desenho_peca; if(c&&String(c).trim()!==''){ const k=String(c).trim(); m[k]=(m[k]||0)+1; } }); return m; }
 // Caminho de navegação atual nas colunas: array de ids de montagem selecionados,
 // um por coluna já aberta. _colunaPath.length+1 colunas são exibidas no total.
 let _colunaPath = [];
@@ -10387,7 +10389,9 @@ function abrirModalDesenhoRecebido(desenhoId){
     document.getElementById('des_numero_geral').value = d?.numero_geral||'';
     document.getElementById('des_obs').value = d?.observacao||'';
     _nosTemp = _coletarArvoreDoEquipamento(desenhoId);
+    _codigosBaselineEstrutura = _contarCodigosNos(_nosTemp);
   } else {
+    _codigosBaselineEstrutura = {};
     document.getElementById('desModalTitulo').textContent='Novo Equipamento Recebido';
     document.getElementById('des_pdv_sel').value='';
     document.getElementById('des_data').value = hoje();
@@ -10599,7 +10603,8 @@ async function salvarDesenhoRecebido(){
           (porCodigo[chave] = porCodigo[chave]||[]).push({nome, caminho:caminhoDe(n)});
         }
       });
-      const codigosRepetidos = Object.keys(porCodigo).filter(c => porCodigo[c].length > 1);
+      // Avisa só do que é NOVO nesta edição: código que já se repetia quando o equipamento foi aberto não volta a incomodar.
+      const codigosRepetidos = Object.keys(porCodigo).filter(c => porCodigo[c].length > 1 && porCodigo[c].length > (_codigosBaselineEstrutura[c]||0));
       if(codigosRepetidos.length){
         // Cada código repetido é um achado INDEPENDENTE — não significa que os
         // códigos da lista são iguais entre si, e sim que cada um, individualmente,
@@ -10608,7 +10613,7 @@ async function salvarDesenhoRecebido(){
           const ocorrencias = porCodigo[c].map(o => `   - "${o.nome}" (em: ${o.caminho})`).join('\n');
           return `• Código "${c}" está em ${porCodigo[c].length} lugares:\n${ocorrencias}`;
         });
-        alert('Atenção: encontrei código(s) de desenho/padrão repetido(s) nesta estrutura (cada bloco abaixo é um caso separado, não compare um código com o outro):\n\n' + linhas.join('\n\n') + '\n\nIsso não quer dizer que as peças são iguais — só que o CÓDIGO foi digitado igual em mais de uma. Se você duplicou algum item pra criar uma cópia, confira se esqueceu de trocar o código de desenho dele.\n\nO salvamento vai continuar normalmente.');
+        alert('Atenção: o que você acabou de incluir/alterar repete código(s) de desenho/padrão que já existia(m) nesta estrutura (cada bloco abaixo é um caso separado, não compare um código com o outro):\n\n' + linhas.join('\n\n') + '\n\nIsso não quer dizer que as peças são iguais — só que o CÓDIGO foi digitado igual em mais de uma. Se você duplicou algum item pra criar uma cópia, confira se esqueceu de trocar o código de desenho dele.\n\nO salvamento vai continuar normalmente.');
       }
     })();
 
