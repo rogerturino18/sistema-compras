@@ -5439,7 +5439,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-19 · build 348';
+const APP_BUILD='2026-10-19 · build 349';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21931,7 +21931,10 @@ function _stTercSelect(atual){
   sel.innerHTML=h; sel.value=cad?cad.nome:(atual||'');
 }
 function stCadastrarTerc(){
+  // o z-index das janelas abertas é fixo (500); vale a ordem no DOM, então o cadastro vai para o fim da página
+  const m=document.getElementById('modalTerceirizadoCadastro'); if(m) document.body.appendChild(m);
   abrirModalTerceirizadoCadastro();
+  setTimeout(()=>document.getElementById('terccad_nome')?.focus(),80);
   window._stAposCadTerc=true;
 }
 function _stListas(){
