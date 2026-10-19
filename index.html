@@ -5439,7 +5439,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-19 · build 349';
+const APP_BUILD='2026-10-19 · build 350';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21849,7 +21849,7 @@ function renderServTerc(){
   if(_stVista==='lanc'){
     const mostra=_stOrdenaLista(lista).slice(0,_stLimite);
     corpo.innerHTML='<div class="st-wrap"><table class="st-t"><thead><tr>'+_stTh('data','Data')+_stTh('desenho','Nº desenho')+_stTh('descricao','Descrição da peça')+_stTh('equipamento','Equipamento')+_stTh('pdc','PDC')+_stTh('pdv','PDV')+_stTh('tipo_servico','Tipo de serviço')+_stTh('valor','Valor','num')+_stTh('terceirizado','Terceirizado')+'<th></th></tr></thead><tbody>'+
-      mostra.map(s=>'<tr><td class="nw">'+_stFd(s.data)+'</td><td>'+_stEsc(s.desenho||'')+'</td><td><b>'+_stEsc(s.descricao)+'</b>'+(s.observacao?'<div class="mut" style="color:#78909c;font-size:11px">📝 '+_stEsc(s.observacao)+'</div>':'')+'</td><td class="mut">'+_stEsc(s.equipamento||'')+'</td><td class="nw">'+_stEsc(s.pdc||'')+'</td><td>'+_stEsc(s.pdv||'')+'</td><td class="mut">'+_stEsc(s.tipo_servico||'')+'</td><td class="num"><b>'+_stBRL(s.valor)+'</b></td><td>'+(s.terceirizado?'<span class="st-chip">'+_stEsc(s.terceirizado)+'</span>':'<span style="color:#c62828;font-size:11px">sem terceirizado</span>')+'</td><td class="st-acoes"><button title="Editar" onclick="stEditar(\''+s.id+'\')">✏️</button><button title="Excluir" onclick="stExcluir(\''+s.id+'\')">🗑️</button></td></tr>').join('')+
+      mostra.map(s=>'<tr><td class="nw">'+_stFd(s.data)+'</td><td>'+_stEsc(s.desenho||'')+'</td><td><b>'+_stEsc(s.descricao)+'</b>'+(s.observacao?'<div class="mut" style="color:#78909c;font-size:11px">📝 '+_stEsc(s.observacao)+'</div>':'')+'</td><td class="mut">'+_stEsc(s.equipamento||'')+'</td><td class="nw">'+_stEsc(s.pdc||'')+'</td><td>'+_stEsc(s.pdv||'')+'</td><td class="mut">'+_stEsc(s.tipo_servico||'')+'</td><td class="num"><b>'+_stBRL(s.valor)+'</b></td><td>'+(s.terceirizado?'<span class="st-chip">'+_stEsc((_stTercCad(s.terceirizado)||{}).nome||s.terceirizado)+'</span>':'<span style="color:#c62828;font-size:11px">sem terceirizado</span>')+'</td><td class="st-acoes"><button title="Editar" onclick="stEditar(\''+s.id+'\')">✏️</button><button title="Excluir" onclick="stExcluir(\''+s.id+'\')">🗑️</button></td></tr>').join('')+
       '</tbody><tfoot><tr><td colspan="7" style="padding:10px;text-align:right;font-weight:700;background:#f1f6f3">Total ('+lista.length+' serviços)</td><td class="num" style="padding:10px;background:#f1f6f3"><b>'+_stBRL(total)+'</b></td><td colspan="2" style="background:#f1f6f3"></td></tr></tfoot></table></div>'+
       (lista.length>mostra.length?'<div style="text-align:center;margin:12px"><button class="btn" onclick="stMais()">Mostrar mais ('+(lista.length-mostra.length)+' restantes)</button></div>':'');
     return;
@@ -22000,7 +22000,7 @@ async function stSalvar(outro){
   if(!desc){ showToast('Informe a descrição da peça','err'); return; }
   if(!tipo){ showToast('Informe o tipo de serviço','err'); return; }
   if(isNaN(valor)||valor<0){ showToast('Informe um valor válido','err'); return; }
-  const rec={data,desenho:g('st_desenho')||null,descricao:desc,equipamento:g('st_equip')||null,pdc:g('st_pdc')||null,pdv:g('st_pdv')||null,tipo_servico:tipo,valor:Math.round(valor*100)/100,terceirizado:terc,observacao:g('st_obs')||null};
+  const rec={data,desenho:g('st_desenho')||null,descricao:desc,equipamento:g('st_equip')||null,pdc:g('st_pdc')||null,pdv:g('st_pdv')||null,tipo_servico:tipo,valor:Math.round(valor*100)/100,terceirizado:(_stTercCad(terc)||{}).nome||terc,observacao:g('st_obs')||null};
   if(!_stEdId){
     if(_stOrdemId) rec.ordem_id=_stOrdemId;
     const dup=servicosTerc.find(s=>String(s.data).slice(0,10)===data && Math.abs((Number(s.valor)||0)-rec.valor)<0.005 && _stNorm(s.descricao)===_stNorm(desc) && _stNorm(s.terceirizado)===_stNorm(terc));
