@@ -5439,7 +5439,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-19 · build 347';
+const APP_BUILD='2026-10-19 · build 348';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21765,6 +21765,7 @@ async function rodarDiagnostico(){
 
 // ===== SERVIÇOS TERCEIRIZADOS (Financeiro) =====
 // Substitui a planilha SERVIÇOS TERCEIRIZADOS. Tabela própria (servicos_terceirizados), carregada ao abrir a aba.
+let _stOrd={c:'data',d:-1};
 let servicosTerc=[], _stEdId=null, _stOrdemId=null, _stVista='lanc', _stLimite=150, _stCarregando=false, _stTimer=null, _stRecT=null;
 const _stEsc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const _stEnc=k=>encodeURIComponent(k).replace(/'/g,'%27');
@@ -21814,6 +21815,13 @@ function _stAgrupar(lista,keyFn){
   lista.forEach(s=>{ const k=keyFn(s); let g=m.get(k); if(!g){ g={k,n:0,total:0,items:[]}; m.set(k,g); } g.n++; g.total+=Number(s.valor)||0; g.items.push(s); });
   return [...m.values()];
 }
+function stOrdenar(c){ _stOrd=(_stOrd.c===c)?{c,d:-_stOrd.d}:{c,d:(c==='valor'||c==='data')?-1:1}; _stLimite=150; renderServTerc(); }
+function _stOrdenaLista(l){
+  const c=_stOrd.c, d=_stOrd.d;
+  const val=s=>c==='valor'?(Number(s.valor)||0):c==='data'?String(s.data||'').slice(0,10):_stNorm(s[c]);
+  return [...l].sort((a,b)=>{ const x=val(a), y=val(b); const r=(typeof x==='number')?x-y:(x<y?-1:x>y?1:0); return r?r*d:String(b.data).localeCompare(String(a.data)); });
+}
+function _stTh(c,rot,cls){ const on=_stOrd.c===c; return '<th'+(cls?' class="'+cls+'"':'')+' style="cursor:pointer;user-select:none;white-space:nowrap" title="Ordenar por '+rot+'" onclick="stOrdenar(\''+c+'\')">'+rot+' <span style="font-size:10px;color:'+(on?'#2e7d32':'#b0bec5')+'">'+(on?(_stOrd.d>0?'▲':'▼'):'↕')+'</span></th>'; }
 function renderServTerc(){
   const corpo=document.getElementById('stCorpo'); if(!corpo) return;
   // filtros (as opções vêm de tudo o que já foi lançado)
@@ -21839,8 +21847,8 @@ function renderServTerc(){
   _stRenderPendentes();
   if(!lista.length){ corpo.innerHTML='<div class="st-wrap"><div class="st-vazio">'+(servicosTerc.length?'Nenhum serviço com esses filtros.':'Nenhum serviço lançado ainda. Clique em <b>➕ Novo serviço</b>.')+'</div></div>'; return; }
   if(_stVista==='lanc'){
-    const mostra=lista.slice(0,_stLimite);
-    corpo.innerHTML='<div class="st-wrap"><table class="st-t"><thead><tr><th>Data</th><th>Nº desenho</th><th>Descrição da peça</th><th>Equipamento</th><th>PDC</th><th>PDV</th><th>Tipo de serviço</th><th class="num">Valor</th><th>Terceirizado</th><th></th></tr></thead><tbody>'+
+    const mostra=_stOrdenaLista(lista).slice(0,_stLimite);
+    corpo.innerHTML='<div class="st-wrap"><table class="st-t"><thead><tr>'+_stTh('data','Data')+_stTh('desenho','Nº desenho')+_stTh('descricao','Descrição da peça')+_stTh('equipamento','Equipamento')+_stTh('pdc','PDC')+_stTh('pdv','PDV')+_stTh('tipo_servico','Tipo de serviço')+_stTh('valor','Valor','num')+_stTh('terceirizado','Terceirizado')+'<th></th></tr></thead><tbody>'+
       mostra.map(s=>'<tr><td class="nw">'+_stFd(s.data)+'</td><td>'+_stEsc(s.desenho||'')+'</td><td><b>'+_stEsc(s.descricao)+'</b>'+(s.observacao?'<div class="mut" style="color:#78909c;font-size:11px">📝 '+_stEsc(s.observacao)+'</div>':'')+'</td><td class="mut">'+_stEsc(s.equipamento||'')+'</td><td class="nw">'+_stEsc(s.pdc||'')+'</td><td>'+_stEsc(s.pdv||'')+'</td><td class="mut">'+_stEsc(s.tipo_servico||'')+'</td><td class="num"><b>'+_stBRL(s.valor)+'</b></td><td>'+(s.terceirizado?'<span class="st-chip">'+_stEsc(s.terceirizado)+'</span>':'<span style="color:#c62828;font-size:11px">sem terceirizado</span>')+'</td><td class="st-acoes"><button title="Editar" onclick="stEditar(\''+s.id+'\')">✏️</button><button title="Excluir" onclick="stExcluir(\''+s.id+'\')">🗑️</button></td></tr>').join('')+
       '</tbody><tfoot><tr><td colspan="7" style="padding:10px;text-align:right;font-weight:700;background:#f1f6f3">Total ('+lista.length+' serviços)</td><td class="num" style="padding:10px;background:#f1f6f3"><b>'+_stBRL(total)+'</b></td><td colspan="2" style="background:#f1f6f3"></td></tr></tfoot></table></div>'+
       (lista.length>mostra.length?'<div style="text-align:center;margin:12px"><button class="btn" onclick="stMais()">Mostrar mais ('+(lista.length-mostra.length)+' restantes)</button></div>':'');
