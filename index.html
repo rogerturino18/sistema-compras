@@ -1122,6 +1122,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="sbGo(26,'Recebimentos')">💰 Recebimentos</div>
     <div class="sbi" onclick="sbGo(22,'Contas Correntes')">🏦 Contas Correntes</div>
     <div class="sbi" onclick="sbGo(23,'DRE')">📈 DRE</div>
+    <div class="sbi" onclick="sbGo(37,'Serviços Terceirizados')">🔧 Serviços Terceirizados</div>
   </div>
 </div>
 <div id="sbpanel_estoque" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid var(--border);z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
@@ -2659,6 +2660,58 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <button class="btn primary" onclick="pesoSalvar()">💾 Salvar</button>
     </div>
   </div>
+</div>
+
+<!-- TAB 37: SERVIÇOS TERCEIRIZADOS (Financeiro) -->
+<div class="panel" id="tab37">
+  <style>
+    #tab37 .st-vistas{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
+    #tab37 .st-vista{padding:7px 14px;border:1px solid var(--border);border-radius:20px;background:#fff;font-size:12.5px;font-weight:600;color:#546e7a;cursor:pointer}
+    #tab37 .st-vista.on{background:var(--green);border-color:var(--green);color:#fff}
+    #tab37 .st-wrap{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:auto;max-height:68vh}
+    #tab37 table.st-t{width:100%;border-collapse:collapse;font-size:12px}
+    #tab37 .st-t th{position:sticky;top:0;background:#f1f6f3;color:#455a64;text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:9px 10px;border-bottom:2px solid #dce8e0;white-space:nowrap;z-index:1}
+    #tab37 .st-t td{padding:7px 8px;border-bottom:1px solid #eef2ef;vertical-align:top;overflow-wrap:anywhere}
+    #tab37 .st-t th{padding:9px 8px!important}
+    #tab37 .st-t tbody tr:hover{background:#f7fbf8}
+    #tab37 .st-t td.num,#tab37 .st-t th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+    #tab37 .st-t td.nw{white-space:nowrap;overflow-wrap:normal}
+    #tab37 .st-t td.num{overflow-wrap:normal}
+    #tab37 .st-t td.mut{color:#78909c;font-size:11px;max-width:150px}
+    #tab37 .st-chip{display:inline-block;padding:2px 9px;border-radius:12px;background:#e8f5e9;color:#2e7d32;font-weight:700;font-size:11px;line-height:1.3}
+    #tab37 .st-bar{height:7px;border-radius:4px;background:#e0ece4;overflow:hidden;min-width:90px}
+    #tab37 .st-bar>i{display:block;height:100%;background:linear-gradient(90deg,#43a047,#2e7d32)}
+    #tab37 .st-pend{background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:10px 14px;margin-bottom:14px}
+    #tab37 .st-pend summary{cursor:pointer;font-weight:700;color:#8d6e00;font-size:13px}
+    #tab37 .st-pend .lin{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:7px 0;border-top:1px solid #ffecb3;font-size:12.5px}
+    #tab37 .st-acoes{white-space:nowrap;width:58px;position:sticky;right:0;background:#fff;box-shadow:-6px 0 8px -6px rgba(0,0,0,.12)}
+    #tab37 .st-t tbody tr:hover .st-acoes{background:#f7fbf8}
+    #tab37 .st-t th:last-child{position:sticky;right:0;z-index:2}
+    #tab37 .st-acoes button{border:0;background:none;cursor:pointer;font-size:14px;padding:2px 5px;opacity:.65}
+    #tab37 .st-acoes button:hover{opacity:1}
+    #tab37 .st-vazio{padding:34px;text-align:center;color:#78909c}
+  </style>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🔧 Serviços Terceirizados</h2>
+      <p style="font-size:12px;color:#546e7a;margin:4px 0 0">Tudo o que foi pago a terceiros por serviço — por peça, equipamento, PDV e PDC. Substitui a planilha.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="stExportar()">📥 Exportar Excel</button>
+      <button class="btn primary" onclick="stNovo()">➕ Novo serviço</button>
+    </div>
+  </div>
+  <div class="stat-row" id="stStats"></div>
+  <div id="stPendentes"></div>
+  <div class="toolbar">
+    <input type="search" id="stBusca" placeholder="🔍 Buscar peça, desenho, equipamento, PDC, serviço…" oninput="stRenderDebounce()" style="flex:1;min-width:220px">
+    <select id="stMes" onchange="renderServTerc()"></select>
+    <select id="stTerc" onchange="renderServTerc()"></select>
+    <select id="stPdv" onchange="renderServTerc()"></select>
+    <button class="btn" onclick="stLimparFiltros()" title="Limpar filtros">✕ Limpar</button>
+  </div>
+  <div class="st-vistas" id="stVistas"></div>
+  <div id="stCorpo"></div>
 </div>
 
 <!-- TAB 36: EXPEDIÇÃO -->
@@ -4731,6 +4784,39 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 </div>
 </div>
 
+<!-- MODAL SERVIÇO TERCEIRIZADO -->
+<div class="modal-bg" id="modalServTerc">
+<div class="modal" style="max-width:760px;width:96vw">
+  <div class="modal-header">
+    <h3 id="stModalTitulo">➕ Novo serviço terceirizado</h3>
+    <div class="modal-header-actions">
+      <button class="modal-header-btn" onclick="fecharModal('modalServTerc')" title="Fechar">✕</button>
+    </div>
+  </div>
+  <div class="modal-body" style="max-height:76vh;overflow:auto">
+    <datalist id="stDlTerc"></datalist><datalist id="stDlTipo"></datalist><datalist id="stDlPdv"></datalist><datalist id="stDlEquip"></datalist>
+    <div class="form-grid">
+      <div class="form-group"><label>Data *</label><input type="date" id="st_data"></div>
+      <div class="form-group"><label>Terceirizado (local) *</label><input id="st_terc" list="stDlTerc" placeholder="Ex: Ricardo" autocomplete="off"></div>
+      <div class="form-group"><label>Nº do desenho</label><input id="st_desenho" placeholder="Ex: 3-19260 — preenche o resto sozinho" onchange="stAutoPreencher()" autocomplete="off"></div>
+      <div class="form-group"><label>PDC</label><input id="st_pdc" inputmode="numeric" placeholder="Ex: 2255" autocomplete="off"></div>
+      <div class="form-group full"><label>Descrição da peça *</label><input id="st_desc" placeholder="Ex: EIXO LADO FLANGE" autocomplete="off"></div>
+      <div class="form-group"><label>Equipamento</label><input id="st_equip" list="stDlEquip" placeholder="Ex: COMPLEMENTOS PRENSAGEM" autocomplete="off"></div>
+      <div class="form-group"><label>PDV</label><input id="st_pdv" list="stDlPdv" placeholder="Ex: 82/26" autocomplete="off"></div>
+      <div class="form-group full"><label>Tipo de serviço *</label><input id="st_tipo" list="stDlTipo" placeholder="Ex: SERVIÇO DE USINAGEM" autocomplete="off"></div>
+      <div class="form-group"><label>Valor (R$) *</label><input id="st_valor" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+      <div class="form-group"><label>Observação</label><input id="st_obs" placeholder="Opcional" autocomplete="off"></div>
+    </div>
+    <div id="stDica" style="font-size:12px;color:#2e7d32;margin-top:8px;min-height:16px"></div>
+  </div>
+  <div class="modal-actions" style="padding:0 22px 20px">
+    <button class="btn" onclick="fecharModal('modalServTerc')">Cancelar</button>
+    <button class="btn" id="stBtnOutro" onclick="stSalvar(true)">Salvar e lançar outro</button>
+    <button class="btn primary" onclick="stSalvar(false)">Salvar</button>
+  </div>
+</div>
+</div>
+
 <!-- MODAL DIAGNÓSTICO DO SISTEMA -->
 <div class="modal-bg" id="modalDiagnostico">
 <div class="modal" style="max-width:860px;width:96vw">
@@ -4976,6 +5062,7 @@ function _agendarRecargaRealtime(payload){
     const tb=payload&&payload.table;
     if(tb){ const r=_perf.realtime[tb]||(_perf.realtime[tb]={n:0,ult:0}); r.n++; r.ult=Date.now(); }
   }catch(e){}
+  if(payload&&payload.table==='servicos_terceirizados'){ try{ stAgendarRecarga(); }catch(e){} return; } // tabela carregada só ao abrir a aba
   // Recarregar TUDO (32 tabelas + redesenhar telas) a cada mudança deixava o sistema
   // lento quando várias pessoas trabalham ao mesmo tempo. Agora agrupa as mudanças e
   // recarrega no máximo 1 vez a cada 10 s (a mudança nunca se perde — só espera).
@@ -5352,7 +5439,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-17 · build 345';
+const APP_BUILD='2026-10-19 · build 346';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -13634,7 +13721,7 @@ const DASH_GRUPOS = [
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
    subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32}]},
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
-   subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23}]},
+   subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23},{label:'Serviços Terceirizados',icon:'🔧',tab:37}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
    subs:[{label:'Estoque',icon:'📦',tab:11},{label:'Movimentações',icon:'🔄',tab:16},{label:'Requisições',icon:'📋',tab:17},{label:'Departamentos',icon:'🏛️',tab:18},{label:'Peças Fundidas',icon:'🏗️',tab:35},{label:'Controle EPI',icon:'🦺',tab:29}]},
   {id:'expedicao',  label:'Expedição',  icon:'📦', color:'linear-gradient(135deg,#00838f,#006064)',
@@ -16302,6 +16389,7 @@ function renderConteudoAba(n){
   if(n===35) { if(typeof fundidosInit==='function') fundidosInit(); }
   if(n===34) { if(typeof renderOperadoresTerceirizados==='function') renderOperadoresTerceirizados(); }
   if(n===36) { if(typeof expedicaoInit==='function') expedicaoInit(); }
+  if(n===37) { if(typeof stInit==='function') stInit(); }
 }
 
 function showTab(n){
@@ -16551,7 +16639,7 @@ const GRUPO_TABS = {
   fiscal:     [12],
   pdv:        [13],
   clientes:   [14],
-  financeiro: [19,25],
+  financeiro: [19,25,37],
   receber:    [20,26],
   fluxo:      [21,22,23],
   requisicoes:[17],
@@ -16572,7 +16660,7 @@ const TAB_GRUPO_SIDEBAR = {
   12:'vendas',13:'vendas',14:'vendas',
   // sbpanel_financeiro: Contas a Pagar(19), Contas a Receber(20), Fluxo de Caixa(21),
   //                      Pagamentos(25), Recebimentos(26), Contas Correntes(22), DRE(23)
-  19:'financeiro',20:'financeiro',21:'financeiro',22:'financeiro',23:'financeiro',25:'financeiro',26:'financeiro',
+  19:'financeiro',20:'financeiro',21:'financeiro',22:'financeiro',23:'financeiro',25:'financeiro',26:'financeiro',37:'financeiro',
   // sbpanel_estoque: Itens em Estoque(11), Movimentações(16), Distribuição por PDV(30), Requisições(17), Departamentos(18), Peças Fundidas(35), Controle EPI(29)
   11:'estoque',16:'estoque',17:'estoque',18:'estoque',30:'estoque',35:'estoque',29:'estoque',
   // sbpanel_expedicao: Carregamentos(36)
@@ -21673,6 +21761,250 @@ async function rodarDiagnostico(){
     checks.slice().sort((a,b)=>ordem[a.nivel]-ordem[b.nivel]).map(c=>`<div style="display:flex;gap:10px;padding:8px 10px;border-bottom:1px solid #eee;border-left:4px solid ${cor[c.nivel]}"><span>${ico[c.nivel]}</span><div style="flex:1"><div style="font-weight:700">${c.titulo}</div><div style="color:#546e7a;font-size:12px;margin-top:2px">${c.detalhe}</div></div></div>`).join('')+
     `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">📊 Tempo e tamanho por tabela</summary><table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px"><tr style="text-align:left;background:#f5f7f6"><th style="padding:4px 6px">Tabela</th><th>Linhas</th><th>Tamanho</th><th>Última</th><th>Média</th><th>Mais lenta</th></tr>${tabs.sort((a,b)=>b.kb-a.kb).map(t=>`<tr style="border-bottom:1px solid #f0f0f0"><td style="padding:3px 6px">${t.nome}</td><td>${t.rows}</td><td>${t.kb>=1024?(t.kb/1024).toFixed(1)+' MB':t.kb.toFixed(0)+' KB'}</td><td>${fmtMs(t.ultMs)}</td><td>${fmtMs(t.mediaMs)}</td><td>${fmtMs(t.maxMs)}</td></tr>`).join('')}</table></details>`+
     (rt.length?`<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">📡 Mudanças recebidas por tabela (desde que abriu)</summary><div style="font-size:12px;margin-top:6px">${rt.map(([n,v])=>n+': '+v.n).join(' · ')}</div></details>`:'');
+}
+
+// ===== SERVIÇOS TERCEIRIZADOS (Financeiro) =====
+// Substitui a planilha SERVIÇOS TERCEIRIZADOS. Tabela própria (servicos_terceirizados), carregada ao abrir a aba.
+let servicosTerc=[], _stEdId=null, _stOrdemId=null, _stVista='lanc', _stLimite=150, _stCarregando=false, _stTimer=null, _stRecT=null;
+const _stEsc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const _stEnc=k=>encodeURIComponent(k).replace(/'/g,'%27');
+const _stNorm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+const _stFd=iso=>{ if(!iso) return ''; const p=String(iso).slice(0,10).split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:''; };
+const _stMesRot=ym=>{ const n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; const p=String(ym).split('-'); return (n[(+p[1])-1]||p[1])+'/'+String(p[0]).slice(2); };
+const _stBRL=v=>'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+function _stParseValor(s){
+  s=String(s==null?'':s).trim().replace(/[R$\s]/g,''); if(!s) return NaN;
+  if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,'');
+  return parseFloat(s);
+}
+async function stCarregar(){
+  if(_stCarregando) return; _stCarregando=true;
+  try{ servicosTerc=(await apiAll('servicos_terceirizados','?order=data.desc,created_at.desc'))||[]; }
+  catch(e){ console.warn('servicos_terceirizados:',e.message); showToast('Não foi possível carregar os serviços terceirizados','err'); }
+  _stCarregando=false;
+}
+async function stInit(){ await stCarregar(); renderServTerc(); }
+function stAgendarRecarga(){ // avisado pelo tempo real quando outra pessoa lança
+  clearTimeout(_stRecT);
+  _stRecT=setTimeout(async()=>{ if(document.getElementById('tab37')?.classList.contains('active')){ await stCarregar(); renderServTerc(); } },1500);
+}
+function stRenderDebounce(){ clearTimeout(_stTimer); _stTimer=setTimeout(()=>{ _stLimite=150; renderServTerc(); },180); }
+function stLimparFiltros(){ ['stBusca','stMes','stTerc','stPdv'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; }); _stLimite=150; renderServTerc(); }
+function stVista(v){ _stVista=v; _stLimite=150; renderServTerc(); }
+function stMais(){ _stLimite+=200; renderServTerc(); }
+function _stFiltrados(){
+  const g=id=>document.getElementById(id)?.value||'';
+  const b=_stNorm(g('stBusca')), mes=g('stMes'), terc=g('stTerc'), pdv=g('stPdv');
+  return servicosTerc.filter(s=>{
+    if(mes && String(s.data).slice(0,7)!==mes) return false;
+    if(terc==='__sem__'){ if(s.terceirizado) return false; } else if(terc && s.terceirizado!==terc) return false;
+    if(pdv==='__sem__'){ if(s.pdv) return false; } else if(pdv && s.pdv!==pdv) return false;
+    if(b){ const txt=_stNorm([s.desenho,s.descricao,s.equipamento,s.pdc,s.pdv,s.tipo_servico,s.terceirizado,s.observacao].join(' | ')); if(!b.split(' ').every(t=>txt.includes(t))) return false; }
+    return true;
+  });
+}
+function _stSelect(id,valores,rotuloTodos,rotulo,extraSem){
+  const el=document.getElementById(id); if(!el) return; const atual=el.value;
+  el.innerHTML='<option value="">'+rotuloTodos+'</option>'+valores.map(v=>'<option value="'+_stEsc(v)+'">'+_stEsc(rotulo?rotulo(v):v)+'</option>').join('')+(extraSem?'<option value="__sem__">(sem informação)</option>':'');
+  el.value=[...el.options].some(o=>o.value===atual)?atual:'';
+}
+function _stAgrupar(lista,keyFn){
+  const m=new Map();
+  lista.forEach(s=>{ const k=keyFn(s); let g=m.get(k); if(!g){ g={k,n:0,total:0,items:[]}; m.set(k,g); } g.n++; g.total+=Number(s.valor)||0; g.items.push(s); });
+  return [...m.values()];
+}
+function renderServTerc(){
+  const corpo=document.getElementById('stCorpo'); if(!corpo) return;
+  // filtros (as opções vêm de tudo o que já foi lançado)
+  const meses=[...new Set(servicosTerc.map(s=>String(s.data).slice(0,7)))].sort().reverse();
+  const tercs=[...new Set(servicosTerc.map(s=>s.terceirizado).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const pdvsU=[...new Set(servicosTerc.map(s=>s.pdv).filter(Boolean))].sort((a,b)=>(parseInt(b)||0)-(parseInt(a)||0)||String(a).localeCompare(String(b)));
+  _stSelect('stMes',meses,'📅 Todos os meses',_stMesRot);
+  _stSelect('stTerc',tercs,'🚚 Todos os terceirizados',null,servicosTerc.some(s=>!s.terceirizado));
+  _stSelect('stPdv',pdvsU,'🏭 Todos os PDVs',null,servicosTerc.some(s=>!s.pdv));
+  const lista=_stFiltrados();
+  const total=lista.reduce((a,s)=>a+(Number(s.valor)||0),0);
+  const porT=_stAgrupar(lista,s=>s.terceirizado||'(sem terceirizado)').sort((a,b)=>b.total-a.total);
+  const top=porT[0];
+  document.getElementById('stStats').innerHTML=
+    '<div class="stat"><div class="stat-label">Total pago</div><div class="stat-val">'+_stBRL(total)+'</div><div class="stat-sub">'+(lista.length===servicosTerc.length?'tudo lançado':'conforme filtros')+'</div></div>'+
+    '<div class="stat blue"><div class="stat-label">Serviços</div><div class="stat-val">'+lista.length+'</div><div class="stat-sub">lançamentos</div></div>'+
+    '<div class="stat yellow"><div class="stat-label">Média por serviço</div><div class="stat-val">'+_stBRL(lista.length?total/lista.length:0)+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Terceirizados</div><div class="stat-val">'+porT.length+'</div><div class="stat-sub">com serviço no período</div></div>'+
+    '<div class="stat red"><div class="stat-label">Maior valor</div><div class="stat-val" style="font-size:15px">'+_stEsc(top?top.k:'—')+'</div><div class="stat-sub">'+(top?_stBRL(top.total)+' · '+Math.round(top.total/(total||1)*100)+'%':'')+'</div></div>';
+  // abas de visualização
+  const vs=[['lanc','📋 Lançamentos'],['terc','🚚 Por terceirizado'],['pdc','🧾 Por PDC'],['pdv','🏭 Por PDV / equipamento'],['mes','📅 Por mês']];
+  document.getElementById('stVistas').innerHTML=vs.map(v=>'<button class="st-vista'+(_stVista===v[0]?' on':'')+'" onclick="stVista(\''+v[0]+'\')">'+v[1]+'</button>').join('');
+  _stRenderPendentes();
+  if(!lista.length){ corpo.innerHTML='<div class="st-wrap"><div class="st-vazio">'+(servicosTerc.length?'Nenhum serviço com esses filtros.':'Nenhum serviço lançado ainda. Clique em <b>➕ Novo serviço</b>.')+'</div></div>'; return; }
+  if(_stVista==='lanc'){
+    const mostra=lista.slice(0,_stLimite);
+    corpo.innerHTML='<div class="st-wrap"><table class="st-t"><thead><tr><th>Data</th><th>Nº desenho</th><th>Descrição da peça</th><th>Equipamento</th><th>PDC</th><th>PDV</th><th>Tipo de serviço</th><th class="num">Valor</th><th>Terceirizado</th><th></th></tr></thead><tbody>'+
+      mostra.map(s=>'<tr><td class="nw">'+_stFd(s.data)+'</td><td>'+_stEsc(s.desenho||'')+'</td><td><b>'+_stEsc(s.descricao)+'</b>'+(s.observacao?'<div class="mut" style="color:#78909c;font-size:11px">📝 '+_stEsc(s.observacao)+'</div>':'')+'</td><td class="mut">'+_stEsc(s.equipamento||'')+'</td><td class="nw">'+_stEsc(s.pdc||'')+'</td><td>'+_stEsc(s.pdv||'')+'</td><td class="mut">'+_stEsc(s.tipo_servico||'')+'</td><td class="num"><b>'+_stBRL(s.valor)+'</b></td><td>'+(s.terceirizado?'<span class="st-chip">'+_stEsc(s.terceirizado)+'</span>':'<span style="color:#c62828;font-size:11px">sem terceirizado</span>')+'</td><td class="st-acoes"><button title="Editar" onclick="stEditar(\''+s.id+'\')">✏️</button><button title="Excluir" onclick="stExcluir(\''+s.id+'\')">🗑️</button></td></tr>').join('')+
+      '</tbody><tfoot><tr><td colspan="7" style="padding:10px;text-align:right;font-weight:700;background:#f1f6f3">Total ('+lista.length+' serviços)</td><td class="num" style="padding:10px;background:#f1f6f3"><b>'+_stBRL(total)+'</b></td><td colspan="2" style="background:#f1f6f3"></td></tr></tfoot></table></div>'+
+      (lista.length>mostra.length?'<div style="text-align:center;margin:12px"><button class="btn" onclick="stMais()">Mostrar mais ('+(lista.length-mostra.length)+' restantes)</button></div>':'');
+    return;
+  }
+  const clic=(tipo,k)=>' style="cursor:pointer" title="Ver os lançamentos" onclick="stFiltrarPor(\''+tipo+'\',decodeURIComponent(\''+_stEnc(k)+'\'))"';
+  const barra=v=>'<div class="st-bar"><i style="width:'+Math.max(2,Math.round(v/(total||1)*100))+'%"></i></div>';
+  const pct=v=>Math.round(v/(total||1)*1000)/10+'%';
+  const cab=(c1,c2)=>'<div class="st-wrap"><table class="st-t"><thead><tr><th>'+c1+'</th>'+c2+'</tr></thead><tbody>';
+  const fim='</tbody></table></div>';
+  if(_stVista==='terc'){
+    corpo.innerHTML=cab('Terceirizado','<th class="num">Serviços</th><th class="num">Total</th><th class="num">%</th><th style="width:26%"></th>')+
+      porT.map(g=>'<tr'+clic('terc',g.k==='(sem terceirizado)'?'__sem__':g.k)+'><td><span class="st-chip">'+_stEsc(g.k)+'</span></td><td class="num">'+g.n+'</td><td class="num"><b>'+_stBRL(g.total)+'</b></td><td class="num">'+pct(g.total)+'</td><td>'+barra(g.total)+'</td></tr>').join('')+fim;
+  } else if(_stVista==='pdc'){
+    const g=_stAgrupar(lista,s=>s.pdc||'(sem PDC)').sort((a,b)=>(parseInt(b.k)||0)-(parseInt(a.k)||0));
+    corpo.innerHTML=cab('PDC','<th>Terceirizado(s)</th><th>Data</th><th class="num">Serviços</th><th class="num">Total</th>')+
+      g.map(x=>{ const ts=[...new Set(x.items.map(i=>i.terceirizado).filter(Boolean))]; const ds=x.items.map(i=>i.data).sort(); return '<tr'+clic('pdc',x.k==='(sem PDC)'?'':x.k)+'><td><b>'+_stEsc(x.k)+'</b></td><td>'+ts.map(t=>'<span class="st-chip">'+_stEsc(t)+'</span>').join(' ')+'</td><td>'+_stFd(ds[ds.length-1])+'</td><td class="num">'+x.n+'</td><td class="num"><b>'+_stBRL(x.total)+'</b></td></tr>'; }).join('')+fim;
+  } else if(_stVista==='pdv'){
+    const g=_stAgrupar(lista,s=>s.pdv||'(sem PDV)').sort((a,b)=>b.total-a.total);
+    corpo.innerHTML=cab('PDV','<th>Equipamento(s)</th><th class="num">Serviços</th><th class="num">Total</th><th style="width:22%"></th>')+
+      g.map(x=>{ const eq=[...new Set(x.items.map(i=>i.equipamento).filter(Boolean))]; return '<tr'+clic('pdv',x.k==='(sem PDV)'?'__sem__':x.k)+'><td><b>'+_stEsc(x.k)+'</b></td><td class="mut">'+_stEsc(eq.slice(0,2).join(' · '))+(eq.length>2?' +'+(eq.length-2):'')+'</td><td class="num">'+x.n+'</td><td class="num"><b>'+_stBRL(x.total)+'</b></td><td>'+barra(x.total)+'</td></tr>'; }).join('')+fim;
+  } else {
+    const g=_stAgrupar(lista,s=>String(s.data).slice(0,7)).sort((a,b)=>b.k.localeCompare(a.k));
+    corpo.innerHTML=cab('Mês','<th class="num">Serviços</th><th class="num">Total</th><th style="width:30%"></th>')+
+      g.map(x=>'<tr'+clic('mes',x.k)+'><td><b>'+_stMesRot(x.k)+'</b></td><td class="num">'+x.n+'</td><td class="num"><b>'+_stBRL(x.total)+'</b></td><td>'+barra(x.total)+'</td></tr>').join('')+fim;
+  }
+}
+function stFiltrarPor(tipo,val){
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v; };
+  if(tipo==='terc') set('stTerc',val); else if(tipo==='pdv') set('stPdv',val); else if(tipo==='mes') set('stMes',val); else if(tipo==='pdc') set('stBusca',val);
+  _stVista='lanc'; _stLimite=150; renderServTerc();
+}
+// Ordens enviadas ao terceiro (últimos 90 dias) que ainda não têm valor lançado aqui.
+function _stPendentes(){
+  const lim=new Date(Date.now()-90*86400000).toISOString().slice(0,10);
+  const res=[], vistos=new Set();
+  (ordens||[]).forEach(o=>{
+    if(o.excluida_em) return;
+    const envs=(ordemEnviosTerc||[]).filter(e=>e.ordem_id===o.id);
+    const cands=envs.length?envs.map(e=>({terc:e.terceirizado_nome,data:e.data_envio})):(o.terceirizado_nome?[{terc:o.terceirizado_nome,data:o.terceirizado_data}]:[]);
+    cands.forEach(c=>{
+      const d=String(c.data||'').slice(0,10); if(!c.terc||!d||d<lim) return;
+      const k=o.id+'|'+_stNorm(c.terc); if(vistos.has(k)) return; vistos.add(k);
+      const nd=_normDesenho(o.desenho), nt=_stNorm(c.terc);
+      const ja=servicosTerc.some(s=>s.ordem_id===o.id || (nd && _normDesenho(s.desenho)===nd && _stNorm(s.terceirizado)===nt && String(s.data)>=d.slice(0,8)+'01'));
+      if(!ja) res.push({o,terc:c.terc,data:d});
+    });
+  });
+  return res.sort((a,b)=>b.data.localeCompare(a.data));
+}
+function _stRenderPendentes(){
+  const el=document.getElementById('stPendentes'); if(!el) return;
+  const p=_stPendentes();
+  if(!p.length){ el.innerHTML=''; return; }
+  el.innerHTML='<details class="st-pend"'+(p.length<=6?' open':'')+'><summary>🚚 '+p.length+' ordem(ns) enviada(s) a terceiros ainda sem valor lançado</summary>'+
+    p.slice(0,40).map(x=>'<div class="lin"><div><b>OP Nº '+x.o.numero+'</b> · '+_stEsc(x.o.desenho||'sem desenho')+' · '+_stEsc(x.o.descricao||'')+'<div style="font-size:11px;color:#8d6e00">'+_stEsc(x.terc)+' · enviada em '+_stFd(x.data)+'</div></div><button class="btn" onclick="stNovoDaOrdem(\''+x.o.id+'\',decodeURIComponent(\''+_stEnc(x.terc)+'\'),\''+x.data+'\')">Lançar valor</button></div>').join('')+
+    (p.length>40?'<div style="font-size:11px;color:#8d6e00;padding-top:6px">…e mais '+(p.length-40)+'.</div>':'')+'</details>';
+}
+function _stPdvSugerido(pdv){
+  if(!pdv) return '';
+  const n=String(pdv.numero||'').replace(/\D/g,''); if(!n) return '';
+  const ja=servicosTerc.find(s=>s.pdv&&String(parseInt(s.pdv))===String(parseInt(n))&&/\//.test(s.pdv));
+  return ja?ja.pdv:n+'/'+String(new Date().getFullYear()).slice(2);
+}
+function _stListas(){
+  const un=a=>[...new Set(a.filter(Boolean))];
+  const dl=(id,v)=>{ const e=document.getElementById(id); if(e) e.innerHTML=v.map(x=>'<option value="'+_stEsc(x)+'"></option>').join(''); };
+  dl('stDlTerc',un([...(terceirizadosCadastro||[]).map(t=>t.nome),...servicosTerc.map(s=>s.terceirizado)]).sort((a,b)=>a.localeCompare(b,'pt-BR')));
+  dl('stDlTipo',un(servicosTerc.map(s=>s.tipo_servico)).sort());
+  dl('stDlPdv',un(servicosTerc.map(s=>s.pdv)).sort((a,b)=>(parseInt(b)||0)-(parseInt(a)||0)));
+  dl('stDlEquip',un(servicosTerc.map(s=>s.equipamento)).sort());
+}
+function stNovo(pre){
+  _stEdId=null; _stOrdemId=(pre&&pre.ordem_id)||null; pre=pre||{};
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v==null?'':v; };
+  _stListas();
+  set('st_data',pre.data||new Date().toISOString().slice(0,10)); set('st_terc',pre.terceirizado); set('st_desenho',pre.desenho); set('st_pdc',pre.pdc);
+  set('st_desc',pre.descricao); set('st_equip',pre.equipamento); set('st_pdv',pre.pdv); set('st_tipo',pre.tipo_servico||''); set('st_valor',''); set('st_obs','');
+  document.getElementById('stDica').textContent=pre.dica||'';
+  document.getElementById('stModalTitulo').textContent='➕ Novo serviço terceirizado';
+  document.getElementById('stBtnOutro').style.display='';
+  abrirModal('modalServTerc');
+  setTimeout(()=>document.getElementById(pre.descricao?'st_valor':'st_desenho')?.focus(),80);
+}
+function stNovoDaOrdem(ordemId,terc,data){
+  const o=(ordens||[]).find(x=>x.id===ordemId); if(!o) return;
+  const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id);
+  stNovo({ordem_id:o.id,data,terceirizado:terc,desenho:o.desenho,descricao:o.descricao,equipamento:pdv?.equipamento||'',pdv:_stPdvSugerido(pdv),dica:'✔ Dados da OP Nº '+o.numero+' — informe o PDC, o tipo de serviço e o valor.'});
+}
+function stEditar(id){
+  const s=servicosTerc.find(x=>x.id===id); if(!s) return;
+  _stListas(); _stEdId=id; _stOrdemId=null;
+  const set=(k,v)=>{ const e=document.getElementById(k); if(e) e.value=v==null?'':v; };
+  set('st_data',String(s.data).slice(0,10)); set('st_terc',s.terceirizado); set('st_desenho',s.desenho); set('st_pdc',s.pdc); set('st_desc',s.descricao);
+  set('st_equip',s.equipamento); set('st_pdv',s.pdv); set('st_tipo',s.tipo_servico); set('st_valor',String(s.valor).replace('.',',')); set('st_obs',s.observacao);
+  document.getElementById('stDica').textContent='';
+  document.getElementById('stModalTitulo').textContent='✏️ Editar serviço terceirizado';
+  document.getElementById('stBtnOutro').style.display='none';
+  abrirModal('modalServTerc');
+}
+function stAutoPreencher(){
+  const dica=document.getElementById('stDica'); const d=(document.getElementById('st_desenho')?.value||'').trim(); const n=_normDesenho(d);
+  if(!n||_stEdId){ if(dica&&!n) dica.textContent=''; return; }
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e&&!e.value.trim()&&v) e.value=v; };
+  const o=(ordens||[]).filter(x=>!x.excluida_em&&_normDesenho(x.desenho)===n).sort((a,b)=>(b.numero||0)-(a.numero||0))[0];
+  if(o){
+    const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id), env=(ordemEnviosTerc||[]).filter(e=>e.ordem_id===o.id).slice(-1)[0];
+    set('st_desc',o.descricao); set('st_equip',pdv?.equipamento); set('st_pdv',_stPdvSugerido(pdv)); set('st_terc',env?.terceirizado_nome||o.terceirizado_nome);
+    _stOrdemId=o.id; dica.textContent='✔ Preenchido pela OP Nº '+o.numero+' — confira os campos.'; return;
+  }
+  const it=(itensDesenhoRecebido||[]).find(i=>_normDesenho(i.desenho_peca)===n);
+  if(it){ const eq=_equipamentoDoItem(it); set('st_desc',it.denominacao); set('st_equip',eq?.nome_equipamento); dica.textContent='✔ Preenchido pela Estrutura de Equipamentos — confira os campos.'; return; }
+  const ja=servicosTerc.find(s=>_normDesenho(s.desenho)===n);
+  if(ja){ set('st_desc',ja.descricao); set('st_equip',ja.equipamento); set('st_pdv',ja.pdv); dica.textContent='✔ Já lançado antes em '+_stFd(ja.data)+' — dados copiados.'; return; }
+  dica.textContent='Desenho não encontrado nas ordens — preencha manualmente.';
+}
+async function stSalvar(outro){
+  const g=id=>(document.getElementById(id)?.value||'').trim();
+  const data=g('st_data'), terc=g('st_terc'), desc=g('st_desc'), tipo=g('st_tipo'), valor=_stParseValor(g('st_valor'));
+  if(!data){ showToast('Informe a data','err'); return; }
+  if(!terc){ showToast('Informe o terceirizado (local)','err'); return; }
+  if(!desc){ showToast('Informe a descrição da peça','err'); return; }
+  if(!tipo){ showToast('Informe o tipo de serviço','err'); return; }
+  if(isNaN(valor)||valor<0){ showToast('Informe um valor válido','err'); return; }
+  const rec={data,desenho:g('st_desenho')||null,descricao:desc,equipamento:g('st_equip')||null,pdc:g('st_pdc')||null,pdv:g('st_pdv')||null,tipo_servico:tipo,valor:Math.round(valor*100)/100,terceirizado:terc,observacao:g('st_obs')||null};
+  if(!_stEdId){
+    if(_stOrdemId) rec.ordem_id=_stOrdemId;
+    const dup=servicosTerc.find(s=>String(s.data).slice(0,10)===data && Math.abs((Number(s.valor)||0)-rec.valor)<0.005 && _stNorm(s.descricao)===_stNorm(desc) && _stNorm(s.terceirizado)===_stNorm(terc));
+    if(dup && !confirm('Já existe um lançamento igual (mesma data, peça, terceirizado e valor).\n\nLançar mesmo assim?')) return;
+  }
+  try{
+    if(_stEdId) await api('PATCH','servicos_terceirizados',rec,`?id=eq.${_stEdId}`);
+    else { rec.criado_por=usuarioLogado?.nome||null; await api('POST','servicos_terceirizados',rec); }
+    await stCarregar(); renderServTerc(); showToast('Serviço salvo!');
+    if(outro && !_stEdId){
+      // mantém data, terceirizado, PDC, PDV, equipamento e tipo (costumam repetir); limpa o que muda a cada peça
+      ['st_desenho','st_desc','st_valor','st_obs'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+      _stOrdemId=null; document.getElementById('stDica').textContent='✔ Salvo. Próxima peça:'; _stListas();
+      document.getElementById('st_desenho')?.focus();
+    } else fecharModal('modalServTerc');
+  }catch(e){ showToast('Erro ao salvar o serviço','err'); console.error(e); }
+}
+async function stExcluir(id){
+  const s=servicosTerc.find(x=>x.id===id); if(!s) return;
+  if(!confirm('Excluir este lançamento?\n\n'+s.descricao+' — '+(s.terceirizado||'')+' — '+_stBRL(s.valor)+'\n\nEsta ação não pode ser desfeita.')) return;
+  try{ await api('DELETE','servicos_terceirizados','',`?id=eq.${id}`); await stCarregar(); renderServTerc(); showToast('Lançamento excluído.'); }
+  catch(e){ showToast('Erro ao excluir','err'); console.error(e); }
+}
+async function stExportar(){
+  const lista=_stFiltrados(); if(!lista.length){ showToast('Nada para exportar','err'); return; }
+  try{
+    if(typeof XLSX==='undefined'){ await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+    const rows=[['DATA','N° DESENHO','DESCRIÇÃO DA PEÇA','EQUIPAMENTO','PDC','PDV','TIPO DE SERVIÇO','VALOR','LOCAL']];
+    lista.slice().sort((a,b)=>String(a.data).localeCompare(String(b.data))).forEach(s=>rows.push([new Date(String(s.data).slice(0,10)+'T12:00:00'),s.desenho||'',s.descricao||'',s.equipamento||'',s.pdc||'',s.pdv||'',s.tipo_servico||'',Number(s.valor)||0,s.terceirizado||'']));
+    const ws=XLSX.utils.aoa_to_sheet(rows,{cellDates:true});
+    for(let r=1;r<rows.length;r++){ const a=ws['A'+(r+1)], h=ws['H'+(r+1)]; if(a) a.z='dd/mm/yyyy'; if(h) h.z='#,##0.00'; }
+    ws['!cols']=[{wch:11},{wch:16},{wch:34},{wch:30},{wch:7},{wch:11},{wch:36},{wch:12},{wch:22}];
+    const por=_stAgrupar(lista,s=>s.terceirizado||'(sem terceirizado)').sort((a,b)=>b.total-a.total);
+    const ws2=XLSX.utils.aoa_to_sheet([['TERCEIRIZADO','SERVIÇOS','TOTAL'],...por.map(g=>[g.k,g.n,Math.round(g.total*100)/100]),['TOTAL',lista.length,Math.round(lista.reduce((a,s)=>a+(Number(s.valor)||0),0)*100)/100]]);
+    ws2['!cols']=[{wch:28},{wch:10},{wch:14}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Serviços'); XLSX.utils.book_append_sheet(wb,ws2,'Por terceirizado');
+    XLSX.writeFile(wb,'servicos_terceirizados_'+new Date().toISOString().slice(0,10)+'.xlsx',{cellDates:true});
+    showToast('Excel gerado!');
+  }catch(e){ showToast('Não foi possível gerar o Excel','err'); console.error(e); }
 }
 
 // ===== REVISÃO DE DUPLICIDADES (Diagnóstico → "Revisar") =====
