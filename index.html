@@ -2702,7 +2702,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     </div>
   </div>
   <div class="stat-row" id="stStats"></div>
-  <div id="stPendentes"></div>
+  <div id="stPendentes"></div><div id="stNaoCad"></div>
   <div class="toolbar">
     <input type="search" id="stBusca" placeholder="🔍 Buscar peça, desenho, equipamento, PDC, serviço…" oninput="stRenderDebounce()" style="flex:1;min-width:220px">
     <select id="stMes" onchange="renderServTerc()"></select>
@@ -4794,10 +4794,10 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     </div>
   </div>
   <div class="modal-body" style="max-height:76vh;overflow:auto">
-    <datalist id="stDlTerc"></datalist><datalist id="stDlTipo"></datalist><datalist id="stDlPdv"></datalist><datalist id="stDlEquip"></datalist>
+    <datalist id="stDlTipo"></datalist><datalist id="stDlPdv"></datalist><datalist id="stDlEquip"></datalist>
     <div class="form-grid">
       <div class="form-group"><label>Data *</label><input type="date" id="st_data"></div>
-      <div class="form-group"><label>Terceirizado (local) *</label><input id="st_terc" list="stDlTerc" placeholder="Ex: Ricardo" autocomplete="off"></div>
+      <div class="form-group"><label>Terceirizado (local) * <a href="javascript:void(0)" onclick="stCadastrarTerc()" style="font-weight:600;font-size:11px;margin-left:6px">+ cadastrar novo</a></label><select id="st_terc"></select><div style="font-size:10.5px;color:#90a4ae;margin-top:2px">Só aparecem os cadastrados em Operadores e Terceirizados.</div></div>
       <div class="form-group"><label>Nº do desenho</label><input id="st_desenho" placeholder="Ex: 3-19260 — preenche o resto sozinho" onchange="stAutoPreencher()" autocomplete="off"></div>
       <div class="form-group"><label>PDC</label><input id="st_pdc" inputmode="numeric" placeholder="Ex: 2255" autocomplete="off"></div>
       <div class="form-group full"><label>Descrição da peça *</label><input id="st_desc" placeholder="Ex: EIXO LADO FLANGE" autocomplete="off"></div>
@@ -5439,7 +5439,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-19 · build 346';
+const APP_BUILD='2026-10-19 · build 347';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -21891,7 +21891,15 @@ function _stPendentes(){
   });
   return res.sort((a,b)=>b.data.localeCompare(a.data));
 }
+function _stRenderNaoCad(){
+  const el=document.getElementById('stNaoCad'); if(!el) return;
+  const m={}; servicosTerc.forEach(x=>{ if(x.terceirizado && !_stTercCad(x.terceirizado)) m[x.terceirizado]=(m[x.terceirizado]||0)+1; });
+  const ks=Object.keys(m).sort();
+  if(!ks.length){ el.innerHTML=''; return; }
+  el.innerHTML='<details class="st-pend"><summary>⚠️ '+ks.length+' nome(s) de terceirizado nos lançamentos não estão no cadastro</summary><div style="font-size:12px;padding:6px 0;line-height:1.7">'+ks.map(k=>'<span class="st-chip">'+_stEsc(k)+' ('+m[k]+')</span>').join(' ')+'</div><div style="font-size:11px;color:#8d6e00">Cadastre em Operadores e Terceirizados ou edite os lançamentos para um nome cadastrado.</div></details>';
+}
 function _stRenderPendentes(){
+  _stRenderNaoCad();
   const el=document.getElementById('stPendentes'); if(!el) return;
   const p=_stPendentes();
   if(!p.length){ el.innerHTML=''; return; }
@@ -21905,10 +21913,22 @@ function _stPdvSugerido(pdv){
   const ja=servicosTerc.find(s=>s.pdv&&String(parseInt(s.pdv))===String(parseInt(n))&&/\//.test(s.pdv));
   return ja?ja.pdv:n+'/'+String(new Date().getFullYear()).slice(2);
 }
+function _stTercCad(nome){ const n=_stNorm(nome); if(!n) return null; return (terceirizadosCadastro||[]).find(t=>_stNorm(t.nome)===n)||null; }
+function _stTercSelect(atual){
+  const sel=document.getElementById('st_terc'); if(!sel) return;
+  const nomes=(terceirizadosCadastro||[]).map(t=>t.nome).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const cad=_stTercCad(atual);
+  let h='<option value="">— selecione —</option>'+nomes.map(n=>'<option value="'+_stEsc(n)+'">'+_stEsc(n)+'</option>').join('');
+  if(atual && !cad) h+='<option value="'+_stEsc(atual)+'">'+_stEsc(atual)+' (não cadastrado)</option>';
+  sel.innerHTML=h; sel.value=cad?cad.nome:(atual||'');
+}
+function stCadastrarTerc(){
+  abrirModalTerceirizadoCadastro();
+  window._stAposCadTerc=true;
+}
 function _stListas(){
   const un=a=>[...new Set(a.filter(Boolean))];
   const dl=(id,v)=>{ const e=document.getElementById(id); if(e) e.innerHTML=v.map(x=>'<option value="'+_stEsc(x)+'"></option>').join(''); };
-  dl('stDlTerc',un([...(terceirizadosCadastro||[]).map(t=>t.nome),...servicosTerc.map(s=>s.terceirizado)]).sort((a,b)=>a.localeCompare(b,'pt-BR')));
   dl('stDlTipo',un(servicosTerc.map(s=>s.tipo_servico)).sort());
   dl('stDlPdv',un(servicosTerc.map(s=>s.pdv)).sort((a,b)=>(parseInt(b)||0)-(parseInt(a)||0)));
   dl('stDlEquip',un(servicosTerc.map(s=>s.equipamento)).sort());
@@ -21917,7 +21937,7 @@ function stNovo(pre){
   _stEdId=null; _stOrdemId=(pre&&pre.ordem_id)||null; pre=pre||{};
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v==null?'':v; };
   _stListas();
-  set('st_data',pre.data||new Date().toISOString().slice(0,10)); set('st_terc',pre.terceirizado); set('st_desenho',pre.desenho); set('st_pdc',pre.pdc);
+  set('st_data',pre.data||new Date().toISOString().slice(0,10)); _stTercSelect(pre.terceirizado); set('st_desenho',pre.desenho); set('st_pdc',pre.pdc);
   set('st_desc',pre.descricao); set('st_equip',pre.equipamento); set('st_pdv',pre.pdv); set('st_tipo',pre.tipo_servico||''); set('st_valor',''); set('st_obs','');
   document.getElementById('stDica').textContent=pre.dica||'';
   document.getElementById('stModalTitulo').textContent='➕ Novo serviço terceirizado';
@@ -21934,7 +21954,7 @@ function stEditar(id){
   const s=servicosTerc.find(x=>x.id===id); if(!s) return;
   _stListas(); _stEdId=id; _stOrdemId=null;
   const set=(k,v)=>{ const e=document.getElementById(k); if(e) e.value=v==null?'':v; };
-  set('st_data',String(s.data).slice(0,10)); set('st_terc',s.terceirizado); set('st_desenho',s.desenho); set('st_pdc',s.pdc); set('st_desc',s.descricao);
+  set('st_data',String(s.data).slice(0,10)); _stTercSelect(s.terceirizado); set('st_desenho',s.desenho); set('st_pdc',s.pdc); set('st_desc',s.descricao);
   set('st_equip',s.equipamento); set('st_pdv',s.pdv); set('st_tipo',s.tipo_servico); set('st_valor',String(s.valor).replace('.',',')); set('st_obs',s.observacao);
   document.getElementById('stDica').textContent='';
   document.getElementById('stModalTitulo').textContent='✏️ Editar serviço terceirizado';
@@ -21948,7 +21968,7 @@ function stAutoPreencher(){
   const o=(ordens||[]).filter(x=>!x.excluida_em&&_normDesenho(x.desenho)===n).sort((a,b)=>(b.numero||0)-(a.numero||0))[0];
   if(o){
     const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id), env=(ordemEnviosTerc||[]).filter(e=>e.ordem_id===o.id).slice(-1)[0];
-    set('st_desc',o.descricao); set('st_equip',pdv?.equipamento); set('st_pdv',_stPdvSugerido(pdv)); set('st_terc',env?.terceirizado_nome||o.terceirizado_nome);
+    set('st_desc',o.descricao); set('st_equip',pdv?.equipamento); set('st_pdv',_stPdvSugerido(pdv)); { const sl=document.getElementById('st_terc'), c=_stTercCad(env?.terceirizado_nome||o.terceirizado_nome); if(sl&&!sl.value&&c) sl.value=c.nome; }
     _stOrdemId=o.id; dica.textContent='✔ Preenchido pela OP Nº '+o.numero+' — confira os campos.'; return;
   }
   const it=(itensDesenhoRecebido||[]).find(i=>_normDesenho(i.desenho_peca)===n);
@@ -21961,7 +21981,11 @@ async function stSalvar(outro){
   const g=id=>(document.getElementById(id)?.value||'').trim();
   const data=g('st_data'), terc=g('st_terc'), desc=g('st_desc'), tipo=g('st_tipo'), valor=_stParseValor(g('st_valor'));
   if(!data){ showToast('Informe a data','err'); return; }
-  if(!terc){ showToast('Informe o terceirizado (local)','err'); return; }
+  if(!terc){ showToast('Selecione o terceirizado (local)','err'); return; }
+  if(!_stTercCad(terc)){
+    const antigo=_stEdId && servicosTerc.find(x=>x.id===_stEdId)?.terceirizado;
+    if(!(antigo && antigo===terc)){ showToast('Terceirizado não cadastrado — use "+ cadastrar novo" ou escolha um da lista','err'); return; }
+  }
   if(!desc){ showToast('Informe a descrição da peça','err'); return; }
   if(!tipo){ showToast('Informe o tipo de serviço','err'); return; }
   if(isNaN(valor)||valor<0){ showToast('Informe um valor válido','err'); return; }
@@ -23572,6 +23596,7 @@ async function salvarTerceirizadoCadastro(){
     fecharModal('modalTerceirizadoCadastro');
     await loadAll();
     renderOperadoresTerceirizados();
+    if(window._stAposCadTerc){ window._stAposCadTerc=false; if(document.getElementById('modalServTerc')?.classList.contains('open')) _stTercSelect(nome); }
   }catch(e){showToast('Erro ao salvar — confira se a tabela terceirizados_cadastro existe','err');}
 }
 
