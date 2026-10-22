@@ -1192,6 +1192,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="card" style="margin:0;background:#fafbf9">
       <h3>📦 Estoque abaixo do mínimo</h3>
       <div id="dashGraficoEstoqueMin"></div>
+      <div id="dashGiroSemMin"></div>
     </div>
     <div class="card" style="margin:0">
       <h3>📈 Compras por mês</h3>
@@ -2336,6 +2337,24 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <button class="btn" onclick="abrirConfigTelegram()">⚙️ Configurar Telegram</button>
       </div>
       <div id="listaAlertaMinimo" style="max-height:56vh;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalGiroEstoque">
+  <div class="modal" style="width:900px;max-width:97vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px">📈 O que mais sai × estoque mínimo</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalGiroEstoque')">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px;color:#546e7a">
+        <label>Consumo dos últimos <select id="giroDias" onchange="_giroMudou()" style="padding:4px 6px"><option value="30">30 dias</option><option value="60">60 dias</option><option value="90" selected>90 dias</option><option value="180">180 dias</option></select></label>
+        <label>Mínimo cobre <select id="giroCob" onchange="_giroMudou()" style="padding:4px 6px"><option value="7">1 semana</option><option value="15" selected>15 dias</option><option value="30">1 mês</option><option value="45">45 dias</option></select> de consumo</label>
+        <label><input type="checkbox" id="giroSoAlerta" checked onchange="_giroMudou()"> mostrar só os que precisam de atenção</label>
+      </div>
+      <div style="font-size:11px;color:#90a4ae;margin-bottom:8px">Conta as saídas por requisição, EPI e produção (transferências entre barracões e ajustes ficam de fora) somando todas as marcas da mesma especificação — igual ao mínimo atual.</div>
+      <div id="giroLista" style="max-height:58vh;overflow:auto"></div>
     </div>
   </div>
 </div>
@@ -5439,7 +5458,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-22 · build 351';
+const APP_BUILD='2026-10-22 · build 352';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -6038,6 +6057,7 @@ function _renderDashGraficoOrdens(){
 function renderDashboard(){
   // ---- Gráficos ----
   _renderDashGraficoEstoqueMin();
+  try{ _renderDashGiroSemMin(); }catch(e){ console.warn('giro',e); }
   _renderDashGraficoCompras();
   _renderDashGraficoOrdens();
 
@@ -25289,6 +25309,88 @@ async function salvarMinimoGenerico(chave, valor){
   }catch(e){ showToast('Erro ao salvar mínimo','err'); }
 }
 
+// ===== GIRO DO ESTOQUE × MÍNIMO (o que mais sai) =====
+let _giroLista=[];
+function _giroCalc(dias,cob){
+  const hoje=new Date(); const corte=new Date(hoje.getTime()-dias*86400000).toISOString().slice(0,10);
+  const chaveDe={}; (estoqueItens||[]).forEach(it=>{ if(!it.oculto) chaveDe[it.id]=_chaveGenericaItem(it); });
+  const tot={}; let primeira=null;
+  (estoqueMov||[]).forEach(m=>{
+    if(m.tipo!=='saida'||!chaveDe[m.item_id]) return;
+    if(m.subtipo==='transferencia'||m.subtipo==='ajuste') return;
+    const d=String(m.data||'').slice(0,10); if(!d) return;
+    if(!primeira||d<primeira) primeira=d;
+    if(d<corte) return;
+    tot[chaveDe[m.item_id]]=(tot[chaveDe[m.item_id]]||0)+(Number(m.quantidade)||0);
+  });
+  // se o sistema tem menos histórico que a janela, usa só o período que existe (senão o consumo fica subestimado)
+  const hist=primeira?Math.max(14,Math.ceil((hoje-new Date(primeira))/86400000)+1):dias;
+  const efet=Math.min(dias,hist);
+  const grupos=_saldoPorChaveGenerica();
+  const res=[];
+  Object.keys(tot).forEach(ch=>{
+    const total=tot[ch]; if(total<=0) return;
+    const porDia=total/efet, g=grupos[ch];
+    const mn=(minimosGenericos||[]).find(x=>x.chave===ch);
+    const min=mn?Number(mn.minimo)||0:0;
+    const sug=Math.max(1,Math.ceil(porDia*cob));
+    const saldo=g?g.saldo:0;
+    const status=min<=0?'sem':(min<sug*0.7?'baixo':'ok');
+    res.push({chave:ch,total,porMes:porDia*30,porDia,saldo,un:g?.un||'',min,sug,dura:porDia>0?saldo/porDia:Infinity,status});
+  });
+  return {lista:res.sort((a,b)=>b.porMes-a.porMes),efet};
+}
+function _giroFmt(n){ return n>=100?Math.round(n):(Math.round(n*10)/10).toString().replace('.',','); }
+function _renderDashGiroSemMin(){
+  const el=document.getElementById('dashGiroSemMin'); if(!el) return;
+  if(!(estoqueMov||[]).length||!(estoqueItens||[]).length){ el.innerHTML=''; return; }
+  const {lista}=_giroCalc(90,15);
+  const aten=lista.filter(x=>x.status!=='ok').sort((a,b)=>(a.status==='sem'?0:1)-(b.status==='sem'?0:1)||b.porMes-a.porMes);
+  if(!aten.length){ el.innerHTML='<div style="text-align:center;font-size:11px;color:#66bb6a;margin-top:10px;border-top:1px solid #eceff1;padding-top:8px">✅ Tudo que mais sai tem mínimo adequado</div>'; return; }
+  el.innerHTML='<div style="margin-top:12px;border-top:1px solid #eceff1;padding-top:10px"><div style="font-size:12px;font-weight:700;color:#37474f;margin-bottom:6px">📈 Sai bastante e está sem mínimo / mínimo baixo</div>'+
+    aten.slice(0,4).map(x=>'<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px dashed #eceff1"><span style="color:#37474f">'+_stEsc(x.chave)+'</span><span style="white-space:nowrap;color:'+(x.status==='sem'?'#c62828':'#ef6c00')+'"><b>~'+_giroFmt(x.porMes)+'/mês</b> · '+(x.status==='sem'?'sem mínimo':'mín. '+x.min)+'</span></div>').join('')+
+    '<div style="text-align:center;margin-top:8px"><button class="btn btn-sm" onclick="abrirGiroEstoque()">Ver análise completa ('+aten.length+')</button></div></div>';
+}
+function abrirGiroEstoque(){ abrirModal('modalGiroEstoque'); _giroRender(); }
+function _giroMudou(){ _giroRender(); }
+function _giroRender(){
+  const dias=Number(document.getElementById('giroDias')?.value)||90, cob=Number(document.getElementById('giroCob')?.value)||15;
+  const so=document.getElementById('giroSoAlerta')?.checked;
+  const {lista,efet}=_giroCalc(dias,cob);
+  _giroLista=so?lista.filter(x=>x.status!=='ok'):lista;
+  const el=document.getElementById('giroLista'); if(!el) return;
+  if(!_giroLista.length){ el.innerHTML='<div style="text-align:center;padding:30px;color:#66bb6a">✅ Nada precisa de atenção neste período.</div>'; return; }
+  const nSem=_giroLista.filter(x=>x.status==='sem'||x.status==='baixo').length;
+  el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f5f7f5;position:sticky;top:0"><th style="text-align:left;padding:6px 8px">Especificação</th><th style="text-align:right;padding:6px 8px">Sai por mês</th><th style="text-align:right;padding:6px 8px">Saldo</th><th style="text-align:right;padding:6px 8px">Dura</th><th style="text-align:right;padding:6px 8px">Mínimo atual</th><th style="text-align:center;padding:6px 8px">Mínimo sugerido</th><th></th></tr></thead><tbody>'+
+   _giroLista.map((x,i)=>{
+     const cor=x.status==='sem'?'#c62828':x.status==='baixo'?'#ef6c00':'#2e7d32';
+     const tag=x.status==='sem'?'<span style="color:#c62828;font-weight:700">sem mínimo</span>':x.status==='baixo'?'<span style="color:#ef6c00;font-weight:700">'+x.min+' (baixo)</span>':'<span style="color:#2e7d32">'+x.min+'</span>';
+     const dura=isFinite(x.dura)?(x.dura<1?'< 1 dia':Math.round(x.dura)+' dias'):'—';
+     return '<tr style="border-bottom:1px solid #f0f0f0'+(x.status==='sem'?';background:#fff8f8':'')+'"><td style="padding:6px 8px;font-weight:600">'+_stEsc(x.chave)+'</td><td style="padding:6px 8px;text-align:right"><b>'+_giroFmt(x.porMes)+'</b> <span style="color:#90a4ae">'+_stEsc(x.un)+'</span></td><td style="padding:6px 8px;text-align:right">'+_giroFmt(x.saldo)+'</td><td style="padding:6px 8px;text-align:right;color:'+(x.dura<7?'#c62828':'#546e7a')+'">'+dura+'</td><td style="padding:6px 8px;text-align:right">'+tag+'</td><td style="padding:6px 8px;text-align:center"><input id="giroIn'+i+'" type="number" min="0" value="'+x.sug+'" style="width:70px;padding:4px 6px;border:1px solid #cfd8dc;border-radius:6px;text-align:right"></td><td style="padding:6px 8px;text-align:right"><button class="btn btn-sm primary" onclick="_giroSalvar('+i+')">Definir</button></td></tr>';
+   }).join('')+'</tbody></table>'+
+   '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:#90a4ae"><span>Base: '+efet+' dias de histórico. O valor sugerido é editável antes de definir.</span>'+(_giroLista.some(x=>x.status==='sem')?'<button class="btn btn-sm" onclick="_giroAplicarSem()">Definir sugerido em todos os "sem mínimo"</button>':'')+'</div>';
+}
+async function _giroGravar(chave,num){
+  const existente=(minimosGenericos||[]).find(m=>m.chave===chave);
+  if(existente) await api('PATCH','minimos_genericos',{minimo:num,atualizado_em:new Date().toISOString(),atualizado_por:usuarioLogado?.nome||null},`?chave=eq.${encodeURIComponent(chave)}`);
+  else await api('POST','minimos_genericos',{chave,minimo:num,atualizado_por:usuarioLogado?.nome||null});
+}
+async function _giroSalvar(i){
+  const x=_giroLista[i]; if(!x) return;
+  const v=Number(document.getElementById('giroIn'+i)?.value);
+  if(isNaN(v)||v<0){ showToast('Valor inválido','err'); return; }
+  try{ await _giroGravar(x.chave,v); showToast('Mínimo de "'+x.chave+'" definido: '+v); await loadAll(); _giroRender(); }
+  catch(e){ showToast('Erro ao salvar mínimo','err'); }
+}
+async function _giroAplicarSem(){
+  const alvo=_giroLista.map((x,i)=>({x,i})).filter(o=>o.x.status==='sem');
+  if(!alvo.length) return;
+  if(!confirm('Definir o mínimo sugerido em '+alvo.length+' item(ns) que estão sem mínimo?\n\nOs valores que estão nas caixas serão usados.')) return;
+  try{
+    for(const o of alvo){ const v=Number(document.getElementById('giroIn'+o.i)?.value); if(!isNaN(v)&&v>0) await _giroGravar(o.x.chave,v); }
+    showToast('Mínimos definidos!'); await loadAll(); _giroRender();
+  }catch(e){ showToast('Erro ao salvar mínimos','err'); await loadAll(); _giroRender(); }
+}
 // ===== FIM ALERTA DE ESTOQUE MÍNIMO =====
 
 // ===== DIGEST DIÁRIO — COMPRAS INTERNAS URGENTES PENDENTES =====
