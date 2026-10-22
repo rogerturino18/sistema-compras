@@ -5439,7 +5439,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-19 · build 350';
+const APP_BUILD='2026-10-22 · build 351';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11604,7 +11604,7 @@ async function abrirPdfDaOrdem(id){
   const w=window.open('','_blank');
   try{
     const d=await _buscarFotoOrdem(id);
-    if(!d||!_ehPdfBase64(d)){ if(w) w.close(); abrirFotoOrdem(id); return; }
+    if(!d||!_ehPdfBase64(d)){ if(w) w.close(); _abrirFotoOrdemModal(id); return; }
     const [cab,b64]=d.split(',');
     const bin=atob(b64), bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
@@ -11614,7 +11614,26 @@ async function abrirPdfDaOrdem(id){
   }catch(e){ if(w) w.close(); showToast('Não foi possível abrir o PDF do desenho','err'); }
 }
 
+// Clique na foto/miniatura: abre o desenho direto (PDF em aba nova, imagem em tela cheia).
+// Só mostra a janelinha quando a ordem ainda não tem foto, para anexar.
 async function abrirFotoOrdem(id){
+  const o=ordens.find(x=>x.id===id);
+  if(!o) return;
+  if(o.foto_desenho===null || (o.foto_desenho===undefined && !o.tem_foto_desenho)){ _abrirFotoOrdemModal(id); return; }
+  if(o.foto_desenho && !_ehPdfBase64(o.foto_desenho)){ _abrirImagemTelaCheia(o.foto_desenho); return; }
+  const w=window.open('','_blank');
+  try{
+    const d=await _buscarFotoOrdem(id);
+    if(!d){ if(w) w.close(); _abrirFotoOrdemModal(id); return; }
+    if(!_ehPdfBase64(d)){ if(w) w.close(); _abrirImagemTelaCheia(d); return; }
+    const bin=atob(d.split(',')[1]), bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    if(w) w.location.href=url; else window.open(url,'_blank');
+    setTimeout(()=>URL.revokeObjectURL(url),120000);
+  }catch(e){ if(w) w.close(); showToast('Não foi possível abrir o desenho','err'); }
+}
+async function _abrirFotoOrdemModal(id){
   const o=ordens.find(x=>x.id===id);
   if(!o) return;
   document.getElementById('modalFotoOrdem')?.remove();
