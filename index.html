@@ -2351,9 +2351,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <input type="hidden" id="rom_id">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="form-group"><label>Nº da nota fiscal</label><input id="rom_nf" placeholder="Ex: 1234" autocomplete="off"></div>
-        <div class="form-group"><label>Transportadora <a href="javascript:void(0)" onclick="expNovaTransp(true)" style="font-weight:600;font-size:11px;margin-left:6px">+ cadastrar nova</a></label><select id="rom_transp"></select></div>
-        <div class="form-group"><label>Motorista</label><input id="rom_motorista" autocomplete="off"></div>
-        <div class="form-group"><label>Placa do veículo</label><input id="rom_placa" autocomplete="off"></div>
+        <div class="form-group"><label>Transportadora <a href="javascript:void(0)" onclick="expNovaTransp()" style="font-weight:600;font-size:11px;margin-left:6px">+ cadastrar nova</a></label><select id="rom_transp"></select></div>
       </div>
       <div style="font-size:12px;font-weight:700;color:#37474f;margin:12px 0 6px">📦 Volumes / embalagens</div>
       <div id="rom_vols"></div>
@@ -2372,29 +2370,6 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
         <button class="btn" onclick="fecharModal('modalRomaneio')">Cancelar</button>
         <button class="btn primary" id="rom_btn" onclick="gerarRomaneio()">Gerar romaneio</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-bg" id="modalTransportadora">
-  <div class="modal" style="width:480px;max-width:97vw">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
-      <h3 style="margin:0;font-size:16px" id="transpTitulo">Nova transportadora</h3>
-      <button class="modal-header-btn" onclick="fecharModal('modalTransportadora')">✕</button>
-    </div>
-    <div style="padding:14px 16px">
-      <input type="hidden" id="tr_id">
-      <div class="form-group"><label>Nome / Razão social *</label><input id="tr_nome" autocomplete="off"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="form-group"><label>CNPJ</label><input id="tr_cnpj" autocomplete="off"></div>
-        <div class="form-group"><label>Telefone</label><input id="tr_tel" autocomplete="off"></div>
-      </div>
-      <div class="form-group"><label>Contato</label><input id="tr_contato" autocomplete="off"></div>
-      <div class="form-group"><label>Observações</label><textarea id="tr_obs" rows="2"></textarea></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
-        <button class="btn" onclick="fecharModal('modalTransportadora')">Cancelar</button>
-        <button class="btn primary" onclick="expSalvarTransp()">Salvar</button>
       </div>
     </div>
   </div>
@@ -2794,17 +2769,6 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 
 <!-- TAB 36: EXPEDIÇÃO -->
 <div class="panel" id="tab36">
-  <div id="expedNav" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-    <button class="btn btn-sm" id="expNavCarg" onclick="expAba('carg')">📦 Carregamentos</button>
-    <button class="btn btn-sm" id="expNavTransp" onclick="expAba('transp')">🚚 Transportadoras</button>
-  </div>
-  <div id="expedTranspWrap" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      <div><h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🚚 Transportadoras</h2><div style="font-size:12px;color:var(--gray);margin-top:2px">As transportadoras cadastradas aparecem para escolher no romaneio e nos dados do carregamento.</div></div>
-      <button class="btn primary" onclick="expNovaTransp()">➕ Nova transportadora</button>
-    </div>
-    <div id="expTranspLista"></div>
-  </div>
   <div id="expedListaWrap">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
       <div>
@@ -3433,6 +3397,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="form-group full"><label>Endereço</label><input id="ff_endereco" placeholder="Rua, número, bairro"></div>
     <div class="form-group"><label>Cidade</label><input id="ff_cidade"></div>
     <div class="form-group"><label>Estado</label><input id="ff_estado" placeholder="SP"></div>
+    <div class="form-group full"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0"><input type="checkbox" id="ff_transp" style="width:auto"> 🚚 É transportadora (aparece para escolher no romaneio da Expedição)</label></div>
   </div>
   </div>
   <div class="modal-actions" style="padding:0 22px 22px">
@@ -5528,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 363';
+const APP_BUILD='2026-10-23 · build 364';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -7780,13 +7745,14 @@ function renderFornecedores(){
         </div>
 
         <!-- Badges de atividade -->
-        <div style="display:flex;gap:6px;border-top:1px solid #f5f5f5;padding-top:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid #f5f5f5;padding-top:10px">
           <span style="background:${cor}18;color:${cor};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">
             🛒 ${nItens} item${nItens!==1?'s':''}
           </span>
           <span style="background:#f3e5f5;color:#1565c0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">
             💬 ${nCot} cotaç${nCot!==1?'ões':'ão'}
           </span>
+          <span onclick="toggleTransportadora('${f.id}')" title="${f.e_transportadora?'Clique para desmarcar':'Clique para marcar como transportadora (aparece no romaneio)'}" style="cursor:pointer;${f.e_transportadora?'background:#e3f2fd;color:#1565c0':'background:#fafafa;color:#b0bec5;border:1px dashed #cfd8dc'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">🚚 ${f.e_transportadora?'Transportadora':'Marcar transportadora'}</span>
           ${f.ativo===false?`<span style="background:#ffebee;color:#c62828;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">❌ Inativo</span>`:
           `<span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✅ Ativo</span>`}
         </div>
@@ -7866,6 +7832,8 @@ function abrirModalForn(id){
     const el=document.getElementById('ff_'+k);
     if(el) el.value=f?(f[k==='razao'?'razao_social':k==='fantasia'?'nome_fantasia':k==='contato'?'contato_nome':k]||''):'';
   });
+  { const t=document.getElementById('ff_transp'); if(t) t.checked=!!(f&&f.e_transportadora); }
+  if(id) _trDeRom=false;
   abrirModal('modalForn');
 }
 
@@ -7884,13 +7852,15 @@ async function salvarForn(){
     contato_nome:document.getElementById('ff_contato').value.trim(),
     endereco:document.getElementById('ff_endereco').value.trim(),
     cidade:document.getElementById('ff_cidade').value.trim(),
-    estado:document.getElementById('ff_estado').value.trim()
+    estado:document.getElementById('ff_estado').value.trim(),
+    e_transportadora:!!document.getElementById('ff_transp')?.checked
   };
   try{
     if(editFornId) await api('PATCH','fornecedores',obj,`?id=eq.${editFornId}`);
     else await api('POST','fornecedores',obj);
     showToast(editFornId?'Fornecedor atualizado!':'Fornecedor cadastrado!');
     fecharModal('modalForn'); await loadAll();
+    if(_trDeRom){ _trDeRom=false; if(document.getElementById('modalRomaneio')?.classList.contains('open')) _romTranspSelect(obj.razao_social||obj.nome_fantasia); }
   }catch(e){showToast('Erro ao salvar','err');console.error(e);}
 }
 
@@ -24738,7 +24708,6 @@ async function expedicaoInit(){
   try{
     carregamentos = await apiAll('carregamentos','?select=*,carregamento_itens(*),carregamento_fotos(*)&order=criado_em.desc');
   }catch(e){ console.warn('[expedicao] load', e); showToast('Não consegui carregar os carregamentos: '+e.message,'err'); }
-  expCarregarTransp();
   await _sincronizarCarregamentosComPV();
   try{ await _expAutoProntos(); }catch(e){ console.warn('[expedicao] auto prontos', e); }
   renderExpedicao();
@@ -24922,21 +24891,12 @@ function _cardExpedicao(c){
   </div>`;
 }
 
-function _expNavRender(visivel){
-  const nav=document.getElementById('expedNav'); if(nav) nav.style.display=visivel?'flex':'none';
-  [['expNavCarg','carg'],['expNavTransp','transp']].forEach(([id,a])=>{ const b=document.getElementById(id); if(b){ b.style.background=_expAba===a?'#1b5e20':''; b.style.color=_expAba===a?'#fff':''; b.style.borderColor=_expAba===a?'#1b5e20':''; } });
-}
+function _expNavRender(){}
 function renderExpedicao(){
   if(_carregamentoSelecionadoId) return renderExpedicaoDetalhe();
   const listaWrap=document.getElementById('expedListaWrap');
   const detWrap=document.getElementById('expedDetalheWrap');
-  const trWrap=document.getElementById('expedTranspWrap');
   _expNavRender(true);
-  if(_expAba==='transp'){
-    if(listaWrap) listaWrap.style.display='none'; if(detWrap) detWrap.style.display='none'; if(trWrap) trWrap.style.display='';
-    renderTransportadoras(); return;
-  }
-  if(trWrap) trWrap.style.display='none';
   if(listaWrap) listaWrap.style.display='';
   if(detWrap) detWrap.style.display='none';
   const div=document.getElementById('expedKanban');
@@ -24989,7 +24949,7 @@ function renderExpedicaoDetalhe(){
   const detWrap=document.getElementById('expedDetalheWrap');
   const c=carregamentos.find(x=>x.id===_carregamentoSelecionadoId);
   if(!c){ _carregamentoSelecionadoId=null; return renderExpedicao(); }
-  _expNavRender(false); { const tw=document.getElementById('expedTranspWrap'); if(tw) tw.style.display='none'; }
+  _expNavRender(false);
   if(listaWrap) listaWrap.style.display='none';
   if(detWrap) detWrap.style.display='';
   const itensArr=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)||(a.criado_em||'').localeCompare(b.criado_em||''));
@@ -25057,9 +25017,7 @@ function renderExpedicaoDetalhe(){
     <h3 style="font-size:14px;font-weight:700;margin:24px 0 8px">🚚 Dados do carregamento</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div class="form-group"><label>Nº da nota fiscal</label><input id="exp_nf_${c.id}" value="${(c.numero_nf||'').replace(/"/g,'&quot;')}"></div>
-      <div class="form-group"><label>Transportadora</label><select id="exp_transportadora_${c.id}">${(()=>{ const nomes=(transportadoras||[]).filter(t=>t.ativo!==false).map(t=>t.nome).sort((a,b)=>a.localeCompare(b,'pt-BR')); const at=c.transportadora||''; return '<option value="">— selecione —</option>'+nomes.map(n=>'<option value="'+_stEsc(n)+'"'+(n===at?' selected':'')+'>'+_stEsc(n)+'</option>').join('')+(at&&!nomes.includes(at)?'<option value="'+_stEsc(at)+'" selected>'+_stEsc(at)+' (não cadastrada)</option>':''); })()}</select></div>
-      <div class="form-group"><label>Motorista</label><input id="exp_motorista_${c.id}" value="${(c.motorista||'').replace(/"/g,'&quot;')}"></div>
-      <div class="form-group"><label>Placa do veículo</label><input id="exp_placa_${c.id}" value="${(c.placa_veiculo||'').replace(/"/g,'&quot;')}"></div>
+      <div class="form-group"><label>Transportadora</label><select id="exp_transportadora_${c.id}">${(()=>{ const nomes=_transpLista().map(t=>t.nome); const at=c.transportadora||''; return '<option value="">— selecione —</option>'+nomes.map(n=>'<option value="'+_stEsc(n)+'"'+(n===at?' selected':'')+'>'+_stEsc(n)+'</option>').join('')+(at&&!nomes.includes(at)?'<option value="'+_stEsc(at)+'" selected>'+_stEsc(at)+' (não cadastrada)</option>':''); })()}</select></div>
       <div class="form-group"><label>Responsável pelo carregamento</label><input id="exp_resp_${c.id}" value="${(c.responsavel_carregamento||'').replace(/"/g,'&quot;')}"></div>
     </div>
     <label class="btn btn-sm" style="cursor:pointer;margin-bottom:8px;display:inline-block">📷 Foto do carregamento
@@ -25080,54 +25038,21 @@ function renderExpedicaoDetalhe(){
   `;
 }
 
-// ===== TRANSPORTADORAS =====
-let transportadoras=[], _expAba='carg', _trDeRom=false;
-async function expCarregarTransp(){
-  try{ transportadoras=await apiAll('transportadoras','?order=nome.asc'); if(_expAba==='transp') renderTransportadoras(); }
-  catch(e){ console.warn('[transportadoras]',e.message); }
+// ===== TRANSPORTADORAS (são fornecedores marcados como transportadora) =====
+function _transpLista(){
+  return (fornecedores||[]).filter(f=>f.e_transportadora===true && f.ativo!==false)
+    .map(f=>({id:f.id,nome:(f.razao_social||f.nome_fantasia||'').trim(),cnpj:f.cnpj,telefone:f.telefone}))
+    .filter(t=>t.nome).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
 }
-function expAba(a){ _expAba=a; _carregamentoSelecionadoId=null; renderExpedicao(); }
-function renderTransportadoras(){
-  const el=document.getElementById('expTranspLista'); if(!el) return;
-  const l=(transportadoras||[]).filter(t=>t.ativo!==false);
-  if(!l.length){ el.innerHTML='<div class="empty" style="padding:28px;text-align:center;color:#9e9e9e">Nenhuma transportadora cadastrada. Clique em <b>➕ Nova transportadora</b>.</div>'; return; }
-  el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f5f7f5"><th style="text-align:left;padding:8px 10px">Nome</th><th style="text-align:left;padding:8px 10px">CNPJ</th><th style="text-align:left;padding:8px 10px">Telefone</th><th style="text-align:left;padding:8px 10px">Contato</th><th style="text-align:left;padding:8px 10px">Observações</th><th></th></tr></thead><tbody>'+
-   l.map(t=>'<tr style="border-bottom:1px solid #eee"><td style="padding:8px 10px;font-weight:700">'+_stEsc(t.nome)+'</td><td style="padding:8px 10px">'+_stEsc(t.cnpj||'')+'</td><td style="padding:8px 10px">'+_stEsc(t.telefone||'')+'</td><td style="padding:8px 10px">'+_stEsc(t.contato||'')+'</td><td style="padding:8px 10px;color:#78909c">'+_stEsc(t.observacao||'')+'</td><td style="padding:8px 10px;white-space:nowrap;text-align:right"><button class="btn btn-sm" onclick="expEditarTransp(\''+t.id+'\')">✏️</button> <button class="btn btn-sm" style="color:#c62828" onclick="expExcluirTransp(\''+t.id+'\')">🗑️</button></td></tr>').join('')+'</tbody></table></div>';
+let _trDeRom=false;
+function expNovaTransp(){
+  _trDeRom=true; abrirModalForn(null); const c=document.getElementById('ff_transp'); if(c) c.checked=true;
 }
-function expNovaTransp(deRomaneio){
-  _trDeRom=!!deRomaneio;
-  ['tr_id','tr_nome','tr_cnpj','tr_tel','tr_contato','tr_obs'].forEach(k=>{ const e=document.getElementById(k); if(e) e.value=''; });
-  document.getElementById('transpTitulo').textContent='Nova transportadora';
-  abrirModal('modalTransportadora'); setTimeout(()=>document.getElementById('tr_nome')?.focus(),80);
-}
-function expEditarTransp(id){
-  const t=transportadoras.find(x=>x.id===id); if(!t) return; _trDeRom=false;
-  const set=(k,v)=>{ const e=document.getElementById(k); if(e) e.value=v==null?'':v; };
-  set('tr_id',t.id); set('tr_nome',t.nome); set('tr_cnpj',t.cnpj); set('tr_tel',t.telefone); set('tr_contato',t.contato); set('tr_obs',t.observacao);
-  document.getElementById('transpTitulo').textContent='Editar transportadora';
-  abrirModal('modalTransportadora');
-}
-async function expSalvarTransp(){
-  const g=k=>(document.getElementById(k)?.value||'').trim();
-  const id=g('tr_id'), nome=g('tr_nome').toUpperCase();
-  if(!nome){ showToast('Informe o nome da transportadora','err'); return; }
-  if((transportadoras||[]).some(t=>t.id!==id && String(t.nome).toUpperCase()===nome && t.ativo!==false)){ showToast('Já existe uma transportadora com esse nome','err'); return; }
-  const rec={nome,cnpj:g('tr_cnpj')||null,telefone:g('tr_tel')||null,contato:g('tr_contato')||null,observacao:g('tr_obs')||null};
-  try{
-    if(id) await api('PATCH','transportadoras',rec,`?id=eq.${id}&select=id`);
-    else await api('POST','transportadoras',{...rec,criado_por:usuarioLogado?.nome||null});
-    showToast('Transportadora salva!');
-    fecharModal('modalTransportadora');
-    await expCarregarTransp();
-    if(_trDeRom && document.getElementById('modalRomaneio')?.classList.contains('open')) _romTranspSelect(nome);
-    _trDeRom=false;
-  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); }
-}
-async function expExcluirTransp(id){
-  const t=transportadoras.find(x=>x.id===id); if(!t) return;
-  if(!confirm('Remover a transportadora "'+t.nome+'"?\n\nOs romaneios e carregamentos que já usaram esse nome continuam com ele.')) return;
-  try{ await api('DELETE','transportadoras','',`?id=eq.${id}`); showToast('Removida'); await expCarregarTransp(); renderTransportadoras(); }
-  catch(e){ showToast('Erro ao remover: '+e.message,'err'); }
+async function toggleTransportadora(id){
+  const f=fornecedores.find(x=>x.id===id); if(!f) return;
+  const novo=!f.e_transportadora;
+  try{ await api('PATCH','fornecedores',{e_transportadora:novo},`?id=eq.${id}&select=id`); f.e_transportadora=novo; renderFornecedores(); showToast(novo?'Marcado como transportadora — já aparece no romaneio':'Não é mais transportadora'); }
+  catch(e){ showToast('Erro: '+e.message,'err'); }
 }
 // ===== FIM TRANSPORTADORAS =====
 
@@ -25158,16 +25083,15 @@ function _romCalc(){
 }
 function _romTranspSelect(atual){
   const sel=document.getElementById('rom_transp'); if(!sel) return;
-  const nomes=(transportadoras||[]).filter(t=>t.ativo!==false).map(t=>t.nome).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const nomes=_transpLista().map(t=>t.nome);
   let h='<option value="">— selecione —</option>'+nomes.map(n=>'<option value="'+_stEsc(n)+'">'+_stEsc(n)+'</option>').join('');
   if(atual && !nomes.includes(atual)) h+='<option value="'+_stEsc(atual)+'">'+_stEsc(atual)+' (não cadastrada)</option>';
   sel.innerHTML=h; sel.value=atual||'';
 }
 async function abrirRomaneio(id){
   const c=carregamentos.find(x=>x.id===id); if(!c) return;
-  if(!transportadoras.length) await expCarregarTransp();
   const set=(k,v)=>{ const e=document.getElementById(k); if(e) e.value=v==null?'':v; };
-  set('rom_id',id); set('rom_nf',c.numero_nf); set('rom_motorista',c.motorista); set('rom_placa',c.placa_veiculo); set('rom_obs',c.romaneio_obs);
+  set('rom_id',id); set('rom_nf',c.numero_nf); set('rom_obs',c.romaneio_obs);
   set('rom_bruto',c.peso_bruto!=null?String(c.peso_bruto).replace('.',','):'');
   _romTranspSelect(c.transportadora);
   _romVol=JSON.parse(JSON.stringify(Array.isArray(c.volumes)?c.volumes:[]));
@@ -25180,10 +25104,10 @@ async function gerarRomaneio(){
   const g=k=>(document.getElementById(k)?.value||'').trim();
   const id=g('rom_id'); const c=carregamentos.find(x=>x.id===id); if(!c) return;
   const btn=document.getElementById('rom_btn'); if(btn){ btn.disabled=true; btn.textContent='Preparando...'; }
-  const nomeT=g('rom_transp'); const tr=(transportadoras||[]).find(t=>t.nome===nomeT);
+  const nomeT=g('rom_transp'); const tr=_transpLista().find(t=>t.nome===nomeT);
   const vols=_romVol.filter(v=>String(v.descricao||'').trim()||_romNum(v.c)||_romNum(v.l)||_romNum(v.a)||_romNum(v.peso)).map(v=>({descricao:String(v.descricao||'').trim(),qtd:_romNum(v.qtd)||1,c:_romNum(v.c),l:_romNum(v.l),a:_romNum(v.a),peso:_romNum(v.peso)}));
   const manual=g('rom_bruto');
-  const dados={numero_nf:g('rom_nf')||null,transportadora:nomeT||null,transportadora_id:tr?tr.id:null,motorista:g('rom_motorista')||null,placa_veiculo:g('rom_placa')||null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
+  const dados={numero_nf:g('rom_nf')||null,transportadora:nomeT||null,transportadora_id:tr?tr.id:null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
   const comFotos=document.getElementById('rom_fotos')?.checked!==false;
   const w=window.open('','_blank'); // abre já no clique (senão o navegador bloqueia)
   try{
@@ -25221,7 +25145,7 @@ async function _romaneioMontar(c,comFotos,w){
   const embKg=vols.reduce((a,v)=>a+(Number(v.qtd)||1)*(Number(v.peso)||0),0);
   const brutoKg=c.peso_bruto!=null&&Number(c.peso_bruto)>0?Number(c.peso_bruto):(totPeso+embKg);
   const taraKg=c.peso_bruto!=null&&Number(c.peso_bruto)>0?Math.max(0,brutoKg-totPeso):embKg;
-  const trCad=(transportadoras||[]).find(t=>t.id===c.transportadora_id)||(transportadoras||[]).find(t=>t.nome===c.transportadora)||{};
+  const trCad=_transpLista().find(t=>t.id===c.transportadora_id)||_transpLista().find(t=>t.nome===c.transportadora)||{};
   const cubTot=vols.reduce((a,v)=>a+(Number(v.qtd)||1)*(Number(v.c)||0)*(Number(v.l)||0)*(Number(v.a)||0)/1e6,0);
   const semPeso=itens.filter(x=>x.peso==null).length;
   const hoje=new Date().toLocaleDateString('pt-BR');
@@ -25274,7 +25198,7 @@ async function _romaneioMontar(c,comFotos,w){
     </div>
     <div class="info">
       <div class="box"><div class="razao">${esc(c.cliente_nome||pv.cliente_nome||'—')}</div>${linha('CNPJ/CPF',pv.cliente_cnpj)}${linha('Endereço',cidade)}${linha('Telefone',pv.cliente_tel)}</div>
-      <div class="box nf"><div style="font-size:10px;color:#607d6b;text-transform:uppercase;font-weight:700">Nota fiscal</div><div class="n">${c.numero_nf?esc(c.numero_nf):'—'}</div><div style="margin-top:8px">${linha('Transportadora',c.transportadora)}${linha('CNPJ transp.',trCad.cnpj)}${linha('Tel. transp.',trCad.telefone)}${linha('Motorista',c.motorista)}${linha('Placa',c.placa_veiculo)}</div></div>
+      <div class="box nf"><div style="font-size:10px;color:#607d6b;text-transform:uppercase;font-weight:700">Nota fiscal</div><div class="n">${c.numero_nf?esc(c.numero_nf):'—'}</div><div style="margin-top:8px">${linha('Transportadora',c.transportadora)}${linha('CNPJ transp.',trCad.cnpj)}${linha('Tel. transp.',trCad.telefone)}</div></div>
     </div>
     <div class="secao">Itens do carregamento</div>
     <table class="itens"><thead><tr><th class="center">#</th><th>Foto</th><th>Produto</th><th class="center">Qtd.</th><th class="num">Peso un. (kg)</th><th class="num">Peso total (kg)</th></tr></thead><tbody>${linhasTab}</tbody></table>
@@ -25362,14 +25286,12 @@ async function finalizarCarregamento(id){
     const c=carregamentos.find(x=>x.id===id);
     if(!c) return;
     const transportadora=document.getElementById(`exp_transportadora_${id}`)?.value||'';
-    const motorista=document.getElementById(`exp_motorista_${id}`)?.value||'';
-    const placa=document.getElementById(`exp_placa_${id}`)?.value||'';
     const resp=document.getElementById(`exp_resp_${id}`)?.value||'';
     const nf=(document.getElementById(`exp_nf_${id}`)?.value||'').trim()||null;
     const agora=new Date().toISOString();
-    await api('PATCH','carregamentos',{status:'Enviado', carregado_em:agora, transportadora, motorista, placa_veiculo:placa, responsavel_carregamento:resp, numero_nf:nf},`?id=eq.${id}&select=id`);
+    await api('PATCH','carregamentos',{status:'Enviado', carregado_em:agora, transportadora, responsavel_carregamento:resp, numero_nf:nf},`?id=eq.${id}&select=id`);
     await api('PATCH','carregamento_itens',{carregado:true, carregado_em:agora},`?carregamento_id=eq.${id}`);
-    Object.assign(c,{status:'Enviado', carregado_em:agora, transportadora, motorista, placa_veiculo:placa, responsavel_carregamento:resp, numero_nf:nf});
+    Object.assign(c,{status:'Enviado', carregado_em:agora, transportadora, responsavel_carregamento:resp, numero_nf:nf});
     (c.carregamento_itens||[]).forEach(it=>{ it.carregado=true; it.carregado_em=agora; });
     showToast('Carregamento marcado como Enviado!');
     renderExpedicao();
