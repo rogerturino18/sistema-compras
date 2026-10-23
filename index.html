@@ -2341,6 +2341,30 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
   </div>
 </div>
 
+<div class="modal-bg" id="modalRomaneio">
+  <div class="modal" style="width:560px;max-width:97vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px">📄 Romaneio de expedição</h3>
+      <button class="modal-header-btn" onclick="fecharModal('modalRomaneio')">✕</button>
+    </div>
+    <div style="padding:14px 16px">
+      <input type="hidden" id="rom_id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group"><label>Nº da nota fiscal</label><input id="rom_nf" placeholder="Ex: 1234" autocomplete="off"></div>
+        <div class="form-group"><label>Transportadora</label><input id="rom_transp" autocomplete="off"></div>
+        <div class="form-group"><label>Motorista</label><input id="rom_motorista" autocomplete="off"></div>
+        <div class="form-group"><label>Placa do veículo</label><input id="rom_placa" autocomplete="off"></div>
+      </div>
+      <div class="form-group" style="margin-top:8px"><label>Observações (saem no romaneio)</label><textarea id="rom_obs" rows="2"></textarea></div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px"><input type="checkbox" id="rom_fotos" checked style="width:auto"> Incluir o registro fotográfico das peças</label>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn" onclick="fecharModal('modalRomaneio')">Cancelar</button>
+        <button class="btn primary" id="rom_btn" onclick="gerarRomaneio()">Gerar romaneio</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modalGiroEstoque">
   <div class="modal" style="width:900px;max-width:97vw">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
@@ -5458,7 +5482,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 355';
+const APP_BUILD='2026-10-23 · build 356';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24939,6 +24963,7 @@ function renderExpedicaoDetalhe(){
     ${linhasItens||'<div style="color:#9e9e9e;font-size:13px">Nenhum item neste pedido.</div>'}
     ${c.status==='Aguardando Fotos'?`<div style="font-size:11px;color:#9e9e9e;margin-top:6px">Assim que todos os itens tiverem foto, isto avança para "Pronto p/ Envio" sozinho.</div>`:''}
     ${c.status==='Aguardando Fotos'&&itensArr.length?`<button class="btn" style="margin-top:8px" ${todosProntos?'':'disabled'} onclick="avancarParaProntoEnvio('${c.id}')">Avançar agora →</button>`:''}
+    ${itensArr.length?`<div style="margin-top:14px"><button class="btn primary" ${(todosProntos||c.status!=='Aguardando Fotos')?'':'disabled title="Disponível quando todos os itens estiverem prontos"'} onclick="abrirRomaneio('${c.id}')">📄 Gerar romaneio</button>${c.numero_nf?`<span style="font-size:12px;color:#546e7a;margin-left:8px">NF ${String(c.numero_nf).replace(/</g,'&lt;')}</span>`:''}${(todosProntos||c.status!=='Aguardando Fotos')?'':'<span style="font-size:11px;color:#9e9e9e;margin-left:8px">libera quando todos os itens estiverem prontos</span>'}</div>`:''}
 
     ${c.status!=='Aguardando Fotos'?`
     <h3 style="font-size:14px;font-weight:700;margin:24px 0 8px">🚚 Dados do carregamento</h3>
@@ -24965,6 +24990,119 @@ function renderExpedicaoDetalhe(){
     <div style="margin-top:20px"><button class="btn danger btn-sm" onclick="excluirCarregamento('${c.id}')">🗑️ Excluir carregamento</button></div>
   `;
 }
+
+// ===== ROMANEIO =====
+function abrirRomaneio(id){
+  const c=carregamentos.find(x=>x.id===id); if(!c) return;
+  const set=(k,v)=>{ const e=document.getElementById(k); if(e) e.value=v==null?'':v; };
+  set('rom_id',id); set('rom_nf',c.numero_nf); set('rom_transp',c.transportadora); set('rom_motorista',c.motorista); set('rom_placa',c.placa_veiculo); set('rom_obs',c.romaneio_obs);
+  abrirModal('modalRomaneio');
+  setTimeout(()=>document.getElementById('rom_nf')?.focus(),80);
+}
+async function gerarRomaneio(){
+  const g=k=>(document.getElementById(k)?.value||'').trim();
+  const id=g('rom_id'); const c=carregamentos.find(x=>x.id===id); if(!c) return;
+  const btn=document.getElementById('rom_btn'); if(btn){ btn.disabled=true; btn.textContent='Preparando...'; }
+  const dados={numero_nf:g('rom_nf')||null,transportadora:g('rom_transp')||null,motorista:g('rom_motorista')||null,placa_veiculo:g('rom_placa')||null,romaneio_obs:g('rom_obs')||null,romaneio_gerado_em:new Date().toISOString()};
+  const comFotos=document.getElementById('rom_fotos')?.checked!==false;
+  const w=window.open('','_blank'); // abre já no clique (senão o navegador bloqueia)
+  try{
+    await api('PATCH','carregamentos',dados,`?id=eq.${id}`);
+    Object.assign(c,dados);
+    await _expGarantirProntos(c);
+    await _romaneioMontar(c,comFotos,w);
+    fecharModal('modalRomaneio');
+    if(_carregamentoSelecionadoId===id) renderExpedicaoDetalhe();
+  }catch(e){ if(w) w.close(); showToast('Erro ao gerar o romaneio: '+e.message,'err'); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } }
+}
+// espera a ficha (foto/peso) de todas as ordens do carregamento estar carregada
+async function _expGarantirProntos(c){
+  await _expCarregarProntosDet(c,true);
+  for(let i=0;i<60;i++){
+    const falta=(c.carregamento_itens||[]).some(it=>{ const o=it.ordem_producao_id&&ordens.find(x=>x.id===it.ordem_producao_id); return o && !o._pronto && _expProntoEstado[o.id]==='carregando'; });
+    if(!falta) break; await new Promise(r=>setTimeout(r,500));
+  }
+}
+async function _romaneioMontar(c,comFotos,w){
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const kg=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
+  const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id)||{};
+  const fotosArr=c.carregamento_fotos||[];
+  const itens=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)||(a.criado_em||'').localeCompare(b.criado_em||'')).map(it=>{
+    const o=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null; const pr=o&&o._pronto?o._pronto:{};
+    const foto=pr.foto_pronto||(fotosArr.find(f=>f.item_id===it.id&&f.etapa==='item_pronto')||{}).foto_base64||null;
+    const peso=pr.peso_pronto!=null?Number(pr.peso_pronto):null;
+    return {it,foto,peso,qtd:Number(it.qtd)||0};
+  });
+  const totQtd=itens.reduce((a,x)=>a+x.qtd,0);
+  const totPeso=itens.reduce((a,x)=>a+(x.peso!=null?x.peso*x.qtd:0),0);
+  const semPeso=itens.filter(x=>x.peso==null).length;
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  const linha=(r,v)=>v?`<div style="margin-bottom:3px"><b style="color:#607d6b">${r}:</b> ${esc(v)}</div>`:'';
+  const cidade=[pv.cliente_endereco,pv.cliente_cidade].filter(Boolean).join(' — ');
+  const linhasTab=itens.map((x,i)=>`<tr><td class="center">${i+1}</td>
+    <td class="fotoc">${x.foto?`<img src="${x.foto}">`:'<span class="sf">sem foto</span>'}</td>
+    <td><b>${esc(x.it.descricao||'—')}</b><div class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem):''}${x.it.desenho?(x.it.numero_ordem?' · ':'')+'Desenho '+esc(x.it.desenho):''}</div></td>
+    <td class="center"><b>${x.qtd}</b> un</td><td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td></tr>`).join('');
+  const cards=comFotos?itens.filter(x=>x.foto).map(x=>`<div class="card"><div class="cf"><img src="${x.foto}"></div><div class="ct"><b>${esc(x.it.descricao||'—')}</b><br><span class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem)+' · ':''}${x.qtd} un${x.peso!=null?' · '+kg(x.peso)+' kg/un':''}</span></div></div>`).join(''):'';
+  const fCarreg=comFotos?fotosArr.filter(f=>f.etapa==='carregamento').map(f=>`<div class="card"><div class="cf"><img src="${f.foto_base64}"></div><div class="ct"><span class="mut">Carregamento</span></div></div>`).join(''):'';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio Nº ${esc(c.numero||'')}${c.numero_nf?' — NF '+esc(c.numero_nf):''}</title>
+  <style>
+    @page{ size:A4; margin:10mm; }
+    *{ box-sizing:border-box; }
+    html,body{ background:#e9eeeb; margin:0; padding:0; }
+    body{ font-family:Arial,Helvetica,sans-serif; font-size:11.5px; color:#263238; }
+    .folha{ max-width:210mm; margin:18px auto; background:#fff; padding:14mm 13mm; box-shadow:0 2px 14px rgba(38,50,56,.12); border-radius:6px; }
+    .cabecalho{ display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #2e7d32; padding-bottom:12px; margin-bottom:14px; gap:16px; }
+    .marca{ display:flex; align-items:center; gap:12px; } .marca img{ width:70px; height:70px; object-fit:contain; border-radius:12px; }
+    .titulo{ font-size:21px; font-weight:800; line-height:1.2; } .subtitulo{ font-size:11.5px; color:#607d6b; margin-top:2px; }
+    .empresa{ text-align:right; font-size:10px; line-height:1.5; } .empresa b{ font-size:12px; color:#2e7d32; }
+    .secao{ font-size:12px; font-weight:800; color:#2e7d32; text-transform:uppercase; letter-spacing:.04em; margin:16px 0 7px; }
+    .info{ display:flex; gap:14px; } .box{ flex:1; background:#f3f7f4; border:1px solid #dce8e0; border-radius:8px; padding:10px 14px; min-width:0; }
+    .box .razao{ font-size:13.5px; font-weight:800; margin-bottom:5px; }
+    .nf{ background:#e8f5e9; border:2px solid #2e7d32; } .nf .n{ font-size:20px; font-weight:800; color:#2e7d32; }
+    table.itens{ width:100%; border-collapse:collapse; } table.itens thead tr{ background:#2e7d32; color:#fff; }
+    table.itens th{ padding:6px 7px; font-size:10px; text-transform:uppercase; text-align:left; } table.itens th.num{ text-align:right; } table.itens th.center{ text-align:center; }
+    table.itens td{ padding:3px 7px; border-bottom:1px solid #e3e8e5; vertical-align:middle; font-size:11px; }
+    td.center{ text-align:center; white-space:nowrap; } td.num{ text-align:right; white-space:nowrap; } .mut{ color:#78909c; font-size:10px; }
+    td.fotoc{ width:20mm; } td.fotoc img{ width:17mm; height:17mm; object-fit:cover; border-radius:6px; border:1px solid #cfd8dc; display:block; } .sf{ color:#b0bec5; font-size:9px; }
+    tr{ page-break-inside:avoid; }
+    .totais{ display:flex; justify-content:flex-end; gap:22px; margin-top:10px; padding:10px 14px; background:#f3f7f4; border:1px solid #dce8e0; border-radius:8px; }
+    .totais div{ text-align:right; } .totais .l{ font-size:10px; color:#607d6b; text-transform:uppercase; } .totais .v{ font-size:16px; font-weight:800; color:#2e7d32; }
+    .obs{ background:#fffde7; border:1px solid #f0e68c; border-radius:8px; padding:9px 13px; margin-top:12px; white-space:pre-wrap; }
+    .grade{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .card{ border:1px solid #dce8e0; border-radius:8px; overflow:hidden; page-break-inside:avoid; background:#fafbfa; }
+    .cf{ height:52mm; background:#eef2ef; display:flex; align-items:center; justify-content:center; } .cf img{ max-width:100%; max-height:100%; object-fit:contain; }
+    .ct{ padding:6px 8px; font-size:10.5px; line-height:1.4; }
+    .assin{ display:flex; gap:22px; margin-top:26px; page-break-inside:avoid; } .assin div{ flex:1; border-top:1px solid #455a64; padding-top:4px; text-align:center; font-size:10px; color:#546e7a; }
+    .rodape{ margin-top:16px; padding-top:8px; border-top:1px solid #eceeed; font-size:9.5px; color:#90a4ae; text-align:center; }
+    .nova{ page-break-before:always; }
+    .barra-acoes{position:sticky;top:0;z-index:50;display:flex;gap:8px;justify-content:center;padding:8px;background:#1b5e20;box-shadow:0 2px 8px rgba(0,0,0,.25)} .barra-acoes button{font:700 13px Arial,sans-serif;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#fff;color:#1b5e20} .barra-acoes button.sec{background:transparent;color:#fff;border:1px solid #fff}
+    @media print{ html,body{ background:#fff; } .folha{ margin:0; padding:0; box-shadow:none; border-radius:0; max-width:none; } .barra-acoes{ display:none; } }
+    @media (max-width:640px){ .folha{ margin:0; padding:12px; border-radius:0; } .cabecalho{ flex-direction:column; align-items:flex-start; } .empresa{ text-align:left; } .info{ flex-direction:column; } .grade{ grid-template-columns:repeat(2,1fr); } td.fotoc{ width:16mm; } td.fotoc img{ width:15mm; height:15mm; } }
+  </style></head><body><div class="barra-acoes"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button><button class="sec" onclick="window.close()">Fechar</button></div><div class="folha">
+    <div class="cabecalho">
+      <div class="marca"><img src="${LOGO_SL_OLEOS}" alt="SL Óleos"><div><div class="titulo">Romaneio de Expedição Nº ${esc(c.numero||'')}</div><div class="subtitulo">${esc(c.pdv_numero||'')}${pv.numero?' · Pedido de Venda Nº '+esc(pv.numero):''} · Emitido em ${hoje}</div></div></div>
+      <div class="empresa"><b>M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</b><br>CNPJ: 08.363.498/0001-69 · IE: 401.187.491.112<br>Rua Francisco Jose Caseiro, 190 · Jardim Bela Vista<br>Jaú - SP · CEP: 17206-445 · (14) 3626-1777</div>
+    </div>
+    <div class="info">
+      <div class="box"><div class="razao">${esc(c.cliente_nome||pv.cliente_nome||'—')}</div>${linha('CNPJ/CPF',pv.cliente_cnpj)}${linha('Endereço',cidade)}${linha('Telefone',pv.cliente_tel)}</div>
+      <div class="box nf"><div style="font-size:10px;color:#607d6b;text-transform:uppercase;font-weight:700">Nota fiscal</div><div class="n">${c.numero_nf?esc(c.numero_nf):'—'}</div><div style="margin-top:8px">${linha('Transportadora',c.transportadora)}${linha('Motorista',c.motorista)}${linha('Placa',c.placa_veiculo)}</div></div>
+    </div>
+    <div class="secao">Itens do carregamento</div>
+    <table class="itens"><thead><tr><th class="center">#</th><th>Foto</th><th>Produto</th><th class="center">Qtd.</th><th class="num">Peso un. (kg)</th><th class="num">Peso total (kg)</th></tr></thead><tbody>${linhasTab}</tbody></table>
+    <div class="totais"><div><div class="l">Itens</div><div class="v">${itens.length}</div></div><div><div class="l">Quantidade total</div><div class="v">${totQtd}</div></div><div><div class="l">Peso total</div><div class="v">${totPeso>0?kg(totPeso)+' kg':'—'}</div></div></div>
+    ${semPeso&&totPeso>0?`<div class="mut" style="text-align:right;margin-top:3px">Peso total soma só os itens com peso conferido (${semPeso} item(ns) sem peso).</div>`:''}
+    ${c.romaneio_obs?`<div class="obs"><b>Observações:</b> ${esc(c.romaneio_obs)}</div>`:''}
+    <div class="assin"><div>Expedição / Separação</div><div>Transportador</div><div>Recebido por (nome e data)</div></div>
+    ${cards||fCarreg?`<div class="nova"></div><div class="secao" style="margin-top:0">Registro fotográfico</div><div class="grade">${cards}${fCarreg}</div>`:''}
+    <div class="rodape">Romaneio gerado pelo sistema SL Óleos${usuarioLogado?.nome?' por '+esc(usuarioLogado.nome):''} em ${new Date().toLocaleString('pt-BR')}</div>
+  </div></body></html>`;
+  const win=w||window.open('','_blank');
+  win.document.open(); win.document.write(html); win.document.close();
+}
+// ===== FIM ROMANEIO =====
 
 async function marcarItemCarregamentoPronto(itemId, pronto){
   try{
