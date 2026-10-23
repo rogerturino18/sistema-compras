@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 371';
+const APP_BUILD='2026-10-23 · build 372';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25199,6 +25199,7 @@ async function gerarRomaneio(){
   const dados={numero_nf:g('rom_nf')||null,transportadora:nomeT||null,transportadora_id:tr?tr.id:null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
   const comFotos=document.getElementById('rom_fotos')?.checked!==false;
   const w=window.open('','_blank'); // abre já no clique (senão o navegador bloqueia)
+  try{ if(w){ w.document.write('<body style="font-family:sans-serif;padding:40px;color:#37474f"><h3>Preparando o romaneio…</h3><p>Reduzindo as fotos para o PDF ficar leve. Pode levar alguns segundos.</p></body>'); } }catch(e){}
   try{
     await api('PATCH','carregamentos',dados,`?id=eq.${id}&select=id`);
     Object.assign(c,dados);
@@ -25218,6 +25219,20 @@ async function _expGarantirProntos(c){
     if(!falta) break; await new Promise(r=>setTimeout(r,500));
   }
 }
+// reduz uma foto (data URL) para caber no romaneio sem pesar: fotos originais chegam a >1 MB cada
+const _romFotoCache=new Map();
+function _romReduzirFoto(url,max,q){
+  if(!url||typeof url!=='string'||!url.startsWith('data:image')) return Promise.resolve(url||null);
+  const chave=max+':'+url.length+':'+url.slice(-40); if(_romFotoCache.has(chave)) return Promise.resolve(_romFotoCache.get(chave));
+  return new Promise(res=>{
+    const fim=v=>{ clearTimeout(t); if(v) _romFotoCache.set(chave,v); res(v); };
+    const t=setTimeout(()=>res(url.length<300000?url:null),8000);
+    const im=new Image();
+    im.onload=()=>{ try{ const k=Math.min(1,max/Math.max(im.width,im.height)); const cv=document.createElement('canvas'); cv.width=Math.max(1,Math.round(im.width*k)); cv.height=Math.max(1,Math.round(im.height*k)); cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height); fim(cv.toDataURL('image/jpeg',q||0.72)); }catch(e){ fim(url.length<300000?url:null); } };
+    im.onerror=()=>fim(url.length<300000?url:null);
+    im.src=url;
+  });
+}
 async function _romaneioMontar(c,comFotos,w){
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const kg=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
@@ -25229,6 +25244,9 @@ async function _romaneioMontar(c,comFotos,w){
     const peso=pr.peso_pronto!=null?Number(pr.peso_pronto):null;
     return {it,foto,peso,qtd:Number(it.qtd)||0};
   });
+  // fotos leves (miniatura na tabela + foto média na galeria), uma de cada vez para não travar o navegador
+  for(const x of itens){ if(x.foto){ const orig=x.foto; x.foto=await _romReduzirFoto(orig,800,0.72); x.thumb=await _romReduzirFoto(orig,260,0.7); } }
+  const fotosCarregReduzidas=comFotos?await (async()=>{ const r=[]; for(const f of fotosArr.filter(f=>f.etapa==='carregamento')) r.push({...f,foto_base64:await _romReduzirFoto(f.foto_base64,800,0.72)}); return r; })():[];
   const totQtd=itens.reduce((a,x)=>a+x.qtd,0);
   const totPeso=itens.reduce((a,x)=>a+(x.peso!=null?x.peso*x.qtd:0),0);
   const vols=Array.isArray(c.volumes)?c.volumes:[];
@@ -25245,11 +25263,11 @@ async function _romaneioMontar(c,comFotos,w){
   const linha=(r,v)=>v?`<div style="margin-bottom:3px"><b style="color:#607d6b">${r}:</b> ${esc(v)}</div>`:'';
   const cidade=[pv.cliente_endereco,pv.cliente_cidade].filter(Boolean).join(' — ');
   const linhasTab=itens.map((x,i)=>`<tr><td class="center">${i+1}</td>
-    <td class="fotoc">${x.foto?`<img src="${x.foto}">`:'<span class="sf">sem foto</span>'}</td>
+    <td class="fotoc">${x.foto?`<img src="${x.thumb||x.foto}">`:'<span class="sf">sem foto</span>'}</td>
     <td><b>${esc(x.it.descricao||'—')}</b><div class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem):''}${x.it.desenho?(x.it.numero_ordem?' · ':'')+'Desenho '+esc(x.it.desenho):''}</div></td>
     <td class="center"><b>${x.qtd}</b> un</td>${temAloc?`<td class="center">${(volDoItem[x.it.id]||[]).map(y=>y.n+(y.q!==x.qtd?' ('+y.q+')':'')).join(', ')||'—'}</td>`:''}<td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td></tr>`).join('');
   const cards=comFotos?itens.filter(x=>x.foto).map(x=>`<div class="card"><div class="cf"><img src="${x.foto}"></div><div class="ct"><b>${esc(x.it.descricao||'—')}</b><br><span class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem)+' · ':''}${x.qtd} un${x.peso!=null?' · '+kg(x.peso)+' kg/un':''}</span></div></div>`).join(''):'';
-  const fCarreg=comFotos?fotosArr.filter(f=>f.etapa==='carregamento').map(f=>`<div class="card"><div class="cf"><img src="${f.foto_base64}"></div><div class="ct"><span class="mut">Carregamento</span></div></div>`).join(''):'';
+  const fCarreg=comFotos?fotosCarregReduzidas.map(f=>`<div class="card"><div class="cf"><img src="${f.foto_base64}"></div><div class="ct"><span class="mut">Carregamento</span></div></div>`).join(''):'';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}${c.numero_nf?' — NF '+esc(c.numero_nf):''}</title>
   <style>
     @page{ size:A4; margin:10mm; }
