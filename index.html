@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 366';
+const APP_BUILD='2026-10-23 · build 367';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -29790,7 +29790,7 @@ function salvarConfigNFe(){
           <span style="font-size:13px;font-weight:600">Itens do Pedido</span>
           <button class="btn btn-sm primary" onclick="addItemPV()">+ Item</button>
         </div>
-        <div class="tbl-wrap" style="max-height:240px;overflow-y:auto">
+        <div class="tbl-wrap" style="max-height:max(240px,calc(100vh - 440px));overflow:auto!important">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr style="background:#f3e5f5">
               <th style="padding:6px 6px;color:#1565c0;font-size:11px">Código</th>
