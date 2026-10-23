@@ -5482,7 +5482,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 360';
+const APP_BUILD='2026-10-23 · build 361';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11664,12 +11664,13 @@ async function abrirFotoOrdem(id){
   const o=ordens.find(x=>x.id===id);
   if(!o) return;
   if(o.foto_desenho===null || (o.foto_desenho===undefined && !o.tem_foto_desenho)){ _abrirFotoOrdemModal(id); return; }
-  if(o.foto_desenho && !_ehPdfBase64(o.foto_desenho)){ _abrirImagemTelaCheia(o.foto_desenho); return; }
+  if(o.foto_desenho && !_ehPdfBase64(o.foto_desenho)){ _lightboxFoto(o.foto_desenho); return; }
+  // Ainda não sabemos se é imagem ou PDF: abre a aba já no clique (senão o navegador bloqueia) e fecha se for imagem.
   const w=window.open('','_blank');
   try{
     const d=await _buscarFotoOrdem(id);
     if(!d){ if(w) w.close(); _abrirFotoOrdemModal(id); return; }
-    if(!_ehPdfBase64(d)){ if(w) w.close(); _abrirImagemTelaCheia(d); return; }
+    if(!_ehPdfBase64(d)){ if(w) w.close(); _lightboxFoto(d); return; } // imagem: amplia na própria tela (abrir aba depois do await é bloqueado)
     const bin=atob(d.split(',')[1]), bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
     const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
