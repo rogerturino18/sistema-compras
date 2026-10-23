@@ -5482,7 +5482,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 361';
+const APP_BUILD='2026-10-23 · build 362';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11660,22 +11660,43 @@ async function abrirPdfDaOrdem(id){
 
 // Clique na foto/miniatura: abre o desenho direto (PDF em aba nova, imagem em tela cheia).
 // Só mostra a janelinha quando a ordem ainda não tem foto, para anexar.
+// Tipo do desenho (pdf/img) lembrado no aparelho: assim sabemos, antes de buscar o arquivo, se vale abrir uma aba.
+function _tipoDesenho(id){ try{ return localStorage.getItem('sl_tipo_desenho_'+id); }catch(e){ return null; } }
+function _guardarTipoDesenho(id,d){ try{ localStorage.setItem('sl_tipo_desenho_'+id,_ehPdfBase64(d)?'pdf':'img'); }catch(e){} }
+function _abrirPdfDataUrl(d,w){
+  const bin=atob(d.split(',')[1]), bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+  setTimeout(()=>URL.revokeObjectURL(url),300000);
+  if(w){ w.location.href=url; return true; }
+  const w2=window.open(url,'_blank');
+  if(w2) return true;
+  // navegador bloqueou a aba (acontece depois de carregar): mostra um botão para abrir com um toque
+  document.getElementById('lightboxFoto')?.remove();
+  const d2=document.createElement('div'); d2.id='lightboxFoto';
+  d2.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center';
+  d2.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px 26px;text-align:center"><div style="font-weight:700;margin-bottom:12px">Desenho pronto</div><a href="'+url+'" target="_blank" rel="noopener" style="display:inline-block;background:#1b5e20;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:700" onclick="document.getElementById(\'lightboxFoto\')?.remove()">📄 Abrir PDF</a><div style="margin-top:12px"><button class="btn btn-sm" onclick="document.getElementById(\'lightboxFoto\')?.remove()">Fechar</button></div></div>';
+  document.body.appendChild(d2);
+  return false;
+}
 async function abrirFotoOrdem(id){
   const o=ordens.find(x=>x.id===id);
   if(!o) return;
   if(o.foto_desenho===null || (o.foto_desenho===undefined && !o.tem_foto_desenho)){ _abrirFotoOrdemModal(id); return; }
-  if(o.foto_desenho && !_ehPdfBase64(o.foto_desenho)){ _lightboxFoto(o.foto_desenho); return; }
-  // Ainda não sabemos se é imagem ou PDF: abre a aba já no clique (senão o navegador bloqueia) e fecha se for imagem.
-  const w=window.open('','_blank');
+  if(o.foto_desenho){ // já carregado: decide na hora
+    if(_ehPdfBase64(o.foto_desenho)){ try{ _abrirPdfDataUrl(o.foto_desenho,null); }catch(e){ showToast('Não foi possível abrir o desenho','err'); } }
+    else _lightboxFoto(o.foto_desenho);
+    return;
+  }
+  // só abre a aba logo no clique quando já sabemos que é PDF (evita a aba piscando para imagens)
+  const w=_tipoDesenho(id)==='pdf'?window.open('','_blank'):null;
+  if(!w) showToast('Abrindo o desenho...');
   try{
     const d=await _buscarFotoOrdem(id);
     if(!d){ if(w) w.close(); _abrirFotoOrdemModal(id); return; }
-    if(!_ehPdfBase64(d)){ if(w) w.close(); _lightboxFoto(d); return; } // imagem: amplia na própria tela (abrir aba depois do await é bloqueado)
-    const bin=atob(d.split(',')[1]), bytes=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
-    if(w) w.location.href=url; else window.open(url,'_blank');
-    setTimeout(()=>URL.revokeObjectURL(url),120000);
+    _guardarTipoDesenho(id,d);
+    if(!_ehPdfBase64(d)){ if(w) w.close(); _lightboxFoto(d); return; }
+    _abrirPdfDataUrl(d,w);
   }catch(e){ if(w) w.close(); showToast('Não foi possível abrir o desenho','err'); }
 }
 async function _abrirFotoOrdemModal(id){
