@@ -5482,7 +5482,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 357';
+const APP_BUILD='2026-10-23 · build 358';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17782,7 +17782,9 @@ ${QRCODE_LIB_SRC}
 // Ordens, mas montada aqui de novo porque aquela é uma função local da
 // renderização da tabela.
 let _osConsulta=false; // true = aberto pelo número do desenho na lista (só consulta + conferência, sem os botões de ação)
+let _osSeq=0;
 async function abrirAcoesOrdemPorScan(ordemId, consulta){
+  const _seq=++_osSeq;
   if(consulta!==undefined) _osConsulta=!!consulta; else if(!document.getElementById('modalAcoesOrdemScan')) _osConsulta=false;
   const o=ordens.find(x=>x.id===ordemId);
   if(!o){ showToast('Ordem não encontrada','err'); return; }
@@ -17873,6 +17875,7 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
     botoes.push(`<button class="btn" style="width:100%;padding:14px;font-size:14px;background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="if(confirm('Finalizar esta ordem?')){fecharModal('modalAcoesOrdemScan');finalizarOrdemForcado('${o.id}');}">✅ Finalizar ordem</button>`);
   }
 
+  if(_seq!==_osSeq) return; // outra atualização mais nova já está em andamento — não sobrescrever com dados velhos
   document.getElementById('modalAcoesOrdemScan')?.remove();
   const modal=document.createElement('div');
   modal.id='modalAcoesOrdemScan';
@@ -17930,7 +17933,7 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
               ${tercHtml}
             </div>
           </div>
-          <div class="os-pronto">${_prontoSecaoHtml(o,_prontoDados)}</div>
+          <div class="os-pronto">${_prontoSecaoHtml(o,_prontoCache[o.id]||_prontoDados)}</div>
           ${_osConsulta?'':`<div class="os-acoes os-card">
             <div class="os-h">Ações</div>
             ${botoes.join('')}
@@ -23844,12 +23847,13 @@ async function pesosZerarLista(){
 
 // ── Peça pronta (painel do scanner): peso + foto do produto acabado ──
 // O peso entra na lista "Pesos de Itens" (atualiza se a peça já existe para o cliente); peso e foto também ficam na ordem.
-let _prontoColOk=true; const _prontoFotoPend={};
+let _prontoColOk=true; const _prontoFotoPend={}; const _prontoCache={}; // cache próprio: sobrevive ao recarregamento das ordens (realtime)
 async function _prontoCarregar(id){
   const o=ordens.find(x=>x.id===id); if(!o) return {};
+  if(_prontoCache[id]){ o._pronto=_prontoCache[id]; return o._pronto; }
   if(o._pronto) return o._pronto;
   if(!_prontoColOk) return {};
-  try{ const r=await api('GET','ordens_producao','',`?id=eq.${id}&select=peso_pronto,foto_pronto`); o._pronto=r?.[0]||{}; return o._pronto; }
+  try{ const r=await api('GET','ordens_producao','',`?id=eq.${id}&select=peso_pronto,foto_pronto`); o._pronto=r?.[0]||{}; _prontoCache[id]=o._pronto; return o._pronto; }
   catch(e){ if(/column|does not exist|42703|PGRST204/i.test(String(e.message))) _prontoColOk=false; return {}; }
 }
 function _prontoSecaoHtml(o,p){
@@ -23933,7 +23937,7 @@ async function _prontoSalvar(id,doFoto){
     const patch={}; if(peso!=null) patch.peso_pronto=peso; if(pend) patch.foto_pronto=pend==='REMOVER'?null:pend;
     try{
       await api('PATCH','ordens_producao',patch,`?id=eq.${id}&select=id`); // select=id: não devolve de volta as fotos (pesadas no celular)
-      o._pronto={...(o._pronto||{}),...patch}; delete _prontoFotoPend[id];
+      o._pronto={...(_prontoCache[id]||o._pronto||{}),...patch}; _prontoCache[id]=o._pronto; delete _prontoFotoPend[id];
       if(pend) msg.push(pend==='REMOVER'?'foto removida':'foto salva');
     }catch(e){
       console.error('[pronto] salvar',e);
@@ -24710,7 +24714,7 @@ async function _expCarregarProntosDet(c,forcar){
       const id=fila.shift(); const o=ordens.find(x=>x.id===id);
       try{
         const r=await api('GET','ordens_producao','',`?id=eq.${id}&select=peso_pronto,foto_pronto`);
-        if(o) o._pronto={peso_pronto:r?.[0]?.peso_pronto??null,foto_pronto:r?.[0]?.foto_pronto||null};
+        if(o){ o._pronto={peso_pronto:r?.[0]?.peso_pronto??null,foto_pronto:r?.[0]?.foto_pronto||null}; _prontoCache[id]=o._pronto; }
         _expProntoEstado[id]='ok';
       }catch(e){ console.warn('[expedicao] ficha da ordem', id, e.message); _expProntoEstado[id]='erro'; }
       if(_carregamentoSelecionadoId===c.id) renderExpedicaoDetalhe();
