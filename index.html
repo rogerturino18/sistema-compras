@@ -5458,7 +5458,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 353';
+const APP_BUILD='2026-10-23 · build 354';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24640,7 +24640,42 @@ async function expedicaoInit(){
     carregamentos = await apiAll('carregamentos','?select=*,carregamento_itens(*),carregamento_fotos(*)&order=criado_em.desc');
   }catch(e){ console.warn('[expedicao] load', e); showToast('Não consegui carregar os carregamentos: '+e.message,'err'); }
   await _sincronizarCarregamentosComPV();
+  try{ await _expAutoProntos(); }catch(e){ console.warn('[expedicao] auto prontos', e); }
   renderExpedicao();
+}
+
+// Foto + peso da peça pronta vêm da conferência feita na ordem (Ficha de Produto):
+// não precisa fotografar de novo na Expedição. Item cuja ordem já tem foto da peça
+// pronta é marcado como pronto sozinho; quando todos estiverem, o carregamento avança.
+async function _expAutoProntos(){
+  const pend=[];
+  carregamentos.filter(c=>c.status==='Aguardando Fotos').forEach(c=>(c.carregamento_itens||[]).forEach(i=>{ if(!i.pronto&&i.ordem_producao_id) pend.push({c,i}); }));
+  if(!pend.length) return;
+  const l=[...new Set(pend.map(x=>x.i.ordem_producao_id))].join(',');
+  const r=await api('GET','ordens_producao','',`?id=in.(${l})&foto_pronto=not.is.null&select=id`);
+  const comFoto=new Set((r||[]).map(x=>x.id));
+  const alvo=pend.filter(x=>comFoto.has(x.i.ordem_producao_id)); if(!alvo.length) return;
+  const agora=new Date().toISOString();
+  await api('PATCH','carregamento_itens',{pronto:true,pronto_em:agora,pronto_por:'Ficha de produto (automático)'},`?id=in.(${alvo.map(x=>x.i.id).join(',')})`);
+  alvo.forEach(x=>{ x.i.pronto=true; });
+  for(const c of new Set(alvo.map(x=>x.c))){
+    const it=c.carregamento_itens||[];
+    if(c.status==='Aguardando Fotos' && it.length && it.every(i=>i.pronto)){
+      try{ await api('PATCH','carregamentos',{status:'Pronto p/ Envio',itens_prontos_em:agora},`?id=eq.${c.id}`); c.status='Pronto p/ Envio'; c.itens_prontos_em=agora; showToast('📦 Carregamento Nº '+(c.numero||'')+' está Pronto p/ Envio (fotos vieram das fichas)'); }catch(e){}
+    }
+  }
+}
+// Carrega foto e peso da conferência das ordens deste carregamento (uma vez) e redesenha.
+const _expProntosCarregando={};
+async function _expCarregarProntosDet(c){
+  if(_expProntosCarregando[c.id]) return; _expProntosCarregando[c.id]=true;
+  const ids=[...new Set((c.carregamento_itens||[]).map(i=>i.ordem_producao_id).filter(Boolean))].filter(id=>{ const o=ordens.find(x=>x.id===id); return o && !o._pronto; });
+  if(!ids.length) return;
+  try{
+    const r=await api('GET','ordens_producao','',`?id=in.(${ids.join(',')})&select=id,peso_pronto,foto_pronto`);
+    (r||[]).forEach(x=>{ const o=ordens.find(y=>y.id===x.id); if(o) o._pronto={peso_pronto:x.peso_pronto,foto_pronto:x.foto_pronto}; });
+    if(_carregamentoSelecionadoId===c.id) renderExpedicaoDetalhe();
+  }catch(e){ console.warn('[expedicao] prontos', e.message); }
 }
 
 // Acha o PDV do Pedido de Venda — o PV guarda o PDV escolhido como texto no
@@ -24716,6 +24751,30 @@ async function _sincronizarCarregamentosComPV(){
       await api('PATCH','carregamentos',{pdv_id:pdv.id, pdv_numero:rotuloPDV(pdv)},`?id=eq.${c.id}`);
       c.pdv_id=pdv.id; c.pdv_numero=rotuloPDV(pdv); c.carregamento_itens=novosItens;
     }catch(e){ console.warn('[expedicao] não consegui ligar o carregamento ao PDV', c.numero, e); }
+  }
+
+  // Ordens criadas DEPOIS do carregamento (ou ordens apagadas): o checklist acompanha o PDV.
+  // Só mexe em carregamentos ainda não enviados; nunca remove item já marcado como pronto.
+  for(const c of carregamentos){
+    if(!c.pdv_id || c.status==='Enviado') continue;
+    try{
+      const itens=c.carregamento_itens||[];
+      const ordensPdv=ordens.filter(o=>o.pdv_id===c.pdv_id && !o.excluida_em);
+      const jaTem=new Set(itens.map(i=>i.ordem_producao_id).filter(Boolean));
+      const novas=ordensPdv.filter(o=>!jaTem.has(o.id)).sort((a,b)=>(a.numero||0)-(b.numero||0));
+      if(novas.length){
+        const criados=await api('POST','carregamento_itens',novas.map(o=>({carregamento_id:c.id,ordem_producao_id:o.id,numero_ordem:o.numero||null,desenho:o.desenho||'',descricao:o.descricao||'',qtd:o.quantidade||1})));
+        c.carregamento_itens=[...itens,...(criados||[])];
+        // se já estava "Pronto p/ Envio" mas chegaram itens novos sem foto, volta a aguardar fotos
+        if(c.status==='Pronto p/ Envio'){ await api('PATCH','carregamentos',{status:'Aguardando Fotos',itens_prontos_em:null},`?id=eq.${c.id}`); c.status='Aguardando Fotos'; c.itens_prontos_em=null; }
+      }
+      const ativas=new Set(ordensPdv.map(o=>o.id));
+      const sobra=(c.carregamento_itens||[]).filter(i=>i.ordem_producao_id && !ativas.has(i.ordem_producao_id) && !i.pronto && ordens.some(o=>o.id===i.ordem_producao_id&&o.excluida_em));
+      if(sobra.length){
+        await api('DELETE','carregamento_itens',null,`?id=in.(${sobra.map(i=>i.id).join(',')})`);
+        const ids=new Set(sobra.map(i=>i.id)); c.carregamento_itens=c.carregamento_itens.filter(i=>!ids.has(i.id));
+      }
+    }catch(e){ console.warn('[expedicao] não consegui atualizar os itens do carregamento', c.numero, e); }
   }
 }
 
@@ -24811,10 +24870,22 @@ function renderExpedicaoDetalhe(){
   const fotosDoItem=itemId=>fotosArr.filter(f=>f.item_id===itemId&&f.etapa==='item_pronto');
   const fotosCarreg=fotosArr.filter(f=>f.etapa==='carregamento');
   const todosProntos=itensArr.length>0 && itensArr.every(i=>i.pronto);
+  let pesoTotalPed=0;
 
   const linhasItens=itensArr.map(it=>{
     const fotos=fotosDoItem(it.id);
     const rotuloItem=`${it.numero_ordem?`Ordem Nº ${it.numero_ordem} · `:''}${it.desenho?`[${it.desenho}] `:''}${it.descricao||'—'}`;
+    const ordItem=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null;
+    const pr=ordItem&&ordItem._pronto?ordItem._pronto:null;
+    const pesoUn=pr&&pr.peso_pronto!=null?Number(pr.peso_pronto):null;
+    if(pesoUn!=null) pesoTotalPed+=pesoUn*(Number(it.qtd)||0);
+    const fmtKg=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
+    const blocoFicha=!ordItem?'':(pr&&(pr.foto_pronto||pesoUn!=null)
+      ?`<div style="display:flex;gap:10px;align-items:center;margin-top:8px;padding:6px 8px;background:#f1f8f4;border:1px solid #c8e6c9;border-radius:8px">
+          ${pr.foto_pronto?`<img src="${pr.foto_pronto}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #c8e6c9;cursor:zoom-in" title="Foto da peça pronta (da ficha)" onclick="_lightboxFoto(this.src)">`:''}
+          <div style="font-size:12px;color:#37474f;line-height:1.5"><div style="font-size:10.5px;font-weight:700;color:#2e7d32;text-transform:uppercase">Da ficha de produto</div>
+          ${pesoUn!=null?`⚖️ <b>${fmtKg(pesoUn)} kg</b> por peça${(Number(it.qtd)||0)>1?` · total <b>${fmtKg(pesoUn*(Number(it.qtd)||0))} kg</b>`:''}`:'<span style="color:#90a4ae">peso não informado</span>'}${pr.foto_pronto?'':'<br><span style="color:#90a4ae">foto não informada</span>'}</div></div>`
+      :`<div style="font-size:11px;color:#90a4ae;margin-top:6px">⏳ Sem conferência na ficha da ordem ainda (foto e peso)</div>`);
     return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:${it.pronto?'#f1f8f4':'#fff'}">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px;cursor:pointer">
@@ -24826,6 +24897,7 @@ function renderExpedicaoDetalhe(){
           <input type="file" accept="image/*" capture="environment" style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}','${it.id}')">
         </label>
       </div>
+      ${blocoFicha}
       ${fotos.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${fotos.map(f=>`
         <div style="position:relative">
           <img src="${f.foto_base64}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer" onclick="_abrirImagemTelaCheia('${f.foto_base64}')">
@@ -24834,13 +24906,14 @@ function renderExpedicaoDetalhe(){
     </div>`;
   }).join('');
 
+  _expCarregarProntosDet(c);
   detWrap.innerHTML=`
     <button class="btn btn-sm" onclick="_voltarListaCarregamentos()" style="margin-bottom:12px">← Voltar à Expedição</button>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
       <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 ${(c.pdv_numero||`Carregamento Nº ${c.numero||'—'}`).replace(/</g,'&lt;')} — ${(c.cliente_nome||'').replace(/</g,'&lt;')}</h2>
       ${expedStatusBadge(c.status)}
     </div>
-    <div style="font-size:12px;color:var(--gray);margin-bottom:16px">${itensArr.filter(i=>i.pronto).length}/${itensArr.length} itens com foto</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:16px">${itensArr.filter(i=>i.pronto).length}/${itensArr.length} itens com foto${pesoTotalPed>0?` · ⚖️ peso total conferido: <b>${pesoTotalPed.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} kg</b>`:''}</div>
 
     <h3 style="font-size:14px;font-weight:700;margin:0 0 8px">✅ Checklist de itens prontos</h3>
     ${linhasItens||'<div style="color:#9e9e9e;font-size:13px">Nenhum item neste pedido.</div>'}
