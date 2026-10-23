@@ -5482,7 +5482,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 356';
+const APP_BUILD='2026-10-23 · build 357';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -23888,10 +23888,11 @@ function _prontoSecaoHtml(o,p){
 }
 async function _prontoEscolherFoto(input,id){
   const f=input.files&&input.files[0]; if(!f) return;
-  try{ _prontoFotoPend[id]=await _comprimirFotoParaBase64(f,1600,0.85); }catch(e){ showToast(e.message||'Não consegui ler a foto','err'); return; }
-  const pesoDigitado=document.getElementById('pronto_peso')?.value||'';
-  await abrirAcoesOrdemPorScan(id);
-  const el=document.getElementById('pronto_peso'); if(el){ el.value=pesoDigitado; try{ el.scrollIntoView({block:'center'}); }catch(e){} }
+  showToast('Processando a foto...');
+  try{ _prontoFotoPend[id]=await _comprimirFotoParaBase64(f,1400,0.8); }catch(e){ showToast(e.message||'Não consegui ler a foto','err'); input.value=''; return; }
+  input.value='';
+  // Salva na hora (antes era preciso tocar em "Registrar conferência" e a foto ficava só na tela, sem registrar).
+  await _prontoSalvar(id,true);
 }
 async function _prontoRemoverFoto(id){
   _prontoFotoPend[id]='REMOVER';
@@ -23915,7 +23916,7 @@ async function _prontoPesoNaLista(o,peso){
   if(Array.isArray(res)&&res[0]) pesosItens.push(res[0]);
   return 'incluido';
 }
-async function _prontoSalvar(id){
+async function _prontoSalvar(id,doFoto){
   const o=ordens.find(x=>x.id===id); if(!o) return;
   const txt=(document.getElementById('pronto_peso')?.value||'').trim();
   const peso=txt?pesosNum(txt):null;
@@ -23931,11 +23932,12 @@ async function _prontoSalvar(id){
     }
     const patch={}; if(peso!=null) patch.peso_pronto=peso; if(pend) patch.foto_pronto=pend==='REMOVER'?null:pend;
     try{
-      await api('PATCH','ordens_producao',patch,`?id=eq.${id}`);
+      await api('PATCH','ordens_producao',patch,`?id=eq.${id}&select=id`); // select=id: não devolve de volta as fotos (pesadas no celular)
       o._pronto={...(o._pronto||{}),...patch}; delete _prontoFotoPend[id];
       if(pend) msg.push(pend==='REMOVER'?'foto removida':'foto salva');
     }catch(e){
-      avisos.push('Peso/foto não foram guardados na ordem — falta rodar o SQL adicionar_peso_foto_pronto.sql no Supabase.');
+      console.error('[pronto] salvar',e);
+      avisos.push('Peso/foto não foram guardados na ordem ('+(e&&e.message?e.message:'erro')+'). Tente de novo; se repetir, avise o suporte.');
     }
   }finally{
     if(avisos.length) showToast('⚠️ '+avisos.join(' · '),'err',9000); else showToast('✅ '+(msg.join(' · ')||'Salvo'));
