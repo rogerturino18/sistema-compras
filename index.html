@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 372';
+const APP_BUILD='2026-10-23 · build 373';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25304,7 +25304,7 @@ async function _romaneioMontar(c,comFotos,w){
     @media (max-width:640px){ .folha{ margin:0; padding:12px; border-radius:0; } .cabecalho{ flex-direction:column; align-items:flex-start; } .empresa{ text-align:left; } .info{ flex-direction:column; } .grade{ grid-template-columns:repeat(2,1fr); } td.fotoc{ width:16mm; } td.fotoc img{ width:15mm; height:15mm; } }
   </style></head><body><div class="barra-acoes"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button><button class="sec" onclick="window.close()">Fechar</button></div><div class="folha">
     <div class="cabecalho">
-      <div class="marca"><img src="${LOGO_SL_OLEOS}" alt="SL Óleos"><div><div class="titulo">Romaneio de Expedição Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}</div><div class="subtitulo">${esc(c.pdv_numero||'')}${pv.numero?' · Pedido de Venda Nº '+esc(pv.numero):''} · Emitido em ${hoje}</div></div></div>
+      <div class="marca"><img src="${LOGO_SL_OLEOS}" alt="SL Óleos"><div><div class="titulo">Romaneio de Expedição Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}</div><div class="subtitulo">${esc(c.pdv_numero||'')}${pv.numero?' · Pedido de Venda Nº '+esc(pv.numero):''} · Emitido em ${hoje}${usuarioLogado?.nome?' por '+esc(usuarioLogado.nome):''}</div></div></div>
       <div class="empresa"><b>M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</b><br>CNPJ: 08.363.498/0001-69 · IE: 401.187.491.112<br>Rua Francisco Jose Caseiro, 190 · Jardim Bela Vista<br>Jaú - SP · CEP: 17206-445 · (14) 3626-1777</div>
     </div>
     <div class="info">
@@ -25319,7 +25319,7 @@ async function _romaneioMontar(c,comFotos,w){
     ${c.romaneio_obs?`<div class="obs"><b>Observações:</b> ${esc(c.romaneio_obs)}</div>`:''}
     <div class="assin"><div>Expedição / Separação</div><div>Transportador</div><div>Recebido por (nome e data)</div></div>
     ${cards||fCarreg?`<div class="nova"></div><div class="secao" style="margin-top:0">Registro fotográfico</div><div class="grade">${cards}${fCarreg}</div>`:''}
-    <div class="rodape">Romaneio gerado pelo sistema SL Óleos${usuarioLogado?.nome?' por '+esc(usuarioLogado.nome):''} em ${new Date().toLocaleString('pt-BR')}</div>
+    
   </div></body></html>`;
   const win=w||window.open('','_blank');
   win.document.open(); win.document.write(html); win.document.close();
