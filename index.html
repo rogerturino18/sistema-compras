@@ -5458,7 +5458,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-22 · build 352';
+const APP_BUILD='2026-10-23 · build 353';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17955,7 +17955,13 @@ async function _extrairTextoPDF(file){
 
 // Divide o texto completo em um bloco por "Pedido de Venda Nº X" encontrado.
 function _dividirBlocosPV(textoCompleto){
-  return textoCompleto.split(/(?=Pedido de Venda\s*Nº\s*\d+)/i).filter(b=>/Pedido de Venda\s*Nº\s*\d+/i.test(b));
+  const pedacos=textoCompleto.split(/(?=Pedido de Venda\s*Nº\s*\d+)/i).filter(b=>/Pedido de Venda\s*Nº\s*\d+/i.test(b));
+  // O cabeçalho "Pedido de Venda Nº X" se repete em cada página: pedaços com o mesmo número
+  // são do mesmo pedido (PDF de 2+ páginas) e precisam ser juntados, senão a 2ª página
+  // vira um pedido vazio que sobrescreve o primeiro.
+  const mapa=new Map();
+  pedacos.forEach(b=>{ const n=(b.match(/Pedido de Venda\s*Nº\s*(\d+)/i)||[])[1]; mapa.set(n,(mapa.get(n)||'')+b); });
+  return [...mapa.values()];
 }
 
 // Converte um bloco de texto (um pedido) no objeto pronto para gravar em pedidos_venda.
@@ -18059,7 +18065,7 @@ function _parseBlocoPedidoVenda(bloco){
 
   return {
     numero, status:'Aprovado', vendedor: vendedor||null, prev_faturamento,
-    frete: 0, cond_pagamento: cond_pagamento||null,
+    frete: (()=>{ const f=bloco.match(/\bFrete:\s*([\d.,]+)/i); return f?_parseNumBR(f[1]):0; })(), cond_pagamento: cond_pagamento||null,
     cliente_nome, cliente_contato: cliente_contato||null, cliente_cnpj: cliente_cnpj||null,
     cliente_ie: cliente_ie||null, cliente_endereco: cliente_endereco||null,
     cliente_cidade: cliente_cidade||null, cliente_tel: cliente_tel||null, cliente_email: cliente_email||null,
