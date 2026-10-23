@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 369';
+const APP_BUILD='2026-10-23 · build 370';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24780,6 +24780,26 @@ function _resolverPdvDoPV(pv){
 // PDV, na ordem do número delas) — não do texto digitado no Pedido de Venda.
 // Só cai pro texto do PV quando o PV não está ligado a nenhum PDV cadastrado,
 // ou esse PDV ainda não tem nenhuma ordem de produção lançada.
+// Ordena os itens do carregamento na mesma sequência dos itens do Pedido de Venda.
+// A ordem de produção é ligada ao item do PV pelo nº do desenho ("DES. 301" na descrição do PV);
+// sem desenho em comum, tenta pela descrição (+ quantidade). O que não casar vai para o fim, por nº da ordem.
+function _expOrdenarItens(c){
+  const lista=(c.carregamento_itens||[]).slice();
+  const porNumero=(a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)||(a.criado_em||'').localeCompare(b.criado_em||'');
+  const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id); const itensPV=Array.isArray(pv?.itens)?pv.itens:[];
+  if(!itensPV.length) return lista.sort(porNumero);
+  const norm=t=>String(t==null?'':t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+  const desPV=itensPV.map(it=>{ const r=[]; String(it.descricao||'').toUpperCase().replace(/DES\.?\s*([0-9A-Z#,.]*[0-9A-Z#])/g,(m,d)=>{ r.push(norm(d)); return m; }); return r; });
+  const pos=new Map(); const usados=new Set();
+  lista.forEach(it=>{ const d=norm(it.desenho); if(!d) return; const k=desPV.findIndex(a=>a.includes(d)); if(k>=0){ pos.set(it.id,k); usados.add(k); } });
+  const palavras=t=>new Set(norm(t).replace(/[^A-Z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>3));
+  lista.filter(it=>!pos.has(it.id)).sort(porNumero).forEach(it=>{
+    const pa=palavras(it.descricao); let melhor=-1, ms=0;
+    itensPV.forEach((p,k)=>{ if(usados.has(k)) return; const pb=palavras(p.descricao); let sc=0; pa.forEach(w=>{ if(pb.has(w)) sc++; }); if(Number(p.qtd)===Number(it.qtd)&&sc) sc+=0.5; if(sc>ms){ ms=sc; melhor=k; } });
+    if(melhor>=0&&ms>=1){ pos.set(it.id,melhor); usados.add(melhor); }
+  });
+  return lista.sort((a,b)=>{ const pa=pos.has(a.id)?pos.get(a.id):9999, pb=pos.has(b.id)?pos.get(b.id):9999; return pa-pb||porNumero(a,b); });
+}
 function _itensDeProducaoParaCarregamento(carregamentoId, pdvId, pv){
   const ordensDoPdv = pdvId ? ordens.filter(o=>o.pdv_id===pdvId && !o.excluida_em).sort((a,b)=>(a.numero||0)-(b.numero||0)) : [];
   if(ordensDoPdv.length){
@@ -24966,7 +24986,7 @@ function renderExpedicaoDetalhe(){
   _expNavRender(false);
   if(listaWrap) listaWrap.style.display='none';
   if(detWrap) detWrap.style.display='';
-  const itensArr=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)||(a.criado_em||'').localeCompare(b.criado_em||''));
+  const itensArr=_expOrdenarItens(c);
   const fotosArr=c.carregamento_fotos||[];
   const fotosDoItem=itemId=>fotosArr.filter(f=>f.item_id===itemId&&f.etapa==='item_pronto');
   const fotosCarreg=fotosArr.filter(f=>f.etapa==='carregamento');
@@ -25148,7 +25168,7 @@ async function abrirRomaneio(id){
   set('rom_id',id); set('rom_nf',c.numero_nf); set('rom_obs',c.romaneio_obs);
   set('rom_bruto',c.peso_bruto!=null?String(c.peso_bruto).replace('.',','):'');
   _romTranspSelect(c.transportadora);
-  _romItensCar=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)).map(it=>({id:it.id,numero_ordem:it.numero_ordem,descricao:it.descricao,qtd:it.qtd,ordem_producao_id:it.ordem_producao_id}));
+  _romItensCar=_expOrdenarItens(c).map(it=>({id:it.id,numero_ordem:it.numero_ordem,descricao:it.descricao,qtd:it.qtd,ordem_producao_id:it.ordem_producao_id}));
   _romVol=[]; (Array.isArray(c.volumes)?c.volumes:[]).forEach(v=>{
     const n=Math.max(1,Math.round(Number(v.qtd)||1)); const itens={}; (Array.isArray(v.itens)?v.itens:[]).forEach(x=>{ if(x&&x.item_id&&Number(x.qtd)>0) itens[x.item_id]=Number(x.qtd); });
     for(let k=0;k<n;k++) _romVol.push({descricao:v.descricao||'',qtd:'1',c:v.c||'',l:v.l||'',a:v.a||'',peso:v.peso||'',itens:k===0?itens:{}});
@@ -25202,7 +25222,7 @@ async function _romaneioMontar(c,comFotos,w){
   const kg=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
   const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id)||{};
   const fotosArr=c.carregamento_fotos||[];
-  const itens=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)||(a.criado_em||'').localeCompare(b.criado_em||'')).map(it=>{
+  const itens=_expOrdenarItens(c).map(it=>{
     const o=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null; const pr=o&&o._pronto?o._pronto:{};
     const foto=pr.foto_pronto||(fotosArr.find(f=>f.item_id===it.id&&f.etapa==='item_pronto')||{}).foto_base64||null;
     const peso=pr.peso_pronto!=null?Number(pr.peso_pronto):null;
