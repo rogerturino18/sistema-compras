@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 368';
+const APP_BUILD='2026-10-23 · build 369';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24855,6 +24855,16 @@ async function _sincronizarCarregamentosComPV(){
         c.carregamento_itens=[...itens,...(criados||[])];
         // se já estava "Pronto p/ Envio" mas chegaram itens novos sem foto, volta a aguardar fotos
         if(c.status==='Pronto p/ Envio'){ await api('PATCH','carregamentos',{status:'Aguardando Fotos',itens_prontos_em:null},`?id=eq.${c.id}`); c.status='Aguardando Fotos'; c.itens_prontos_em=null; }
+      }
+      // quantidade/descrição/desenho alterados na Ordem de Produção acompanham o checklist
+      for(const i of (c.carregamento_itens||[])){
+        const o=i.ordem_producao_id&&ordensPdv.find(x=>x.id===i.ordem_producao_id); if(!o) continue;
+        const dif={}; const q=o.quantidade||1;
+        if(Number(i.qtd)!==Number(q)) dif.qtd=q;
+        if((i.descricao||'')!==(o.descricao||'')) dif.descricao=o.descricao||'';
+        if((i.desenho||'')!==(o.desenho||'')) dif.desenho=o.desenho||'';
+        if((i.numero_ordem||null)!==(o.numero||null)) dif.numero_ordem=o.numero||null;
+        if(Object.keys(dif).length){ await api('PATCH','carregamento_itens',dif,`?id=eq.${i.id}&select=id`); Object.assign(i,dif); }
       }
       const ativas=new Set(ordensPdv.map(o=>o.id));
       const sobra=(c.carregamento_itens||[]).filter(i=>i.ordem_producao_id && !ativas.has(i.ordem_producao_id) && !i.pronto && ordens.some(o=>o.id===i.ordem_producao_id&&o.excluida_em));
