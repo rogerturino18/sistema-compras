@@ -2353,9 +2353,9 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div class="form-group"><label>Nº da nota fiscal</label><input id="rom_nf" placeholder="Ex: 1234" autocomplete="off"></div>
         <div class="form-group"><label>Transportadora <a href="javascript:void(0)" onclick="expNovaTransp()" style="font-weight:600;font-size:11px;margin-left:6px">+ cadastrar nova</a></label><select id="rom_transp"></select></div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:#37474f;margin:12px 0 6px">📦 Volumes / embalagens</div>
+      <div style="display:flex;align-items:center;gap:10px;margin:12px 0 6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:#37474f">📦 Volumes / embalagens</span><label style="font-size:12px;color:#546e7a;display:flex;align-items:center;gap:6px">Quantidade de volumes <input id="rom_nvol" type="number" min="0" max="60" inputmode="numeric" onchange="_romVolN(this.value)" style="width:64px;padding:5px 7px;border:1px solid #cfd8dc;border-radius:6px"></label></div>
       <div id="rom_vols"></div>
-      <button class="btn btn-sm" onclick="_romVolAdd()" style="margin-top:6px">+ Adicionar embalagem</button>
+      <button class="btn btn-sm" onclick="_romVolAdd()" style="margin-top:6px">+ Adicionar volume</button>
       <div style="background:#f3f7f4;border:1px solid #dce8e0;border-radius:8px;padding:10px 12px;margin-top:12px">
         <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
           <div style="font-size:12px;color:#546e7a">Peso líquido (peças)<div id="rom_liq" style="font-size:16px;font-weight:800;color:#37474f">…</div></div>
@@ -2363,7 +2363,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
           <div style="font-size:12px;color:#546e7a">= Peso bruto<div id="rom_brutoCalc" style="font-size:16px;font-weight:800;color:#2e7d32">…</div></div>
           <div class="form-group" style="margin:0;margin-left:auto"><label style="font-size:11px">Ou informe o peso bruto total (kg)</label><input id="rom_bruto" inputmode="decimal" placeholder="opcional" oninput="_romCalc()" style="width:140px;text-align:right"></div>
         </div>
-        <div style="font-size:11px;color:#90a4ae;margin-top:6px">O peso das embalagens vem da soma (qtd × peso) das embalagens acima. Se você digitar o peso bruto total, ele vale no lugar da soma.</div>
+        <div style="font-size:11px;color:#90a4ae;margin-top:6px">O peso das embalagens vem da soma do peso vazio dos volumes acima. Se você digitar o peso bruto total, ele vale no lugar da soma.</div>
       </div>
       <div class="form-group" style="margin-top:10px"><label>Observações (saem no romaneio)</label><textarea id="rom_obs" rows="2"></textarea></div>
       <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px"><input type="checkbox" id="rom_fotos" checked style="width:auto"> Incluir o registro fotográfico das peças</label>
@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 365';
+const APP_BUILD='2026-10-23 · build 366';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25011,14 +25011,12 @@ function renderExpedicaoDetalhe(){
     ${linhasItens||'<div style="color:#9e9e9e;font-size:13px">Nenhum item neste pedido.</div>'}
     ${c.status==='Aguardando Fotos'?`<div style="font-size:11px;color:#9e9e9e;margin-top:6px">Assim que todos os itens tiverem foto, isto avança para "Pronto p/ Envio" sozinho.</div>`:''}
     ${c.status==='Aguardando Fotos'&&itensArr.length?`<button class="btn" style="margin-top:8px" ${todosProntos?'':'disabled'} onclick="avancarParaProntoEnvio('${c.id}')">Avançar agora →</button>`:''}
-    ${itensArr.length?(()=>{ const vs=Array.isArray(c.volumes)?c.volumes:[]; const tot=vs.reduce((a,v)=>a+(Number(v.qtd)||1),0); const resumo=vs.length?vs.map(v=>(Number(v.qtd)||1)+'× '+_stEsc(v.descricao||'Volume')+((v.c||v.l||v.a)?' ('+(v.c||0)+'×'+(v.l||0)+'×'+(v.a||0)+' cm)':'')).join(' · '):'Nenhum volume informado'; return `<div style="margin-top:14px;background:#fff;border:1px solid #dce8e0;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:220px"><div style="font-size:12px;font-weight:700;color:#37474f">📦 Volumes e dimensões${tot?' — '+tot+' volume'+(tot!==1?'s':''):''}${c.romaneio_numero?' · Romaneio Nº '+_romFmt(c.romaneio_numero):''}</div><div style="font-size:12px;color:#607d8b;margin-top:3px">${resumo}</div></div><button class="btn btn-sm" onclick="abrirRomaneio('${c.id}')">✏️ Informar volumes e dimensões</button></div>`; })():''}
+    ${itensArr.length?(()=>{ const vs=Array.isArray(c.volumes)?c.volumes:[]; const tot=vs.reduce((a,v)=>a+(Number(v.qtd)||1),0); const resumo=(vs.length?vs.map((v,k)=>(vs.length>1||v.itens?'Vol. '+(k+1)+': ':'')+_stEsc(v.descricao||'Volume')+((v.c||v.l||v.a)?' ('+(v.c||0)+'×'+(v.l||0)+'×'+(v.a||0)+' cm)':'')).join(' · '):'Nenhum volume informado')+((c.numero_nf||c.transportadora)?'<div style="margin-top:3px">'+(c.numero_nf?'NF '+_stEsc(c.numero_nf):'')+(c.numero_nf&&c.transportadora?' · ':'')+(c.transportadora?'🚚 '+_stEsc(c.transportadora):'')+'</div>':''); return `<div style="margin-top:14px;background:#fff;border:1px solid #dce8e0;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:220px"><div style="font-size:12px;font-weight:700;color:#37474f">📦 Volumes e dimensões${vs.length?' — '+vs.length+' volume'+(vs.length!==1?'s':''):''}${c.romaneio_numero?' · Romaneio Nº '+_romFmt(c.romaneio_numero):''}</div><div style="font-size:12px;color:#607d8b;margin-top:3px">${resumo}</div></div><button class="btn btn-sm" onclick="abrirRomaneio('${c.id}')">✏️ Volumes, dimensões e NF</button></div>`; })():''}
     ${itensArr.length?`<div style="margin-top:14px"><button class="btn primary" ${(todosProntos||c.status!=='Aguardando Fotos')?'':'disabled title="Disponível quando todos os itens estiverem prontos"'} onclick="abrirRomaneio('${c.id}')">📄 Gerar romaneio</button>${c.romaneio_numero?`<span style="font-size:12px;color:#2e7d32;font-weight:700;margin-left:8px">Nº ${_romFmt(c.romaneio_numero)}</span>`:''}${c.numero_nf?`<span style="font-size:12px;color:#546e7a;margin-left:8px">NF ${String(c.numero_nf).replace(/</g,'&lt;')}</span>`:''}${(todosProntos||c.status!=='Aguardando Fotos')?'':'<span style="font-size:11px;color:#9e9e9e;margin-left:8px">libera quando todos os itens estiverem prontos</span>'}</div>`:''}
 
     ${c.status!=='Aguardando Fotos'?`
     <h3 style="font-size:14px;font-weight:700;margin:24px 0 8px">🚚 Dados do carregamento</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div class="form-group"><label>Nº da nota fiscal</label><input id="exp_nf_${c.id}" value="${(c.numero_nf||'').replace(/"/g,'&quot;')}"></div>
-      <div class="form-group"><label>Transportadora</label><select id="exp_transportadora_${c.id}">${(()=>{ const nomes=_transpLista().map(t=>t.nome); const at=c.transportadora||''; return '<option value="">— selecione —</option>'+nomes.map(n=>'<option value="'+_stEsc(n)+'"'+(n===at?' selected':'')+'>'+_stEsc(n)+'</option>').join('')+(at&&!nomes.includes(at)?'<option value="'+_stEsc(at)+'" selected>'+_stEsc(at)+' (não cadastrada)</option>':''); })()}</select></div>
       <div class="form-group"><label>Responsável pelo carregamento</label><input id="exp_resp_${c.id}" value="${(c.responsavel_carregamento||'').replace(/"/g,'&quot;')}"></div>
     </div>
     <label class="btn btn-sm" style="cursor:pointer;margin-bottom:8px;display:inline-block">📷 Foto do carregamento
@@ -25064,17 +25062,58 @@ function _expPesoLiquido(c){
   return (c.carregamento_itens||[]).reduce((a,it)=>{ const o=it.ordem_producao_id&&ordens.find(x=>x.id===it.ordem_producao_id); const pr=o&&o._pronto; return a+((pr&&pr.peso_pronto!=null)?Number(pr.peso_pronto)*(Number(it.qtd)||0):0); },0);
 }
 const _kgF=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
+let _romItensCar=[];
+function _romItemLabel(it){ const o=it.ordem_producao_id&&(ordens||[]).find(x=>x.id===it.ordem_producao_id); return (it.numero_ordem?'Ordem '+it.numero_ordem+' · ':'')+(it.descricao||'—'); }
+function _romAloc(v,id){ return Number((v.itens||{})[id])||0; }
+function _romRestante(id){ const it=_romItensCar.find(x=>x.id===id); if(!it) return 0; return (Number(it.qtd)||0)-_romVol.reduce((a,v)=>a+_romAloc(v,id),0); }
 function _romVolRender(){
   const el=document.getElementById('rom_vols'); if(!el) return;
-  if(!_romVol.length){ el.innerHTML='<div style="font-size:12px;color:#90a4ae">Nenhuma embalagem informada.</div>'; return; }
-  const inp=(i,k,ph,w)=>'<input value="'+String(_romVol[i][k]==null?'':_romVol[i][k]).replace(/"/g,'&quot;')+'" placeholder="'+ph+'" inputmode="'+(k==='descricao'?'text':'decimal')+'" oninput="_romVolSet('+i+',\''+k+'\',this.value)" style="width:'+w+';padding:6px 7px;border:1px solid #cfd8dc;border-radius:6px;font-size:12.5px'+(k==='descricao'?'':';text-align:right')+'">';
-  el.innerHTML='<div style="display:grid;grid-template-columns:minmax(120px,1.6fr) 54px repeat(3,66px) 86px 28px;gap:6px;font-size:10.5px;color:#78909c;margin-bottom:3px"><span>Embalagem</span><span>Qtd</span><span>Comp. cm</span><span>Larg. cm</span><span>Alt. cm</span><span>Peso un. kg</span><span></span></div>'+
-   _romVol.map((v,i)=>'<div style="display:grid;grid-template-columns:minmax(120px,1.6fr) 54px repeat(3,66px) 86px 28px;gap:6px;margin-bottom:5px;align-items:center">'+inp(i,'descricao','Ex: Caixa de madeira','100%')+inp(i,'qtd','1','100%')+inp(i,'c','0','100%')+inp(i,'l','0','100%')+inp(i,'a','0','100%')+inp(i,'peso','0,0','100%')+'<button class="btn btn-sm" title="Remover" onclick="_romVolDel('+i+')" style="padding:2px 6px;color:#c62828">✕</button></div>').join('');
+  const n=document.getElementById('rom_nvol'); if(n && document.activeElement!==n) n.value=_romVol.length||'';
+  if(!_romVol.length){ el.innerHTML='<div style="font-size:12px;color:#90a4ae">Nenhum volume informado. Digite a quantidade de volumes acima ou clique em “+ Adicionar volume”.</div>'; return; }
+  const q=t=>String(t==null?'':t).replace(/"/g,'&quot;');
+  const inp=(i,k,ph,w)=>'<input value="'+q(_romVol[i][k])+'" placeholder="'+ph+'" inputmode="'+(k==='descricao'?'text':'decimal')+'" oninput="_romVolSet('+i+',\''+k+'\',this.value)" style="width:'+w+';padding:6px 7px;border:1px solid #cfd8dc;border-radius:6px;font-size:12.5px'+(k==='descricao'?'':';text-align:right')+'">';
+  const lab=t=>'<div style="font-size:10px;color:#78909c;margin-bottom:2px">'+t+'</div>';
+  const cards=_romVol.map((v,i)=>{
+    const nIt=_romItensCar.filter(it=>_romAloc(v,it.id)>0).length;
+    const linhas=_romItensCar.map(it=>{ const a=_romAloc(v,it.id), r=_romRestante(it.id);
+      return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-top:1px solid #eef2ee"><div style="flex:1;min-width:0;font-size:12px;color:#37474f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+q(_romItemLabel(it))+'">'+_stEsc(_romItemLabel(it))+'</div><input value="'+(a||'')+'" placeholder="0" inputmode="numeric" onchange="_romAlocSet('+i+',\''+it.id+'\',this.value)" style="width:54px;padding:4px 6px;border:1px solid #cfd8dc;border-radius:6px;font-size:12.5px;text-align:right"><span style="font-size:11px;color:'+(r<0?'#c62828':r===0?'#2e7d32':'#90a4ae')+';width:74px;white-space:nowrap">de '+(Number(it.qtd)||0)+(r!==(Number(it.qtd)||0)-a?' · resta '+r:'')+'</span></div>'; }).join('');
+    return '<div style="border:1px solid #cfe0d4;border-radius:10px;padding:10px;margin-bottom:8px;background:#fafdfb">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="font-size:13px;color:#1b5e20">Volume '+(i+1)+'</b><span style="font-size:11px;color:#78909c">'+(nIt?nIt+' item(ns) dentro':'sem itens')+'</span><span style="flex:1"></span>'+
+      '<button class="btn btn-sm" title="Duplicar (mesma embalagem e medidas)" onclick="_romVolDup('+i+')" style="padding:2px 8px">⧉ Duplicar</button><button class="btn btn-sm" title="Remover volume" onclick="_romVolDel('+i+')" style="padding:2px 8px;color:#c62828">✕</button></div>'+
+      '<div style="display:grid;grid-template-columns:minmax(130px,1.6fr) repeat(3,64px) 80px;gap:6px;margin-bottom:8px"><div>'+lab('Embalagem')+inp(i,'descricao','Ex: Caixa de madeira','100%')+'</div><div>'+lab('Comp. cm')+inp(i,'c','0','100%')+'</div><div>'+lab('Larg. cm')+inp(i,'l','0','100%')+'</div><div>'+lab('Alt. cm')+inp(i,'a','0','100%')+'</div><div>'+lab('Peso vazio kg')+inp(i,'peso','0,0','100%')+'</div></div>'+
+      (_romItensCar.length?'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px"><span style="font-size:11px;font-weight:700;color:#546e7a">Itens que vão neste volume (quantidade)</span><a href="javascript:void(0)" onclick="_romAlocRestante('+i+')" style="font-size:11px;font-weight:600">colocar todo o restante aqui</a></div>'+linhas:'')+
+    '</div>'; }).join('');
+  const sem=_romItensCar.filter(it=>_romRestante(it.id)!==0);
+  const algum=_romVol.some(v=>Object.values(v.itens||{}).some(x=>Number(x)>0));
+  const aviso=!_romItensCar.length?'':(!algum?'<div style="font-size:12px;color:#90a4ae">Distribua os itens nos volumes (opcional).</div>':(sem.length?'<div style="font-size:12px;color:#e65100;background:#fff3e0;border-radius:8px;padding:6px 10px">⚠ Ainda sem volume: '+sem.map(it=>_stEsc((it.numero_ordem?'Ordem '+it.numero_ordem:it.descricao||'item'))+' ('+_romRestante(it.id)+')').join(', ')+'</div>':'<div style="font-size:12px;color:#2e7d32;background:#e8f5e9;border-radius:8px;padding:6px 10px">✓ Todos os itens estão distribuídos nos volumes.</div>'));
+  el.innerHTML=cards+aviso;
 }
-function _romVolAdd(){ _romVol.push({descricao:'',qtd:'1',c:'',l:'',a:'',peso:''}); _romVolRender(); _romCalc(); }
+function _romVolNovo(){ return {descricao:'',qtd:'1',c:'',l:'',a:'',peso:'',itens:{}}; }
+function _romVolAdd(){ _romVol.push(_romVolNovo()); _romVolRender(); _romCalc(); }
+function _romVolN(n){
+  n=Math.max(0,Math.min(60,parseInt(n,10)||0));
+  while(_romVol.length<n) _romVol.push(_romVolNovo());
+  if(_romVol.length>n){
+    const sobra=_romVol.slice(n);
+    if(sobra.some(v=>Object.values(v.itens||{}).some(x=>Number(x)>0))){ showToast('Os últimos volumes têm itens — remova-os com o ✕ para reduzir','err'); }
+    else _romVol.length=n;
+  }
+  _romVolRender(); _romCalc();
+}
+function _romVolDup(i){ const v=_romVol[i]; if(!v) return; _romVol.splice(i+1,0,{descricao:v.descricao,qtd:'1',c:v.c,l:v.l,a:v.a,peso:v.peso,itens:{}}); _romVolRender(); _romCalc(); }
 function _romVolDel(i){ _romVol.splice(i,1); _romVolRender(); _romCalc(); }
 function _romVolSet(i,k,v){ if(_romVol[i]) _romVol[i][k]=v; _romCalc(); }
-function _romEmbalagensKg(){ return _romVol.reduce((a,v)=>a+(_romNum(v.qtd)||0)*_romNum(v.peso),0); }
+function _romAlocSet(i,id,val){
+  const v=_romVol[i]; if(!v) return; v.itens=v.itens||{};
+  let q=Math.max(0,parseInt(String(val).replace(/\D/g,''),10)||0);
+  const it=_romItensCar.find(x=>x.id===id); const outros=_romVol.reduce((a,x,k)=>a+(k===i?0:_romAloc(x,id)),0);
+  const max=Math.max(0,(Number(it&&it.qtd)||0)-outros);
+  if(q>max){ q=max; showToast('Só restam '+max+' unidade(s) desse item','err'); }
+  if(q>0) v.itens[id]=q; else delete v.itens[id];
+  _romVolRender();
+}
+function _romAlocRestante(i){ const v=_romVol[i]; if(!v) return; v.itens=v.itens||{}; _romItensCar.forEach(it=>{ const r=_romRestante(it.id); if(r>0) v.itens[it.id]=_romAloc(v,it.id)+r; }); _romVolRender(); }
+function _romEmbalagensKg(){ return _romVol.reduce((a,v)=>a+(_romNum(v.qtd)||1)*_romNum(v.peso),0); }
 let _romLiq=0;
 function _romCalc(){
   const emb=_romEmbalagensKg(); const manual=(document.getElementById('rom_bruto')?.value||'').trim();
@@ -25095,7 +25134,11 @@ async function abrirRomaneio(id){
   set('rom_id',id); set('rom_nf',c.numero_nf); set('rom_obs',c.romaneio_obs);
   set('rom_bruto',c.peso_bruto!=null?String(c.peso_bruto).replace('.',','):'');
   _romTranspSelect(c.transportadora);
-  _romVol=JSON.parse(JSON.stringify(Array.isArray(c.volumes)?c.volumes:[]));
+  _romItensCar=(c.carregamento_itens||[]).slice().sort((a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)).map(it=>({id:it.id,numero_ordem:it.numero_ordem,descricao:it.descricao,qtd:it.qtd,ordem_producao_id:it.ordem_producao_id}));
+  _romVol=[]; (Array.isArray(c.volumes)?c.volumes:[]).forEach(v=>{
+    const n=Math.max(1,Math.round(Number(v.qtd)||1)); const itens={}; (Array.isArray(v.itens)?v.itens:[]).forEach(x=>{ if(x&&x.item_id&&Number(x.qtd)>0) itens[x.item_id]=Number(x.qtd); });
+    for(let k=0;k<n;k++) _romVol.push({descricao:v.descricao||'',qtd:'1',c:v.c||'',l:v.l||'',a:v.a||'',peso:v.peso||'',itens:k===0?itens:{}});
+  });
   _romVolRender(); _romLiq=_expPesoLiquido(c); _romCalc();
   abrirModal('modalRomaneio');
   setTimeout(()=>document.getElementById('rom_nf')?.focus(),80);
@@ -25114,7 +25157,9 @@ async function gerarRomaneio(){
   const id=g('rom_id'); const c=carregamentos.find(x=>x.id===id); if(!c) return;
   const btn=document.getElementById('rom_btn'); if(btn){ btn.disabled=true; btn.textContent='Preparando...'; }
   const nomeT=g('rom_transp'); const tr=_transpLista().find(t=>t.nome===nomeT);
-  const vols=_romVol.filter(v=>String(v.descricao||'').trim()||_romNum(v.c)||_romNum(v.l)||_romNum(v.a)||_romNum(v.peso)).map(v=>({descricao:String(v.descricao||'').trim(),qtd:_romNum(v.qtd)||1,c:_romNum(v.c),l:_romNum(v.l),a:_romNum(v.a),peso:_romNum(v.peso)}));
+  const _temAloc=v=>Object.values(v.itens||{}).some(x=>Number(x)>0);
+  const vols=_romVol.filter(v=>String(v.descricao||'').trim()||_romNum(v.c)||_romNum(v.l)||_romNum(v.a)||_romNum(v.peso)||_temAloc(v)).map(v=>({descricao:String(v.descricao||'').trim(),qtd:1,c:_romNum(v.c),l:_romNum(v.l),a:_romNum(v.a),peso:_romNum(v.peso),itens:Object.entries(v.itens||{}).filter(([k,q])=>Number(q)>0).map(([k,q])=>({item_id:k,qtd:Number(q)}))}));
+  if(_romVol.some(_temAloc) && _romItensCar.some(it=>_romRestante(it.id)!==0) && !confirm('Há itens que ainda não foram colocados em nenhum volume (ou com quantidade diferente). Gerar o romaneio mesmo assim?')){ if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } return; }
   const manual=g('rom_bruto');
   const dados={numero_nf:g('rom_nf')||null,transportadora:nomeT||null,transportadora_id:tr?tr.id:null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
   const comFotos=document.getElementById('rom_fotos')?.checked!==false;
@@ -25153,6 +25198,9 @@ async function _romaneioMontar(c,comFotos,w){
   const totPeso=itens.reduce((a,x)=>a+(x.peso!=null?x.peso*x.qtd:0),0);
   const vols=Array.isArray(c.volumes)?c.volumes:[];
   const embKg=vols.reduce((a,v)=>a+(Number(v.qtd)||1)*(Number(v.peso)||0),0);
+  const temAloc=vols.some(v=>Array.isArray(v.itens)&&v.itens.length);
+  const volDoItem={}; vols.forEach((v,k)=>(v.itens||[]).forEach(x=>{ (volDoItem[x.item_id]=volDoItem[x.item_id]||[]).push({n:k+1,q:x.qtd}); }));
+  const itemInfo=id=>itens.find(x=>x.it.id===id);
   const brutoKg=c.peso_bruto!=null&&Number(c.peso_bruto)>0?Number(c.peso_bruto):(totPeso+embKg);
   const taraKg=c.peso_bruto!=null&&Number(c.peso_bruto)>0?Math.max(0,brutoKg-totPeso):embKg;
   const trCad=_transpLista().find(t=>t.id===c.transportadora_id)||_transpLista().find(t=>t.nome===c.transportadora)||{};
@@ -25164,7 +25212,7 @@ async function _romaneioMontar(c,comFotos,w){
   const linhasTab=itens.map((x,i)=>`<tr><td class="center">${i+1}</td>
     <td class="fotoc">${x.foto?`<img src="${x.foto}">`:'<span class="sf">sem foto</span>'}</td>
     <td><b>${esc(x.it.descricao||'—')}</b><div class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem):''}${x.it.desenho?(x.it.numero_ordem?' · ':'')+'Desenho '+esc(x.it.desenho):''}</div></td>
-    <td class="center"><b>${x.qtd}</b> un</td><td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td></tr>`).join('');
+    <td class="center"><b>${x.qtd}</b> un</td>${temAloc?`<td class="center">${(volDoItem[x.it.id]||[]).map(y=>y.n+(y.q!==x.qtd?' ('+y.q+')':'')).join(', ')||'—'}</td>`:''}<td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td></tr>`).join('');
   const cards=comFotos?itens.filter(x=>x.foto).map(x=>`<div class="card"><div class="cf"><img src="${x.foto}"></div><div class="ct"><b>${esc(x.it.descricao||'—')}</b><br><span class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem)+' · ':''}${x.qtd} un${x.peso!=null?' · '+kg(x.peso)+' kg/un':''}</span></div></div>`).join(''):'';
   const fCarreg=comFotos?fotosArr.filter(f=>f.etapa==='carregamento').map(f=>`<div class="card"><div class="cf"><img src="${f.foto_base64}"></div><div class="ct"><span class="mut">Carregamento</span></div></div>`).join(''):'';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}${c.numero_nf?' — NF '+esc(c.numero_nf):''}</title>
@@ -25178,7 +25226,7 @@ async function _romaneioMontar(c,comFotos,w){
     .marca{ display:flex; align-items:center; gap:12px; } .marca img{ width:70px; height:70px; object-fit:contain; border-radius:12px; }
     .titulo{ font-size:21px; font-weight:800; line-height:1.2; } .subtitulo{ font-size:11.5px; color:#607d6b; margin-top:2px; }
     .empresa{ text-align:right; font-size:10px; line-height:1.5; } .empresa b{ font-size:12px; color:#2e7d32; }
-    .secao{ font-size:12px; font-weight:800; color:#2e7d32; text-transform:uppercase; letter-spacing:.04em; margin:16px 0 7px; }
+    .secao{ font-size:12px; font-weight:800; color:#2e7d32; text-transform:uppercase; letter-spacing:.04em; margin:16px 0 7px; break-after:avoid; page-break-after:avoid; }
     .info{ display:flex; gap:14px; } .box{ flex:1; background:#f3f7f4; border:1px solid #dce8e0; border-radius:8px; padding:10px 14px; min-width:0; }
     .box .razao{ font-size:13.5px; font-weight:800; margin-bottom:5px; }
     .nf{ background:#e8f5e9; border:2px solid #2e7d32; } .nf .n{ font-size:20px; font-weight:800; color:#2e7d32; }
@@ -25211,9 +25259,9 @@ async function _romaneioMontar(c,comFotos,w){
       <div class="box nf"><div style="font-size:10px;color:#607d6b;text-transform:uppercase;font-weight:700">Nota fiscal</div><div class="n">${c.numero_nf?esc(c.numero_nf):'—'}</div><div style="margin-top:8px">${linha('Transportadora',c.transportadora)}${linha('CNPJ transp.',trCad.cnpj)}${linha('Tel. transp.',trCad.telefone)}</div></div>
     </div>
     <div class="secao">Itens do carregamento</div>
-    <table class="itens"><thead><tr><th class="center">#</th><th>Foto</th><th>Produto</th><th class="center">Qtd.</th><th class="num">Peso un. (kg)</th><th class="num">Peso total (kg)</th></tr></thead><tbody>${linhasTab}</tbody></table>
+    <table class="itens"><thead><tr><th class="center">#</th><th>Foto</th><th>Produto</th><th class="center">Qtd.</th>${temAloc?'<th class="center">Volume</th>':''}<th class="num">Peso un. (kg)</th><th class="num">Peso total (kg)</th></tr></thead><tbody>${linhasTab}</tbody></table>
     <div class="totais"><div><div class="l">Itens</div><div class="v">${itens.length}</div></div><div><div class="l">Quantidade total</div><div class="v">${totQtd}</div></div><div><div class="l">Peso líquido</div><div class="v">${totPeso>0?kg(totPeso)+' kg':'—'}</div></div>${(vols.length||c.peso_bruto)?`<div><div class="l">Embalagens</div><div class="v">${kg(taraKg)} kg</div></div><div><div class="l">Peso bruto</div><div class="v">${kg(brutoKg)} kg</div></div>`:''}</div>
-    ${vols.length?`<div class="secao">Volumes / embalagens</div><table class="itens"><thead><tr><th>Embalagem</th><th class="center">Qtd.</th><th class="center">Dimensões (C × L × A cm)</th><th class="num">Peso un. (kg)</th><th class="num">Cubagem (m³)</th></tr></thead><tbody>${vols.map(v=>`<tr><td>${esc(v.descricao||'Embalagem')}</td><td class="center">${esc(v.qtd||1)}</td><td class="center">${(v.c||v.l||v.a)?esc(v.c||0)+' × '+esc(v.l||0)+' × '+esc(v.a||0):'—'}</td><td class="num">${v.peso?kg(v.peso):'—'}</td><td class="num">${(v.c&&v.l&&v.a)?((Number(v.qtd)||1)*v.c*v.l*v.a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3}):'—'}</td></tr>`).join('')}</tbody></table>${cubTot>0?`<div class="mut" style="text-align:right;margin-top:3px">Cubagem total: ${cubTot.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} m³</div>`:''}`:''}
+    ${vols.length?`<div class="secao">Volumes / embalagens (${vols.reduce((a,v)=>a+(Number(v.qtd)||1),0)})</div><table class="itens"><thead><tr><th class="center">Vol.</th><th>Embalagem</th><th class="center">Dimensões (C × L × A cm)</th>${temAloc?'<th>Conteúdo</th><th class="num">Peso líq. (kg)</th>':''}<th class="num">Peso bruto (kg)</th><th class="num">Cubagem (m³)</th></tr></thead><tbody>${vols.map((v,k)=>{ const liq=(v.itens||[]).reduce((a,x)=>{ const f=itemInfo(x.item_id); return a+((f&&f.peso!=null)?f.peso*x.qtd:0); },0); const q=Number(v.qtd)||1; return `<tr><td class="center"><b>${k+1}</b></td><td>${esc(v.descricao||'Embalagem')}${q>1?' ('+q+'×)':''}</td><td class="center">${(v.c||v.l||v.a)?esc(v.c||0)+' × '+esc(v.l||0)+' × '+esc(v.a||0):'—'}</td>${temAloc?`<td>${(v.itens||[]).map(x=>{ const f=itemInfo(x.item_id); return esc((f&&f.it.numero_ordem?'Ordem '+f.it.numero_ordem+' · ':'')+(f?f.it.descricao:'item'))+' <b>×'+x.qtd+'</b>'; }).join('<br>')||'—'}</td><td class="num">${liq>0?kg(liq):'—'}</td>`:''}<td class="num">${(liq>0||v.peso)?kg(liq+q*(Number(v.peso)||0)):'—'}</td><td class="num">${(v.c&&v.l&&v.a)?(q*v.c*v.l*v.a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3}):'—'}</td></tr>`; }).join('')}</tbody></table>${cubTot>0?`<div class="mut" style="text-align:right;margin-top:3px">Cubagem total: ${cubTot.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} m³</div>`:''}`:''}
     ${semPeso&&totPeso>0?`<div class="mut" style="text-align:right;margin-top:3px">Peso total soma só os itens com peso conferido (${semPeso} item(ns) sem peso).</div>`:''}
     ${c.romaneio_obs?`<div class="obs"><b>Observações:</b> ${esc(c.romaneio_obs)}</div>`:''}
     <div class="assin"><div>Expedição / Separação</div><div>Transportador</div><div>Recebido por (nome e data)</div></div>
@@ -25295,13 +25343,11 @@ async function finalizarCarregamento(id){
   try{
     const c=carregamentos.find(x=>x.id===id);
     if(!c) return;
-    const transportadora=document.getElementById(`exp_transportadora_${id}`)?.value||'';
     const resp=document.getElementById(`exp_resp_${id}`)?.value||'';
-    const nf=(document.getElementById(`exp_nf_${id}`)?.value||'').trim()||null;
     const agora=new Date().toISOString();
-    await api('PATCH','carregamentos',{status:'Enviado', carregado_em:agora, transportadora, responsavel_carregamento:resp, numero_nf:nf},`?id=eq.${id}&select=id`);
+    await api('PATCH','carregamentos',{status:'Enviado', carregado_em:agora, responsavel_carregamento:resp},`?id=eq.${id}&select=id`);
     await api('PATCH','carregamento_itens',{carregado:true, carregado_em:agora},`?carregamento_id=eq.${id}`);
-    Object.assign(c,{status:'Enviado', carregado_em:agora, transportadora, responsavel_carregamento:resp, numero_nf:nf});
+    Object.assign(c,{status:'Enviado', carregado_em:agora, responsavel_carregamento:resp});
     (c.carregamento_itens||[]).forEach(it=>{ it.carregado=true; it.carregado_em=agora; });
     showToast('Carregamento marcado como Enviado!');
     renderExpedicao();
