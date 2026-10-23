@@ -5458,7 +5458,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 354';
+const APP_BUILD='2026-10-23 · build 355';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24665,17 +24665,32 @@ async function _expAutoProntos(){
     }
   }
 }
-// Carrega foto e peso da conferência das ordens deste carregamento (uma vez) e redesenha.
-const _expProntosCarregando={};
-async function _expCarregarProntosDet(c){
-  if(_expProntosCarregando[c.id]) return; _expProntosCarregando[c.id]=true;
-  const ids=[...new Set((c.carregamento_itens||[]).map(i=>i.ordem_producao_id).filter(Boolean))].filter(id=>{ const o=ordens.find(x=>x.id===id); return o && !o._pronto; });
+// Carrega foto e peso da conferência das ordens deste carregamento, UMA ordem por vez
+// (no celular uma consulta grande com todas as fotos falhava) e redesenha a cada chegada.
+const _expProntoEstado={};
+async function _expCarregarProntosDet(c,forcar){
+  const ids=[...new Set((c.carregamento_itens||[]).map(i=>i.ordem_producao_id).filter(Boolean))].filter(id=>{
+    const o=ordens.find(x=>x.id===id); if(!o) return false;
+    if(_expProntoEstado[id]==='carregando') return false;
+    if(forcar) return _expProntoEstado[id]==='erro'||!o._pronto;
+    return !o._pronto && _expProntoEstado[id]!=='erro';
+  });
   if(!ids.length) return;
-  try{
-    const r=await api('GET','ordens_producao','',`?id=in.(${ids.join(',')})&select=id,peso_pronto,foto_pronto`);
-    (r||[]).forEach(x=>{ const o=ordens.find(y=>y.id===x.id); if(o) o._pronto={peso_pronto:x.peso_pronto,foto_pronto:x.foto_pronto}; });
-    if(_carregamentoSelecionadoId===c.id) renderExpedicaoDetalhe();
-  }catch(e){ console.warn('[expedicao] prontos', e.message); }
+  ids.forEach(id=>{ _expProntoEstado[id]='carregando'; });
+  if(forcar && _carregamentoSelecionadoId===c.id) renderExpedicaoDetalhe();
+  const fila=[...ids];
+  const trabalhador=async()=>{
+    while(fila.length){
+      const id=fila.shift(); const o=ordens.find(x=>x.id===id);
+      try{
+        const r=await api('GET','ordens_producao','',`?id=eq.${id}&select=peso_pronto,foto_pronto`);
+        if(o) o._pronto={peso_pronto:r?.[0]?.peso_pronto??null,foto_pronto:r?.[0]?.foto_pronto||null};
+        _expProntoEstado[id]='ok';
+      }catch(e){ console.warn('[expedicao] ficha da ordem', id, e.message); _expProntoEstado[id]='erro'; }
+      if(_carregamentoSelecionadoId===c.id) renderExpedicaoDetalhe();
+    }
+  };
+  await Promise.all([trabalhador(),trabalhador(),trabalhador()]);
 }
 
 // Acha o PDV do Pedido de Venda — o PV guarda o PDV escolhido como texto no
@@ -24885,7 +24900,11 @@ function renderExpedicaoDetalhe(){
           ${pr.foto_pronto?`<img src="${pr.foto_pronto}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #c8e6c9;cursor:zoom-in" title="Foto da peça pronta (da ficha)" onclick="_lightboxFoto(this.src)">`:''}
           <div style="font-size:12px;color:#37474f;line-height:1.5"><div style="font-size:10.5px;font-weight:700;color:#2e7d32;text-transform:uppercase">Da ficha de produto</div>
           ${pesoUn!=null?`⚖️ <b>${fmtKg(pesoUn)} kg</b> por peça${(Number(it.qtd)||0)>1?` · total <b>${fmtKg(pesoUn*(Number(it.qtd)||0))} kg</b>`:''}`:'<span style="color:#90a4ae">peso não informado</span>'}${pr.foto_pronto?'':'<br><span style="color:#90a4ae">foto não informada</span>'}</div></div>`
-      :`<div style="font-size:11px;color:#90a4ae;margin-top:6px">⏳ Sem conferência na ficha da ordem ainda (foto e peso)</div>`);
+      :(_expProntoEstado[it.ordem_producao_id]==='erro'
+        ?`<div style="font-size:12px;color:#c62828;margin-top:6px">⚠️ Não consegui carregar foto e peso da ficha. <a href="javascript:void(0)" onclick="_expCarregarProntosDet(carregamentos.find(x=>x.id==='${c.id}'),true)">Tentar de novo</a></div>`
+        :(!pr&&_expProntoEstado[it.ordem_producao_id]!=='ok'
+          ?`<div style="font-size:12px;color:#78909c;margin-top:6px">⏳ Carregando foto e peso da ficha…</div>`
+          :`<div style="font-size:11px;color:#90a4ae;margin-top:6px">Sem conferência na ficha da ordem ainda (foto e peso)</div>`)));
     return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:${it.pronto?'#f1f8f4':'#fff'}">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px;cursor:pointer">
@@ -24893,6 +24912,7 @@ function renderExpedicaoDetalhe(){
           <span style="font-weight:600;font-size:13px">${rotuloItem.replace(/</g,'&lt;')}</span>
         </label>
         <span style="font-size:12px;color:#78909c">Qtd: ${it.qtd||0}</span>
+        ${(pr&&pr.foto_pronto)||fotos.length?`<span style="font-size:11px;font-weight:700;color:#2e7d32;background:#e8f5e9;border-radius:10px;padding:2px 8px;white-space:nowrap">📷 com foto</span>`:((!ordItem||pr||_expProntoEstado[it.ordem_producao_id]==='ok')?`<span style="font-size:11px;font-weight:700;color:#e65100;background:#fff3e0;border-radius:10px;padding:2px 8px;white-space:nowrap">sem foto</span>`:'')}
         <label class="btn btn-sm" style="cursor:pointer">📷 Foto
           <input type="file" accept="image/*" capture="environment" style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}','${it.id}')">
         </label>
