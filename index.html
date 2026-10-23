@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 364';
+const APP_BUILD='2026-10-23 · build 365';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25011,7 +25011,8 @@ function renderExpedicaoDetalhe(){
     ${linhasItens||'<div style="color:#9e9e9e;font-size:13px">Nenhum item neste pedido.</div>'}
     ${c.status==='Aguardando Fotos'?`<div style="font-size:11px;color:#9e9e9e;margin-top:6px">Assim que todos os itens tiverem foto, isto avança para "Pronto p/ Envio" sozinho.</div>`:''}
     ${c.status==='Aguardando Fotos'&&itensArr.length?`<button class="btn" style="margin-top:8px" ${todosProntos?'':'disabled'} onclick="avancarParaProntoEnvio('${c.id}')">Avançar agora →</button>`:''}
-    ${itensArr.length?`<div style="margin-top:14px"><button class="btn primary" ${(todosProntos||c.status!=='Aguardando Fotos')?'':'disabled title="Disponível quando todos os itens estiverem prontos"'} onclick="abrirRomaneio('${c.id}')">📄 Gerar romaneio</button>${c.numero_nf?`<span style="font-size:12px;color:#546e7a;margin-left:8px">NF ${String(c.numero_nf).replace(/</g,'&lt;')}</span>`:''}${(todosProntos||c.status!=='Aguardando Fotos')?'':'<span style="font-size:11px;color:#9e9e9e;margin-left:8px">libera quando todos os itens estiverem prontos</span>'}</div>`:''}
+    ${itensArr.length?(()=>{ const vs=Array.isArray(c.volumes)?c.volumes:[]; const tot=vs.reduce((a,v)=>a+(Number(v.qtd)||1),0); const resumo=vs.length?vs.map(v=>(Number(v.qtd)||1)+'× '+_stEsc(v.descricao||'Volume')+((v.c||v.l||v.a)?' ('+(v.c||0)+'×'+(v.l||0)+'×'+(v.a||0)+' cm)':'')).join(' · '):'Nenhum volume informado'; return `<div style="margin-top:14px;background:#fff;border:1px solid #dce8e0;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:220px"><div style="font-size:12px;font-weight:700;color:#37474f">📦 Volumes e dimensões${tot?' — '+tot+' volume'+(tot!==1?'s':''):''}${c.romaneio_numero?' · Romaneio Nº '+_romFmt(c.romaneio_numero):''}</div><div style="font-size:12px;color:#607d8b;margin-top:3px">${resumo}</div></div><button class="btn btn-sm" onclick="abrirRomaneio('${c.id}')">✏️ Informar volumes e dimensões</button></div>`; })():''}
+    ${itensArr.length?`<div style="margin-top:14px"><button class="btn primary" ${(todosProntos||c.status!=='Aguardando Fotos')?'':'disabled title="Disponível quando todos os itens estiverem prontos"'} onclick="abrirRomaneio('${c.id}')">📄 Gerar romaneio</button>${c.romaneio_numero?`<span style="font-size:12px;color:#2e7d32;font-weight:700;margin-left:8px">Nº ${_romFmt(c.romaneio_numero)}</span>`:''}${c.numero_nf?`<span style="font-size:12px;color:#546e7a;margin-left:8px">NF ${String(c.numero_nf).replace(/</g,'&lt;')}</span>`:''}${(todosProntos||c.status!=='Aguardando Fotos')?'':'<span style="font-size:11px;color:#9e9e9e;margin-left:8px">libera quando todos os itens estiverem prontos</span>'}</div>`:''}
 
     ${c.status!=='Aguardando Fotos'?`
     <h3 style="font-size:14px;font-weight:700;margin:24px 0 8px">🚚 Dados do carregamento</h3>
@@ -25100,6 +25101,14 @@ async function abrirRomaneio(id){
   setTimeout(()=>document.getElementById('rom_nf')?.focus(),80);
   _expGarantirProntos(c).then(()=>{ _romLiq=_expPesoLiquido(c); _romCalc(); }).catch(()=>{});
 }
+// número sequencial do romaneio (como uma nota): gerado uma vez e mantido nas edições
+const _romFmt=n=>n?String(n).padStart(4,'0'):'';
+async function _romNumerar(id){
+  const c=carregamentos.find(x=>x.id===id); if(c&&c.romaneio_numero) return c.romaneio_numero;
+  const r=await fetch(`${SB_URL}/rest/v1/rpc/numerar_romaneio`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({p_id:id})});
+  const t=await r.text(); if(!r.ok) throw new Error(t);
+  return JSON.parse(t);
+}
 async function gerarRomaneio(){
   const g=k=>(document.getElementById(k)?.value||'').trim();
   const id=g('rom_id'); const c=carregamentos.find(x=>x.id===id); if(!c) return;
@@ -25113,6 +25122,7 @@ async function gerarRomaneio(){
   try{
     await api('PATCH','carregamentos',dados,`?id=eq.${id}&select=id`);
     Object.assign(c,dados);
+    c.romaneio_numero=await _romNumerar(id);
     await _expGarantirProntos(c);
     await _romaneioMontar(c,comFotos,w);
     fecharModal('modalRomaneio');
@@ -25157,7 +25167,7 @@ async function _romaneioMontar(c,comFotos,w){
     <td class="center"><b>${x.qtd}</b> un</td><td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td></tr>`).join('');
   const cards=comFotos?itens.filter(x=>x.foto).map(x=>`<div class="card"><div class="cf"><img src="${x.foto}"></div><div class="ct"><b>${esc(x.it.descricao||'—')}</b><br><span class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem)+' · ':''}${x.qtd} un${x.peso!=null?' · '+kg(x.peso)+' kg/un':''}</span></div></div>`).join(''):'';
   const fCarreg=comFotos?fotosArr.filter(f=>f.etapa==='carregamento').map(f=>`<div class="card"><div class="cf"><img src="${f.foto_base64}"></div><div class="ct"><span class="mut">Carregamento</span></div></div>`).join(''):'';
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio Nº ${esc(c.numero||'')}${c.numero_nf?' — NF '+esc(c.numero_nf):''}</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}${c.numero_nf?' — NF '+esc(c.numero_nf):''}</title>
   <style>
     @page{ size:A4; margin:10mm; }
     *{ box-sizing:border-box; }
@@ -25193,7 +25203,7 @@ async function _romaneioMontar(c,comFotos,w){
     @media (max-width:640px){ .folha{ margin:0; padding:12px; border-radius:0; } .cabecalho{ flex-direction:column; align-items:flex-start; } .empresa{ text-align:left; } .info{ flex-direction:column; } .grade{ grid-template-columns:repeat(2,1fr); } td.fotoc{ width:16mm; } td.fotoc img{ width:15mm; height:15mm; } }
   </style></head><body><div class="barra-acoes"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button><button class="sec" onclick="window.close()">Fechar</button></div><div class="folha">
     <div class="cabecalho">
-      <div class="marca"><img src="${LOGO_SL_OLEOS}" alt="SL Óleos"><div><div class="titulo">Romaneio de Expedição Nº ${esc(c.numero||'')}</div><div class="subtitulo">${esc(c.pdv_numero||'')}${pv.numero?' · Pedido de Venda Nº '+esc(pv.numero):''} · Emitido em ${hoje}</div></div></div>
+      <div class="marca"><img src="${LOGO_SL_OLEOS}" alt="SL Óleos"><div><div class="titulo">Romaneio de Expedição Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}</div><div class="subtitulo">${esc(c.pdv_numero||'')}${pv.numero?' · Pedido de Venda Nº '+esc(pv.numero):''} · Emitido em ${hoje}</div></div></div>
       <div class="empresa"><b>M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</b><br>CNPJ: 08.363.498/0001-69 · IE: 401.187.491.112<br>Rua Francisco Jose Caseiro, 190 · Jardim Bela Vista<br>Jaú - SP · CEP: 17206-445 · (14) 3626-1777</div>
     </div>
     <div class="info">
