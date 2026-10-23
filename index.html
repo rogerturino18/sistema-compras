@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 367';
+const APP_BUILD='2026-10-23 · build 368';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17432,7 +17432,11 @@ function addItemPV(item=null){
   renderPVItens();
 }
 
+const _pvUndInteira=u=>['PC','UN','CJ'].includes(u);  // peça/unidade/conjunto não se vende fracionado
+function _pvQtdSet(i,v){ const it=pvItensLocal[i]; let n=Number(v)||0; if(_pvUndInteira(it.und)) n=Math.round(n); it.qtd=n; renderPVItens(); }
+function _pvUndSet(i,u){ const it=pvItensLocal[i]; it.und=u; if(_pvUndInteira(u)) it.qtd=Math.round(Number(it.qtd)||0)||1; renderPVItens(); }
 function renderPVItens(){
+  pvItensLocal.forEach(it=>{ if(_pvUndInteira(it.und)) it.qtd=Math.round(Number(it.qtd)||0); });
   const tbody=document.getElementById('pvItensBody');
   if(!tbody)return;
   if(!pvItensLocal.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:12px;color:#bdbdbd;font-size:12px">Nenhum item</td></tr>`;recalcularTotaisPV();return;}
@@ -17442,10 +17446,10 @@ function renderPVItens(){
       <td style="padding:4px 6px"><input value="${it.codigo||''}" onchange="pvItensLocal[${i}].codigo=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:80px"></td>
       <td style="padding:4px 6px"><input value="${(it.descricao||'').replace(/"/g,'&quot;')}" onchange="pvItensLocal[${i}].descricao=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;min-width:180px;width:100%"></td>
       <td style="padding:4px 6px"><input value="${it.ncm||''}" onchange="pvItensLocal[${i}].ncm=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:80px"></td>
-      <td style="padding:4px 6px"><input type="number" value="${it.qtd||1}" min="0" step="0.001" onchange="pvItensLocal[${i}].qtd=Number(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:60px"></td>
-      <td style="padding:4px 6px"><select onchange="pvItensLocal[${i}].und=this.value" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px">${['PC','UN','CJ','KG','MT'].map(u=>`<option ${it.und===u?'selected':''}>${u}</option>`).join('')}</select></td>
-      <td style="padding:4px 6px"><input type="number" value="${it.valor_unit||0}" min="0" step="0.0001" onchange="pvItensLocal[${i}].valor_unit=Number(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:90px"></td>
-      <td style="padding:4px 6px"><input type="number" value="${it.desconto||0}" min="0" max="100" step="0.01" onchange="pvItensLocal[${i}].desconto=Number(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:60px"></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.qtd||1}" min="0" step="${_pvUndInteira(it.und)?1:0.001}" onwheel="this.blur()" onchange="_pvQtdSet(${i},this.value)" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:60px"></td>
+      <td style="padding:4px 6px"><select onchange="_pvUndSet(${i},this.value)" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px">${['PC','UN','CJ','KG','MT'].map(u=>`<option ${it.und===u?'selected':''}>${u}</option>`).join('')}</select></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.valor_unit||0}" min="0" step="0.0001" onwheel="this.blur()" onchange="pvItensLocal[${i}].valor_unit=Number(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:90px"></td>
+      <td style="padding:4px 6px"><input type="number" value="${it.desconto||0}" min="0" max="100" step="0.01" onwheel="this.blur()" onchange="pvItensLocal[${i}].desconto=Number(this.value)||0;recalcularTotaisPV()" style="padding:4px 6px;border:1px solid #dce4dc;border-radius:6px;font-size:12px;width:60px"></td>
       <td style="padding:4px 8px;font-weight:700;color:#2e7d32;white-space:nowrap">${fmtVal(tot)}</td>
       <td><button onclick="pvItensLocal.splice(${i},1);renderPVItens()" style="background:#ffebee;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:2px 6px;cursor:pointer">✕</button></td>
     </tr>`;
