@@ -2366,7 +2366,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div style="font-size:11px;color:#90a4ae;margin-top:6px">O peso das embalagens vem da soma do peso vazio dos volumes acima. Se você digitar o peso bruto total, ele vale no lugar da soma.</div>
       </div>
       <div class="form-group" style="margin-top:10px"><label>Observações (saem no romaneio)</label><textarea id="rom_obs" rows="2"></textarea></div>
-      <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px"><input type="checkbox" id="rom_fotos" checked style="width:auto"> Incluir o registro fotográfico das peças</label>
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px"><input type="checkbox" id="rom_fotos" checked style="width:auto"> Incluir as fotos das peças e do carregamento (no final do romaneio)</label>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
         <button class="btn" onclick="fecharModal('modalRomaneio')">Cancelar</button>
         <button class="btn primary" id="rom_btn" onclick="gerarRomaneio()">Gerar romaneio</button>
@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 373';
+const APP_BUILD='2026-10-23 · build 374';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25314,11 +25314,11 @@ async function _romaneioMontar(c,comFotos,w){
     <div class="secao">Itens do carregamento</div>
     <table class="itens"><thead><tr><th class="center">#</th><th>Foto</th><th>Produto</th><th class="center">Qtd.</th>${temAloc?'<th class="center">Volume</th>':''}<th class="num">Peso un. (kg)</th><th class="num">Peso total (kg)</th></tr></thead><tbody>${linhasTab}</tbody></table>
     <div class="totais"><div><div class="l">Itens</div><div class="v">${itens.length}</div></div><div><div class="l">Quantidade total</div><div class="v">${totQtd}</div></div><div><div class="l">Peso líquido</div><div class="v">${totPeso>0?kg(totPeso)+' kg':'—'}</div></div>${(vols.length||c.peso_bruto)?`<div><div class="l">Embalagens</div><div class="v">${kg(taraKg)} kg</div></div><div><div class="l">Peso bruto</div><div class="v">${kg(brutoKg)} kg</div></div>`:''}</div>
-    ${vols.length?`<div class="secao">Volumes / embalagens (${vols.reduce((a,v)=>a+(Number(v.qtd)||1),0)})</div><table class="itens"><thead><tr><th class="center">Vol.</th><th>Embalagem</th><th class="center">Dimensões (C × L × A cm)</th>${temAloc?'<th>Conteúdo</th><th class="num">Peso líq. (kg)</th>':''}<th class="num">Peso bruto (kg)</th><th class="num">Cubagem (m³)</th></tr></thead><tbody>${vols.map((v,k)=>{ const liq=(v.itens||[]).reduce((a,x)=>{ const f=itemInfo(x.item_id); return a+((f&&f.peso!=null)?f.peso*x.qtd:0); },0); const q=Number(v.qtd)||1; return `<tr><td class="center"><b>${k+1}</b></td><td>${esc(v.descricao||'Embalagem')}${q>1?' ('+q+'×)':''}</td><td class="center">${(v.c||v.l||v.a)?esc(v.c||0)+' × '+esc(v.l||0)+' × '+esc(v.a||0):'—'}</td>${temAloc?`<td>${(v.itens||[]).map(x=>{ const f=itemInfo(x.item_id); return esc((f&&f.it.numero_ordem?'Ordem '+f.it.numero_ordem+' · ':'')+(f?f.it.descricao:'item'))+' <b>×'+x.qtd+'</b>'; }).join('<br>')||'—'}</td><td class="num">${liq>0?kg(liq):'—'}</td>`:''}<td class="num">${(liq>0||v.peso)?kg(liq+q*(Number(v.peso)||0)):'—'}</td><td class="num">${(v.c&&v.l&&v.a)?(q*v.c*v.l*v.a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3}):'—'}</td></tr>`; }).join('')}</tbody></table>${cubTot>0?`<div class="mut" style="text-align:right;margin-top:3px">Cubagem total: ${cubTot.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} m³</div>`:''}`:''}
+    ${vols.length?`<div class="secao">Volumes / embalagens (${vols.reduce((a,v)=>a+(Number(v.qtd)||1),0)})</div><table class="itens"><thead><tr><th class="center">Vol.</th><th>Embalagem</th><th class="center">Dimensões (C × L × A cm)</th>${temAloc?'<th class="num">Peso líq. (kg)</th>':''}<th class="num">Peso bruto (kg)</th><th class="num">Cubagem (m³)</th></tr></thead><tbody>${vols.map((v,k)=>{ const liq=(v.itens||[]).reduce((a,x)=>{ const f=itemInfo(x.item_id); return a+((f&&f.peso!=null)?f.peso*x.qtd:0); },0); const q=Number(v.qtd)||1; return `<tr><td class="center"><b>${k+1}</b></td><td>${esc(v.descricao||'Embalagem')}${q>1?' ('+q+'×)':''}</td><td class="center">${(v.c||v.l||v.a)?esc(v.c||0)+' × '+esc(v.l||0)+' × '+esc(v.a||0):'—'}</td>${temAloc?`<td class="num">${liq>0?kg(liq):'—'}</td>`:''}<td class="num">${(liq>0||v.peso)?kg(liq+q*(Number(v.peso)||0)):'—'}</td><td class="num">${(v.c&&v.l&&v.a)?(q*v.c*v.l*v.a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3}):'—'}</td></tr>`; }).join('')}</tbody></table>${cubTot>0?`<div class="mut" style="text-align:right;margin-top:3px">Cubagem total: ${cubTot.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} m³</div>`:''}`:''}
     ${semPeso&&totPeso>0?`<div class="mut" style="text-align:right;margin-top:3px">Peso total soma só os itens com peso conferido (${semPeso} item(ns) sem peso).</div>`:''}
     ${c.romaneio_obs?`<div class="obs"><b>Observações:</b> ${esc(c.romaneio_obs)}</div>`:''}
     <div class="assin"><div>Expedição / Separação</div><div>Transportador</div><div>Recebido por (nome e data)</div></div>
-    ${cards||fCarreg?`<div class="nova"></div><div class="secao" style="margin-top:0">Registro fotográfico</div><div class="grade">${cards}${fCarreg}</div>`:''}
+    ${cards||fCarreg?`<div class="nova"></div>${cards?`<div class="secao" style="margin-top:0">Registro fotográfico</div>`:''}${cards?`<div class="grade">${cards}</div>`:''}${fCarreg?`<div class="secao" style="${cards?'':'margin-top:0'}">Fotos do carregamento</div><div class="grade">${fCarreg}</div>`:''}`:''}
     
   </div></body></html>`;
   const win=w||window.open('','_blank');
