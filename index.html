@@ -5482,7 +5482,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 358';
+const APP_BUILD='2026-10-23 · build 359';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17584,7 +17584,7 @@ function _processarQrOrdemLido(numeroLido){
   const o=ordens.find(x=>String(x.numero)===String(numeroLido).trim());
   if(!o){ showToast('QR lido, mas não encontrei a ordem Nº '+numeroLido,'err',5000); return; }
   if(navigator.vibrate) navigator.vibrate(80);
-  abrirAcoesOrdemPorScan(o.id);
+  abrirAcoesOrdemPorScan(o.id,false);
 }
 
 // ===================== QR DE ITEM DE ESTOQUE =====================
@@ -17785,7 +17785,7 @@ let _osConsulta=false; // true = aberto pelo número do desenho na lista (só co
 let _osSeq=0;
 async function abrirAcoesOrdemPorScan(ordemId, consulta){
   const _seq=++_osSeq;
-  if(consulta!==undefined) _osConsulta=!!consulta; else if(!document.getElementById('modalAcoesOrdemScan')) _osConsulta=false;
+  if(consulta!==undefined) _osConsulta=!!consulta; else if(!document.getElementById('modalAcoesOrdemScan')?.classList.contains('open')) _osConsulta=false; // janela fechada fica no DOM sem a classe 'open'
   const o=ordens.find(x=>x.id===ordemId);
   if(!o){ showToast('Ordem não encontrada','err'); return; }
   if(o.tem_foto_desenho) await _buscarFotoOrdem(ordemId); // já em cache depois da 1ª vez na sessão
