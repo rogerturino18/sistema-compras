@@ -5493,7 +5493,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-23 · build 375';
+const APP_BUILD='2026-10-23 · build 376';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11533,17 +11533,45 @@ function _tagFotoDesenho(dataUrl, estiloImg){
 function _lightboxFoto(src){
   document.getElementById('lightboxFoto')?.remove();
   const d=document.createElement('div'); d.id='lightboxFoto';
-  d.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
-  d.innerHTML=`<img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px"><span style="position:absolute;top:14px;right:18px;color:#fff;font-size:26px;font-weight:700">✕</span>`;
-  const fechar=()=>{ d.remove(); document.removeEventListener('keydown',esc); };
-  const esc=e=>{ if(e.key==='Escape') fechar(); };
-  d.onclick=fechar; document.addEventListener('keydown',esc); document.body.appendChild(d);
+  d.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.92);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none';
+  d.innerHTML='<img draggable="false" style="position:absolute;left:50%;top:50%;max-width:96vw;max-height:92vh;transform-origin:50% 50%;border-radius:4px;cursor:grab;will-change:transform">'+
+    '<div style="position:absolute;top:12px;right:14px;display:flex;gap:8px;z-index:2">'+
+    '<button data-z="in" title="Aproximar" style="width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;cursor:pointer">＋</button>'+
+    '<button data-z="out" title="Afastar" style="width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;cursor:pointer">－</button>'+
+    '<button data-z="reset" title="Tamanho original da tela" style="height:40px;padding:0 12px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:13px;cursor:pointer">Ajustar</button>'+
+    '<button data-z="close" title="Fechar (Esc)" style="width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.28);color:#fff;font-size:20px;cursor:pointer">✕</button></div>'+
+    '<div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;color:rgba(255,255,255,.6);font:12px Arial">Roda do mouse ou pinça para aproximar · arraste para mover · duplo clique alterna o zoom</div>';
+  const img=d.querySelector('img');
+  let sc=1, tx=0, ty=0, w0=0, h0=0;               // posição = centro da tela + (tx,ty); escala sc
+  const aplicar=()=>{ img.style.transform='translate('+tx+'px,'+ty+'px) translate(-50%,-50%) scale('+sc+')'; };
+  const limitar=()=>{ const mx=Math.max(0,(w0*sc-innerWidth)/2+80), my=Math.max(0,(h0*sc-innerHeight)/2+80); tx=Math.max(-mx,Math.min(mx,tx)); ty=Math.max(-my,Math.min(my,ty)); };
+  const ajustar=()=>{ sc=1; tx=0; ty=0; aplicar(); };
+  const zoomEm=(f,cx,cy)=>{ const n=Math.max(1,Math.min(8,sc*f)); const k=n/sc; // mantém o ponto sob o cursor
+    const px=cx-innerWidth/2, py=cy-innerHeight/2; tx=px-(px-tx)*k; ty=py-(py-ty)*k; sc=n; if(sc===1){ tx=0; ty=0; } limitar(); aplicar(); };
+  img.onload=()=>{ w0=img.offsetWidth; h0=img.offsetHeight; ajustar(); };
+  img.src=src;
+  const fechar=()=>{ d.remove(); document.removeEventListener('keydown',tecla); };
+  const tecla=e=>{ if(e.key==='Escape') fechar(); else if(e.key==='+'||e.key==='=') zoomEm(1.4,innerWidth/2,innerHeight/2); else if(e.key==='-') zoomEm(1/1.4,innerWidth/2,innerHeight/2); else if(e.key==='0') ajustar(); };
+  d.querySelectorAll('button').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const z=b.dataset.z; if(z==='close') fechar(); else if(z==='in') zoomEm(1.5,innerWidth/2,innerHeight/2); else if(z==='out') zoomEm(1/1.5,innerWidth/2,innerHeight/2); else ajustar(); });
+  d.addEventListener('wheel',e=>{ e.preventDefault(); zoomEm(e.deltaY<0?1.2:1/1.2,e.clientX,e.clientY); },{passive:false});
+  // arrastar (1 dedo/mouse) e pinça (2 dedos)
+  const pts=new Map(); let ult=null, dist0=0, sc0=1, moveu=false, downEm=null;
+  d.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; d.setPointerCapture(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); moveu=false; downEm=e.target; ult={x:e.clientX,y:e.clientY};
+    if(pts.size===2){ const [a,b]=[...pts.values()]; dist0=Math.hypot(a.x-b.x,a.y-b.y); sc0=sc; } img.style.cursor='grabbing'; });
+  d.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===2){ const [a,b]=[...pts.values()]; const dd=Math.hypot(a.x-b.x,a.y-b.y); if(dist0>0) zoomEm((sc0*dd/dist0)/sc,(a.x+b.x)/2,(a.y+b.y)/2); moveu=true; }
+    else if(sc>1){ tx+=e.clientX-ult.x; ty+=e.clientY-ult.y; limitar(); aplicar(); if(Math.abs(e.clientX-ult.x)+Math.abs(e.clientY-ult.y)>1) moveu=true; }
+    else if(Math.abs(e.clientX-ult.x)+Math.abs(e.clientY-ult.y)>4) moveu=true;
+    ult={x:e.clientX,y:e.clientY}; });
+  const solta=e=>{ pts.delete(e.pointerId); img.style.cursor='grab'; if(pts.size===0 && !moveu && downEm===d) fechar(); };
+  d.addEventListener('pointerup',solta); d.addEventListener('pointercancel',e=>{ pts.delete(e.pointerId); });
+  d.addEventListener('dblclick',e=>{ if(e.target.closest('button')) return; e.stopPropagation(); if(sc>1) ajustar(); else zoomEm(2.5,e.clientX,e.clientY); });
+  document.addEventListener('keydown',tecla); document.body.appendChild(d);
 }
 function _abrirImagemTelaCheia(src){
   if(!src) return;
   if(_ehPdfBase64(src)){ _abrirPdfBase64(src); return; }
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#000}img{width:100%;display:block}</style></head><body><img src="${src}"></body></html>`);
+  _lightboxFoto(src);
 }
 
 // Mesma coisa, mas buscando a foto pela ordem — evita colar o base64 inteiro
