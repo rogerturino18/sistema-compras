@@ -4711,6 +4711,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <option value="Barracão 2">Barracão 2</option>
       </select>
     </div>
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:14px;background:#e3f2fd;padding:10px 14px;border-radius:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="nfeProntas" style="width:auto;margin-top:3px"> <span><b>🔩 Peças prontas compradas para um PDV</b> — registra a NF e as contas a pagar, mas <b>não dá entrada no estoque</b>. Depois use “🔗 Vincular” na lista de NF-e para ligar cada item à ordem de produção.</span></label>
 
     <div id="nfeItens"></div>
 
@@ -5493,7 +5494,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 377';
+const APP_BUILD='2026-10-26 · build 378';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9446,12 +9447,14 @@ function renderOrdens(){
             ${o.descricao||'—'}
           </div>
           ${o.material?`<div style="font-size:10px;color:#9e9e9e">${o.material}</div>`:''}
+          ${_origemChipHtml(o)}
         </td>
         <td style="padding:8px 4px;text-align:center;font-weight:700;color:#37474f">${o.quantidade||1}</td>
         ${celulas}
         <td style="padding:6px 4px;text-align:center;line-height:1.9">
           ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado — fecha a ordem e qualquer etapa em aberto, mesmo sem o tempo registrado certinho">✅</button>`:''}
           ${st==='concluido'?`<button class="btn btn-sm" style="background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="reverterOrdemConcluida('${o.id}')" title="Reverter conclusão">↩️</button>`:''}
+          <button class="btn btn-sm" onclick="abrirOrigemOrdem('${o.id}')" title="Origem da peça: comprado / do estoque / produzido" style="background:#f3e5f5;border-color:#ce93d8">🏷️</button>
           <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
           <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" title="Imprimir">🖨️</button>
           <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" title="Excluir">🗑</button>
@@ -9470,6 +9473,7 @@ function renderOrdens(){
             <div style="font-weight:600;font-size:13px;color:#37474f;margin-top:4px;overflow-wrap:anywhere;display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${o.descricao||'—'}
             </div>
+            ${_origemChipHtml(o)}
             ${o.desenho||o.material?`<div style="font-size:11px;color:#9e9e9e;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span>${o.desenho?`<a href="javascript:void(0)" onclick="abrirAcoesOrdemPorScan('${o.id}',true)" style="color:#1f6b4f;font-weight:700;text-decoration:underline;text-decoration-color:#a5d6a7;text-underline-offset:3px;padding:4px 2px">${o.desenho}</a>`:''}${o.desenho&&o.material?' · ':''}${o.material||''}</span>
               ${o.tem_foto_desenho
@@ -9489,7 +9493,8 @@ function renderOrdens(){
           <div style="display:flex;gap:4px">
             ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado">✅</button>`:''}
             ${st==='concluido'?`<button class="btn btn-sm" style="background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="reverterOrdemConcluida('${o.id}')" title="Reverter conclusão">↩️</button>`:''}
-            <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
+            <button class="btn btn-sm" onclick="abrirOrigemOrdem('${o.id}')" title="Origem da peça: comprado / do estoque / produzido" style="background:#f3e5f5;border-color:#ce93d8">🏷️</button>
+          <button class="btn btn-sm" onclick="abrirModalOrdem('${o.id}')" title="Editar">✏️</button>
             <button class="btn btn-sm" onclick="imprimirOrdem('${o.id}')" title="Imprimir">🖨️</button>
             <button class="btn btn-sm danger" onclick="deletarOrdem('${o.id}')" title="Excluir">🗑</button>
           </div>
@@ -12833,6 +12838,12 @@ async function imprimirFichaProduto(id){
       <tr class="final"><td class="label">Peso total (${qtd} un):</td><td class="valor">${peso!=null?kg(peso*qtd):'—'}</td></tr>
     </table></div>
 
+    ${(()=>{ const g=_origemOrdem(o); if(!g.c&&!g.e) return '';
+      const L=[]; if(g.c) L.push(`<tr><td><b>Comprado pronto</b></td><td>${esc(o.compra_fornecedor||'—')}</td><td class="center">${o.compra_nf_numero?'NF '+esc(o.compra_nf_numero)+(o.compra_nf_data?' de '+dBR(o.compra_nf_data):''):'—'}</td><td class="center">${g.c}</td></tr>`);
+      if(g.e) L.push(`<tr><td><b>Retirado do estoque</b></td><td>Estoque próprio</td><td class="center">—</td><td class="center">${g.e}</td></tr>`);
+      if(g.p) L.push(`<tr><td><b>Produzido na empresa</b></td><td>M.E. Massufaro</td><td class="center">—</td><td class="center">${g.p}</td></tr>`);
+      return `<div class="secao-titulo">Origem do Produto</div><table class="itens"><thead><tr><th>Origem</th><th>Fornecedor</th><th class="center">Documento</th><th class="center">Quant.</th></tr></thead><tbody>${L.join('')}</tbody></table>${g.p?'':'<div style="font-size:11px;color:#607d6b;margin:4px 0 8px">Produto fornecido pronto — não houve fabricação interna (usinagem, solda etc.) para estas peças.</div>'}`; })()}
+
     <div class="secao-titulo">Sequência de Fabricação</div>
     <table class="itens"><thead><tr><th>Operação</th><th>Operador / Terceirizado</th><th class="center">Início / Envio</th><th class="center">Término / Retorno</th><th class="center">Tempo</th></tr></thead><tbody>${linhasProc.length?linhasProc.join(''):'<tr><td colspan="5" style="text-align:center;padding:14px;color:#90a4ae">Nenhuma etapa registrada</td></tr>'}</tbody></table>
 
@@ -15688,6 +15699,7 @@ async function confirmarImportNFe(){
   const localizacao=document.getElementById('nfeLocalizacao').value;
   let ok=0,erros=0;
   const itensEntrada=[];
+  const prontas=!!document.getElementById('nfeProntas')?.checked;
 
   // Verifica duplicata na lista de entradas
   const chaveNFe=chave||null;
@@ -15702,7 +15714,9 @@ async function confirmarImportNFe(){
     const acaoExist=acao==='existente';
     const acaoIgn=acao==='ignorar';
 
-    if(acaoIgn||(!acaoNovo&&!acaoExist)) continue;
+    if(acaoIgn&&!prontas) continue;
+    if(prontas){ itensEntrada.push({descricao:it.xProd, qtd:it.qCom, unidade:it.uCom||'UN', vUn:it.vUnCom, vTotal:it.vProd}); ok++; continue; }
+    if(!acaoNovo&&!acaoExist) continue;
 
     const distribuicao=obterDistribuicaoNFe(idx,it);
     if(distribuicao.erro){showToast(distribuicao.erro,'err',7000);erros++;continue;}
@@ -15773,7 +15787,8 @@ async function confirmarImportNFe(){
         valor_total:vNF||0,
         chave_nfe:chaveNFe,
         status:'Entrada Realizada',
-        observacao:`Importado via XML — ${ok} item(s)`,
+        tipo_entrada:prontas?'pecas_prontas':'estoque',
+        observacao:`Importado via XML — ${ok} item(s)${prontas?' (peças prontas — sem entrada no estoque)':''}`,
         itens:JSON.stringify(itensEntrada),
         criado_por:usuarioLogado?.nome||null
       };
@@ -25108,6 +25123,230 @@ function renderExpedicaoDetalhe(){
   `;
 }
 
+// ===== ORIGEM DA PEÇA (comprado / do estoque) =====
+// Uma ordem de produção pode ter parte das peças compradas prontas (com NF de um fornecedor),
+// parte retirada do estoque e o restante produzido aqui. Guardamos só as quantidades de cada origem.
+const _oN=t=>String(t==null?'':t).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const _oBRL=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const _oBR=d=>{ if(!d) return ''; const x=String(d).split('T')[0].split('-'); return x.length===3?x[2]+'/'+x[1]+'/'+x[0]:''; };
+function _origemOrdem(o){
+  const q=Number(o.quantidade)||0; const c=Math.min(q,Number(o.qtd_comprada)||0);
+  const e=Math.min(Math.max(0,q-c),Number(o.qtd_estoque)||0);
+  return {q,c,e,p:Math.max(0,q-c-e)};
+}
+function _origemChipHtml(o){
+  const g=_origemOrdem(o); if(!g.c&&!g.e) return '';
+  const chip=(bg,fg,t,tit)=>'<span title="'+_stEsc(tit)+'" style="background:'+bg+';color:'+fg+';font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;white-space:nowrap">'+t+'</span>';
+  const r=[];
+  if(g.c) r.push(chip('#e3f2fd','#1565c0','🛒 Comprado ×'+g.c+(o.compra_fornecedor?' · '+_stEsc(String(o.compra_fornecedor).split(' ').slice(0,2).join(' ')):'')+(o.compra_nf_numero?' · NF '+_stEsc(o.compra_nf_numero):''),'Comprado de '+(o.compra_fornecedor||'—')+(o.compra_nf_numero?' · NF '+o.compra_nf_numero:'')+(o.compra_nf_data?' de '+_oBR(o.compra_nf_data):'')+(o.compra_valor_unit?' · '+_oBRL(o.compra_valor_unit)+'/un':'')));
+  if(g.e) r.push(chip('#f3e5f5','#6a1b9a','📦 Do estoque ×'+g.e,'Peças retiradas do estoque'));
+  if(g.p) r.push(chip('#eceff1','#546e7a','🏭 Produzido ×'+g.p,'Produzido aqui'));
+  return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">'+r.join('')+'</div>';
+}
+function _saldoEstoque(id){
+  const it=estoqueItens.find(x=>x.id===id);
+  return (estoqueMov||[]).filter(m=>m.item_id===id).reduce((s,m)=>s+(m.tipo==='entrada'?1:-1)*(Number(m.quantidade)||0),Number(it&&it.qtd_inicial)||0);
+}
+// acha o item do estoque que corresponde à peça (nome igual, ou mesmo nº de desenho + mesma família)
+function _sugerirItemEstoque(desc,desenho){
+  const alvo=_oN(desc), des=_oN(desenho); let melhor=null, sc=0;
+  const pal=t=>new Set(t.split(' ').filter(w=>w.length>3));
+  const pa=pal(alvo);
+  (estoqueItens||[]).forEach(e=>{
+    const n=_oN(e.tipo_peca||e.descricao); if(!n) return; let s=0;
+    if(alvo && n===alvo) s=3;
+    else if(des && (' '+n+' ').includes(' '+des+' ')){ const pb=pal(n); let c=0; pa.forEach(w=>{ if(pb.has(w)) c++; }); if(c) s=2; }
+    if(s>sc){ sc=s; melhor=e; }
+  });
+  return melhor;
+}
+function _modalDin(id,html,largura){
+  document.getElementById(id)?.remove();
+  const m=document.createElement('div'); m.className='modal-bg'; m.id=id;
+  m.innerHTML='<div class="modal" style="width:'+(largura||560)+'px;max-width:97vw"><div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">'+html.titulo+'<button class="modal-header-btn" onclick="fecharModal(\''+id+'\')">✕</button></div><div style="padding:14px 16px;max-height:78vh;overflow-y:auto">'+html.corpo+'</div></div>';
+  document.body.appendChild(m); abrirModal(id);
+}
+// grava a origem numa ordem (e mexe no estoque se pedido)
+async function _aplicarOrigemOrdem(o,d){
+  const qc=Math.max(0,Number(d.qc)||0), qe=Math.max(0,Number(d.qe)||0);
+  const patch={qtd_comprada:qc, compra_fornecedor:qc?(d.forn||null):null, compra_nf_numero:qc?(d.nf||null):null, compra_nf_data:qc?(d.nfdata||null):null,
+    compra_valor_unit:qc&&d.vu!=null&&d.vu!==''?Number(d.vu):null, compra_nfe_id:qc?(d.nfeId||null):null, qtd_estoque:qe, estoque_item_id:qe?(d.itemId||null):null};
+  let movAtual=o.estoque_mov_id||null;
+  if(movAtual && (!qe || d.itemId!==o.estoque_item_id || qe!==Number(o.qtd_estoque) || !d.baixa)){
+    await api('DELETE','estoque_movimentacoes','',`?id=eq.${movAtual}`);
+    estoqueMov=(estoqueMov||[]).filter(m=>m.id!==movAtual); movAtual=null;
+  }
+  if(qe && d.itemId && d.baixa && !movAtual){
+    const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id);
+    const [mov]=await api('POST','estoque_movimentacoes',{item_id:d.itemId,tipo:'saida',subtipo:'producao',quantidade:qe,data:new Date().toISOString().split('T')[0],
+      pdv:pdv?(String(pdv.numero)+(pdv.cliente?' — '+pdv.cliente:'')):null,pdv_id:o.pdv_id||null,ordem:String(o.numero||''),
+      observacao:'Peça do estoque para a Ordem Nº '+(o.numero||'')+' ('+(o.descricao||'')+')',criado_por:usuarioLogado?.nome||null});
+    if(mov){ movAtual=mov.id; estoqueMov.push(mov); }
+  }
+  patch.estoque_mov_id=movAtual;
+  if(d.limpaTerc){
+    Object.assign(patch,{terceirizado_nome:null,terceirizado_data:null,terceirizado_prazo:null,terceirizado_obs:null,terceirizado_retorno:null});
+    if(o.status==='terceirizado') patch.status='aguardando';
+    try{ await api('DELETE','ordem_envios_terc','',`?ordem_id=eq.${o.id}`); }catch(e){}
+  }
+  await api('PATCH','ordens_producao',patch,`?id=eq.${o.id}&select=id`);
+  Object.assign(o,patch);
+}
+function abrirOrigemOrdem(id){
+  const o=ordens.find(x=>x.id===id); if(!o) return;
+  const g=_origemOrdem(o);
+  const sug=o.estoque_item_id?estoqueItens.find(e=>e.id===o.estoque_item_id):_sugerirItemEstoque(o.descricao,o.desenho);
+  const itens=(estoqueItens||[]).slice().sort((a,b)=>String(a.tipo_peca||a.descricao||'').localeCompare(String(b.tipo_peca||b.descricao||''),'pt-BR'));
+  const opts='<option value="">— escolha o item do estoque —</option>'+itens.map(e=>'<option value="'+e.id+'"'+(sug&&sug.id===e.id?' selected':'')+'>'+_stEsc((e.tipo_peca||e.descricao||'—')+(e.localizacao?' ('+e.localizacao+')':'')+' — saldo '+_saldoEstoque(e.id)+' '+(e.unidade||''))+'</option>').join('');
+  const fornSug=o.compra_fornecedor||'';
+  const terc=(o.terceirizado_nome||'').trim();
+  const inp=(idc,lab,val,extra)=>'<div class="form-group"><label>'+lab+'</label><input id="'+idc+'" value="'+_stEsc(val==null?'':val)+'" autocomplete="off" '+(extra||'')+'></div>';
+  _modalDin('modalOrigemOrdem',{titulo:'<h3 style="margin:0;font-size:16px">🏷️ Origem da peça — Ordem Nº '+_stEsc(o.numero)+'</h3>',corpo:
+    '<div style="font-size:12.5px;color:#546e7a;margin-bottom:10px"><b>'+_stEsc(o.descricao||'—')+'</b> · quantidade da ordem: <b>'+(Number(o.quantidade)||0)+'</b>. Informe quantas peças vieram de cada origem; o que sobrar é produzido aqui.</div>'+
+    '<input type="hidden" id="oo_id" value="'+o.id+'">'+
+    '<div style="border:1px solid #bbdefb;background:#f5faff;border-radius:10px;padding:10px 12px;margin-bottom:10px"><div style="font-weight:700;font-size:13px;color:#1565c0;margin-bottom:6px">🛒 Comprado pronto</div>'+
+    '<div style="display:grid;grid-template-columns:90px 1fr 1fr;gap:8px">'+inp('oo_qc','Qtd. comprada',g.c||'','inputmode="numeric" oninput="_ooResumo()"')+inp('oo_forn','Fornecedor',fornSug,'list="oo_forn_lista"')+inp('oo_nf','Nº da NF',o.compra_nf_numero||'')+'</div>'+
+    '<datalist id="oo_forn_lista">'+(fornecedores||[]).map(f=>'<option value="'+_stEsc(f.razao_social||f.nome_fantasia||'')+'">').join('')+'</datalist>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+'<div class="form-group"><label>Data da NF</label><input id="oo_nfdata" type="date" value="'+_stEsc(o.compra_nf_data||'')+'"></div>'+inp('oo_vu','Valor unitário (R$)',o.compra_valor_unit!=null?String(o.compra_valor_unit).replace('.',','):'','inputmode="decimal"')+'</div></div>'+
+    '<div style="border:1px solid #e1bee7;background:#fcf7fd;border-radius:10px;padding:10px 12px;margin-bottom:10px"><div style="font-weight:700;font-size:13px;color:#6a1b9a;margin-bottom:6px">📦 Do estoque</div>'+
+    '<div style="display:grid;grid-template-columns:90px 1fr;gap:8px">'+inp('oo_qe','Qtd. do estoque',g.e||'','inputmode="numeric" oninput="_ooResumo()"')+'<div class="form-group"><label>Item do estoque</label><select id="oo_item">'+opts+'</select></div></div>'+
+    '<label style="display:flex;gap:8px;align-items:center;font-size:12.5px"><input type="checkbox" id="oo_baixa" style="width:auto" '+((o.estoque_mov_id||!o.qtd_estoque)?'checked':'')+'> Dar baixa dessas peças no estoque'+(o.estoque_mov_id?' <span style="color:#2e7d32">(baixa já registrada)</span>':'')+'</label></div>'+
+    (terc?'<label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;background:#fff3e0;border-radius:8px;padding:8px 10px;margin-bottom:10px"><input type="checkbox" id="oo_terc" style="width:auto;margin-top:2px"> <span>Esta ordem está marcada como <b>terceirizado com '+_stEsc(terc)+'</b>. Marque para <b>remover</b> o terceirizado (era um quebra-galho para a compra).</span></label>':'')+
+    '<div id="oo_resumo" style="font-size:12.5px;font-weight:600;color:#37474f;margin-bottom:10px"></div>'+
+    '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><button class="btn" onclick="_ooLimpar()" style="color:#c62828">Voltar a “produzido aqui”</button><div style="display:flex;gap:8px"><button class="btn" onclick="fecharModal(\'modalOrigemOrdem\')">Cancelar</button><button class="btn primary" id="oo_btn" onclick="_ooSalvar()">Salvar</button></div></div>'},600);
+  _ooResumo();
+}
+function _ooResumo(){
+  const o=ordens.find(x=>x.id===document.getElementById('oo_id')?.value); if(!o) return;
+  const qc=Number(document.getElementById('oo_qc')?.value)||0, qe=Number(document.getElementById('oo_qe')?.value)||0, q=Number(o.quantidade)||0;
+  const p=q-qc-qe; const el=document.getElementById('oo_resumo'); if(!el) return;
+  el.innerHTML=p<0?'<span style="color:#c62828">⚠ A soma ('+(qc+qe)+') passa da quantidade da ordem ('+q+').</span>':'Comprado '+qc+' · Estoque '+qe+' · <b>Produzido aqui '+p+'</b>';
+}
+async function _ooSalvar(){
+  const g=k=>(document.getElementById(k)?.value||'').trim();
+  const o=ordens.find(x=>x.id===g('oo_id')); if(!o) return;
+  const qc=Number(g('oo_qc'))||0, qe=Number(g('oo_qe'))||0, q=Number(o.quantidade)||0;
+  if(qc+qe>q){ showToast('A soma de comprado + estoque passa da quantidade da ordem','err'); return; }
+  if(qc>0&&!g('oo_forn')){ showToast('Informe o fornecedor da compra','err'); return; }
+  if(qe>0&&!g('oo_item')){ showToast('Escolha o item do estoque','err'); return; }
+  const itemId=g('oo_item')||null; const baixa=!!document.getElementById('oo_baixa')?.checked;
+  if(qe>0&&baixa&&itemId){ const sd=_saldoEstoque(itemId); const jaBaixou=o.estoque_mov_id&&o.estoque_item_id===itemId?Number(o.qtd_estoque)||0:0; if(qe>sd+jaBaixou && !confirm('O saldo desse item é '+sd+'. Dar baixa de '+qe+' mesmo assim?')) return; }
+  const btn=document.getElementById('oo_btn'); if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
+  try{
+    await _aplicarOrigemOrdem(o,{qc,forn:g('oo_forn'),nf:g('oo_nf'),nfdata:g('oo_nfdata'),vu:g('oo_vu')?pesosNum(g('oo_vu')):null,qe,itemId,baixa,limpaTerc:!!document.getElementById('oo_terc')?.checked});
+    fecharModal('modalOrigemOrdem'); showToast('Origem da peça salva'); renderOrdens();
+  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Salvar'; } }
+}
+async function _ooLimpar(){
+  const o=ordens.find(x=>x.id===document.getElementById('oo_id')?.value); if(!o) return;
+  if(!confirm('Voltar esta ordem para “produzido aqui”?'+(o.estoque_mov_id?'\n\nA baixa que foi dada no estoque será desfeita.':''))) return;
+  try{ await _aplicarOrigemOrdem(o,{qc:0,qe:0,baixa:false}); fecharModal('modalOrigemOrdem'); showToast('Origem removida'); renderOrdens(); }
+  catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+// ----- NF de compra de peças prontas: escolher como dar entrada + vincular às ordens -----
+function _nfeItensNorm(n){
+  const arr=typeof n.itens==='string'?(()=>{ try{ return JSON.parse(n.itens||'[]'); }catch(e){ return []; } })():(n.itens||[]);
+  return arr.map(it=>({descricao:it.descricao||it.xProd||'',codigo:it.codigo||'',qtd:Number(it.qtd!=null?it.qtd:it.quantidade)||0,unidade:it.unidade||'',vu:Number(it.vUn!=null?it.vUn:it.valor_unitario)||0}));
+}
+function _nfeOrdemSugerida(desc,cands){
+  const d=_oN(desc); if(!d) return null;
+  const m=d.match(/barra fresada\s*0?(\d)\b/);
+  if(m){ const alvo='411#0,'+m[1]; const r=cands.find(o=>String(o.desenho||'').trim().toLowerCase()===alvo); if(r) return r; }
+  const tok=d.split(' ').filter(t=>/\d/.test(t)); const ult=tok[tok.length-1]; if(!ult) return null;
+  return cands.find(o=>_oN(o.desenho).replace(/ /g,'')===ult)||null;
+}
+function abrirVincularNFe(nfeId){
+  const n=entradasNFe.find(x=>x.id===nfeId); if(!n){ showToast('NF não encontrada','err'); return; }
+  const itens=_nfeItensNorm(n); if(!itens.length){ showToast('Esta NF não tem itens para vincular','err'); return; }
+  const ativas=ordens.filter(o=>!o.excluida_em);
+  // PDV: o da NF, senão o que mais casa com os itens
+  let pdvId=n.pdv_id||''; if(!pdvId){ const cont={}; itens.forEach(it=>{ pdvs.forEach(p=>{ if(_nfeOrdemSugerida(it.descricao,ativas.filter(o=>o.pdv_id===p.id))) cont[p.id]=(cont[p.id]||0)+1; }); }); pdvId=Object.keys(cont).sort((a,b)=>cont[b]-cont[a])[0]||''; }
+  window._vincNfe={n,itens};
+  const pdvOpts='<option value="">— escolha o PDV —</option>'+pdvs.slice().sort((a,b)=>(Number(b.numero)||0)-(Number(a.numero)||0)).map(p=>'<option value="'+p.id+'"'+(p.id===pdvId?' selected':'')+'>PDV '+_stEsc(p.numero)+(p.cliente?' — '+_stEsc(p.cliente):'')+'</option>').join('');
+  _modalDin('modalVincularNFe',{titulo:'<h3 style="margin:0;font-size:16px">🔗 Vincular NF '+_stEsc(n.numero_nfe)+' às ordens de produção</h3>',corpo:
+    '<div style="font-size:12.5px;color:#546e7a;margin-bottom:8px">'+_stEsc(n.fornecedor||'')+' · '+_oBRL(n.valor_total)+'. Para cada item da nota, escolha a ordem. Se a nota não cobre toda a quantidade da ordem, diga de onde vem o resto.</div>'+
+    '<div class="form-group" style="max-width:420px"><label>PDV</label><select id="vn_pdv" onchange="_vincRender()">'+pdvOpts+'</select></div><div id="vn_lista"></div>'+
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn" onclick="fecharModal(\'modalVincularNFe\')">Cancelar</button><button class="btn primary" id="vn_btn" onclick="_vincSalvar()">Vincular</button></div>'},980);
+  _vincRender();
+}
+function _vincRender(){
+  const {n,itens}=window._vincNfe||{}; if(!n) return;
+  const pdvId=document.getElementById('vn_pdv')?.value||''; const el=document.getElementById('vn_lista'); if(!el) return;
+  if(!pdvId){ el.innerHTML='<div style="color:#90a4ae;font-size:12.5px">Escolha o PDV para listar as ordens.</div>'; return; }
+  const cands=ordens.filter(o=>!o.excluida_em&&o.pdv_id===pdvId).sort((a,b)=>(a.numero||0)-(b.numero||0));
+  const usadas=new Set();
+  el.innerHTML=itens.map((it,i)=>{
+    let sug=_nfeOrdemSugerida(it.descricao,cands); if(sug&&usadas.has(sug.id)) sug=null; if(sug) usadas.add(sug.id);
+    const oOpts='<option value="">— não vincular —</option>'+cands.map(o=>'<option value="'+o.id+'"'+(sug&&sug.id===o.id?' selected':'')+'>Nº '+o.numero+' · ['+_stEsc(o.desenho||'—')+'] '+_stEsc(o.descricao||'')+' (pedido: '+(Number(o.quantidade)||0)+')</option>').join('');
+    return '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:8px 10px;margin-bottom:8px;background:#fafafa" id="vn_row_'+i+'">'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:180px"><b style="font-size:13px">'+_stEsc(it.descricao)+'</b><div style="font-size:11.5px;color:#607d8b">NF: '+it.qtd+' '+_stEsc(it.unidade)+' × '+_oBRL(it.vu)+'</div></div>'+
+      '<select id="vn_o_'+i+'" onchange="_vincLinha('+i+')" style="min-width:260px;max-width:100%;padding:6px;border:1px solid #cfd8dc;border-radius:6px;font-size:12.5px">'+oOpts+'</select>'+
+      '<label style="font-size:11.5px;color:#546e7a">Qtd da NF p/ esta ordem <input id="vn_q_'+i+'" value="'+it.qtd+'" inputmode="numeric" oninput="_vincLinha('+i+')" style="width:56px;padding:5px;border:1px solid #cfd8dc;border-radius:6px;text-align:right"></label></div>'+
+      '<div id="vn_rest_'+i+'" style="margin-top:6px"></div></div>';
+  }).join('');
+  itens.forEach((it,i)=>_vincLinha(i));
+}
+function _vincLinha(i){
+  const {itens}=window._vincNfe||{}; const it=itens&&itens[i]; if(!it) return;
+  const oid=document.getElementById('vn_o_'+i)?.value; const box=document.getElementById('vn_rest_'+i); if(!box) return;
+  const o=oid&&ordens.find(x=>x.id===oid); if(!o){ box.innerHTML=''; return; }
+  const q=Math.min(Number(document.getElementById('vn_q_'+i)?.value)||0,Number(o.quantidade)||0);
+  const resta=(Number(o.quantidade)||0)-q;
+  if(resta<=0){ box.innerHTML='<span style="font-size:12px;color:#2e7d32">✓ A nota cobre toda a ordem ('+q+' peças compradas).</span>'; return; }
+  const atual=document.getElementById('vn_orig_'+i)?.value||'prod';
+  const sug=_sugerirItemEstoque(it.descricao,o.desenho)||_sugerirItemEstoque(o.descricao,o.desenho);
+  const itensE=(estoqueItens||[]).slice().sort((a,b)=>String(a.tipo_peca||a.descricao||'').localeCompare(String(b.tipo_peca||b.descricao||''),'pt-BR'));
+  const selItem=document.getElementById('vn_ei_'+i)?.value||(sug?sug.id:'');
+  const origem=document.getElementById('vn_orig_'+i)?document.getElementById('vn_orig_'+i).value:(sug?'est':'prod');
+  box.innerHTML='<div style="font-size:12px;color:#e65100;margin-bottom:4px">Faltam <b>'+resta+'</b> peça(s) para completar a ordem. De onde vem o resto?</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="vn_orig_'+i+'" onchange="_vincLinha('+i+')" style="padding:5px;border:1px solid #cfd8dc;border-radius:6px;font-size:12.5px"><option value="prod"'+(origem==='prod'?' selected':'')+'>Produzido aqui</option><option value="est"'+(origem==='est'?' selected':'')+'>Do estoque</option></select>'+
+    (origem==='est'?'<select id="vn_ei_'+i+'" style="min-width:240px;padding:5px;border:1px solid #cfd8dc;border-radius:6px;font-size:12.5px"><option value="">— item do estoque —</option>'+itensE.map(e=>'<option value="'+e.id+'"'+(e.id===selItem?' selected':'')+'>'+_stEsc((e.tipo_peca||e.descricao||'—')+' — saldo '+_saldoEstoque(e.id)+' '+(e.unidade||''))+'</option>').join('')+'</select><label style="font-size:12px"><input type="checkbox" id="vn_bx_'+i+'" checked style="width:auto"> dar baixa de '+resta+' no estoque</label>':'')+'</div>';
+}
+async function _vincSalvar(){
+  const {n,itens}=window._vincNfe||{}; if(!n) return;
+  const btn=document.getElementById('vn_btn'); let feitos=0;
+  const tarefas=[];
+  for(let i=0;i<itens.length;i++){
+    const oid=document.getElementById('vn_o_'+i)?.value; if(!oid) continue;
+    const o=ordens.find(x=>x.id===oid); if(!o) continue; const it=itens[i];
+    const q=Math.min(Number(document.getElementById('vn_q_'+i)?.value)||0,Number(o.quantidade)||0); if(q<=0) continue;
+    const resta=(Number(o.quantidade)||0)-q; const origem=document.getElementById('vn_orig_'+i)?.value||'prod';
+    let qe=0,itemId=null,baixa=false;
+    if(resta>0&&origem==='est'){ itemId=document.getElementById('vn_ei_'+i)?.value||null; if(!itemId){ showToast('Escolha o item do estoque para "'+it.descricao+'"','err'); return; } qe=resta; baixa=!!document.getElementById('vn_bx_'+i)?.checked; }
+    tarefas.push({o,d:{qc:q,forn:n.fornecedor,nf:n.numero_nfe,nfdata:n.dt_emissao||n.data_emissao||null,vu:it.vu,nfeId:n.id,qe,itemId,baixa,limpaTerc:!!(o.terceirizado_nome&&_oN(o.terceirizado_nome).split(' ')[0]&&_oN(n.fornecedor||'').includes(_oN(o.terceirizado_nome).split(' ')[0].slice(0,5)))}});
+  }
+  if(!tarefas.length){ showToast('Escolha ao menos uma ordem','err'); return; }
+  const aviso=tarefas.filter(t=>t.d.limpaTerc).length; const baixas=tarefas.filter(t=>t.d.qe&&t.d.baixa).length;
+  if(!confirm('Vincular '+tarefas.length+' item(ns) da NF às ordens?'+(baixas?'\n\n📦 '+baixas+' ordem(ns) terão baixa no estoque.':'')+(aviso?'\n🚚 '+aviso+' ordem(ns) com terceirizado do mesmo fornecedor terão o terceirizado removido.':''))) return;
+  if(btn){ btn.disabled=true; btn.textContent='Vinculando…'; }
+  try{
+    for(const t of tarefas){ await _aplicarOrigemOrdem(t.o,t.d); feitos++; }
+    fecharModal('modalVincularNFe'); showToast('✅ '+feitos+' ordem(ns) vinculada(s) à NF '+n.numero_nfe); if(typeof renderOrdens==='function') renderOrdens();
+  }catch(e){ showToast('Erro após '+feitos+' vínculo(s): '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Vincular'; } }
+}
+// escolha na hora de dar entrada na NF
+function confirmarEntradaRapida(id){
+  const n=entradasNFe.find(x=>x.id===id); if(!n) return;
+  _modalDin('modalTipoEntradaNFe',{titulo:'<h3 style="margin:0;font-size:16px">Dar entrada na NF-e Nº '+_stEsc(n.numero_nfe)+'</h3>',corpo:
+    '<div style="font-size:13px;color:#37474f;margin-bottom:12px">'+_stEsc(n.fornecedor||'')+' · <b>'+_oBRL(n.valor_total)+'</b>. O que essa nota representa?</div>'+
+    '<button class="btn" style="display:block;width:100%;text-align:left;padding:12px;margin-bottom:8px;border:1px solid #c8e6c9" onclick="_entradaNFeTipo(\''+id+'\',\'estoque\')"><b>📦 Material para o estoque</b><div style="font-size:12px;color:#607d8b;margin-top:2px">Matéria-prima, ferramentas, consumo. Gera contas a pagar <b>e</b> entrada no estoque.</div></button>'+
+    '<button class="btn" style="display:block;width:100%;text-align:left;padding:12px;border:1px solid #bbdefb" onclick="_entradaNFeTipo(\''+id+'\',\'pecas_prontas\')"><b>🔩 Peças prontas compradas para um PDV</b><div style="font-size:12px;color:#607d8b;margin-top:2px">Gera só as contas a pagar. <b>Não mexe no estoque.</b> Depois você vincula cada item à ordem de produção.</div></button>'},520);
+}
+async function _entradaNFeTipo(id,tipo){
+  const n=entradasNFe.find(x=>x.id===id); if(!n) return;
+  fecharModal('modalTipoEntradaNFe');
+  try{
+    await api('PATCH','entradas_nfe',{status:'Entrada Realizada',tipo_entrada:tipo},`?id=eq.${id}&select=id`);
+    n.tipo_entrada=tipo; n.status='Entrada Realizada';
+    await _processarEntradaNFe(id,n);
+    showToast(tipo==='pecas_prontas'?'✅ Entrada realizada — contas a pagar geradas, estoque intocado':'✅ Entrada realizada!');
+    await loadAll();
+    if(tipo==='pecas_prontas' && confirm('Vincular os itens desta NF às ordens de produção agora?')) abrirVincularNFe(id);
+  }catch(e){ showToast('Erro','err'); console.error(e); }
+}
+// ===== FIM ORIGEM DA PEÇA =====
+
 // ===== TRANSPORTADORAS (são fornecedores marcados como transportadora) =====
 function _transpLista(){
   return (fornecedores||[]).filter(f=>f.e_transportadora===true && f.ativo!==false)
@@ -28617,6 +28856,7 @@ function renderEntradaNFe(){
         <button class="btn btn-sm" style="background:#546e7a;color:#fff;border-color:#546e7a;font-size:11px" onclick="verDetalheNFe('${n.id}')" title="Ver detalhes / Imprimir">👁 Ver</button>
         ${n.status!=='Entrada Realizada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="abrirModalNFe('${n.id}')">✏️ Editar</button>`:''}
         ${n.status==='Pendente'||!n.status?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="confirmarEntradaRapida('${n.id}')">✅ Entrada</button>`:''}
+        ${n.status==='Entrada Realizada'?`<button class="btn btn-sm" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-size:11px" onclick="abrirVincularNFe('${n.id}')" title="Vincular itens da nota às ordens de produção">🔗 Vincular</button>`:''}
         <button class="btn btn-sm danger" onclick="deletarNFe('${n.id}')" title="Excluir">🗑</button>
       </td>
     </tr>`;
@@ -28807,18 +29047,6 @@ async function _salvarNFe(status){
   }catch(e){showToast('Erro ao salvar NF-e','err');console.error(e);}
 }
 
-async function confirmarEntradaRapida(id){
-  const n=entradasNFe.find(x=>x.id===id);
-  if(!n) return;
-  if(!confirm(`Confirmar entrada da NF-e Nº ${n.numero_nfe} — ${fmtMoeda(n.valor_total)}?\n\nIsso irá gerar:\n✅ Conta(s) a Pagar\n📦 Movimentação de Estoque`)) return;
-  try{
-    await api('PATCH','entradas_nfe',{status:'Entrada Realizada'},`?id=eq.${id}`);
-    await _processarEntradaNFe(id, n);
-    showToast('✅ Entrada realizada!');
-    await loadAll();
-  }catch(e){showToast('Erro','err');console.error(e);}
-}
-
 // ── Process: generate CP + stock movement ─────────────────────────────────
 async function _processarEntradaNFe(nfeId, n){
   // 1. Generate Contas a Pagar
@@ -28849,7 +29077,7 @@ async function _processarEntradaNFe(nfeId, n){
 
   // 2. Stock movements for each item
   const itens=typeof n.itens==='string'?JSON.parse(n.itens||'[]'):n.itens||[];
-  const darEntrada=document.getElementById('nfe_dar_entrada_estoque')?.checked!==false;
+  const darEntrada=n.tipo_entrada!=='pecas_prontas'&&document.getElementById('nfe_dar_entrada_estoque')?.checked!==false;
   if(darEntrada&&itens.length){
     for(const it of itens){
       // Find matching estoque item by code or description
@@ -28966,6 +29194,7 @@ function verDetalheNFe(id){
   </div>
   <div style="padding:12px 20px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end">
     ${n.status==='Pendente'||!n.status?`<button class="btn primary" onclick="confirmarEntradaRapida('${n.id}');fecharModal('modalVerNFe')">✅ Confirmar Entrada</button>`:''}
+    ${n.status==='Entrada Realizada'?`<button class="btn" onclick="fecharModal('modalVerNFe');abrirVincularNFe('${n.id}')">🔗 Vincular a ordens</button>`:''}
     <button class="btn" onclick="imprimirDetalheNFe()">🖨️ Imprimir / PDF</button>
     <button class="btn" onclick="fecharModal('modalVerNFe')">Fechar</button>
   </div>`;
