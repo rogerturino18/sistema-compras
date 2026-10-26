@@ -5495,7 +5495,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 384';
+const APP_BUILD='2026-10-26 · build 385';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17394,7 +17394,7 @@ function renderPedidosVenda(){
   if(st) lista=lista.filter(p=>p.status===st);
   if(!lista.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:#bdbdbd">Nenhum pedido</td></tr>`;return;}
   tbody.innerHTML=lista.map(p=>`<tr>
-    <td style="padding:7px 10px;font-weight:700;color:#2e7d32">Nº ${p.numero||'—'}</td>
+    <td onclick="imprimirPV('${p.id}')" title="Abrir pedido de venda" style="padding:7px 10px;font-weight:700;color:#2e7d32;cursor:pointer;text-decoration:underline;text-decoration-color:#a5d6a7;text-underline-offset:3px">Nº ${p.numero||'—'}</td>
     <td style="padding:7px 10px;font-size:12px">${p.data_inclusao?new Date(p.data_inclusao).toLocaleDateString('pt-BR'):'—'}</td>
     <td style="padding:7px 10px;font-weight:600">${p.cliente_nome||'—'}</td>
     <td style="padding:7px 10px;font-size:12px">${p.departamento||'—'}</td>
@@ -18369,8 +18369,9 @@ function imprimirPV(id){
     .observacoes{ background:#fffbea; border:1px solid #f0e2a3; border-radius:8px; padding:10px 14px; font-size:10.5px; line-height:1.6; white-space:pre-wrap; margin-top:6px; }
     .rodape{ margin-top:26px; padding-top:10px; border-top:1px solid #eceeed; font-size:9.5px; color:#90a4ae; text-align:center; }
     @media print{ .rodape{ position:fixed; bottom:6mm; left:0; right:0; } }
+    .barra-acoes{position:sticky;top:0;z-index:50;display:flex;gap:8px;justify-content:center;padding:8px;background:#1b5e20;box-shadow:0 2px 8px rgba(0,0,0,.25)} .barra-acoes button{font:700 13px Arial,sans-serif;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#fff;color:#1b5e20} .barra-acoes button.sec{background:transparent;color:#fff;border:1px solid #fff} @media print{.barra-acoes{display:none}}
   </style>
-  </head><body><div class="folha">
+  </head><body><div class="barra-acoes"><button onclick="window.print()">🖨️ Imprimir</button><button class="sec" onclick="window.close()">Fechar</button></div><div class="folha">
     <div class="cabecalho">
       <div class="marca">
         <img src="${LOGO_SL_OLEOS}" alt="SL Óleos">
@@ -18446,9 +18447,10 @@ function imprimirPV(id){
 
     <div class="rodape">Gerado em ${new Date().toLocaleString('pt-BR')} por ${usuarioLogado?.nome||'—'} · Página 1 de 1</div>
   </div></body></html>`;
-  const w=window.open('','_blank');w.document.write(html);w.document.close();
-  w.onload=()=>w.print();
-  setTimeout(()=>{try{w.print();}catch(e){}},300);
+  const w=window.open('','_blank');
+  if(!w){ showToast('O navegador bloqueou a janela. Libere pop-ups para este site.','err',7000); return; }
+  w.document.write(html);w.document.close();
+  // Abre só para visualizar; a impressão é pelo botão "Imprimir" da barra no topo.
 }
 
 // ===== CLIENTES =====
