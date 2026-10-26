@@ -5494,7 +5494,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 379';
+const APP_BUILD='2026-10-26 · build 380';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25137,12 +25137,12 @@ function _origemOrdem(o){
 }
 function _origemChipHtml(o){
   const g=_origemOrdem(o); if(!g.c&&!g.e) return '';
-  const chip=(bg,fg,t,tit)=>'<span title="'+_stEsc(tit)+'" style="background:'+bg+';color:'+fg+';font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;white-space:nowrap">'+t+'</span>';
+  const pill=(cor,bg,t,tit)=>'<span title="'+_stEsc(tit)+'" style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';color:'+cor+';font-size:10px;font-weight:600;line-height:1;border-radius:4px;padding:3px 6px;white-space:nowrap"><i style="width:5px;height:5px;border-radius:50%;background:'+cor+';display:inline-block"></i>'+t+'</span>';
   const r=[];
-  if(g.c) r.push(chip('#e3f2fd','#1565c0','🛒 Comprado ×'+g.c+(o.compra_fornecedor?' · '+_stEsc(String(o.compra_fornecedor).split(' ').slice(0,2).join(' ')):'')+(o.compra_nf_numero?' · NF '+_stEsc(o.compra_nf_numero):''),'Comprado de '+(o.compra_fornecedor||'—')+(o.compra_nf_numero?' · NF '+o.compra_nf_numero:'')+(o.compra_nf_data?' de '+_oBR(o.compra_nf_data):'')+(o.compra_valor_unit?' · '+_oBRL(o.compra_valor_unit)+'/un':'')));
-  if(g.e) r.push(chip('#f3e5f5','#6a1b9a','📦 Do estoque ×'+g.e,'Peças retiradas do estoque'));
-  if(g.p) r.push(chip('#eceff1','#546e7a','🏭 Produzido ×'+g.p,'Produzido aqui'));
-  return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">'+r.join('')+'</div>';
+  if(g.c) r.push(pill('#1565c0','#e8f1fb','Comprado '+g.c+(o.compra_nf_numero?' · NF '+_stEsc(o.compra_nf_numero):''),'Comprado de '+(o.compra_fornecedor||'—')+(o.compra_nf_numero?' · NF '+o.compra_nf_numero:'')+(o.compra_nf_data?' de '+_oBR(o.compra_nf_data):'')+(o.compra_valor_unit?' · '+_oBRL(o.compra_valor_unit)+'/un':'')));
+  if(g.e) r.push(pill('#6a1b9a','#f3e9f8','Estoque '+g.e,'Peças retiradas do estoque'));
+  if(g.p) r.push(pill('#546e7a','#eceff1','Produzido '+g.p,'Produzido aqui'));
+  return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;max-width:100%;white-space:normal">'+r.join('')+'</div>';
 }
 function _saldoEstoque(id){
   const it=estoqueItens.find(x=>x.id===id);
