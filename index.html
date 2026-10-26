@@ -5494,7 +5494,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 378';
+const APP_BUILD='2026-10-26 · build 379';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -15792,7 +15792,8 @@ async function confirmarImportNFe(){
         itens:JSON.stringify(itensEntrada),
         criado_por:usuarioLogado?.nome||null
       };
-      await api('POST','entradas_nfe',nfeObj);
+      const _nfeSalva=await api('POST','entradas_nfe',nfeObj);
+      const nfeId=_nfeSalva&&_nfeSalva[0]?_nfeSalva[0].id:null;
       showToast(`✅ ${ok} entrada${ok!==1?'s':''} registrada${ok!==1?'s':''}! NF-e adicionada à lista.`);
 
       // Financeiro reabilitado (28/09) — importação volta a gerar parcelas/Contas a Pagar.
