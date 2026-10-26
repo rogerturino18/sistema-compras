@@ -1161,7 +1161,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 <div id="sbpanel_projetos" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1);overflow-y:auto">
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🎯 Projetos</div>
   <div style="padding:6px 0">
-    <div class="sbi" onclick="sbGo(3,'Projetos')">🎯 Projetos / PDVs</div>
+    <div class="sbi" onclick="sbGo(3,'Projetos')">🎯 Projetos</div>
     <div class="sbi" onclick="sbGo(4,'Lista de Material')">📝 Lista de Material</div>
   </div>
 </div>
@@ -1180,9 +1180,9 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 <div id="sbpanel_vendas" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
   <div style="padding:10px 14px 6px;font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;border-bottom:1px solid #e8f5e9">🧾 Vendas</div>
   <div style="padding:6px 0">
-    <div class="sbi" onclick="sbGo(14,'Clientes')">👤 Cadastro de Clientes</div>
-    <div class="sbi" onclick="sbGo(13,'Pedido de Venda')">🧾 Pedido de Venda (PDV)</div>
-    <div class="sbi" onclick="sbGo(12,'Fiscal / NF-e')">📄 Fiscal / NF-e</div>
+    <div class="sbi" onclick="sbGo(14,'Clientes')">👤 Clientes</div>
+    <div class="sbi" onclick="sbGo(13,'Pedidos de Venda')">🧾 Pedidos de Venda</div>
+    <div class="sbi" onclick="sbGo(12,'Emissão de NF-e')">📄 Emissão de NF-e</div>
   </div>
 </div>
 
@@ -5423,7 +5423,7 @@ async function salvarEntregaEPI(){
 async function excluirEntregaEPI(id){
   if(!confirm('Excluir este registro? O estoque NAO sera estornado automaticamente.')) return;
   try{ await api('DELETE','epi_entregas','',`?id=eq.${id}`); await carregarDadosEPI(); renderEPI(); showToast('Registro excluido!'); }
-  catch(e){ showToast('Erro','err'); }
+  catch(e){ showToast('Não foi possível concluir a operação. Tente novamente.','err'); }
 }
 
 // ── Cadastro Funcionários ─────────────────────────────────────────────────
@@ -5465,7 +5465,7 @@ async function excluirFuncEPI(id){
   const qtd=epiEntregas.filter(r=>r.funcionario_id===id).length;
   if(!confirm(`Excluir funcionario? ${qtd>0?'Tem '+qtd+' entrega(s) registrada(s).':''}`)) return;
   try{ await api('DELETE','epi_funcionarios','',`?id=eq.${id}`); await carregarDadosEPI(); renderFuncionariosEPI(); showToast('Funcionario removido!'); }
-  catch(e){ showToast('Erro','err'); }
+  catch(e){ showToast('Não foi possível concluir a operação. Tente novamente.','err'); }
 }
 
 // ── Exportar Excel EPI ────────────────────────────────────────────────────
@@ -5495,7 +5495,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 385';
+const APP_BUILD='2026-10-26 · build 386';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -7455,7 +7455,7 @@ async function duplicarItem(id){
 async function deletarItem(id){
   if(!confirm('Remover este item?'))return;
   try{await api('DELETE','cotacoes','',`?item_id=eq.${id}`);await api('DELETE','itens','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== PDVs =====
@@ -7555,7 +7555,7 @@ async function salvarPDV(){
 async function deletarPDV(id){
   if(!confirm('Remover este PDV?'))return;
   try{await api('DELETE','pdvs','',`?id=eq.${id}`);showToast('PDV removido!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ═══════════════════════════════════════════
@@ -7869,7 +7869,7 @@ async function salvarForn(){
 async function deletarForn(id){
   if(!confirm('Remover este fornecedor?'))return;
   try{await api('DELETE','fornecedores','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== COTAÇÕES =====
@@ -8228,7 +8228,7 @@ function renderComprado(){
 async function toggleComprado(id,atual){
   const hoje=new Date().toISOString().substring(0,10);
   try{await api('PATCH','itens',{comprado:!atual,dt_compra:!atual?hoje:null},`?id=eq.${id}`);await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 async function marcarTodosComprado(){
@@ -8239,7 +8239,7 @@ async function marcarTodosComprado(){
   try{
     for(const it of pend) await api('PATCH','itens',{comprado:true,dt_compra:hoje},`?id=eq.${it.id}`);
     await loadAll();showToast('Itens marcados!');
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== ENVIAR E-MAIL =====
@@ -8548,7 +8548,7 @@ async function marcarEmailRespondido(id){
     await api('PATCH','emails_enviados',{respondido:true,respondido_em:new Date().toISOString()},`?id=eq.${id}`);
     showToast('Marcado como respondido!');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== IMPORT CSV =====
@@ -8815,7 +8815,7 @@ async function toggleCI(id,atual){
   try{
     await api('PATCH','compras_internas',{comprado:!atual,dt_compra:!atual?hoje:null,status:!atual?'comprado':'pendente'},`?id=eq.${id}`);
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function abrirModalCISimples(id){
@@ -8864,7 +8864,7 @@ async function salvarCISimples(){
 async function deletarCI(id){
   if(!confirm('Remover esta solicitação?'))return;
   try{await api('DELETE','compras_internas','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function fecharLembrete(){
@@ -9011,7 +9011,7 @@ async function deletarProduto(id){
     await api('DELETE','etapas_produto','',`?produto_id=eq.${id}`);
     await api('DELETE','produtos_pdv','',`?id=eq.${id}`);
     showToast('Produto removido!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function abrirModalEtapa(produtoId){
@@ -9070,7 +9070,7 @@ async function concluirEtapa(id){
       concluido_em:new Date().toISOString()
     },`?id=eq.${id}`);
     showToast('Etapa concluída!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== ORDENS DE PRODUÇÃO =====
@@ -9696,7 +9696,7 @@ async function pausarEtapaOrdem(tempoId){
     await api('DELETE','tempos_op','',`?id=eq.${tempoId}`);
     showToast('Etapa pausada — voltou para Aguardando');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // Reabrir = limpa o dt_hr_final de uma etapa já concluída, voltando-a para "em andamento"
@@ -9706,7 +9706,7 @@ async function reabrirEtapaOrdem(tempoId){
     await api('PATCH','tempos_op',{dt_hr_final:null},`?id=eq.${tempoId}`);
     showToast('Etapa reaberta!');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // Selo mobile em "Aguardando": como não há colunas de máquina visíveis no
@@ -9770,7 +9770,7 @@ async function confirmarIniciarOp(){
     showToast('Operação em andamento!');
     fecharModal('modalIniciarOp');
     await loadAll();
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 let tempoOpAtualId=null;
@@ -10001,7 +10001,7 @@ async function confirmarFinalizarOp(){
     showToast('Operação concluída! Tempo: '+calcularHorasUteis(ini,fim,_fdsExtras('op')).texto);
     fecharModal('modalFinalizarOp');
     await loadAll();
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 async function concluirOperacao(ordemId, operacao){
@@ -10011,7 +10011,7 @@ async function concluirOperacao(ordemId, operacao){
     await api('PATCH','tempos_op',{dt_hr_final:dateParaNaive(new Date())},`?id=eq.${tempo.id}`);
     showToast('Operação concluída!');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // Drag & Drop Ordens
@@ -10850,7 +10850,7 @@ async function deletarDesenhoRecebido(id){
     await api('DELETE','desenhos_recebidos','',`?id=eq.${id}`);
     showToast('Excluído!');
     await loadAll();
-  }catch(e){ showToast('Erro','err'); }
+  }catch(e){ showToast('Não foi possível concluir a operação. Tente novamente.','err'); }
 }
 
 // Sobe a árvore até achar o equipamento — usado por itens E montagens em qualquer
@@ -13340,7 +13340,7 @@ async function salvarSetor(){
       criado_por:usuarioLogado?.nome||null
     });
     showToast('Setor criado!'); fecharModal('modalSetor'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 async function deletarSetor(id){
@@ -13353,7 +13353,7 @@ async function deletarSetor(id){
     await api('DELETE','pecas_projeto','',`?setor_id=eq.${id}`);
     await api('DELETE','setores_pdv','',`?id=eq.${id}`);
     showToast('Setor removido!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // Peça
@@ -13397,7 +13397,7 @@ async function salvarPeca(){
       showToast('Peça cadastrada!');
     }
     fecharModal('modalPeca'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 async function deletarPeca(id){
@@ -13406,7 +13406,7 @@ async function deletarPeca(id){
     await api('DELETE','sessoes_trabalho','',`?peca_id=eq.${id}`);
     await api('DELETE','pecas_projeto','',`?id=eq.${id}`);
     showToast('Peça removida!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // Trabalho
@@ -13446,7 +13446,7 @@ async function confirmarIniciarTrabalho(){
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       iniciarTimer(pidLocal, inicioLocal);
     }));
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 async function pausarTrabalho(pecaId){
@@ -13456,7 +13456,7 @@ async function pausarTrabalho(pecaId){
     await api('PATCH','pecas_projeto',{status:'pausado'},`?id=eq.${pecaId}`);
     if(timers[pecaId]) clearInterval(timers[pecaId]);
     showToast('Trabalho pausado!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function abrirFinalizarTrabalho(pecaId){
@@ -13590,7 +13590,7 @@ async function confirmarFinalizarSemMateriais(){
     await api('PATCH','pecas_projeto',{status:'concluido'},`?id=eq.${pecaAtual}`);
     if(timers[pecaAtual]) clearInterval(timers[pecaAtual]);
     showToast('Peça finalizada!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 
@@ -13621,14 +13621,14 @@ async function confirmarFinalizarComMateriais(){
     if(timers[pecaAtual]) clearInterval(timers[pecaAtual]);
     showToast(`✅ ${materiais.length} item(ns) adicionado(s) à Lista de Material!`);
     fecharModal('modalFinalizarTrabalho'); await loadAll();
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 async function reabrirPeca(id){
   try{
     await api('PATCH','pecas_projeto',{status:'aguardando'},`?id=eq.${id}`);
     showToast('Peça reaberta!'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== LISTA DE MATERIAL =====
@@ -13749,32 +13749,32 @@ const WALLPAPERS = [
 
 const TILE_DEFS = [
   [['Dashboard','🏠',0,'linear-gradient(135deg,#00838f,#006064)','tile-md','Visão geral'],
-   ['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-md','Matéria prima'],
-   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-md','PDVs e desenhos'],
-   ['Lista de Material','📝',4,'linear-gradient(135deg,#1565c0,#4a148c)','tile-md','Itens dos projetistas'],
-   ['Ordens','🔧',5,'linear-gradient(135deg,#558b2f,#33691e)','tile-md','Produção']],
-  [['Cotações','💰',6,'linear-gradient(135deg,#e65100,#bf360c)','tile-md','Ver preços'],
-   ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-md','Solicitações'],
-   ['Estoque','📦',11,'linear-gradient(135deg,#00695c,#004d40)','tile-md','MP e Produtos'],
-   ['Enviar Cotação','📧',10,'linear-gradient(135deg,#c62828,#b71c1c)','tile-md','E-mails'],
-   ['Fiscal','📄',12,'linear-gradient(135deg,#37474f,#263238)','tile-md','NF-e']],
-  [['PDV','🧾',13,'linear-gradient(135deg,#1565c0,#4a148c)','tile-md','Pedidos de Venda'],
-   ['Clientes','👤',14,'linear-gradient(135deg,#00695c,#004d40)','tile-md','Cadastro'],
+   ['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-md','Compras de matéria-prima'],
+   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-md','Pedidos e desenhos'],
+   ['Lista de Material','📝',4,'linear-gradient(135deg,#1565c0,#4a148c)','tile-md','Materiais dos projetos'],
+   ['Ordens','🔧',5,'linear-gradient(135deg,#558b2f,#33691e)','tile-md','Produção e etapas']],
+  [['Cotações','💰',6,'linear-gradient(135deg,#e65100,#bf360c)','tile-md','Preços dos fornecedores'],
+   ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-md','Solicitações internas'],
+   ['Estoque','📦',11,'linear-gradient(135deg,#00695c,#004d40)','tile-md','Matéria-prima e produtos'],
+   ['Enviar Cotação','📧',10,'linear-gradient(135deg,#c62828,#b71c1c)','tile-md','Pedidos de cotação'],
+   ['Emissão de NF-e','📄',12,'linear-gradient(135deg,#37474f,#263238)','tile-md','Notas fiscais de saída']],
+  [['Pedidos de Venda','🧾',13,'linear-gradient(135deg,#1565c0,#4a148c)','tile-md','Vendas e orçamentos'],
+   ['Clientes','👤',14,'linear-gradient(135deg,#00695c,#004d40)','tile-md','Cadastro de clientes'],
    ['Contas a Pagar','💸',19,'linear-gradient(135deg,#c62828,#b71c1c)','tile-md','Financeiro'],
    ['Contas a Receber','💰',20,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-md','Financeiro'],
    ['Fluxo de Caixa','📊',21,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-md','Financeiro']]
 ];
 
 const TILE_DEFS_EXPEDICAO = [
-  [['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-lg','Matéria prima'],
-   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-lg','PDVs e desenhos']],
-  [['Lista de Compras','📋',1,'linear-gradient(135deg,#4527a0,#311b92)','tile-lg','Status compras'],
-   ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-lg','Solicitações']]
+  [['Lista de Compras','📋',1,'linear-gradient(135deg,#1565c0,#0d47a1)','tile-lg','Compras de matéria-prima'],
+   ['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-lg','Pedidos e desenhos']],
+  [['Lista de Compras','📋',1,'linear-gradient(135deg,#4527a0,#311b92)','tile-lg','Acompanhamento'],
+   ['Compras Internas','🛒',9,'linear-gradient(135deg,#f57f17,#e65100)','tile-lg','Solicitações internas']]
 ];
 
 const TILE_DEFS_PROJETO = [
-  [['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-lg','PDVs e desenhos'],
-   ['Lista de Material','📝',4,'linear-gradient(135deg,#1565c0,#4a148c)','tile-wide','Itens cadastrados']]
+  [['Projetos','🎯',3,'linear-gradient(135deg,#2e7d32,#1b5e20)','tile-lg','Pedidos e desenhos'],
+   ['Lista de Material','📝',4,'linear-gradient(135deg,#1565c0,#4a148c)','tile-wide','Materiais dos projetos']]
 ];
 
 let homeInterval=null, wallpaperInterval=null, wallpaperIdx=0;
@@ -13856,11 +13856,11 @@ function atualizarRelogio(){
 // ── Grupos da dashboard com sub-abas ────────────────────────────────────
 const DASH_GRUPOS = [
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
-   subs:[{label:'PDV',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Fiscal / NF-e',icon:'📄',tab:12},{label:'Projetos / PDVs',icon:'🎯',tab:3},{label:'Lista de Material',icon:'📝',tab:4}]},
+   subs:[{label:'Pedidos de Venda',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Emissão de NF-e',icon:'📄',tab:12},{label:'Projetos',icon:'🎯',tab:3},{label:'Lista de Material',icon:'📝',tab:4}]},
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
-   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Entrada de NF-e',icon:'🧾',tab:24},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orç.',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Relatório Contábil',icon:'📊',tab:33}]},
+   subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Entrada de NF-e',icon:'🧾',tab:24},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orçamentos',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Relatório Contábil',icon:'📊',tab:33}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
-   subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32}]},
+   subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico de Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32}]},
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
    subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23},{label:'Serviços Terceirizados',icon:'🔧',tab:37}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
@@ -15090,7 +15090,7 @@ async function salvarEstoque(){
     if(eraNovo && estOcultarZero && novoSaldoDigitado<=0){
       showToast('Item salvo com saldo 0 — está escondido porque "Mostrando Ativos" está ligado. Clique nele (botão laranja) pra ver tudo.','ok',9000);
     }
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 async function deletarEstoqueItem(id){
@@ -15100,7 +15100,7 @@ async function deletarEstoqueItem(id){
     showToast('Item movido para a lixeira');
     await loadAll();
     renderEstoque();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ── Custo Unitário inteligente para Barras Roscadas (Unidade = BARRA) ──────
@@ -15921,7 +15921,7 @@ async function registrarSaida(){
     limparFormSaida();
     await loadAll();
     if(typeof checarAlertaItem==='function') checarAlertaItem(itemId, qtd);
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 async function deletarMovEstoque(id){
@@ -15930,7 +15930,7 @@ async function deletarMovEstoque(id){
     await api('DELETE','estoque_movimentacoes','',`?id=eq.${id}`);
     showToast('Movimentação excluída!');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== FISCAL NF-e =====
@@ -16229,7 +16229,7 @@ async function salvarClienteFiscalModal(){
     fecharModal('modalClienteFiscal');
     await loadAll();
     renderClientesFiscal();
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 function renderClientesFiscal(){
@@ -16438,7 +16438,7 @@ async function consultarNFe(ref,id){
     showToast('Status: '+data.status);
     await loadAll();
     renderNotasEmitidas();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function baixarDANFE(ref){
@@ -16471,7 +16471,7 @@ async function cancelarNFe(ref,id){
       const d=await resp.json();
       showToast('Erro: '+(d.mensagem||'Não foi possível cancelar'),'err');
     }
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== UTILS =====
@@ -16708,7 +16708,7 @@ function isPerfilSimplificadoCI(){
 // ── Sistema de Permissões por Módulo ─────────────────────────────────────
 const MODULOS_SISTEMA = [
   {id:'compras',    label:'🛒 Lista de Compras',    tab:1},
-  {id:'projetos',   label:'🎯 Projetos / PDVs',     tab:3},
+  {id:'projetos',   label:'🎯 Projetos',     tab:3},
   {id:'material',   label:'📝 Lista de Material',   tab:4},
   {id:'producao',   label:'🔧 Ordens / Produção',   tab:5},
   {id:'desenhos',   label:'📐 Estrutura de Equipamentos',   tab:28},
@@ -16716,8 +16716,8 @@ const MODULOS_SISTEMA = [
   {id:'compint',    label:'🛒 Compras Internas',     tab:9},
   {id:'envio',      label:'📧 Enviar Cotação',       tab:10},
   {id:'estoque',    label:'📦 Estoque',              tab:11},
-  {id:'fiscal',     label:'📄 Fiscal / NF-e',        tab:12},
-  {id:'pdv',        label:'🧾 Pedido de Venda',      tab:13},
+  {id:'fiscal',     label:'📄 Emissão de NF-e',        tab:12},
+  {id:'pdv',        label:'🧾 Pedidos de Venda',      tab:13},
   {id:'clientes',   label:'👤 Clientes',             tab:14},
   {id:'financeiro', label:'💸 Contas a Pagar',       tab:19},
   {id:'receber',    label:'💰 Contas a Receber',     tab:20},
@@ -17548,12 +17548,12 @@ async function salvarPV(){
     else await api('POST','pedidos_venda',obj);
     showToast(editPVId?'PDV atualizado!':'PDV criado!');
     fecharModal('modalPV'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 async function deletarPV(id){
   if(!confirm('Excluir?'))return;
-  try{await api('DELETE','pedidos_venda','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}catch(e){showToast('Erro','err');}
+  try{await api('DELETE','pedidos_venda','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== Importação de Pedido de Venda a partir de PDF (ex.: exportado do Ommie) =====
@@ -18575,12 +18575,12 @@ async function salvarCliente(){
     else await api('POST','clientes',obj);
     showToast(editClienteId?'Cliente atualizado!':'Cliente cadastrado!');
     fecharModal('modalCliente'); await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 async function deletarCliente(id){
   if(!confirm('Excluir?'))return;
-  try{await api('DELETE','clientes','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}catch(e){showToast('Erro','err');}
+  try{await api('DELETE','clientes','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function exportarExcelClientes(){
@@ -18803,7 +18803,7 @@ async function salvarPC(){
 async function deletarPC(id){
   if(!confirm('Excluir este pedido de compra?'))return;
   try{await api('DELETE','pedidos_compra','',`?id=eq.${id}`);showToast('PC removido!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== PV BUSCAM CLIENTE =====
@@ -18913,7 +18913,7 @@ async function reprocessarOrdem(ordemId){
     showToast(`Ordem Nº ${o?.numero} voltou para Aguardando!`);
     fecharModal('modalRelatoriosGrupo');
     await loadAll();
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 
@@ -19415,7 +19415,7 @@ async function cancelarRequisicao(id){
     await api('PATCH','requisicoes_material',{status:'Cancelada'},`?id=eq.${id}`);
     showToast('Requisição cancelada!');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 async function excluirRequisicao(id){
@@ -19539,7 +19539,7 @@ async function recusarRequisicao(){
     fecharModal('modalAprovarReq');
     showToast('Requisição recusada.');
     await loadAll();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function verificarAprovacoesPendentes(){
@@ -19738,7 +19738,7 @@ async function deletarDepartamento(id){
     showToast('Removido!');
     await loadAll();
     renderDepartamentos();
-  }catch(e){showToast('Erro','err');}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== DEPARTAMENTOS / CENTROS DE CUSTO =====
@@ -23758,7 +23758,7 @@ async function salvarOperadorMaquina(){
 async function deletarOperadorMaquina(id){
   if(!confirm('Remover este operador?'))return;
   try{await api('DELETE','operadores_maquina','',`?id=eq.${id}`);showToast('Removido!');await loadAll();renderOperadoresTerceirizados();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 function abrirModalTerceirizadoCadastro(id){
@@ -23789,7 +23789,7 @@ async function salvarTerceirizadoCadastro(){
 async function deletarTerceirizadoCadastro(id){
   if(!confirm('Remover este terceirizado?'))return;
   try{await api('DELETE','terceirizados_cadastro','',`?id=eq.${id}`);showToast('Removido!');await loadAll();renderOperadoresTerceirizados();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 async function pesosInit(){
@@ -25360,7 +25360,7 @@ async function _entradaNFeTipo(id,tipo){
     showToast(tipo==='pecas_prontas'?'✅ Entrada realizada — contas a pagar geradas, estoque intocado':'✅ Entrada realizada!');
     await loadAll();
     if(tipo==='pecas_prontas' && confirm('Vincular os itens desta NF às ordens de produção agora?')) abrirVincularNFe(id);
-  }catch(e){ showToast('Erro','err'); console.error(e); }
+  }catch(e){ showToast('Não foi possível concluir a operação. Tente novamente.','err'); console.error(e); }
 }
 // ===== FIM ORIGEM DA PEÇA =====
 
@@ -28617,13 +28617,13 @@ async function salvarCC(){
     showToast(editCCId?'Conta atualizada!':'Conta criada!');
     fecharModal('modalCC');
     await loadAll();
-  }catch(e){showToast('Erro','err');console.error(e);}
+  }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');console.error(e);}
 }
 
 async function deletarCC(id){
   if(!confirm('Excluir esta conta?'))return;
   try{await api('DELETE','contas_corrente','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ===== DRE =====
@@ -29128,7 +29128,7 @@ async function _processarEntradaNFe(nfeId, n){
 async function deletarNFe(id){
   if(!confirm('Excluir esta NF-e?')) return;
   try{await api('DELETE','entradas_nfe','',`?id=eq.${id}`);showToast('NF-e removida!');await loadAll();}
-  catch(e){showToast('Erro','err');}
+  catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
 // ── Ver Detalhe NF-e ──────────────────────────────────────────────────────
