@@ -23,7 +23,7 @@ try{
 </script>
 <style>.modo-cotacao #loginBg,.modo-cotacao .login-bg,.modo-cotacao #homeScreen,.modo-cotacao #appContent,.modo-cotacao .app-content{display:none!important}
 .sessao-salva #loginBg{display:none!important}
-.modo-cotacao #fornecedorFormBg{display:block!important}.ordAcoes .btn{width:32px;height:30px;padding:0!important;display:flex;align-items:center;justify-content:center;margin:0}
+.modo-cotacao #fornecedorFormBg{display:block!important}.ordAcoes .btn{width:28px;height:28px;padding:0!important;display:flex;align-items:center;justify-content:center;margin:0}
 </style>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -5495,7 +5495,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 381';
+const APP_BUILD='2026-10-26 · build 382';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9452,7 +9452,7 @@ function renderOrdens(){
         </td>
         <td style="padding:8px 4px;text-align:center;font-weight:700;color:#37474f">${o.quantidade||1}</td>
         ${celulas}
-        <td style="padding:6px 4px;text-align:center"><div style="display:grid;grid-template-columns:repeat(3,32px);gap:4px;justify-content:center;align-items:center" class="ordAcoes">
+        <td style="padding:6px 4px;text-align:center"><div style="display:grid;grid-template-columns:repeat(3,28px);gap:4px;justify-content:center;align-items:center" class="ordAcoes">
           ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado — fecha a ordem e qualquer etapa em aberto, mesmo sem o tempo registrado certinho">✅</button>`:''}
           ${st==='concluido'?`<button class="btn btn-sm" style="background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="reverterOrdemConcluida('${o.id}')" title="Reverter conclusão">↩️</button>`:''}
           <button class="btn btn-sm" onclick="abrirOrigemOrdem('${o.id}')" title="Origem da peça: comprado / do estoque / produzido" style="background:#f3e5f5;border-color:#ce93d8">🏷️</button>
@@ -9516,11 +9516,11 @@ function renderOrdens(){
         </span>
       </div>
       ${isMobile ? `<div style="padding:10px">${cardsMobile}</div>` : `<div class="ord-scroll">
-<table style="width:100%;min-width:${62+96+84+156+80+COLS_FIXAS.length*84+124}px;border-collapse:collapse;font-size:12px;table-layout:fixed">
+<table style="width:100%;min-width:${62+96+84+156+80+COLS_FIXAS.length*72+100}px;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
             <col style="width:62px"><col style="width:96px"><col style="width:84px"><col style="width:156px"><col style="width:80px">
-${COLS_FIXAS.map(()=>'<col style="width:84px">').join('')}
-            <col style="width:124px">
+${COLS_FIXAS.map(()=>'<col style="width:72px">').join('')}
+            <col style="width:100px">
           </colgroup>
           <thead>
             <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
@@ -9533,7 +9533,7 @@ ${COLS_FIXAS.map(()=>'<col style="width:84px">').join('')}
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
               <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Quantidade</th>
 ${COLS_FIXAS.map(op=>`<th style="height:42px;padding:6px;text-align:center;vertical-align:middle;color:#546e7a;font-size:9px;font-weight:700;letter-spacing:0;text-transform:uppercase;line-height:1.25;white-space:normal;word-break:keep-all;overflow:visible;text-overflow:clip;padding-left:2px;padding-right:2px">${op}</th>`).join('')}
-              <th style="width:124px"></th>
+              <th style="width:100px"></th>
             </tr></thead><tbody>
             ${linhas}
           </tbody>
