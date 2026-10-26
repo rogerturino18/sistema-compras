@@ -5495,7 +5495,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 386';
+const APP_BUILD='2026-10-26 · build 387';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18079,15 +18079,16 @@ function _dividirBlocosPV(textoCompleto){
   // são do mesmo pedido (PDF de 2+ páginas) e precisam ser juntados, senão a 2ª página
   // vira um pedido vazio que sobrescreve o primeiro.
   const mapa=new Map();
-  pedacos.forEach(b=>{ const n=(b.match(/Pedido de Venda\s*Nº\s*(\d+)/i)||[])[1]; mapa.set(n,(mapa.get(n)||'')+b); });
+  pedacos.forEach(b=>{ const n=(b.match(/Pedido de Venda\s*Nº\s*(\d+(?:\/\d+)?)/i)||[])[1]; mapa.set(n,(mapa.get(n)||'')+b); });
   return [...mapa.values()];
 }
 
 // Converte um bloco de texto (um pedido) no objeto pronto para gravar em pedidos_venda.
 function _parseBlocoPedidoVenda(bloco){
-  const numMatch = bloco.match(/Pedido de Venda\s*Nº\s*(\d+)/i);
+  const numMatch = bloco.match(/Pedido de Venda\s*Nº\s*(\d+)(?:\/(\d+))?/i);
   if(!numMatch) return null;
   const numero = parseInt(numMatch[1]);
+  const parcialDe = numMatch[2] ? numMatch[1]+'/'+numMatch[2] : null;  // "97/1" = pedido parcial gerado a partir do 97
 
   const CNPJ_SLOLEOS = '08363498000169';
   const TEL_SLOLEOS = '(14) 3626-1777';
@@ -18189,7 +18190,7 @@ function _parseBlocoPedidoVenda(bloco){
   const parcelasIncompletas = /\+\s*\d+\s*parcelas/i.test(bloco);
 
   return {
-    numero, status:'Aprovado', vendedor: vendedor||null, prev_faturamento,
+    numero, _parcialDe: parcialDe, status:'Aprovado', vendedor: vendedor||null, prev_faturamento,
     frete: (()=>{ const f=bloco.match(/\bFrete:\s*([\d.,]+)/i); return f?_parseNumBR(f[1]):0; })(), cond_pagamento: cond_pagamento||null,
     cliente_nome, cliente_contato: cliente_contato||null, cliente_cnpj: cliente_cnpj||null,
     cliente_ie: cliente_ie||null, cliente_endereco: cliente_endereco||null,
@@ -18249,6 +18250,26 @@ async function _garantirClienteDoPedido(obj){
   }catch(e){ console.error(e); return null; }
 }
 
+// Pedidos que faturaram parcialmente aparecem no PDF como "97/1", "97/2" (parciais) e "97" (só o saldo, muitas vezes zerado).
+// O pedido vendido é a soma dos parciais; o saldo não entra (senão duplica ou zera os itens).
+function _agruparParciaisPV(objs){
+  const grupos=new Map();
+  objs.forEach(o=>{ if(!grupos.has(o.numero)) grupos.set(o.numero,[]); grupos.get(o.numero).push(o); });
+  const saida=[];
+  grupos.forEach(lista=>{
+    const parciais=lista.filter(o=>o._parcialDe).sort((a,b)=>String(a._parcialDe).localeCompare(String(b._parcialDe),'pt-BR',{numeric:true}));
+    if(!parciais.length){ saida.push(lista[0]); return; }
+    const base={...parciais[0]};
+    base.itens=parciais.flatMap(o=>o.itens||[]);
+    base.total=parciais.reduce((s,o)=>s+(Number(o.total)||0),0);
+    base.parcelas=parciais.flatMap(o=>o.parcelas||[]).map((p,i)=>({...p,parcela:i+1}));
+    base._parcelasIncompletas=parciais.some(o=>o._parcelasIncompletas);
+    base._avisoParciais=parciais.length;
+    saida.push(base);
+  });
+  return saida;
+}
+
 async function importarPedidosVendaPDF(file){
   if(!file) return;
   showToast('Lendo PDF...');
@@ -18258,9 +18279,11 @@ async function importarPedidosVendaPDF(file){
     if(!blocos.length){ showToast('Nenhum "Pedido de Venda" encontrado no PDF','err'); return; }
 
     let criados=0, atualizados=0, clientesCadastrados=0, avisos=[];
-    for(const bloco of blocos){
-      const obj = _parseBlocoPedidoVenda(bloco);
-      if(!obj || !obj.numero){ avisos.push('Um bloco não pôde ser identificado'); continue; }
+    const objsBrutos=[];
+    for(const bloco of blocos){ const o=_parseBlocoPedidoVenda(bloco); if(!o||!o.numero){ avisos.push('Um bloco não pôde ser identificado'); continue; } objsBrutos.push(o); }
+    for(const obj of _agruparParciaisPV(objsBrutos)){
+      if(obj._avisoParciais>1) avisos.push(`Pedido ${obj.numero}: ${obj._avisoParciais} pedidos parciais somados (faturamento parcial)`);
+      delete obj._parcialDe; delete obj._avisoParciais;
       const parcelasIncompletas = obj._parcelasIncompletas;
       delete obj._parcelasIncompletas;
       if(parcelasIncompletas) avisos.push(`Pedido ${obj.numero}: parcelas podem estar incompletas (PDF mostra só as 10 primeiras)`);
