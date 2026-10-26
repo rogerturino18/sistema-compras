@@ -5495,7 +5495,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 383';
+const APP_BUILD='2026-10-26 · build 384';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18139,19 +18139,25 @@ function _parseBlocoPedidoVenda(bloco){
   if(itensBlocoMatch){
     const linhas = itensBlocoMatch[1].split('\n').map(l=>l.trim()).filter(Boolean)
       .filter(l=>!/^Código\s+Descrição/i.test(l)); // remove cabeçalho da tabela
-    const rowRe = /^(\S+)\s+(.+?)\s+(\d{4}\.\d{2}\.\d{2}|0000\.00\.00)\s+([\d.,]+)\s*(1?UN|PC|KG|MT|CJ|M)\s+([\d.,]+)\s+([\d.,]+)\s*$/;
+    // Aceita unidade em qualquer grafia (PC, PCS, PÇ, PEC, UN, KG...) e a coluna "Desc." (valor do desconto do item) quando existir.
+    const rowRe = /^(\S+)\s+(.+?)\s+(\d{4}\.\d{2}\.\d{2}|0000\.00\.00)\s+([\d.,]+)\s*(1?[A-Za-zÇÃÉçãé]{1,4})\s+([\d.,]+)\s+(?:([\d.,]+)\s+)?([\d.,]+)\s*$/;
+    const _undNorm = u => { const x=String(u||'').toUpperCase().replace(/^1(?=[A-Z])/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,''); return ({PCS:'PC',PC:'PC',PEC:'PC',PECA:'PC',PECAS:'PC',UND:'UN',UNID:'UN',UN:'UN',MTS:'MT',KGS:'KG'})[x]||x; };
     linhas.forEach(l=>{
       const m = l.match(rowRe);
       if(m){
+        const qtdI=_parseNumBR(m[4]), vuI=_parseNumBR(m[6]), totI=_parseNumBR(m[8]);
+        const descV = m[7]!=null ? _parseNumBR(m[7]) : 0;
+        const bruto = qtdI*vuI;
         itens.push({
           codigo: m[1],
           descricao: m[2].trim(),
           ncm: m[3],
-          qtd: _parseNumBR(m[4]),
-          und: m[5].replace(/^1/,''),
-          valor_unit: _parseNumBR(m[6]),
-          desconto: 0,
-          total: _parseNumBR(m[7])
+          qtd: qtdI,
+          und: _undNorm(m[5]),
+          valor_unit: vuI,
+          // o sistema guarda o desconto do item em %; calculado do valor do PDF para o total bater
+          desconto: (descV>0&&bruto>0) ? Math.round(descV/bruto*100*10000)/10000 : 0,
+          total: totI
         });
       } else if(itens.length){
         // Linha de continuação (descrição/observação do item anterior, sem números de tabela)
