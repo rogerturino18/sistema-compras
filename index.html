@@ -5495,7 +5495,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 382';
+const APP_BUILD='2026-10-26 · build 383';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -17540,6 +17540,10 @@ async function salvarPV(){
     data_inclusao:editPVId?(pedidosVenda.find(x=>x.id===editPVId)?.data_inclusao||new Date().toISOString()):new Date().toISOString()
   };
   try{
+    if(obj.numero){
+      const dup=pedidosVenda.find(p=>Number(p.numero)===Number(obj.numero)&&p.id!==editPVId);
+      if(dup){ showToast('Já existe o Pedido de Venda Nº '+obj.numero+' ('+(dup.cliente_nome||'—')+'). Nada foi gravado.','err',7000); return; }
+    }
     if(editPVId) await api('PATCH','pedidos_venda',obj,`?id=eq.${editPVId}`);
     else await api('POST','pedidos_venda',obj);
     showToast(editPVId?'PDV atualizado!':'PDV criado!');
@@ -18265,9 +18269,12 @@ async function importarPedidosVendaPDF(file){
       const pdv = await _garantirPDVdoPedido(obj.numero, obj.cliente_nome, obj.itens[0]?.descricao || '');
       obj.departamento = pdv ? (pdv.numero + (pdv.cliente ? ' — '+pdv.cliente : '')) : null;
 
-      const existente = pedidosVenda.find(p=>p.numero===obj.numero);
+      const existente = pedidosVenda.find(p=>Number(p.numero)===Number(obj.numero));
       try{
         if(existente){
+          // Reimportar atualiza itens/valores, mas não volta o status nem a data que já foram trabalhados no sistema
+          if(existente.status) obj.status=existente.status;
+          if(existente.data_inclusao) obj.data_inclusao=existente.data_inclusao;
           await api('PATCH','pedidos_venda',obj,`?id=eq.${existente.id}`);
           atualizados++;
         } else {
