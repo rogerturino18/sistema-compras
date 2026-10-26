@@ -5496,7 +5496,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 390';
+const APP_BUILD='2026-10-26 · build 391';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24797,7 +24797,7 @@ let _carregamentoSelecionadoId = null;
 
 async function expedicaoInit(){
   try{
-    carregamentos = await apiAll('carregamentos','?select=*,carregamento_itens(*),carregamento_fotos(*)&order=criado_em.desc');
+    carregamentos = await apiAll('carregamentos','?select=*,carregamento_itens(*),carregamento_fotos(id,carregamento_id,item_id,etapa,criado_por,criado_em)&order=criado_em.desc');
   }catch(e){ console.warn('[expedicao] load', e); showToast('Não consegui carregar os carregamentos: '+e.message,'err'); }
   await _sincronizarCarregamentosComPV();
   try{ await _expAutoProntos(); }catch(e){ console.warn('[expedicao] auto prontos', e); }
@@ -25067,9 +25067,20 @@ function renderExpedicao(){
     +'</div>';
 }
 
-function abrirDetalheCarregamento(id){
+// A lista de carregamentos NÃO baixa as imagens (cada foto tem ~1 MB e era baixada inteira a cada recarga).
+// Elas vêm só quando alguém abre o carregamento ou gera o romaneio.
+async function _expCarregarFotos(c){
+  if(!c||!(c.carregamento_fotos||[]).some(f=>!f.foto_base64)) return;
+  try{
+    const r=await api('GET','carregamento_fotos','',`?carregamento_id=eq.${c.id}&select=id,foto_base64`);
+    const m=new Map((r||[]).map(x=>[x.id,x.foto_base64]));
+    c.carregamento_fotos.forEach(f=>{ if(!f.foto_base64) f.foto_base64=m.get(f.id)||''; });
+  }catch(e){ console.warn('[expedicao] fotos', e); }
+}
+async function abrirDetalheCarregamento(id){
   _carregamentoSelecionadoId=id;
-  renderExpedicao();
+  await _expCarregarFotos(carregamentos.find(x=>x.id===id));
+  if(_carregamentoSelecionadoId===id) renderExpedicao();
 }
 
 function _voltarListaCarregamentos(){
@@ -25583,6 +25594,7 @@ async function _romaneioMontar(c,comFotos,w){
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const kg=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
   const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id)||{};
+  await _expCarregarFotos(c);
   const fotosArr=c.carregamento_fotos||[];
   const itens=_expOrdenarItens(c).map(it=>{
     const o=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null; const pr=o&&o._pronto?o._pronto:{};
