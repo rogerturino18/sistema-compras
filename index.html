@@ -5496,7 +5496,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 388';
+const APP_BUILD='2026-10-26 · build 389';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25149,8 +25149,8 @@ function renderExpedicaoDetalhe(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div class="form-group"><label>Responsável pelo carregamento</label><input id="exp_resp_${c.id}" value="${(c.responsavel_carregamento||'').replace(/"/g,'&quot;')}"></div>
     </div>
-    <label class="btn btn-sm" style="cursor:pointer;margin-bottom:8px;display:inline-block">📷 Foto do carregamento
-      <input type="file" accept="image/*" capture="environment" style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}',null)">
+    <label class="btn btn-sm" style="cursor:pointer;margin-bottom:8px;display:inline-block">📷 Fotos do carregamento
+      <input type="file" accept="image/*" multiple style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}',null)">
     </label>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${fotosCarreg.map(f=>`
       <div style="position:relative">
@@ -25682,23 +25682,28 @@ async function marcarItemCarregamentoPronto(itemId, pronto){
 }
 
 async function adicionarFotoItemCarregamento(input, carregamentoId, itemId){
-  const file=input.files[0];
-  if(!file) return;
-  try{
-    const dataUrl=await _comprimirFotoParaBase64(file, 1600, 0.85);
-    const [foto]=await api('POST','carregamento_fotos',{
-      carregamento_id: carregamentoId,
-      item_id: itemId,
-      etapa: itemId?'item_pronto':'carregamento',
-      foto_base64: dataUrl,
-      criado_por: usuarioLogado?.nome||'',
-    });
-    const c=carregamentos.find(x=>x.id===carregamentoId);
-    if(c){ c.carregamento_fotos=[...(c.carregamento_fotos||[]), foto]; }
-    showToast('Foto salva!');
-    renderExpedicao();
-  }catch(e){ showToast('Erro ao salvar foto: '+e.message,'err'); }
+  const files=[...(input.files||[])];
+  if(!files.length) return;
+  const c=carregamentos.find(x=>x.id===carregamentoId);
+  let ok=0, falhas=0;
+  for(let i=0;i<files.length;i++){
+    if(files.length>1) showToast('Enviando foto '+(i+1)+' de '+files.length+'…','ok',20000);
+    try{
+      const dataUrl=await _comprimirFotoParaBase64(files[i], 1600, 0.85);
+      const [foto]=await api('POST','carregamento_fotos',{
+        carregamento_id: carregamentoId,
+        item_id: itemId,
+        etapa: itemId?'item_pronto':'carregamento',
+        foto_base64: dataUrl,
+        criado_por: usuarioLogado?.nome||'',
+      });
+      if(c&&foto){ c.carregamento_fotos=[...(c.carregamento_fotos||[]), foto]; }
+      ok++;
+    }catch(e){ falhas++; console.error(e); }
+  }
   input.value='';
+  showToast(falhas?(ok+' foto(s) salva(s); '+falhas+' não puderam ser enviadas'):(ok>1?ok+' fotos salvas!':'Foto salva!'), falhas?'err':'ok');
+  renderExpedicao();
 }
 
 async function removerFotoCarregamento(fotoId){
