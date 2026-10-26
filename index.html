@@ -5496,7 +5496,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-26 · build 389';
+const APP_BUILD='2026-10-26 · build 390';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18300,7 +18300,7 @@ async function importarPedidosVendaPDF(file){
       if(clienteCadastrado && !clienteExistiaAntes) clientesCadastrados++;
 
       const pdv = await _garantirPDVdoPedido(obj.numero, obj.cliente_nome, obj.itens[0]?.descricao || '');
-      obj.departamento = pdv ? (pdv.numero + (pdv.cliente ? ' — '+pdv.cliente : '')) : null;
+      obj.departamento = pdv ? rotuloPDV(pdv,true) : null;
 
       const existente = pedidosVenda.find(p=>Number(p.numero)===Number(obj.numero));
       try{
@@ -24860,7 +24860,11 @@ function _resolverPdvDoPV(pv){
   if(!pv) return null;
   const dep=(pv.departamento||'').trim();
   if(!dep) return null;
-  return pdvs.find(p=>rotuloPDV(p,true)===dep) || pdvs.find(p=>rotuloPDV(p,false)===dep) || null;
+  const exato=pdvs.find(p=>rotuloPDV(p,true)===dep) || pdvs.find(p=>rotuloPDV(p,false)===dep);
+  if(exato) return exato;
+  // tolera "93 — CLIENTE" (sem o prefixo PDV): casa pelo número
+  const n=(dep.match(/^(?:PDV\s*)?(\d+)\b/i)||[])[1];
+  return n ? (pdvs.find(p=>String(p.numero||'').replace(/\D/g,'')===n) || null) : null;
 }
 
 // Monta o checklist a partir da sequência REAL de produção (as ordens desse
@@ -24908,7 +24912,14 @@ function _itensDeProducaoParaCarregamento(carregamentoId, pdvId, pv){
 // Expedição sem precisar cadastrar nada manualmente. Também reaproveita
 // carregamentos mais antigos (criados antes do PDV/sequência de produção
 // existir aqui) enquanto nenhum item deles tiver sido fotografado ainda.
-async function _sincronizarCarregamentosComPV(){
+let _syncCarregPromessa=null;
+// Só uma sincronização por vez: duas execuções simultâneas (ex.: duas recargas seguidas) criavam o carregamento em dobro.
+function _sincronizarCarregamentosComPV(){
+  if(_syncCarregPromessa) return _syncCarregPromessa;
+  _syncCarregPromessa=_sincronizarCarregamentosComPV_().finally(()=>{ _syncCarregPromessa=null; });
+  return _syncCarregPromessa;
+}
+async function _sincronizarCarregamentosComPV_(){
   const elegiveis=(pedidosVenda||[]).filter(p=>['Aprovado','Em Produção'].includes(p.status));
   const semCarregamento=elegiveis.filter(p=>!carregamentos.some(c=>c.pedido_venda_id===p.id));
   let maxNum=carregamentos.length?Math.max(...carregamentos.map(c=>c.numero||0)):0;
@@ -24997,7 +25008,8 @@ function _cardExpedicao(c){
   const itensArr=c.carregamento_itens||[];
   const prontos=itensArr.filter(i=>i.pronto).length;
   const pct=itensArr.length?Math.round(prontos/itensArr.length*100):0;
-  const rotulo=(c.pdv_numero||`Carreg. Nº ${c.numero||'—'}`).replace(/</g,'&lt;');
+  const _pvDoCard=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id);
+  const rotulo=String(c.pdv_numero||(_pvDoCard?.numero?`PDV ${_pvDoCard.numero}`:`Carreg. Nº ${c.numero||'—'}`)).replace(/</g,'&lt;');
   return `<div onclick="abrirDetalheCarregamento('${c.id}')" style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:14px;cursor:pointer;transition:box-shadow .15s,transform .15s"
     onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)';this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='none';this.style.transform='none'">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
@@ -25132,7 +25144,7 @@ function renderExpedicaoDetalhe(){
   detWrap.innerHTML=`
     <button class="btn btn-sm" onclick="_voltarListaCarregamentos()" style="margin-bottom:12px">← Voltar à Expedição</button>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 ${(c.pdv_numero||`Carregamento Nº ${c.numero||'—'}`).replace(/</g,'&lt;')} — ${(c.cliente_nome||'').replace(/</g,'&lt;')}</h2>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 ${String(c.pdv_numero||((pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id)?.numero?'PDV '+(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id).numero:`Carregamento Nº ${c.numero||'—'}`)).replace(/</g,'&lt;')} — ${(c.cliente_nome||'').replace(/</g,'&lt;')}</h2>
       ${expedStatusBadge(c.status)}
     </div>
     <div style="font-size:12px;color:var(--gray);margin-bottom:16px">${itensArr.filter(i=>i.pronto).length}/${itensArr.length} itens com foto${pesoTotalPed>0?` · ⚖️ peso total conferido: <b>${pesoTotalPed.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} kg</b>`:''}</div>
