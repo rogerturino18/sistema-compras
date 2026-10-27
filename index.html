@@ -2776,7 +2776,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 Expedição</h2>
         <div style="font-size:12px;color:var(--gray);margin-top:2px">Assim que um Pedido de Venda é aprovado ou entra em produção, ele aparece aqui sozinho — não precisa cadastrar nada à parte.</div>
       </div>
-      <button class="btn btn-sm" id="expSelBtn" onclick="_expSelAlternar()" title="Marcar vários pedidos que já foram embora antes de usar o sistema">☑️ Marcar já expedidos</button>
+      <button class="btn btn-sm" id="expSelBtn" onclick="_expSelAlternar()" title="Marcar vários pedidos como enviados de uma vez">☑️ Marcar como enviados</button>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#546e7a;cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="expedMostrarEnviados" onchange="renderExpedicao()" style="width:15px;height:15px;cursor:pointer"> Mostrar enviados
       </label>
@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-27 · build 393';
+const APP_BUILD='2026-10-27 · build 394';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25205,10 +25205,9 @@ function renderExpedicaoDetalhe(){
       </div>`).join('')}</div>`:''}
     `:''}
 
-    ${c.status==='Pronto p/ Envio'?`<button class="btn primary" onclick="finalizarCarregamento('${c.id}')">✅ Marcar como Enviado</button>`:''}
-    ${c.status!=='Enviado'?`<button class="btn" onclick="expJaExpedido(['${c.id}'])" title="Para pedidos que já foram embora antes de usar o sistema">🚚 Já expedido</button>`:''}
+    ${c.status!=='Enviado'?`<button class="btn primary" onclick="expJaExpedido(['${c.id}'])">✅ Marcar como Enviado</button>`:''}
     ${c.status==='Enviado'?`<div style="background:#e8f5e9;border-radius:8px;padding:10px 14px;color:#2e7d32;font-size:13px;font-weight:600;margin-bottom:10px">✓ Enviado em ${c.carregado_em?new Date(c.carregado_em).toLocaleString('pt-BR'):'—'}</div>
-    ${c.pedido_venda_id?`<button class="btn" onclick="marcarPVEntregue('${c.pedido_venda_id}')">🏷️ Marcar Pedido de Venda como Entregue</button>`:''}`:''}
+    ${c.pedido_venda_id&&(pedidosVenda.find(p=>p.id===c.pedido_venda_id)||{}).status!=='Entregue'?`<button class="btn" onclick="marcarPVEntregue('${c.pedido_venda_id}')">🏷️ Marcar Pedido de Venda como Entregue</button>`:''}`:''}
 
     <div style="margin-top:20px"><button class="btn danger btn-sm" onclick="excluirCarregamento('${c.id}')">🗑️ Excluir carregamento</button></div>
   `;
@@ -25814,14 +25813,14 @@ function _expSelToggle(id){
 }
 function _expSelBarra(){
   const b=document.getElementById('expSelBarra'), btn=document.getElementById('expSelBtn');
-  if(btn) btn.textContent=_expSelModo?'✖ Cancelar seleção':'☑️ Marcar já expedidos';
+  if(btn) btn.textContent=_expSelModo?'✖ Cancelar seleção':'☑️ Marcar como enviados';
   if(!b) return;
   if(!_expSelModo){ b.style.display='none'; return; }
   b.style.display='flex';
-  b.innerHTML=`<span style="font-size:13px;color:#6d4c00;flex:1;min-width:200px">Toque nos pedidos que <b>já foram embora</b>. Eles serão marcados como Enviado e o pedido como Entregue.</span>
+  b.innerHTML=`<span style="font-size:13px;color:#6d4c00;flex:1;min-width:200px">Toque nos pedidos que <b>já foram enviados</b>. Eles ficam como Enviado e o pedido de venda como Entregue.</span>
     <b style="font-size:13px">${_expSel.size} selecionado${_expSel.size!==1?'s':''}</b>
     <button class="btn btn-sm" onclick="_expSelTodos()">Selecionar todos</button>
-    <button class="btn primary btn-sm" ${_expSel.size?'':'disabled'} onclick="expJaExpedido([..._expSel])">🚚 Marcar como já expedido</button>`;
+    <button class="btn primary btn-sm" ${_expSel.size?'':'disabled'} onclick="expJaExpedido([..._expSel])">✅ Marcar como Enviado</button>`;
 }
 function _expSelTodos(){
   const b=(document.getElementById('buscaExped')?.value||'').toLowerCase();
@@ -25838,11 +25837,11 @@ function expJaExpedido(ids){
   const hoje=new Date().toISOString().slice(0,10);
   const nomes=lista.slice(0,8).map(c=>{ const pv=pedidosVenda.find(p=>p.id===c.pedido_venda_id); return (c.pdv_numero||(pv?'PDV '+pv.numero:'Carreg. '+c.numero))+' — '+(c.cliente_nome||''); });
   _modalDin('modalJaExpedido',{
-    titulo:'<h3 style="margin:0;font-size:16px">🚚 Marcar como já expedido</h3>',
-    corpo:`<div style="font-size:13px;color:#455a64;margin-bottom:10px">${lista.length} pedido${lista.length>1?'s':''} que já saiu${lista.length>1?'ram':''} da fábrica:</div>
+    titulo:'<h3 style="margin:0;font-size:16px">✅ Marcar como Enviado</h3>',
+    corpo:`<div style="font-size:13px;color:#455a64;margin-bottom:10px">${lista.length} pedido${lista.length>1?'s':''} ${lista.length>1?'serão marcados':'será marcado'} como enviado${lista.length>1?'s':''}:</div>
       <div style="font-size:12px;background:#f5f5f5;border-radius:8px;padding:8px 12px;margin-bottom:12px;max-height:150px;overflow:auto">${nomes.map(n=>'• '+n.replace(/</g,'&lt;')).join('<br>')}${lista.length>8?`<br>… e mais ${lista.length-8}`:''}</div>
-      <div class="form-group"><label>Data em que saiu (aproximada)</label><input type="date" id="jeData" value="${hoje}" max="${hoje}"></div>
-      <div style="font-size:12px;color:#78909c;margin-bottom:12px">Os carregamentos ficam como <b>Enviado</b> (aparecem em "Mostrar enviados") e os pedidos de venda como <b>Entregue</b>. Não voltam mais sozinhos.</div>
+      <div class="form-group"><label>Data do envio</label><input type="date" id="jeData" value="${hoje}" max="${hoje}"></div>
+      <div style="font-size:12px;color:#78909c;margin-bottom:12px">O carregamento fica como <b>Enviado</b> (veja em "Mostrar enviados") e o pedido de venda como <b>Entregue</b>. Não volta mais sozinho.</div>
       <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="fecharModal('modalJaExpedido')">Cancelar</button><button class="btn primary" id="jeOk" onclick="_expJaExpedidoSalvar(${JSON.stringify(lista.map(c=>c.id)).replace(/"/g,'&quot;')})">Confirmar</button></div>`
   },420);
 }
@@ -25854,11 +25853,12 @@ async function _expJaExpedidoSalvar(ids){
   for(const id of ids){
     const c=carregamentos.find(x=>x.id===id); if(!c) continue;
     try{
-      const obs='Expedido antes do uso do sistema'+(c.observacoes?' · '+c.observacoes:'');
-      await api('PATCH','carregamentos',{status:'Enviado',carregado_em:quando,observacoes:obs},`?id=eq.${id}&select=id`);
+      const resp=document.getElementById(`exp_resp_${id}`)?.value;
+      const patchC={status:'Enviado',carregado_em:quando}; if(resp!=null&&resp!=='') patchC.responsavel_carregamento=resp;
+      await api('PATCH','carregamentos',patchC,`?id=eq.${id}&select=id`);
       await api('PATCH','carregamento_itens',{carregado:true,carregado_em:quando},`?carregamento_id=eq.${id}&select=id`);
       if(c.pedido_venda_id) await api('PATCH','pedidos_venda',{status:'Entregue'},`?id=eq.${c.pedido_venda_id}&select=id`);
-      Object.assign(c,{status:'Enviado',carregado_em:quando,observacoes:obs});
+      Object.assign(c,patchC);
       (c.carregamento_itens||[]).forEach(it=>{ it.carregado=true; it.carregado_em=quando; });
       const pv=pedidosVenda.find(p=>p.id===c.pedido_venda_id); if(pv) pv.status='Entregue';
       ok++;
@@ -25867,13 +25867,13 @@ async function _expJaExpedidoSalvar(ids){
   fecharModal('modalJaExpedido');
   _expSelModo=false; _expSel.clear(); _expSelBarra();
   if(_carregamentoSelecionadoId && ids.includes(_carregamentoSelecionadoId)) _voltarListaCarregamentos(); else renderExpedicao();
-  showToast(falhas.length?`${ok} marcado(s). Falhou: ${falhas.join(', ')}`:`${ok} pedido${ok!==1?'s':''} marcado${ok!==1?'s':''} como já expedido`,falhas.length?'err':undefined);
+  showToast(falhas.length?`${ok} marcado(s). Falhou: ${falhas.join(', ')}`:`${ok} pedido${ok!==1?'s':''} marcado${ok!==1?'s':''} como Enviado`,falhas.length?'err':undefined);
 }
 
 async function excluirCarregamento(id){
   const _c0=carregamentos.find(x=>x.id===id); const _pv0=_c0&&pedidosVenda.find(p=>p.id===_c0.pedido_venda_id);
   const _volta=_pv0&&['Aprovado','Em Produção'].includes(_pv0.status);
-  if(!confirm(_volta?'ATENÇÃO: o Pedido de Venda ainda está '+_pv0.status+', então este carregamento VAI VOLTAR sozinho.\n\nSe o pedido já foi embora, cancele e use o botão "🚚 Já expedido".\n\nExcluir mesmo assim?':'Excluir este carregamento? Essa ação não pode ser desfeita.')) return;
+  if(!confirm(_volta?'ATENÇÃO: o Pedido de Venda ainda está '+_pv0.status+', então este carregamento VAI VOLTAR sozinho.\n\nSe o pedido já foi embora, cancele e use "Marcar como Enviado".\n\nExcluir mesmo assim?':'Excluir este carregamento? Essa ação não pode ser desfeita.')) return;
   try{
     await api('DELETE','carregamentos',null,`?id=eq.${id}`);
     carregamentos=carregamentos.filter(c=>c.id!==id);
