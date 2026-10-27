@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-27 · build 394';
+const APP_BUILD='2026-10-27 · build 395';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25205,7 +25205,7 @@ function renderExpedicaoDetalhe(){
       </div>`).join('')}</div>`:''}
     `:''}
 
-    ${c.status!=='Enviado'?`<button class="btn primary" onclick="expJaExpedido(['${c.id}'])">✅ Marcar como Enviado</button>`:''}
+    ${c.status!=='Enviado'?`<div style="margin-top:16px"><button class="btn primary" onclick="expJaExpedido(['${c.id}'])">✅ Marcar como Enviado</button></div>`:''}
     ${c.status==='Enviado'?`<div style="background:#e8f5e9;border-radius:8px;padding:10px 14px;color:#2e7d32;font-size:13px;font-weight:600;margin-bottom:10px">✓ Enviado em ${c.carregado_em?new Date(c.carregado_em).toLocaleString('pt-BR'):'—'}</div>
     ${c.pedido_venda_id&&(pedidosVenda.find(p=>p.id===c.pedido_venda_id)||{}).status!=='Entregue'?`<button class="btn" onclick="marcarPVEntregue('${c.pedido_venda_id}')">🏷️ Marcar Pedido de Venda como Entregue</button>`:''}`:''}
 
