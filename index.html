@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-29 · build 401';
+const APP_BUILD='2026-10-29 · build 402';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25221,7 +25221,7 @@ function renderExpedicaoDetalhe(){
     const rotuloItem=`${it.numero_ordem?`Ordem Nº ${it.numero_ordem} · `:''}${it.item_desenho_id?'Comercial'+(((itensDesenhoRecebido||[]).find(x=>x.id===it.item_desenho_id)||{}).compra_nf_numero?' (NF '+((itensDesenhoRecebido||[]).find(x=>x.id===it.item_desenho_id)).compra_nf_numero+')':'')+' · ':''}${it.desenho?`[${it.desenho}] `:''}${it.descricao||'—'}`;
     const ordItem=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null;
     const pr=ordItem&&ordItem._pronto?ordItem._pronto:null;
-    const pesoUn=pr&&pr.peso_pronto!=null?Number(pr.peso_pronto):null;
+    const pesoUn=ordItem?(pr&&pr.peso_pronto!=null?Number(pr.peso_pronto):null):(it.peso_unit!=null&&it.peso_unit!==''?Number(it.peso_unit):null);
     if(pesoUn!=null) pesoTotalPed+=pesoUn*(Number(it.qtd)||0);
     const fmtKg=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
     const blocoFicha=!ordItem?'':(pr&&(pr.foto_pronto||pesoUn!=null)
@@ -25238,7 +25238,7 @@ function renderExpedicaoDetalhe(){
     const fotoPrincipal=(pr&&pr.foto_pronto)||(fotos[0]&&fotos[0].foto_base64)||null;
     const temFoto=!!fotoPrincipal;
     const vazio=!ordItem?'<span style="color:#b0bec5">sem foto</span>':(estado==='erro'?'<span style="color:#c62828">⚠️ não carregou — <a href="javascript:void(0)" onclick="_expCarregarProntosDet(carregamentos.find(x=>x.id===\''+c.id+'\'),true)">tentar de novo</a></span>':(!pr&&estado!=='ok'?'<span style="color:#78909c">⏳ carregando…</span>':'<span style="color:#b0bec5">sem foto na ficha</span>'));
-    const pesoLinha=pesoUn!=null?`⚖️ <b>${fmtKg(pesoUn)} kg</b>${(Number(it.qtd)||0)>1?` · total <b>${fmtKg(pesoUn*(Number(it.qtd)||0))} kg</b>`:''}`:'<span style="color:#b0bec5">peso não informado</span>';
+    const pesoLinha=!ordItem?`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">⚖️ <input value="${pesoUn!=null?String(pesoUn).replace('.',','):''}" placeholder="peso por peça" inputmode="decimal" style="width:92px;padding:4px 6px;border:1px solid #cfd8dc;border-radius:6px;font-size:12px;text-align:right" onchange="salvarPesoItemCarregamento('${it.id}',this.value)"> kg${pesoUn!=null&&(Number(it.qtd)||0)>1?` · total <b>${fmtKg(pesoUn*(Number(it.qtd)||0))} kg</b>`:''}</div>`:pesoUn!=null?`⚖️ <b>${fmtKg(pesoUn)} kg</b>${(Number(it.qtd)||0)>1?` · total <b>${fmtKg(pesoUn*(Number(it.qtd)||0))} kg</b>`:''}`:'<span style="color:#b0bec5">peso não informado</span>';
     return `<div style="border:1px solid ${it.pronto?'#a5d6a7':'#e0e0e0'};border-radius:12px;overflow:hidden;background:${it.pronto?'#f1f8f4':'#fff'};display:flex;flex-direction:column">
       <div style="position:relative;aspect-ratio:4/3;background:#eceff1;display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center;padding:6px">
         ${temFoto?`<img src="${fotoPrincipal}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;cursor:zoom-in" title="Clique para ampliar" onclick="_lightboxFoto(this.src)">`:vazio}
@@ -25617,7 +25617,7 @@ async function toggleTransportadora(id){
 let _romVol=[];
 function _romNum(v){ const n=pesosNum(String(v==null?'':v).trim()); return (n==null||isNaN(n))?0:n; }
 function _expPesoLiquido(c){
-  return (c.carregamento_itens||[]).reduce((a,it)=>{ const o=it.ordem_producao_id&&ordens.find(x=>x.id===it.ordem_producao_id); const pr=o&&o._pronto; return a+((pr&&pr.peso_pronto!=null)?Number(pr.peso_pronto)*(Number(it.qtd)||0):0); },0);
+  return (c.carregamento_itens||[]).reduce((a,it)=>{ const o=it.ordem_producao_id&&ordens.find(x=>x.id===it.ordem_producao_id); const pr=o&&o._pronto; const pu=o?((pr&&pr.peso_pronto!=null)?Number(pr.peso_pronto):null):(it.peso_unit!=null?Number(it.peso_unit):null); return a+(pu!=null?pu*(Number(it.qtd)||0):0); },0);
 }
 const _kgF=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
 let _romItensCar=[];
@@ -25766,7 +25766,7 @@ async function _romaneioMontar(c,comFotos,w){
   const itens=_expOrdenarItens(c).map(it=>{
     const o=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null; const pr=o&&o._pronto?o._pronto:{};
     const foto=pr.foto_pronto||(fotosArr.find(f=>f.item_id===it.id&&f.etapa==='item_pronto')||{}).foto_base64||null;
-    const peso=pr.peso_pronto!=null?Number(pr.peso_pronto):null;
+    const peso=o?(pr.peso_pronto!=null?Number(pr.peso_pronto):null):(it.peso_unit!=null?Number(it.peso_unit):null);
     return {it,foto,peso,qtd:Number(it.qtd)||0};
   });
   // fotos leves (miniatura na tabela + foto média na galeria), uma de cada vez para não travar o navegador
@@ -25851,6 +25851,15 @@ async function _romaneioMontar(c,comFotos,w){
 }
 // ===== FIM ROMANEIO =====
 
+async function salvarPesoItemCarregamento(itemId,valor){
+  const txt=String(valor||'').trim(); const v=txt===''?null:_romNum(txt);
+  if(txt!==''&&!(v>0)){ showToast('Peso inválido','err'); return renderExpedicaoDetalhe(); }
+  try{
+    await api('PATCH','carregamento_itens',{peso_unit:v},`?id=eq.${itemId}&select=id`);
+    carregamentos.forEach(c=>(c.carregamento_itens||[]).forEach(i=>{ if(i.id===itemId) i.peso_unit=v; }));
+    renderExpedicaoDetalhe();
+  }catch(e){ showToast('Erro ao salvar o peso: '+e.message,'err'); }
+}
 async function marcarItemCarregamentoPronto(itemId, pronto){
   try{
     await api('PATCH','carregamento_itens',{pronto, pronto_em: pronto?new Date().toISOString():null, pronto_por: pronto?(usuarioLogado?.nome||''):null},`?id=eq.${itemId}`);
