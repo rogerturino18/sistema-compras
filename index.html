@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-29 · build 398';
+const APP_BUILD='2026-10-29 · build 399';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25445,6 +25445,25 @@ function _nfeOrdemSugerida(desc,cands){
   cands.forEach(o=>{ const po=pal(o.descricao); if(!po.length) return; const dn=' '+d+' '; const c=po.filter(w=>dn.includes(' '+w+' ')).length; const f=c/po.length; if(f===1&&c>sc){ sc=c; melhor=o; } });
   return melhor;
 }
+// Situação do vínculo da NF com ordens/itens comerciais: 'na' (nota de estoque), 'vinculada' ou 'pendente'
+function _nfeVinculoEstado(n){
+  if(!n||n.status!=='Entrada Realizada'||n.tipo_entrada==='estoque') return 'na';
+  const num=String(n.numero_nfe||'').trim(), forn=String(n.fornecedor||'').replace(/\s+/g,' ').trim().toUpperCase();
+  const casa=x=>{
+    if(x.compra_nfe_id&&x.compra_nfe_id===n.id) return true;
+    if(!num||!x.compra_nf_numero) return false;
+    if(!String(x.compra_nf_numero).split('+').map(t=>t.trim()).includes(num)) return false;
+    const f=String(x.compra_fornecedor||'').replace(/\s+/g,' ').trim().toUpperCase(); return !f||!forn||f===forn;
+  };
+  return ((ordens||[]).some(casa)||(itensDesenhoRecebido||[]).some(casa))?'vinculada':'pendente';
+}
+function _nfeBotaoVincular(n,fechar){
+  const e=_nfeVinculoEstado(n); if(e==='na') return '';
+  const clk=(fechar?"fecharModal('modalVerNFe');":'')+"abrirVincularNFe('"+n.id+"')";
+  return e==='vinculada'
+    ?'<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;font-size:11px" onclick="'+clk+'" title="Já vinculada às ordens. Clique para revisar ou vincular mais itens">✓ Vinculada</button>'
+    :'<button class="btn btn-sm" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-size:11px" onclick="'+clk+'" title="Vincular itens da nota às ordens de produção">🔗 Vincular</button>';
+}
 function _nfeOrdemSugeridaNum(desc,cands){
   const d=_oN(desc); if(!d) return null;
   const m=d.match(/barra fresada\s*0?(\d)\b/);
@@ -29150,7 +29169,7 @@ function renderEntradaNFe(){
         <button class="btn btn-sm" style="background:#546e7a;color:#fff;border-color:#546e7a;font-size:11px" onclick="verDetalheNFe('${n.id}')" title="Ver detalhes / Imprimir">👁 Ver</button>
         ${n.status!=='Entrada Realizada'?`<button class="btn btn-sm" style="background:#1565c0;color:#fff;border-color:#1565c0;font-size:11px" onclick="abrirModalNFe('${n.id}')">✏️ Editar</button>`:''}
         ${n.status==='Pendente'||!n.status?`<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:11px" onclick="confirmarEntradaRapida('${n.id}')">✅ Entrada</button>`:''}
-        ${n.status==='Entrada Realizada'?`<button class="btn btn-sm" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-size:11px" onclick="abrirVincularNFe('${n.id}')" title="Vincular itens da nota às ordens de produção">🔗 Vincular</button>`:''}
+        ${_nfeBotaoVincular(n,false)}
         <button class="btn btn-sm danger" onclick="deletarNFe('${n.id}')" title="Excluir">🗑</button>
       </td>
     </tr>`;
@@ -29488,7 +29507,7 @@ function verDetalheNFe(id){
   </div>
   <div style="padding:12px 20px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end">
     ${n.status==='Pendente'||!n.status?`<button class="btn primary" onclick="confirmarEntradaRapida('${n.id}');fecharModal('modalVerNFe')">✅ Confirmar Entrada</button>`:''}
-    ${n.status==='Entrada Realizada'?`<button class="btn" onclick="fecharModal('modalVerNFe');abrirVincularNFe('${n.id}')">🔗 Vincular a ordens</button>`:''}
+    ${_nfeBotaoVincular(n,true)}
     <button class="btn" onclick="imprimirDetalheNFe()">🖨️ Imprimir / PDF</button>
     <button class="btn" onclick="fecharModal('modalVerNFe')">Fechar</button>
   </div>`;
