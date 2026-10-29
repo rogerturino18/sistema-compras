@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-29 · build 399';
+const APP_BUILD='2026-10-29 · build 400';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25352,7 +25352,7 @@ function _modalDin(id,html,largura){
 async function _aplicarOrigemOrdem(o,d){
   const qc=Math.max(0,Number(d.qc)||0), qe=Math.max(0,Number(d.qe)||0);
   const patch={qtd_comprada:qc, compra_fornecedor:qc?(d.forn||null):null, compra_nf_numero:qc?(d.nf||null):null, compra_nf_data:qc?(d.nfdata||null):null,
-    compra_valor_unit:qc&&d.vu!=null&&d.vu!==''?Number(d.vu):null, compra_nfe_id:qc?(d.nfeId||null):null, qtd_estoque:qe, estoque_item_id:qe?(d.itemId||null):null};
+    compra_valor_unit:qc&&d.vu!=null&&d.vu!==''?Number(d.vu):null, compra_nfe_id:qc?(d.nfeId||null):null, compra_nfs:qc?(d.nfs||[{nfe_id:d.nfeId||null,nf:d.nf||null,forn:d.forn||null,data:d.nfdata||null,qtd:qc,vu:d.vu!=null&&d.vu!==''?Number(d.vu):null}]):[], qtd_estoque:qe, estoque_item_id:qe?(d.itemId||null):null};
   let movAtual=o.estoque_mov_id||null;
   if(movAtual && (!qe || d.itemId!==o.estoque_item_id || qe!==Number(o.qtd_estoque) || !d.baixa)){
     await api('DELETE','estoque_movimentacoes','',`?id=eq.${movAtual}`);
@@ -25445,16 +25445,25 @@ function _nfeOrdemSugerida(desc,cands){
   cands.forEach(o=>{ const po=pal(o.descricao); if(!po.length) return; const dn=' '+d+' '; const c=po.filter(w=>dn.includes(' '+w+' ')).length; const f=c/po.length; if(f===1&&c>sc){ sc=c; melhor=o; } });
   return melhor;
 }
+// Notas de compra de uma ordem/item comercial: lista [{nfe_id,nf,forn,data,qtd,vu}] (compra_nfs).
+// Vincular a mesma nota de novo SUBSTITUI a entrada dela; as outras notas ficam.
+function _comprasNfs(x){
+  let a=x&&x.compra_nfs; if(typeof a==='string'){ try{ a=JSON.parse(a); }catch(e){ a=[]; } }
+  if(Array.isArray(a)&&a.length) return a;
+  return (x&&x.compra_nfe_id&&Number(x.qtd_comprada)>0)?[{nfe_id:x.compra_nfe_id,nf:x.compra_nf_numero,forn:x.compra_fornecedor,data:x.compra_nf_data,qtd:Number(x.qtd_comprada),vu:x.compra_valor_unit}]:[];
+}
+function _comprasResumo(arr){
+  const qtd=arr.reduce((a,e)=>a+(Number(e.qtd)||0),0);
+  const comVu=arr.every(e=>e.vu!=null&&e.vu!=='');
+  const vu=comVu&&qtd?Math.round(arr.reduce((a,e)=>a+(Number(e.qtd)||0)*Number(e.vu),0)/qtd*100)/100:null;
+  const forn=[...new Set(arr.map(e=>e.forn).filter(Boolean))].join(' / ');
+  const ult=arr[arr.length-1]||{};
+  return {qtd,nf:arr.map(e=>e.nf).join(' + '),forn:forn||null,vu,nfeId:ult.nfe_id||null,data:ult.data||null};
+}
 // Situação do vínculo da NF com ordens/itens comerciais: 'na' (nota de estoque), 'vinculada' ou 'pendente'
 function _nfeVinculoEstado(n){
   if(!n||n.status!=='Entrada Realizada'||n.tipo_entrada==='estoque') return 'na';
-  const num=String(n.numero_nfe||'').trim(), forn=String(n.fornecedor||'').replace(/\s+/g,' ').trim().toUpperCase();
-  const casa=x=>{
-    if(x.compra_nfe_id&&x.compra_nfe_id===n.id) return true;
-    if(!num||!x.compra_nf_numero) return false;
-    if(!String(x.compra_nf_numero).split('+').map(t=>t.trim()).includes(num)) return false;
-    const f=String(x.compra_fornecedor||'').replace(/\s+/g,' ').trim().toUpperCase(); return !f||!forn||f===forn;
-  };
+  const casa=x=>_comprasNfs(x).some(e=>e.nfe_id===n.id);
   return ((ordens||[]).some(casa)||(itensDesenhoRecebido||[]).some(casa))?'vinculada':'pendente';
 }
 function _nfeBotaoVincular(n,fechar){
@@ -25506,7 +25515,7 @@ function _vincRender(){
   itens.forEach((it,i)=>_vincLinha(i));
 }
 // peças que a ordem já tem compradas de OUTRA nota (para somar em vez de substituir)
-function _vincJa(o){ const n=(window._vincNfe||{}).n; return (o&&n&&o.compra_nfe_id&&o.compra_nfe_id!==n.id)?(Number(o.qtd_comprada)||0):0; }
+function _vincJa(o){ const n=(window._vincNfe||{}).n; return (o&&n)?_comprasNfs(o).filter(e=>e.nfe_id!==n.id).reduce((a,e)=>a+(Number(e.qtd)||0),0):0; }
 function _vincLinha(i){
   const {itens}=window._vincNfe||{}; const it=itens&&itens[i]; if(!it) return;
   const oid=document.getElementById('vn_o_'+i)?.value; const box=document.getElementById('vn_rest_'+i); if(!box) return;
@@ -25547,7 +25556,8 @@ async function _vincSalvar(){
     const resta=(Number(o.quantidade)||0)-ja-q; const origem=document.getElementById('vn_orig_'+i)?.value||'prod';
     let qe=0,itemId=null,baixa=false;
     if(resta>0&&origem==='est'){ itemId=document.getElementById('vn_ei_'+i)?.value||null; if(!itemId){ showToast('Escolha o item do estoque para "'+it.descricao+'"','err'); return; } qe=resta; baixa=!!document.getElementById('vn_bx_'+i)?.checked; }
-    tarefas.push({o,d:{qc:ja+q,forn:n.fornecedor,nf:ja?(o.compra_nf_numero+' + '+n.numero_nfe):n.numero_nfe,nfdata:n.dt_emissao||n.data_emissao||null,vu:ja&&o.compra_valor_unit!=null?Math.round(((Number(o.compra_valor_unit)*ja+it.vu*q)/(ja+q))*100)/100:it.vu,nfeId:n.id,qe,itemId,baixa,limpaTerc:!!(o.terceirizado_nome&&_oN(o.terceirizado_nome).split(' ')[0]&&_oN(n.fornecedor||'').includes(_oN(o.terceirizado_nome).split(' ')[0].slice(0,5)))}});
+    const _outras=_comprasNfs(o).filter(e=>e.nfe_id!==n.id); const _nfs=[..._outras,{nfe_id:n.id,nf:n.numero_nfe,forn:n.fornecedor||null,data:n.dt_emissao||n.data_emissao||null,qtd:q,vu:it.vu}]; const _res=_comprasResumo(_nfs);
+    tarefas.push({o,d:{nfs:_nfs,qc:_res.qtd,forn:_res.forn,nf:_res.nf,nfdata:_res.data,vu:_res.vu,nfeId:_res.nfeId,qe,itemId,baixa,limpaTerc:!!(o.terceirizado_nome&&_oN(o.terceirizado_nome).split(' ')[0]&&_oN(n.fornecedor||'').includes(_oN(o.terceirizado_nome).split(' ')[0].slice(0,5)))}});
   }
   if(!tarefas.length&&!comerciais.length){ showToast('Escolha ao menos uma ordem ou item','err'); return; }
   const aviso=tarefas.filter(t=>t.d.limpaTerc).length; const baixas=tarefas.filter(t=>t.d.qe&&t.d.baixa).length;
@@ -25556,8 +25566,8 @@ async function _vincSalvar(){
   try{
     for(const t of tarefas){ await _aplicarOrigemOrdem(t.o,t.d); feitos++; }
     for(const c of comerciais){
-      const jaC=(c.ci.compra_nfe_id&&c.ci.compra_nfe_id!==n.id)?(Number(c.ci.qtd_comprada)||0):0;
-      const patch={qtd_comprada:jaC+c.qn,compra_fornecedor:n.fornecedor||null,compra_nf_numero:jaC?(c.ci.compra_nf_numero+' + '+n.numero_nfe):n.numero_nfe,compra_nf_data:n.dt_emissao||n.data_emissao||null,compra_valor_unit:c.it.vu,compra_nfe_id:n.id};
+      const outrasC=_comprasNfs(c.ci).filter(e=>e.nfe_id!==n.id); const nfsC=[...outrasC,{nfe_id:n.id,nf:n.numero_nfe,forn:n.fornecedor||null,data:n.dt_emissao||n.data_emissao||null,qtd:c.qn,vu:c.it.vu}]; const rC=_comprasResumo(nfsC);
+      const patch={qtd_comprada:rC.qtd,compra_fornecedor:rC.forn,compra_nf_numero:rC.nf,compra_nf_data:rC.data,compra_valor_unit:rC.vu,compra_nfe_id:rC.nfeId,compra_nfs:nfsC};
       await api('PATCH','itens_desenho_recebido',patch,`?id=eq.${c.ci.id}&select=id`); Object.assign(c.ci,patch); feitos++;
     }
     fecharModal('modalVincularNFe'); showToast('✅ '+feitos+' item(ns) vinculado(s) à NF '+n.numero_nfe); if(typeof renderOrdens==='function') renderOrdens();
