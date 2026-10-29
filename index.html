@@ -2553,7 +2553,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <h3 style="font-size:14px;font-weight:700;margin:0">🔧 Operadores por máquina</h3>
-        <button class="btn primary btn-sm" onclick="abrirModalOperador(null)">+ Novo</button>
+        <span><button class="btn btn-sm" onclick="abrirModalMaquinas()" title="Incluir ou remover máquinas">⚙️ Máquinas</button> <button class="btn primary btn-sm" onclick="abrirModalOperador(null)">+ Novo</button></span>
       </div>
       <div id="listaOperadoresMaquina"></div>
     </div>
@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-27 · build 395';
+const APP_BUILD='2026-10-29 · build 396';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -5967,6 +5967,7 @@ async function loadAll(silencioso, tabelas){
     // Não reconstrói os cards enquanto o usuário abre um grupo na dashboard.
     // Isso evitava que um carregamento assíncrono cancelasse um clique em andamento.
     if(!_dashGrupoAtivo) renderHomeTiles();
+    if(typeof carregarMaquinasExtras==='function') carregarMaquinasExtras();
     if(typeof carregarConfigTelegram==='function') carregarConfigTelegram().then(()=>{ if(typeof checarDigestDiario==='function') checarDigestDiario(); if(typeof checarDigestMinimoDiario==='function') checarDigestMinimoDiario(); });
     // Verifica requisições pendentes de aprovação sempre que os dados carregam
     setTimeout(()=>{ if(typeof verificarAprovacoesPendentes==='function') verificarAprovacoesPendentes(); }, 200);
@@ -9082,6 +9083,52 @@ const COR_OPERACAO={
   'Serra':'#1565c0','Torno':'#1565c0','Plaina':'#00838f','Centro de Usinagem':'#e65100',
   'Furação':'#558b2f','Freza':'#6a1b9a','Solda':'#c62828','Montagem':'#2e7d32','Terceirizado':'#ef6c00'
 };
+
+// Máquinas acrescentadas pela tela (as 8 acima são fixas). Ficam em app_config 'sl_maquinas'.
+let _maquinasExtras=[];
+const _MAQ_BASE=OPERACOES_PROD.length;
+function _aplicarMaquinasExtras(){
+  OPERACOES_PROD.length=_MAQ_BASE;
+  _maquinasExtras.forEach(m=>{ if(!OPERACOES_PROD.includes(m.nome)){ OPERACOES_PROD.push(m.nome); COR_OPERACAO[m.nome]=m.cor||'#455a64'; } });
+}
+async function carregarMaquinasExtras(){
+  try{
+    const r=await api('GET','app_config','','?chave=eq.sl_maquinas').catch(()=>null);
+    const lista=r&&r[0]&&r[0].valor?JSON.parse(r[0].valor):[];
+    if(JSON.stringify(lista)===JSON.stringify(_maquinasExtras)) return;
+    _maquinasExtras=Array.isArray(lista)?lista:[]; _aplicarMaquinasExtras();
+    if(typeof renderAll==='function') renderAll();
+  }catch(e){ console.warn('[maquinas] cfg',e); }
+}
+async function _salvarMaquinasExtras(){
+  const json=JSON.stringify(_maquinasExtras);
+  const r=await api('PATCH','app_config',{valor:json,atualizado:new Date().toISOString()},'?chave=eq.sl_maquinas');
+  if(!r||!r.length) await api('POST','app_config',{chave:'sl_maquinas',valor:json});
+  _aplicarMaquinasExtras();
+  if(typeof renderAll==='function') renderAll();
+}
+function abrirModalMaquinas(){
+  const linha=(n,fixa,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:6px"><span style="width:12px;height:12px;border-radius:50%;background:${COR_OPERACAO[n]||'#455a64'}"></span><span style="flex:1;font-size:13px;font-weight:600">${_stEsc(n)}</span>${fixa?'<span style="font-size:11px;color:#9e9e9e">padrão</span>':`<button class="btn btn-sm danger" onclick="removerMaquinaExtra(${i})">🗑</button>`}</div>`;
+  _modalDin('modalMaquinas',{titulo:'<h3 style="margin:0;font-size:16px">⚙️ Máquinas</h3>',corpo:
+    OPERACOES_PROD.slice(0,_MAQ_BASE).map(n=>linha(n,true)).join('')+_maquinasExtras.map((m,i)=>linha(m.nome,false,i)).join('')+
+    `<div style="display:flex;gap:8px;margin-top:12px;align-items:center"><input id="maqNome" placeholder="Nome da nova máquina" style="flex:1;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px" onkeydown="if(event.key==='Enter')incluirMaquinaExtra()"><input type="color" id="maqCor" value="#455a64" title="Cor da etapa" style="width:40px;height:36px;border:none;padding:0;background:none"><button class="btn primary" onclick="incluirMaquinaExtra()">Incluir</button></div>
+     <div style="font-size:12px;color:#78909c;margin-top:8px">A nova máquina aparece no quadro de Produção, nos botões de etapa e no cadastro de operadores.</div>`},440);
+}
+async function incluirMaquinaExtra(){
+  const nome=(document.getElementById('maqNome')?.value||'').trim().replace(/\s+/g,' ');
+  if(!nome) return showToast('Digite o nome da máquina','err');
+  if(OPERACOES_PROD.some(m=>m.toLowerCase()===nome.toLowerCase())||/^(aguardando|terceirizado)$/i.test(nome)) return showToast('Essa máquina já existe','err');
+  const cor=document.getElementById('maqCor')?.value||'#455a64';
+  try{ _maquinasExtras.push({nome,cor}); await _salvarMaquinasExtras(); showToast('Máquina incluída: '+nome); abrirModalMaquinas(); }
+  catch(e){ _maquinasExtras.pop(); showToast('Erro ao salvar: '+e.message,'err'); }
+}
+async function removerMaquinaExtra(i){
+  const m=_maquinasExtras[i]; if(!m) return;
+  const emUso=(operadoresMaquina||[]).filter(o=>o.maquina===m.nome).length;
+  if(!confirm('Remover a máquina "'+m.nome+'"?'+(emUso?'\n\n'+emUso+' operador(es) cadastrado(s) nela continuam salvos, mas ela some do quadro e dos botões.':''))) return;
+  try{ _maquinasExtras.splice(i,1); await _salvarMaquinasExtras(); abrirModalMaquinas(); }
+  catch(e){ showToast('Erro ao remover: '+e.message,'err'); await carregarMaquinasExtras(); }
+}
 
 let opAtual=null;
 let estOrdemProdCampo = 'numero', estOrdemProdDir = -1; // padrão: número da ordem, do maior pro menor (como já era)
