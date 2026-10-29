@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-29 · build 396';
+const APP_BUILD='2026-10-29 · build 397';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24947,9 +24947,19 @@ function _expOrdenarItens(c){
   });
   return lista.sort((a,b)=>{ const pa=pos.has(a.id)?pos.get(a.id):9999, pb=pos.has(b.id)?pos.get(b.id):9999; return pa-pb||porNumero(a,b); });
 }
+// Itens "Comercial" (comprados prontos) da Estrutura de Equipamentos deste PDV —
+// também precisam de foto na Expedição, mesmo sem Ordem de Produção.
+function _itensComerciaisDoPdv(pdvId){
+  if(!pdvId) return [];
+  return (itensDesenhoRecebido||[]).filter(i=>i.tipo==='comercial' && _equipamentoDoItem(i)?.pdv_id===pdvId);
+}
+function _linhaCarregamentoComercial(carregamentoId, i){
+  return { carregamento_id: carregamentoId, item_desenho_id: i.id, desenho: i.desenho_peca||'', descricao: i.denominacao||'', qtd: Number(i.quantidade)||1 };
+}
 function _itensDeProducaoParaCarregamento(carregamentoId, pdvId, pv){
   const ordensDoPdv = pdvId ? ordens.filter(o=>o.pdv_id===pdvId && !o.excluida_em).sort((a,b)=>(a.numero||0)-(b.numero||0)) : [];
-  if(ordensDoPdv.length){
+  const comerciais = _itensComerciaisDoPdv(pdvId);
+  if(ordensDoPdv.length || comerciais.length){
     return ordensDoPdv.map(o=>({
       carregamento_id: carregamentoId,
       ordem_producao_id: o.id,
@@ -24957,7 +24967,7 @@ function _itensDeProducaoParaCarregamento(carregamentoId, pdvId, pv){
       desenho: o.desenho||'',
       descricao: o.descricao||'',
       qtd: o.quantidade||1,
-    }));
+    })).concat(comerciais.map(i=>_linhaCarregamentoComercial(carregamentoId, i)));
   }
   const itensPV=Array.isArray(pv?.itens)?pv.itens:[];
   return itensPV.map(it=>({ carregamento_id: carregamentoId, descricao: it.descricao||'', qtd: it.qtd||0 }));
@@ -25045,6 +25055,41 @@ async function _sincronizarCarregamentosComPV_(){
       if(sobra.length){
         await api('DELETE','carregamento_itens',null,`?id=in.(${sobra.map(i=>i.id).join(',')})`);
         const ids=new Set(sobra.map(i=>i.id)); c.carregamento_itens=c.carregamento_itens.filter(i=>!ids.has(i.id));
+      }
+      // Itens "Comercial" da Estrutura de Equipamentos: entram, acompanham qtd/descrição e saem se forem removidos (desde que ainda sem foto).
+      if((itensDesenhoRecebido||[]).length){
+        const comerciais=_itensComerciaisDoPdv(c.pdv_id);
+        // Salvar a estrutura recria os itens com ids novos: religa pelo desenho + descrição para não duplicar nem perder a foto.
+        const idsAtuais=new Set(comerciais.map(i=>i.id));
+        const ligados=new Set((c.carregamento_itens||[]).map(i=>i.item_desenho_id).filter(id=>idsAtuais.has(id)));
+        const _nk=t=>String(t==null?'':t).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+        for(const i of (c.carregamento_itens||[])){
+          if(!i.item_desenho_id || idsAtuais.has(i.item_desenho_id)) continue;
+          const par=comerciais.find(d=>!ligados.has(d.id) && _nk(d.denominacao)===_nk(i.descricao) && _nk(d.desenho_peca)===_nk(i.desenho));
+          if(par){ await api('PATCH','carregamento_itens',{item_desenho_id:par.id},`?id=eq.${i.id}&select=id`); i.item_desenho_id=par.id; ligados.add(par.id); }
+        }
+        const temCom=new Set((c.carregamento_itens||[]).map(i=>i.item_desenho_id).filter(Boolean));
+        const novosCom=comerciais.filter(i=>!temCom.has(i.id));
+        if(novosCom.length){
+          const criados=await api('POST','carregamento_itens',novosCom.map(i=>_linhaCarregamentoComercial(c.id,i)));
+          c.carregamento_itens=[...(c.carregamento_itens||[]),...(criados||[])];
+          if(c.status==='Pronto p/ Envio'){ await api('PATCH','carregamentos',{status:'Aguardando Fotos',itens_prontos_em:null},`?id=eq.${c.id}`); c.status='Aguardando Fotos'; c.itens_prontos_em=null; }
+        }
+        for(const i of (c.carregamento_itens||[])){
+          if(!i.item_desenho_id) continue;
+          const d=comerciais.find(x=>x.id===i.item_desenho_id); if(!d) continue;
+          const alvo=_linhaCarregamentoComercial(c.id,d); const dif={};
+          if(Number(i.qtd)!==Number(alvo.qtd)) dif.qtd=alvo.qtd;
+          if((i.descricao||'')!==alvo.descricao) dif.descricao=alvo.descricao;
+          if((i.desenho||'')!==alvo.desenho) dif.desenho=alvo.desenho;
+          if(Object.keys(dif).length){ await api('PATCH','carregamento_itens',dif,`?id=eq.${i.id}&select=id`); Object.assign(i,dif); }
+        }
+        const idsCom=new Set(comerciais.map(i=>i.id));
+        const sobraCom=(c.carregamento_itens||[]).filter(i=>i.item_desenho_id && !idsCom.has(i.item_desenho_id) && !i.pronto && !(c.carregamento_fotos||[]).some(f=>f.item_id===i.id));
+        if(sobraCom.length){
+          await api('DELETE','carregamento_itens',null,`?id=in.(${sobraCom.map(i=>i.id).join(',')})`);
+          const ids=new Set(sobraCom.map(i=>i.id)); c.carregamento_itens=c.carregamento_itens.filter(i=>!ids.has(i.id));
+        }
       }
     }catch(e){ console.warn('[expedicao] não consegui atualizar os itens do carregamento', c.numero, e); }
   }
@@ -25173,7 +25218,7 @@ function renderExpedicaoDetalhe(){
 
   const linhasItens=itensArr.map(it=>{
     const fotos=fotosDoItem(it.id);
-    const rotuloItem=`${it.numero_ordem?`Ordem Nº ${it.numero_ordem} · `:''}${it.desenho?`[${it.desenho}] `:''}${it.descricao||'—'}`;
+    const rotuloItem=`${it.numero_ordem?`Ordem Nº ${it.numero_ordem} · `:''}${it.item_desenho_id?'Comercial · ':''}${it.desenho?`[${it.desenho}] `:''}${it.descricao||'—'}`;
     const ordItem=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null;
     const pr=ordItem&&ordItem._pronto?ordItem._pronto:null;
     const pesoUn=pr&&pr.peso_pronto!=null?Number(pr.peso_pronto):null;
