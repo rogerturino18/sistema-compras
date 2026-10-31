@@ -1132,6 +1132,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="sbGo(11,'Estoque')">📦 Itens em Estoque</div>
     <div class="sbi" onclick="abrirScannerItemEstoque()">📷 Escanear QR do Item</div>
     <div class="sbi" onclick="sbGo(16,'Movimentações de Estoque')">📋 Entradas e Saídas</div>
+    <div class="sbi" onclick="abrirGiroEstoque()">📈 Mínimos a definir</div>
     <div class="sbi" onclick="sbGo(17,'Requisições de Material')">📤 Requisições de Material</div>
     <div class="sbi" onclick="sbGo(18,'Departamentos')">🏢 Departamentos</div>
     <div class="sbi" onclick="sbGo(35,'Conferência de Peças Fundidas')">🏗️ Peças Fundidas</div>
@@ -1193,15 +1194,14 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="card" style="margin:0;background:#fafbf9">
       <h3>📦 Estoque abaixo do mínimo</h3>
       <div id="dashGraficoEstoqueMin"></div>
-      <div id="dashGiroSemMin"></div>
     </div>
-    <div class="card" style="margin:0">
-      <h3>📈 Compras por mês</h3>
-      <div id="dashGraficoCompras"></div>
+    <div class="card" style="margin:0" data-modulo="expedicao">
+      <h3 style="display:flex;justify-content:space-between;align-items:center">📦 Expedição — a enviar <a href="javascript:void(0)" onclick="showTab(36)" style="font-size:11px;font-weight:600;color:#1565c0">abrir →</a></h3>
+      <div id="dashExpedicao"><div class="empty">Nenhum carregamento pendente</div></div>
     </div>
-    <div class="card" style="margin:0">
-      <h3>🏭 Ordens por etapa</h3>
-      <div id="dashGraficoOrdens"></div>
+    <div class="card" style="margin:0" data-modulo="financeiro">
+      <h3 style="display:flex;justify-content:space-between;align-items:center">💸 Contas a pagar — vencimentos <a href="javascript:void(0)" onclick="showTab(19)" style="font-size:11px;font-weight:600;color:#1565c0">abrir →</a></h3>
+      <div id="dashContasPagar"><div class="empty">Nenhuma conta em aberto</div></div>
     </div>
   </div>
   <div class="grid2">
@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-29 · build 403';
+const APP_BUILD='2026-10-31 · build 404';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -6095,12 +6095,41 @@ function _renderDashGraficoOrdens(){
   }).join('');
 }
 
+// Pedidos que já têm carregamento e ainda não foram enviados (mais adiantados primeiro).
+function _renderDashExpedicao(){
+  const el=document.getElementById('dashExpedicao'); if(!el) return;
+  const pend=(carregamentos||[]).filter(c=>c.status!=='Enviado');
+  if(!pend.length){ el.innerHTML='<div class="empty">Nada a enviar ✅</div>'; return; }
+  const ord={'Pronto p/ Envio':0,'Aguardando Fotos':1};
+  pend.sort((a,b)=>(ord[a.status]??2)-(ord[b.status]??2)||(a.numero||0)-(b.numero||0));
+  const pronto=pend.filter(c=>c.status==='Pronto p/ Envio').length;
+  el.innerHTML='<div style="display:flex;gap:8px;margin-bottom:8px;font-size:11.5px"><span style="background:#e3f2fd;color:#1565c0;border-radius:10px;padding:2px 9px;font-weight:700">'+pronto+' pronto(s) p/ envio</span><span style="background:#fff3e0;color:#e65100;border-radius:10px;padding:2px 9px;font-weight:700">'+(pend.length-pronto)+' aguardando fotos</span></div>'+
+    pend.slice(0,6).map(c=>{
+      const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id);
+      const rot=c.pdv_numero||(pv?'PDV '+pv.numero:'Carreg. '+(c.numero||'—'));
+      const it=c.carregamento_itens||[]; const ok=it.filter(i=>i.pronto).length;
+      return '<div class="price-row" style="cursor:pointer" onclick="showTab(36);abrirDetalheCarregamento(\''+c.id+'\')"><b style="font-size:12px;min-width:62px">'+_stEsc(rot)+'</b><span style="flex:1;font-size:12px;margin:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_stEsc(c.cliente_nome||'')+'</span><span style="font-size:11px;color:'+(c.status==='Pronto p/ Envio'?'#1565c0':'#e65100')+';white-space:nowrap">'+ok+'/'+it.length+'</span></div>';
+    }).join('')+(pend.length>6?'<div style="text-align:center;font-size:11px;color:var(--gray);margin-top:6px">+ '+(pend.length-6)+' outro(s)</div>':'');
+}
+// Contas em aberto: vencidas e as que vencem nos próximos 7 dias.
+function _renderDashContasPagar(){
+  const el=document.getElementById('dashContasPagar'); if(!el) return;
+  const hoje=new Date().toISOString().split('T')[0]; const lim=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+  const abertas=(typeof contasPagar!=='undefined'?contasPagar:[]).filter(c=>c.status==='Aberta'&&c.vencimento);
+  const venc=abertas.filter(c=>c.vencimento<hoje), prox=abertas.filter(c=>c.vencimento>=hoje&&c.vencimento<=lim);
+  const soma=l=>l.reduce((a,c)=>a+(Number(c.valor)||0),0), brl=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  if(!venc.length&&!prox.length){ el.innerHTML='<div class="empty">Nada vencido nem vencendo em 7 dias ✅</div>'; return; }
+  const fd=d=>d.split('-').reverse().slice(0,2).join('/');
+  const linhas=[...venc.sort((a,b)=>a.vencimento.localeCompare(b.vencimento)),...prox.sort((a,b)=>a.vencimento.localeCompare(b.vencimento))].slice(0,6);
+  el.innerHTML='<div style="display:flex;gap:8px;margin-bottom:8px;font-size:11.5px;flex-wrap:wrap"><span style="background:#ffebee;color:#c62828;border-radius:10px;padding:2px 9px;font-weight:700">'+venc.length+' vencida(s) · '+brl(soma(venc))+'</span><span style="background:#fff8e1;color:#8d6e00;border-radius:10px;padding:2px 9px;font-weight:700">'+prox.length+' em 7 dias · '+brl(soma(prox))+'</span></div>'+
+    linhas.map(c=>'<div class="price-row" style="cursor:pointer" onclick="showTab(19)"><b style="font-size:11.5px;min-width:42px;color:'+(c.vencimento<hoje?'#c62828':'#37474f')+'">'+fd(c.vencimento)+'</b><span style="flex:1;font-size:12px;margin:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_stEsc(c.descricao||'')+'</span><span style="font-size:11.5px;white-space:nowrap">'+brl(Number(c.valor)||0)+'</span></div>').join('')+
+    ((venc.length+prox.length)>6?'<div style="text-align:center;font-size:11px;color:var(--gray);margin-top:6px">+ '+((venc.length+prox.length)-6)+' outra(s)</div>':'');
+}
 function renderDashboard(){
   // ---- Gráficos ----
   _renderDashGraficoEstoqueMin();
-  try{ _renderDashGiroSemMin(); }catch(e){ console.warn('giro',e); }
-  _renderDashGraficoCompras();
-  _renderDashGraficoOrdens();
+  try{ _renderDashExpedicao(); }catch(e){ console.warn('dash expedição',e); }
+  try{ _renderDashContasPagar(); }catch(e){ console.warn('dash contas a pagar',e); }
 
   // ---- Cartões de número — focados no que é usado no dia a dia ----
   const abaixoMin = (typeof itensAbaixoMinimoGenerico==='function') ? itensAbaixoMinimoGenerico() : [];
@@ -14446,7 +14475,8 @@ function renderEstoque(){
     <div class="stat" style="cursor:default"><div class="stat-label">Total de Itens</div><div class="stat-val">${totalItens}</div></div>
     <div class="stat blue" style="cursor:default"><div class="stat-label">Valor em Estoque</div><div class="stat-val" style="font-size:16px">${fmtVal(valorTotal)}</div></div>
     <div class="stat" style="cursor:default"><div class="stat-label">Categorias</div><div class="stat-val">${cats2}</div></div>
-    <div class="stat yellow" style="cursor:default"><div class="stat-label">Sem Código</div><div class="stat-val">${semCodigo}</div></div>`;
+    <div class="stat yellow" style="cursor:default"><div class="stat-label">Sem Código</div><div class="stat-val">${semCodigo}</div></div>
+    ${(()=>{ let n=0; try{ n=_giroCalc(90,15).lista.filter(x=>x.status!=='ok').length; }catch(e){} return '<div class="stat" style="cursor:pointer;border-left-color:#6a1b9a" onclick="abrirGiroEstoque()" title="Itens que saem bastante e estão sem mínimo ou com mínimo baixo"><div class="stat-label">📈 Mínimos a definir</div><div class="stat-val" style="color:#6a1b9a">'+n+'</div><div class="stat-sub">clique para revisar</div></div>'; })()}`;
 
   // Tabela
   const tbody = document.getElementById('tbodyEstoque');
