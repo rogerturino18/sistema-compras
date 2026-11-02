@@ -5497,7 +5497,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-02 · build 412';
+const APP_BUILD='2026-11-02 · build 413';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12815,6 +12815,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 
 // ── Ficha de Produto (A4) — mesmo padrão visual do Pedido de Venda: cabeçalho com logo e dados da empresa,
 // seções em verde, tabelas de itens e rodapé. A foto do produto pronto fica ao lado dos dados do produto.
+// Tempo por peça = tempo total (min) ÷ quantidade da ordem. Ex.: 277 min / 32 = "8min 39s".
+function _fmtTempoPeca(min,qtd){
+  qtd=Number(qtd)||1; if(!min||qtd<1) return '';
+  const seg=Math.round(min*60/qtd);
+  if(seg<60) return seg+'s';
+  if(seg<3600) return Math.floor(seg/60)+'min'+(seg%60?' '+String(seg%60).padStart(2,'0')+'s':'');
+  const h=Math.floor(seg/3600), m=Math.round((seg%3600)/60);
+  return h+'h '+String(m).padStart(2,'0')+'min';
+}
 async function imprimirFichaProduto(id){
   const o=ordens.find(x=>x.id===id); if(!o){ showToast('Ordem não encontrada','err'); return; }
   showToast('Preparando a ficha de produto...');
@@ -12845,7 +12854,7 @@ async function imprimirFichaProduto(id){
   if(montOrigem) filhos=(itensDesenhoRecebido||[]).filter(i=>i.montagem_id===montOrigem.id);
   filhos.forEach(i=>mat.push({nome:i.denominacao||'—',cod:i.desenho_peca||'',qtd:i.quantidade,un:i.unidade||'un',material:i.material||'',pu:i.peso!=null?Number(i.peso):null,origem:i.item_tipo==='fabricar'?'Fabricar':(i.item_tipo?'Comprar':'')}));
   const trMat=mat.length?mat.map(m=>`<tr><td>${esc(m.nome)}</td><td>${esc(m.cod)||'—'}</td><td>${esc(m.material)||'—'}</td><td class="center">${esc(m.qtd)} ${esc(m.un)}</td><td class="num">${m.pu!=null?kg(m.pu):'—'}</td><td class="center">${esc(m.origem)||'—'}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;padding:14px;color:#90a4ae">Nenhum material ou componente cadastrado</td></tr>`;
-  const linhasProc=temposOrd.map(t=>`<tr><td>${esc(t.operacao)}</td><td>${esc(t.operador||'—')}</td><td class="center">${fDH(t.dt_hr_inicial)}</td><td class="center">${t.dt_hr_final?fDH(t.dt_hr_final):'Em andamento'}</td><td class="center">${fDur(t.duracao_minutos)}</td></tr>`);
+  const linhasProc=temposOrd.map(t=>`<tr><td>${esc(t.operacao)}</td><td>${esc(t.operador||'—')}</td><td class="center">${fDH(t.dt_hr_inicial)}</td><td class="center">${t.dt_hr_final?fDH(t.dt_hr_final):'Em andamento'}</td><td class="center">${fDur(t.duracao_minutos)}${qtd>1&&t.dt_hr_final&&t.duracao_minutos?`<div style="font-size:9.5px;color:#607d6b;font-weight:400">${_fmtTempoPeca(t.duracao_minutos,qtd)}/peça</div>`:''}</td></tr>`);
   _tercPassagens(o).forEach(x=>linhasProc.push(`<tr><td>Terceirizado${x.obs?`<div style="font-size:9.5px;color:#607d6b;font-weight:400">${esc(x.obs)}</div>`:''}</td><td>${esc(x.nome||'—')}${x.qtd?` (${esc(x.qtd)} un)`:''}</td><td class="center">${dBR(x.envio)}</td><td class="center">${x.retorno?dBR(x.retorno):'Em andamento'}</td><td class="center">${x.dias!=null?x.dias+' d':'—'}</td></tr>`));
   const desenhoBox=desenhoFoto?(_ehPdfBase64(desenhoFoto)?`<div class="ph">Desenho em PDF — consulte o arquivo da ordem</div>`:`<img src="${desenhoFoto}" class="img">`):`<div class="ph">Desenho não anexado</div>`;
   const obs=String(o.observacao||'').replace(/\s*\[Finalizada manualmente[^\]]*\]/g,'').trim();
@@ -12933,7 +12942,7 @@ async function imprimirFichaProduto(id){
       <div class="dados">
         <div class="info" style="display:block">
           <div class="razao">${esc(o.descricao||'—')}</div>
-          ${linha('Nº do desenho',o.desenho)}${linha('Material',o.material)}${linha('Quantidade',String(qtd))}${linha('Peso unitário',peso!=null?kg(peso):'')}${linha('Peso total do lote',peso!=null?kg(peso*qtd):'')}${linha('Tempo total de fabricação',totalMin?fDur(totalMin):'')}${linha('Responsável',o.concluido_por||'')}
+          ${linha('Nº do desenho',o.desenho)}${linha('Material',o.material)}${linha('Quantidade',String(qtd))}${linha('Peso unitário',peso!=null?kg(peso):'')}${linha('Peso total do lote',peso!=null?kg(peso*qtd):'')}${linha('Tempo total de fabricação',totalMin?fDur(totalMin):'')}${qtd>1?linha('Tempo por peça',totalMin?_fmtTempoPeca(totalMin,qtd)+' (média)':''):''}${linha('Responsável',o.concluido_por||'')}
         </div>
       </div>
       <div class="fotoBox"><div class="lbl">Foto do produto pronto</div><div class="area">${fotoPronta?`<img src="${fotoPronta}" class="img">`:'<div class="ph">Foto não anexada</div>'}</div></div>
@@ -18051,7 +18060,7 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
             <div style="color:var(--gray);font-size:11px">${fmtDtHr(t.dt_hr_inicial)} → ${fmtDtHr(t.dt_hr_final)}</div>
           </div>
           <div style="flex-shrink:0;display:flex;align-items:center;gap:6px">
-            <span style="font-weight:700;color:#1565c0">${t.duracao_minutos?Math.floor(t.duracao_minutos/60)+'h'+String(t.duracao_minutos%60).padStart(2,'0'):''}</span>
+            <span style="font-weight:700;color:#1565c0;text-align:right">${t.duracao_minutos?Math.floor(t.duracao_minutos/60)+'h'+String(t.duracao_minutos%60).padStart(2,'0'):''}${(Number(o.quantidade)||1)>1&&t.duracao_minutos?`<div style="font-size:10px;font-weight:600;color:#78909c">${_fmtTempoPeca(t.duracao_minutos,o.quantidade)}/peça</div>`:''}</span>
             <button class="btn btn-sm danger" style="padding:2px 6px" onclick="deletarTempoOp('${t.id}')" title="Excluir este registro">🗑</button>
           </div>
         </div>`).join('')}
