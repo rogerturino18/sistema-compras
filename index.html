@@ -2850,7 +2850,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="form-group"><label id="edrLabelNome">Denominação *</label><input id="edr_nome" placeholder="Nome ou denominação"></div>
     <div class="form-grid" style="grid-template-columns:1fr 1fr 80px">
       <div class="form-group"><label id="edrLabelDesenho">Desenho/Padrão</label><input id="edr_desenho"></div>
-      <div class="form-group"><label>Material</label><input id="edr_material"></div>
+      <div class="form-group" id="edrGrupoMaterial"><label>Material</label><input id="edr_material"></div>
       <div class="form-group"><label>Qtd</label><input id="edr_qtd" type="number" min="1" value="1"></div>
     </div>
     <div class="form-group" id="edrGrupoTipo"><label>Tipo</label>
@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-10-31 · build 404';
+const APP_BUILD='2026-11-02 · build 405';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10268,6 +10268,7 @@ function abrirEdicaoRapida(noId, tipo){
   document.getElementById('edr_nome').value = tipo==='montagem' ? (no.nome_montagem||'') : (no.denominacao||'');
   document.getElementById('edr_desenho').value = tipo==='montagem' ? (no.numero_desenho||'') : (no.desenho_peca||'');
   document.getElementById('edr_material').value = no.material||'';
+  document.getElementById('edrGrupoMaterial').style.display = tipo==='montagem' ? 'none' : '';
   document.getElementById('edr_qtd').value = no.quantidade||1;
   document.getElementById('edrGrupoTipo').style.display = tipo==='montagem' ? 'none' : 'block';
   if(tipo!=='montagem') document.getElementById('edr_tipo').value = no.tipo||'fabricar';
@@ -10334,7 +10335,6 @@ async function salvarEdicaoRapida(){
       const obj = {
         nome_montagem: nome,
         numero_desenho: document.getElementById('edr_desenho').value.trim()||null,
-        material: document.getElementById('edr_material').value.trim()||null,
         quantidade: Number(document.getElementById('edr_qtd').value)||1
       };
       const no = montagensRecebidas.find(m=>m.id===noId);
@@ -10415,6 +10415,48 @@ function selecionarMontagem(idxColuna, montagemId){
   renderColunas();
 }
 
+// ===== Arrastar e soltar na estrutura =====
+// Arraste o ⠿ de uma linha e solte sobre outra linha (vira filho dela) ou sobre o
+// cabeçalho/fundo de uma coluna (vira filho do que está aberto naquela coluna).
+let _arrastandoNo=null;
+function _descendentesDe(id){
+  const r=new Set(); const q=[id];
+  while(q.length){ const x=q.pop(); _nosTemp.forEach(n=>{ if(n.parent_id===x&&!r.has(n.id)){ r.add(n.id); q.push(n.id); } }); }
+  return r;
+}
+function _destinoValido(destinoId){
+  if(!_arrastandoNo) return false;
+  if(destinoId===_arrastandoNo) return false;
+  if(destinoId!==null&&_descendentesDe(_arrastandoNo).has(destinoId)) return false;
+  const no=_nosTemp.find(n=>n.id===_arrastandoNo); return !!no&&no.parent_id!==destinoId;
+}
+function _dragIni(ev,id){
+  _arrastandoNo=id; ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',id);
+  const linha=ev.target.closest('[data-no-id]'); if(linha) try{ ev.dataTransfer.setDragImage(linha,20,14); }catch(e){}
+  setTimeout(()=>{ const l=document.querySelector('[data-no-id="'+id+'"]'); if(l) l.style.opacity='.45'; },0);
+}
+function _dragFim(){
+  _arrastandoNo=null;
+  document.querySelectorAll('#colunasArvore [data-no-id]').forEach(l=>{ l.style.opacity=''; l.style.outline=''; });
+  document.querySelectorAll('#colunasArvore [ondragover]').forEach(l=>{ l.style.boxShadow=''; });
+}
+function _dragSobre(ev,destinoId){
+  if(!_destinoValido(destinoId)) return;
+  ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect='move';
+  const alvo=ev.currentTarget; if(alvo.hasAttribute('data-no-id')) alvo.style.outline='2px dashed #2e7d32'; else alvo.style.boxShadow='inset 0 0 0 2px #2e7d32';
+}
+function _dragSai(ev){ const a=ev.currentTarget; a.style.outline=''; a.style.boxShadow=''; }
+function _dragSolta(ev,destinoId,col){
+  ev.preventDefault(); ev.stopPropagation();
+  if(!_destinoValido(destinoId)){ _dragFim(); return; }
+  const no=_nosTemp.find(n=>n.id===_arrastandoNo); const dest=destinoId===null?null:_nosTemp.find(n=>n.id===destinoId);
+  no.parent_id=destinoId;
+  _colunaPath=destinoId===null?[]:(_colunaPath[col]===destinoId?_colunaPath.slice(0,col+1):[..._colunaPath.slice(0,Math.max(0,col)),destinoId]);
+  _arrastandoNo=null;
+  showToast('"'+(no.nome_montagem||no.denominacao||'Item')+'" movido '+(dest?'para dentro de "'+(dest.nome_montagem||dest.denominacao||'Sem nome')+'"':'para o equipamento')+'. Clique em Salvar para confirmar.');
+  renderColunas();
+}
+
 function renderColunas(){
   const container = document.getElementById('colunasArvore');
   if(!container) return;
@@ -10437,7 +10479,7 @@ function renderColunas(){
     const linhas = filhos.map(no=>{
       if(no.tipo==='montagem'){
         const ativo = no.id===ativoNestaColuna;
-        return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativo?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+        return `<div data-no-id="${no.id}" ondragover="_dragSobre(event,'${no.id}')" ondragleave="_dragSai(event)" ondrop="_dragSolta(event,'${no.id}',${col})" style="position:relative;padding:6px 8px 6px 18px;border-bottom:1px solid #eee;background:${ativo?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')"><span draggable="true" ondragstart="_dragIni(event,'${no.id}')" ondragend="_dragFim()" onclick="event.stopPropagation()" title="Arraste para dentro de uma montagem" style="position:absolute;left:3px;top:6px;width:12px;cursor:grab;color:#90a4ae;font-size:14px;line-height:1;user-select:none">⠿</span>
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:13px;flex-shrink:0">📁</span>
             <input value="${(no.nome_montagem||'').replace(/"/g,'&quot;')}" data-no-nome-input="${no.id}" oninput="atualizarNo('${no.id}','nome_montagem',this.value)" onclick="event.stopPropagation()" placeholder="Nome da montagem" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -10446,7 +10488,6 @@ function renderColunas(){
           </div>
           <div style="display:flex;align-items:center;gap:4px;padding-left:19px">
             <input value="${(no.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','numero_desenho',this.value)" onblur="_checarDesenhoDuplicadoNaEstrutura('${no.id}',this.value)" onclick="event.stopPropagation()" placeholder="Nº desenho" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
-            <input value="${(no.material||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','material',this.value)" onclick="event.stopPropagation()" placeholder="Material" style="width:62px;padding:3px 4px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
             <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" onclick="event.stopPropagation()" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
             <span style="font-size:11px;color:#558b2f;flex-shrink:0;font-weight:700;white-space:nowrap" title="Clique na linha pra abrir">▶ abrir</span>
           </div>
@@ -10470,7 +10511,7 @@ function renderColunas(){
       const botaoRemover = `<button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>`;
 
       if(no.item_tipo==='comercial'){
-        return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+        return `<div data-no-id="${no.id}" ondragover="_dragSobre(event,'${no.id}')" ondragleave="_dragSai(event)" ondrop="_dragSolta(event,'${no.id}',${col})" style="position:relative;padding:6px 8px 6px 18px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')"><span draggable="true" ondragstart="_dragIni(event,'${no.id}')" ondragend="_dragFim()" onclick="event.stopPropagation()" title="Arraste para dentro de uma montagem" style="position:absolute;left:3px;top:6px;width:12px;cursor:grab;color:#90a4ae;font-size:14px;line-height:1;user-select:none">⠿</span>
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:12px">${iconeTipo}</span>
             <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Ex: Parafuso Sextavado M14x25" title="Ex: Parafuso Sextavado M14 x 25 — ou — Rolamento 22305 C/C SKF" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -10481,7 +10522,7 @@ function renderColunas(){
         </div>`;
       }
       if(no.item_tipo==='materia_prima'){
-        return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+        return `<div data-no-id="${no.id}" ondragover="_dragSobre(event,'${no.id}')" ondragleave="_dragSai(event)" ondrop="_dragSolta(event,'${no.id}',${col})" style="position:relative;padding:6px 8px 6px 18px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')"><span draggable="true" ondragstart="_dragIni(event,'${no.id}')" ondragend="_dragFim()" onclick="event.stopPropagation()" title="Arraste para dentro de uma montagem" style="position:absolute;left:3px;top:6px;width:12px;cursor:grab;color:#90a4ae;font-size:14px;line-height:1;user-select:none">⠿</span>
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:12px">${iconeTipo}</span>
             <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Ex: Chapa de Aço Carbono" title="Ex: Chapa de Aço Carbono — ou — Barra Chata" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -10495,7 +10536,7 @@ function renderColunas(){
           <div style="display:flex;align-items:center;gap:4px;margin-top:3px">${seletorTipo}${linhaAbrir}</div>
         </div>`;
       }
-      return `<div data-no-id="${no.id}" style="padding:6px 8px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')">
+      return `<div data-no-id="${no.id}" ondragover="_dragSobre(event,'${no.id}')" ondragleave="_dragSai(event)" ondrop="_dragSolta(event,'${no.id}',${col})" style="position:relative;padding:6px 8px 6px 18px;border-bottom:1px solid #eee;background:${ativoItem?'#e8f5e9':'#fff'};cursor:pointer" onclick="selecionarMontagem(${col},'${no.id}')"><span draggable="true" ondragstart="_dragIni(event,'${no.id}')" ondragend="_dragFim()" onclick="event.stopPropagation()" title="Arraste para dentro de uma montagem" style="position:absolute;left:3px;top:6px;width:12px;cursor:grab;color:#90a4ae;font-size:14px;line-height:1;user-select:none">⠿</span>
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
           <span style="font-size:12px">${iconeTipo}</span>
           <input value="${(no.denominacao||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','denominacao',this.value)" onclick="event.stopPropagation()" placeholder="Denominação" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
@@ -10516,12 +10557,12 @@ function renderColunas(){
       : 'Inclui uma submontagem dentro da montagem selecionada';
     const textoBotaoItem = parentId===null ? '+ Adicionar item ao equipamento' : '+ Adicionar item';
     html += `<div style="min-width:280px;width:280px;flex-shrink:0;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;max-height:320px">
-      <div style="padding:7px 10px;background:#eceff1;font-size:11px;font-weight:700;color:#37474f;border-bottom:1px solid #e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${labelTopo}">${labelTopo}</div>
+      <div ondragover="_dragSobre(event,${parentId===null?'null':"'"+parentId+"'"})" ondragleave="_dragSai(event)" ondrop="_dragSolta(event,${parentId===null?'null':"'"+parentId+"'"},${col-1})" style="padding:7px 10px;background:#eceff1;font-size:11px;font-weight:700;color:#37474f;border-bottom:1px solid #e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${labelTopo} — solte aqui para mover para dentro disto">${labelTopo}</div>
       <div style="display:flex;gap:4px;padding:6px;border-bottom:1px solid #e0e0e0;background:#fafafa">
         <button class="btn btn-sm" onclick="adicionarSubMontagem(${parentId===null?'null':"'"+parentId+"'"})" title="${dicaBotaoMontagem}" style="font-size:10px;padding:3px 6px;flex:1">${textoBotaoMontagem}</button>
         <button class="btn btn-sm" onclick="adicionarItemEm(${parentId===null?'null':"'"+parentId+"'"})" style="font-size:10px;padding:3px 6px;flex:1">${textoBotaoItem}</button>
       </div>
-      <div style="flex:1;overflow-y:auto">${linhas}</div>
+      <div ondragover="_dragSobre(event,${parentId===null?'null':"'"+parentId+"'"})" ondragleave="_dragSai(event)" ondrop="_dragSolta(event,${parentId===null?'null':"'"+parentId+"'"},${col-1})" style="flex:1;overflow-y:auto">${linhas}</div>
     </div>`;
   }
   container.innerHTML = html;
@@ -10886,7 +10927,14 @@ async function salvarDesenhoRecebido(){
             quantidade: Number(n.quantidade)||1,
             tipo: n.item_tipo||'fabricar',
             ordem_id: n.ordem_id||null,
-            item_compra_id: n.item_compra_id||null
+            item_compra_id: n.item_compra_id||null,
+            qtd_comprada: n.qtd_comprada??null,
+            compra_fornecedor: n.compra_fornecedor||null,
+            compra_nf_numero: n.compra_nf_numero||null,
+            compra_nf_data: n.compra_nf_data||null,
+            compra_valor_unit: n.compra_valor_unit??null,
+            compra_nfe_id: n.compra_nfe_id||null,
+            compra_nfs: Array.isArray(n.compra_nfs)?n.compra_nfs:[]
           });
           mapaIds[n.id] = res?.[0]?.id;
         }
