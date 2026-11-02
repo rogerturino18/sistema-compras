@@ -2854,7 +2854,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <div class="form-group"><label>Qtd</label><input id="edr_qtd" type="number" min="1" value="1"></div>
     </div>
     <div class="form-group" id="edrGrupoTipo"><label>Tipo</label>
-      <select id="edr_tipo">
+      <select id="edr_tipo" onchange="document.getElementById('edrGrupoMaterial').style.display=this.value==='montagem'?'none':''">
+        <option value="montagem">📁 Montagem</option>
         <option value="materia_prima" hidden>🔧 Fabricar</option>
         <option value="fabricar" selected>🔧 Fabricar</option>
         <option value="comercial">🛒 Comercial</option>
@@ -5498,7 +5499,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-02 · build 405';
+const APP_BUILD='2026-11-02 · build 406';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10270,8 +10271,8 @@ function abrirEdicaoRapida(noId, tipo){
   document.getElementById('edr_material').value = no.material||'';
   document.getElementById('edrGrupoMaterial').style.display = tipo==='montagem' ? 'none' : '';
   document.getElementById('edr_qtd').value = no.quantidade||1;
-  document.getElementById('edrGrupoTipo').style.display = tipo==='montagem' ? 'none' : 'block';
-  if(tipo!=='montagem') document.getElementById('edr_tipo').value = no.tipo||'fabricar';
+  document.getElementById('edrGrupoTipo').style.display = 'block';
+  document.getElementById('edr_tipo').value = tipo==='montagem' ? 'montagem' : (no.tipo||'fabricar');
   abrirModal('modalEdicaoRapida');
   setTimeout(()=>{ document.getElementById('edr_nome').focus(); document.getElementById('edr_nome').select(); }, 50);
 }
@@ -10322,6 +10323,41 @@ async function sincronizarQuantidadesOPDaEstrutura(alteracoes){
   if(preservadas) showToast(`${preservadas} dela(s) já tinha(m) produção apontada — confira.`,'ok',6000);
 }
 
+// Troca um nó salvo entre Montagem e Item (Fabricar/Comercial) direto no banco:
+// cria o registro do outro tipo no mesmo lugar, passa os filhos para ele (mesmo
+// vínculo com a OP) e apaga o antigo.
+async function _converterNoBanco(noId, deTipo, novoSel, d){
+  if(deTipo==='montagem'){
+    const m = montagensRecebidas.find(x=>x.id===noId); if(!m) return false;
+    const [novo] = await api('POST','itens_desenho_recebido',{
+      desenho_id:m.desenho_id||null, montagem_id:m.montagem_pai_id||null, item_pai_id:m.item_pai_id||null,
+      denominacao:d.nome, desenho_peca:d.desenho, material:d.material, quantidade:d.qtd, tipo:novoSel, ordem_id:m.ordem_id||null
+    });
+    const filhosM = montagensRecebidas.filter(x=>x.montagem_pai_id===noId), filhosI = itensDesenhoRecebido.filter(x=>x.montagem_id===noId);
+    await Promise.all([
+      ...filhosM.map(x=>api('PATCH','montagens_recebidas',{item_pai_id:novo.id,montagem_pai_id:null},`?id=eq.${x.id}&select=id`)),
+      ...filhosI.map(x=>api('PATCH','itens_desenho_recebido',{item_pai_id:novo.id,montagem_id:null},`?id=eq.${x.id}&select=id`))
+    ]);
+    await api('DELETE','montagens_recebidas','',`?id=eq.${noId}`);
+  } else {
+    const i = itensDesenhoRecebido.find(x=>x.id===noId); if(!i) return false;
+    if(i.item_compra_id && !confirm('Este item já está vinculado a um pedido na Lista de Compras. Convertê-lo em Montagem vai perder esse vínculo. Continuar?')) return false;
+    const [novo] = await api('POST','montagens_recebidas',{
+      desenho_id:i.desenho_id||null, montagem_pai_id:i.montagem_id||null, item_pai_id:i.item_pai_id||null,
+      nome_montagem:d.nome, numero_desenho:d.desenho, quantidade:d.qtd, ordem_id:i.ordem_id||null
+    });
+    const filhosM = montagensRecebidas.filter(x=>x.item_pai_id===noId), filhosI = itensDesenhoRecebido.filter(x=>x.item_pai_id===noId);
+    await Promise.all([
+      ...filhosM.map(x=>api('PATCH','montagens_recebidas',{montagem_pai_id:novo.id,item_pai_id:null},`?id=eq.${x.id}&select=id`)),
+      ...filhosI.map(x=>api('PATCH','itens_desenho_recebido',{montagem_id:novo.id,item_pai_id:null},`?id=eq.${x.id}&select=id`))
+    ]);
+    await api('DELETE','itens_desenho_recebido','',`?id=eq.${noId}`);
+  }
+  const [mf,itf] = await Promise.all([api('GET','montagens_recebidas','','?order=id.asc'), api('GET','itens_desenho_recebido','','?order=item_numero.asc')]);
+  montagensRecebidas = mf; itensDesenhoRecebido = itf;
+  return true;
+}
+
 async function salvarEdicaoRapida(){
   const modal = document.getElementById('modalEdicaoRapida');
   const noId = modal.dataset.noId, tipo = modal.dataset.tipo;
@@ -10331,6 +10367,12 @@ async function salvarEdicaoRapida(){
   const textoOriginal = btn.textContent;
   btn.disabled = true; btn.textContent = '💾 Salvando...';
   try{
+    const novoSel = document.getElementById('edr_tipo').value;
+    if((tipo==='montagem') !== (novoSel==='montagem')){
+      const ok = await _converterNoBanco(noId, tipo, novoSel, {nome, desenho:document.getElementById('edr_desenho').value.trim()||null, material:document.getElementById('edr_material').value.trim()||null, qtd:Number(document.getElementById('edr_qtd').value)||1});
+      if(!ok){ return; }
+      showToast('Salvo!'); fecharModal('modalEdicaoRapida'); renderDesenhosRecebidos(); return;
+    }
     if(tipo==='montagem'){
       const obj = {
         nome_montagem: nome,
@@ -10405,7 +10447,16 @@ function atualizarNo(nodeId, campo, valor){
 // de atualizarNo(), aqui é preciso re-renderizar a coluna pra refletir o novo layout.
 function mudarTipoItem(nodeId, valor){
   const no = _nosTemp.find(n=>n.id===nodeId);
+  if(valor==='montagem'){ converterTipoNo(nodeId); return; }
   if(no) no.item_tipo = valor;
+  renderColunas();
+}
+// Linha de montagem: o mesmo select de tipo (Montagem / Fabricar / Comercial).
+function mudarTipoMontagem(nodeId, valor){
+  if(valor==='montagem') return;
+  converterTipoNo(nodeId);
+  const no = _nosTemp.find(n=>n.id===nodeId);
+  if(no&&no.tipo==='item'){ no.item_tipo = valor; }
   renderColunas();
 }
 
@@ -10483,12 +10534,12 @@ function renderColunas(){
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
             <span style="font-size:13px;flex-shrink:0">📁</span>
             <input value="${(no.nome_montagem||'').replace(/"/g,'&quot;')}" data-no-nome-input="${no.id}" oninput="atualizarNo('${no.id}','nome_montagem',this.value)" onclick="event.stopPropagation()" placeholder="Nome da montagem" style="flex:1;min-width:0;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-weight:600">
-            <button onclick="event.stopPropagation();converterTipoNo('${no.id}')" style="background:none;border:none;color:#1565c0;cursor:pointer;font-size:12px;flex-shrink:0" title="Converter em Item (é uma peça real, não uma pasta)">🔄</button>
             <button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>
           </div>
           <div style="display:flex;align-items:center;gap:4px;padding-left:19px">
             <input value="${(no.numero_desenho||'').replace(/"/g,'&quot;')}" oninput="atualizarNo('${no.id}','numero_desenho',this.value)" onblur="_checarDesenhoDuplicadoNaEstrutura('${no.id}',this.value)" onclick="event.stopPropagation()" placeholder="Nº desenho" style="flex:1;min-width:0;padding:3px 5px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px">
             <input type="number" min="1" value="${no.quantidade||1}" oninput="atualizarNo('${no.id}','quantidade',this.value)" onclick="event.stopPropagation()" style="width:34px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;text-align:center">
+            <select onchange="mudarTipoMontagem('${no.id}',this.value)" onclick="event.stopPropagation()" title="Tipo" style="width:92px;padding:3px 2px;border:1px solid #e0e0e0;border-radius:4px;font-size:10px;color:#6d4c00;background:#fff"><option value="montagem" selected>📁 Montagem</option><option value="fabricar">🔧 Fabricar</option><option value="comercial">🛒 Comercial</option></select>
             <span style="font-size:11px;color:#558b2f;flex-shrink:0;font-weight:700;white-space:nowrap" title="Clique na linha pra abrir">▶ abrir</span>
           </div>
         </div>`;
@@ -10506,8 +10557,9 @@ function renderColunas(){
           ${no.item_tipo==='materia_prima'?'<option value="materia_prima" selected hidden>🔧 Fabricar</option>':''}
           <option value="fabricar" ${no.item_tipo==='fabricar'?'selected':''}>🔧 Fabricar</option>
           <option value="comercial" ${no.item_tipo==='comercial'?'selected':''}>🛒 Comercial</option>
+          <option value="montagem">📁 Montagem</option>
         </select>`;
-      const botaoConverter = `<button onclick="event.stopPropagation();converterTipoNo('${no.id}')" style="background:none;border:none;color:#1565c0;cursor:pointer;font-size:12px;flex-shrink:0" title="Converter em Montagem (é uma pasta com coisas dentro, não uma peça)">🔄</button>`;
+      const botaoConverter = '';
       const botaoRemover = `<button onclick="event.stopPropagation();removerNo('${no.id}')" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:12px;flex-shrink:0" title="Remover">✕</button>`;
 
       if(no.item_tipo==='comercial'){
