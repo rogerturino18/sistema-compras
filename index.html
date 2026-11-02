@@ -5497,7 +5497,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-02 · build 411';
+const APP_BUILD='2026-11-02 · build 412';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10479,14 +10479,41 @@ function _dragFim(){
   document.querySelectorAll('#colunasArvore [data-no-id]').forEach(l=>{ l.style.opacity=''; l.style.outline=''; });
   document.querySelectorAll('#colunasArvore [ondragover]').forEach(l=>{ l.style.boxShadow=''; });
 }
-function _dragSobre(ev,destinoId){
-  if(!_destinoValido(destinoId)) return;
-  ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect='move';
-  const alvo=ev.currentTarget; if(alvo.hasAttribute('data-no-id')) alvo.style.outline='2px dashed #2e7d32'; else alvo.style.boxShadow='inset 0 0 0 2px #2e7d32';
+// Só MONTAGEM aceita item "para dentro". Soltar em cima de um item comum coloca o
+// arrastado no mesmo nível desse item (evita entrar sem querer dentro de outro item).
+function _destinoEfetivo(destinoId){
+  const d=destinoId===null?null:_nosTemp.find(n=>n.id===destinoId);
+  if(d && d.tipo!=='montagem') return {id:d.parent_id||null, viaItem:true};
+  return {id:destinoId, viaItem:false};
 }
+function _dragSobre(ev,destinoId){
+  const ef=_destinoEfetivo(destinoId);
+  if(!_destinoValido(ef.id)) return;
+  ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect='move';
+  const alvo=ev.currentTarget;
+  if(ef.viaItem) alvo.style.boxShadow='inset 0 3px 0 #1565c0';
+  else if(alvo.hasAttribute('data-no-id')) alvo.style.outline='2px dashed #2e7d32'; else alvo.style.boxShadow='inset 0 0 0 2px #2e7d32';
+}
+// Rolagem automática: ao arrastar perto da borda de qualquer área rolável, ela rola sozinha.
+document.addEventListener('dragover',ev=>{
+  if(!_arrastandoNo) return;
+  let el=ev.target;
+  while(el && el!==document.documentElement){
+    if(el.nodeType===1 && el.scrollHeight>el.clientHeight+4){
+      const oy=getComputedStyle(el).overflowY;
+      if(oy==='auto'||oy==='scroll'){
+        const r=el.getBoundingClientRect(), zona=Math.min(90,r.height/3);
+        if(ev.clientY<r.top+zona) el.scrollTop-=Math.ceil((r.top+zona-ev.clientY)/4)+2;
+        else if(ev.clientY>r.bottom-zona) el.scrollTop+=Math.ceil((ev.clientY-(r.bottom-zona))/4)+2;
+      }
+    }
+    el=el.parentElement;
+  }
+},true);
 function _dragSai(ev){ const a=ev.currentTarget; a.style.outline=''; a.style.boxShadow=''; }
 function _dragSolta(ev,destinoId,col){
   ev.preventDefault(); ev.stopPropagation();
+  const ef=_destinoEfetivo(destinoId); if(ef.viaItem){ destinoId=ef.id; col=col-1; }
   if(!_destinoValido(destinoId)){ _dragFim(); return; }
   const no=_nosTemp.find(n=>n.id===_arrastandoNo); const dest=destinoId===null?null:_nosTemp.find(n=>n.id===destinoId);
   no.parent_id=destinoId;
