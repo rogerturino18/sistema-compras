@@ -834,8 +834,9 @@ body{padding-top:70px}
 #modalDesenhoRecebido #colunasArvore [data-no-id]{padding:12px 14px!important}
 #modalDesenhoRecebido #colunasArvore input,#modalDesenhoRecebido #colunasArvore select{min-height:38px!important;padding:7px 9px!important;font-size:13px!important}
 #modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(3){gap:8px!important}
-#modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(3) input:first-child{flex:1 1 auto!important;width:auto!important}
-#modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(3) input:nth-child(2){flex:0 0 170px!important;width:170px!important}
+#modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(3) input:first-child{flex:0 0 96px!important;width:96px!important}
+#modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(3) input:nth-child(2){flex:1 1 auto!important;width:auto!important;min-width:0!important}
+#modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(2) input{flex:1 1 auto!important;min-width:0!important;width:auto!important}
 #modalDesenhoRecebido #colunasArvore input[type="number"]{width:68px!important;flex:0 0 68px!important}
 #modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(3) input[type="number"]{width:68px!important;flex:0 0 68px!important}
 #modalDesenhoRecebido #colunasArvore [data-no-id]>div:nth-child(3) select{flex:0 1 150px!important;width:150px!important}
@@ -5495,7 +5496,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-02 · build 408';
+const APP_BUILD='2026-11-02 · build 409';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
