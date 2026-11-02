@@ -421,13 +421,14 @@ tr:hover td{background:#f9fbf9}
    uma segunda linha, em vez de espremer tudo e virar uma bagunça ilegível.
 ════════════════════════════════ */
 .arv-linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media(min-width:641px){.arv-linha,.arv-cabecalho-colunas{display:grid!important;grid-template-columns:minmax(0,1fr) 110px 170px 34px 330px;column-gap:10px;align-items:center}.arv-denom-grupo{flex:none}.arv-campo{flex:none}.arv-status{margin-left:0;justify-content:flex-end}}
 .arv-denom-grupo{display:flex;align-items:center;gap:8px;flex:2 1 220px;min-width:0}
 .arv-denom-grupo span{overflow-wrap:anywhere}
 .arv-campo{font-size:11px;color:#546e7a;flex:1 1 100px;min-width:0;overflow-wrap:anywhere}
 .arv-qtd{font-size:11px;color:#546e7a;width:28px;text-align:center;flex-shrink:0}
 .arv-status{flex-shrink:0;margin-left:auto}
 .arv-mont-info{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
-.arv-mont-nome{min-width:380px;flex-shrink:0;overflow-wrap:anywhere}
+.arv-mont-nome{min-width:0;overflow-wrap:anywhere}
 .arv-mont-numero{width:90px;flex-shrink:0}
 .arv-mont-material{width:110px;flex-shrink:0}
 @media(max-width:640px){
@@ -5496,7 +5497,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-02 · build 410';
+const APP_BUILD='2026-11-02 · build 411';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11282,14 +11283,15 @@ function _renderArvoreCascata(desenhoId, termoBusca){
       ? `<span style="color:#2e7d32;font-weight:700;font-size:11px;white-space:nowrap">✅ OP criada</span>`
       : `<button class="btn btn-sm primary" onclick="event.stopPropagation();criarOPdaMontagem('${no.id}')" style="font-size:11px;padding:3px 8px;white-space:nowrap">🔧 Criar OP</button>`;
     return `<div data-tipo-item="montagem" onclick="_navegarArvore('${desenhoId}','${no.id}')" class="arv-linha" style="padding:8px 12px 8px 9px;cursor:pointer;border-bottom:1px solid #eee;border-left:3px solid ${no.ordem_id?'#2e7d32':'#ef6c00'};background:#f9fbe7">
+      <div class="arv-denom-grupo" style="font-size:12px;font-weight:700;color:#827717">
       <span style="font-size:13px;flex-shrink:0">📁</span>
       ${_badgeTipoNo('montagem')}
-      <span class="arv-mont-info" style="font-size:12px;font-weight:700;color:#827717">
         <span class="arv-mont-nome" title="${(no.nome_montagem||'Montagem sem nome').replace(/"/g,'&quot;')}">${destaca(no.nome_montagem||'Montagem sem nome')}</span>
-        <span class="arv-mont-numero">${no.numero_desenho ? `<span style="font-size:10px;font-weight:600;color:#827717;background:#e6ee9c;border-radius:5px;padding:2px 8px;white-space:nowrap;display:inline-block">${destaca(no.numero_desenho)}</span>` : ''}</span>
-        <span class="arv-mont-material">${no.material ? `<span style="font-size:10px;font-weight:600;color:#558b2f;background:#dcedc8;border-radius:5px;padding:2px 8px;white-space:nowrap;display:inline-block">${destaca(no.material)}</span>` : ''}</span>
-      </span>
-      <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+      </div>
+        <span class="arv-campo">${no.numero_desenho ? `<span style="font-size:10px;font-weight:600;color:#827717;background:#e6ee9c;border-radius:5px;padding:2px 8px;white-space:nowrap;display:inline-block">${destaca(no.numero_desenho)}</span>` : ''}</span>
+        <span class="arv-campo">${no.material ? `<span style="font-size:10px;font-weight:600;color:#558b2f;background:#dcedc8;border-radius:5px;padding:2px 8px;white-space:nowrap;display:inline-block">${destaca(no.material)}</span>` : ''}</span>
+      <span class="arv-qtd">${no.quantidade||1}</span>
+      <span class="arv-status" style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
         <span style="width:78px;text-align:right">${pend>0 ? `<span style="font-size:10px;font-weight:700;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;white-space:nowrap">${pend} pendente${pend>1?'s':''}</span>` : ''}</span>
         ${_btnMat}
         <button onclick="event.stopPropagation();abrirEdicaoRapida('${no.id}','montagem')" style="background:none;border:none;color:#757575;cursor:pointer;font-size:13px;flex-shrink:0" title="Editar">✏️</button>
@@ -11544,13 +11546,12 @@ function renderDesenhosRecebidos(){
         </div>
       </div>
       ${corpoArvore ? `<div>
-        <div class="arv-cabecalho-colunas" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fafafa;border-bottom:1px solid #eee">
-          <span style="width:18px"></span>
+        <div class="arv-cabecalho-colunas" style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px 9px;background:#fafafa;border-bottom:1px solid #eee">
           <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;flex:2">Denominação</span>
           <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;flex:1">Desenho/Padrão</span>
           <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;flex:1">Material</span>
-          <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;width:28px;text-align:center">Qtd</span>
-          <span style="width:90px"></span>
+          <span style="font-size:9px;color:#9e9e9e;text-transform:uppercase;font-weight:700;text-align:center">Qtd</span>
+          <span></span>
         </div>
         <div data-scroll-arv="${d.id}" style="overflow-x:auto;max-height:560px;overflow-y:auto">${corpoArvore}</div>
       </div>` : `<div style="padding:16px;text-align:center;color:#9e9e9e;font-size:12px">Nenhuma montagem ou item cadastrado neste equipamento</div>`}
