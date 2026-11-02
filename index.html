@@ -5496,7 +5496,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-02 · build 409';
+const APP_BUILD='2026-11-02 · build 410';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10984,6 +10984,13 @@ async function salvarDesenhoRecebido(){
 
     await sincronizarQuantidadesOPDaEstrutura(alteracoesQuantidadeOP);
 
+    // A árvore foi apagada e recriada com ids novos: mantém o usuário no mesmo nível
+    // (senão a navegação aponta pra um id que não existe mais e a lista aparece vazia).
+    try{
+      const navAtual = _navegacaoArvore[desenhoId];
+      if(navAtual){ _navegacaoArvore[desenhoId] = mapaIds[navAtual] || null; }
+    }catch(_){}
+
     showToast('Equipamento recebido salvo!');
     fecharModal('modalDesenhoRecebido');
     await loadAll();
@@ -11334,7 +11341,8 @@ function _renderArvoreCascata(desenhoId, termoBusca){
   }
 
   // Navegação normal (sem busca): mostra só o nível atual — null = raiz do equipamento.
-  const nodeAtualId = _navegacaoArvore[desenhoId] || null;
+  let nodeAtualId = _navegacaoArvore[desenhoId] || null;
+  if(nodeAtualId && !porId[nodeAtualId]){ nodeAtualId = null; _navegacaoArvore[desenhoId] = null; }
   const nodeAtual = nodeAtualId ? porId[nodeAtualId] : null;
   const filhosNivel = filhosPorId[nodeAtualId===null?'raiz':nodeAtualId] || [];
   const montagensNivel = filhosNivel.filter(n=>n.tipo==='montagem');
