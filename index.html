@@ -5513,7 +5513,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 418';
+const APP_BUILD='2026-11-03 · build 419';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12709,16 +12709,28 @@ function imprimirOrdensSelecionadas(){
     // Uma ficha agrupada representa várias O.P.s; seus apontamentos continuam nas originais.
     const tempos=o._opAgrupada?[]:(temposOP||[]).filter(t=>t.ordem_id===o.id&&t.operacao);
     const dataAbertura=o.dt_abertura?o.dt_abertura.split('T')[0].split('-').reverse().join('/'):'';
-    const getTempo=(op)=>{
-      const ts=tempos.filter(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&x.dt_hr_final);
-      const t=ts.sort((a,b)=>new Date(b.dt_hr_final)-new Date(a.dt_hr_final))[0];
-      const tAtivo=!t?tempos.find(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&!x.dt_hr_final):null;
-      const reg=t||tAtivo;
-      return{operador:reg?.operador||'',ini:fmtDtHr(reg?.dt_hr_inicial),fim:fmtDtHr(reg?.dt_hr_final)};
+    const getTempos=(op)=>{
+      const U=op.toUpperCase();
+      const ts=tempos.filter(x=>x.operacao&&x.operacao.toUpperCase()===U)
+        .sort((a,b)=>new Date(a.dt_hr_inicial||a.dt_hr_final||0)-new Date(b.dt_hr_inicial||b.dt_hr_final||0));
+      return ts.map(reg=>({operador:reg.operador||'',ini:fmtDtHr(reg.dt_hr_inicial),fim:fmtDtHr(reg.dt_hr_final),retr:!!reg.retrabalho}));
     };
     const opRow=(op1,op2)=>{
-      const t1=getTempo(op1),t2=getTempo(op2);
-      return`<tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:9px"><td colspan="3" style="border:1px solid #000;padding:3px">${op1}</td><td colspan="3" style="border:1px solid #000;padding:3px">${op2}</td></tr><tr style="font-size:9px;font-weight:700;text-align:center;background:#f0f0f0"><td style="border:1px solid #000;padding:2px 3px">OPERADOR</td><td style="border:1px solid #000;padding:2px 3px">DT/HR INICIAL</td><td style="border:1px solid #000;padding:2px 3px">DT/HR FINAL</td><td style="border:1px solid #000;padding:2px 3px">OPERADOR</td><td style="border:1px solid #000;padding:2px 3px">DT/HR INICIAL</td><td style="border:1px solid #000;padding:2px 3px">DT/HR FINAL</td></tr><tr style="height:16px;font-size:9px;text-align:center;vertical-align:top"><td style="border:1px solid #000;border-bottom:1px dashed #999;padding:2px 3px">${t1.operador}</td><td style="border:1px solid #000;border-bottom:1px dashed #999;padding:2px 3px">${t1.ini}</td><td style="border:1px solid #000;border-bottom:1px dashed #999;padding:2px 3px">${t1.fim}</td><td style="border:1px solid #000;border-bottom:1px dashed #999;padding:2px 3px">${t2.operador}</td><td style="border:1px solid #000;border-bottom:1px dashed #999;padding:2px 3px">${t2.ini}</td><td style="border:1px solid #000;border-bottom:1px dashed #999;padding:2px 3px">${t2.fim}</td></tr><tr style="height:16px;font-size:9px;text-align:center;vertical-align:top"><td style="border:1px solid #000;border-top:none;padding:2px 3px">&nbsp;</td><td style="border:1px solid #000;border-top:none;padding:2px 3px">&nbsp;</td><td style="border:1px solid #000;border-top:none;padding:2px 3px">&nbsp;</td><td style="border:1px solid #000;border-top:none;padding:2px 3px">&nbsp;</td><td style="border:1px solid #000;border-top:none;padding:2px 3px">&nbsp;</td><td style="border:1px solid #000;border-top:none;padding:2px 3px">&nbsp;</td></tr>`;
+      const l1=getTempos(op1),l2=getTempos(op2);
+      const n=Math.max(2,l1.length,l2.length);
+      const cel=(r,i,k)=>{
+        const bt=i===0?'1px solid #000':'1px dashed #999';
+        const bg=r&&r.retr?'background:#fdecea;color:#8e1c14;font-weight:700;':'';
+        const txt=r?(k===0?r.operador+(r.retr?' ↻':''):(k===1?r.ini:r.fim)):'&nbsp;';
+        return `<td style="border:1px solid #000;border-top:${bt};padding:2px 3px;${bg}">${txt||'&nbsp;'}</td>`;
+      };
+      let linhas='';
+      for(let i=0;i<n;i++){
+        const r1=l1[i],r2=l2[i];
+        linhas+=`<tr style="height:16px;font-size:9px;text-align:center;vertical-align:top">${cel(r1,i,0)}${cel(r1,i,1)}${cel(r1,i,2)}${cel(r2,i,0)}${cel(r2,i,1)}${cel(r2,i,2)}</tr>`;
+      }
+      const th='<td style="border:1px solid #000;padding:2px 3px">';
+      return`<tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:9px"><td colspan="3" style="border:1px solid #000;padding:3px">${op1}</td><td colspan="3" style="border:1px solid #000;padding:3px">${op2}</td></tr><tr style="font-size:9px;font-weight:700;text-align:center;background:#f0f0f0">${th}OPERADOR</td>${th}DT/HR INICIAL</td>${th}DT/HR FINAL</td>${th}OPERADOR</td>${th}DT/HR INICIAL</td>${th}DT/HR FINAL</td></tr>${linhas}`;
     };
     return`<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:10px;table-layout:fixed">
   <colgroup>
@@ -13038,57 +13050,34 @@ function imprimirOrdem(id){
     return `${d}/${mo}/${String(y).slice(2)} ${h}:${mi}`;
   };
 
-  const getTempo=(op)=>{
-    // Pega todos os tempos desta operação com dt_hr_final (concluídos)
-    const ts=tempos.filter(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&x.dt_hr_final);
-    const t=ts.sort((a,b)=>new Date(b.dt_hr_final)-new Date(a.dt_hr_final))[0];
-    // Se não tem concluído, pega o em andamento
-    const tAtivo=!t?tempos.find(x=>x.operacao&&x.operacao.toUpperCase()===op.toUpperCase()&&!x.dt_hr_final):null;
-    const reg=t||tAtivo;
-    let tempo='';
-    if(reg?.duracao_minutos){
-      const h=Math.floor(reg.duracao_minutos/60), m=reg.duracao_minutos%60;
-      tempo=`${h}h${String(m).padStart(2,'0')}`;
-    }
-    return {
-      operador:reg?.operador||'',
-      ini:fmtDtHr(reg?.dt_hr_inicial),
-      fim:fmtDtHr(reg?.dt_hr_final),
-      tempo
-    };
+  const getTempos=(op)=>{
+    const U=op.toUpperCase();
+    return tempos.filter(x=>x.operacao&&x.operacao.toUpperCase()===U)
+      .sort((a,b)=>new Date(a.dt_hr_inicial||a.dt_hr_final||0)-new Date(b.dt_hr_inicial||b.dt_hr_final||0))
+      .map(reg=>({operador:reg.operador||'',ini:fmtDtHr(reg.dt_hr_inicial),fim:fmtDtHr(reg.dt_hr_final),retr:!!reg.retrabalho}));
   };
 
   const opRow=(op1,op2)=>{
-    const t1=getTempo(op1), t2=getTempo(op2);
+    const l1=getTempos(op1),l2=getTempos(op2);
+    const n=Math.max(2,l1.length,l2.length);
+    const cel=(r,i,k)=>{
+      const bt=i===0?'1px solid #000':'1px dashed #999';
+      const bg=r&&r.retr?'background:#fdecea;color:#8e1c14;font-weight:700;':'';
+      const txt=r?(k===0?r.operador+(r.retr?' ↻':''):(k===1?r.ini:r.fim)):'';
+      return `<td style="border:1px solid #000;border-top:${bt};padding:3px 4px;${bg}">${txt||'&nbsp;'}</td>`;
+    };
+    let linhas='';
+    for(let i=0;i<n;i++){
+      const r1=l1[i],r2=l2[i];
+      linhas+=`<tr style="height:24px;font-size:11px;text-align:center;vertical-align:top">${cel(r1,i,0)}${cel(r1,i,1)}${cel(r1,i,2)}${cel(r2,i,0)}${cel(r2,i,1)}${cel(r2,i,2)}</tr>`;
+    }
+    const th='<td style="border:1px solid #000;padding:3px 4px">';
     return `
     <tr style="background:#d9d9d9;font-weight:700;text-align:center;font-size:10px">
       <td colspan="3" style="border:1px solid #000;padding:4px">${op1}</td>
       <td colspan="3" style="border:1px solid #000;padding:4px">${op2}</td>
     </tr>
-    <tr style="font-size:10px;font-weight:700;text-align:center;background:#f0f0f0">
-      <td style="border:1px solid #000;padding:3px 4px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR FINAL</td>
-      <td style="border:1px solid #000;padding:3px 4px">OPERADOR</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR INICIAL</td>
-      <td style="border:1px solid #000;padding:3px 4px">DT/HR FINAL</td>
-    </tr>
-    <tr style="height:24px;font-size:11px;text-align:center;vertical-align:top">
-      <td style="border:1px solid #000;border-bottom:1px dashed #999;padding:3px 4px">${t1.operador}</td>
-      <td style="border:1px solid #000;border-bottom:1px dashed #999;padding:3px 4px">${t1.ini}</td>
-      <td style="border:1px solid #000;border-bottom:1px dashed #999;padding:3px 4px">${t1.fim}</td>
-      <td style="border:1px solid #000;border-bottom:1px dashed #999;padding:3px 4px">${t2.operador}</td>
-      <td style="border:1px solid #000;border-bottom:1px dashed #999;padding:3px 4px">${t2.ini}</td>
-      <td style="border:1px solid #000;border-bottom:1px dashed #999;padding:3px 4px">${t2.fim}</td>
-    </tr>
-    <tr style="height:24px;font-size:11px;text-align:center;vertical-align:top">
-      <td style="border:1px solid #000;border-top:none;padding:3px 4px">&nbsp;</td>
-      <td style="border:1px solid #000;border-top:none;padding:3px 4px">&nbsp;</td>
-      <td style="border:1px solid #000;border-top:none;padding:3px 4px">&nbsp;</td>
-      <td style="border:1px solid #000;border-top:none;padding:3px 4px">&nbsp;</td>
-      <td style="border:1px solid #000;border-top:none;padding:3px 4px">&nbsp;</td>
-      <td style="border:1px solid #000;border-top:none;padding:3px 4px">&nbsp;</td>
-    </tr>`;};
+    <tr style="font-size:10px;font-weight:700;text-align:center;background:#f0f0f0">${th}OPERADOR</td>${th}DT/HR INICIAL</td>${th}DT/HR FINAL</td>${th}OPERADOR</td>${th}DT/HR INICIAL</td>${th}DT/HR FINAL</td></tr>${linhas}`;};
 
   const conteudo=`<!DOCTYPE html>
 <html><head>
