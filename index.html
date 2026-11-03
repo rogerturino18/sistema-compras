@@ -938,6 +938,7 @@ thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f
    sobrepunha a primeira ordem ao rolar; aqui ele permanece no fluxo normal. */
 #tab5 #listaOrdens thead th{position:static!important;top:auto!important;z-index:auto!important}
 .ord-wrap{overflow:hidden}.ord-scroll{overflow-x:auto}
+.ordDot{width:22px;height:22px;padding:0;border:0;background:transparent;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}.ordDot:hover{transform:scale(1.25)}.ordDot:focus-visible{outline:2px solid #1b4d38;outline-offset:1px}
 /* Telas largas (a grade cabe sem rolagem lateral): o cabeçalho das colunas fica fixo abaixo da barra
    superior ao rolar a página, para saber qual coluna preencher. overflow:clip não cria rolagem própria,
    então o sticky acompanha a página. */
@@ -5497,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 414';
+const APP_BUILD='2026-11-03 · build 415';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9457,57 +9458,56 @@ function renderOrdens(){
       const st=statusOrdem(o);
       const temposDaOrdem=temposPorOrdem[o.id]||[];
 
-      const celulas = COLS_FIXAS.map(op=>{
-        if(op==='Aguardando'){
-          const ativo = st==='aguardando';
-          return `<td onclick="abrirMenuEtapaOrdem(event,'${o.id}','Aguardando')"
-            style="background:${ativo?'#eceff1':'#fff'};color:#607d8b;border:1px solid ${ativo?'#90a4ae':'#b0bec5'};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-            title="${ativo?'Peça aguardando':'Voltar para Aguardando'}" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'">${ativo?'⏳':''}</td>`;
-        }
+      // Visual "A" (tabela leve): em vez de uma coluna por máquina, uma fileira de pontos
+      // (verde = já passou, anel colorido = em andamento, cinza = não passou) + um selo de situação.
+      // Cada ponto mantém exatamente o mesmo clique da antiga célula da máquina.
+      const OPS_PONTOS = COLS_FIXAS.filter(c=>c!=='Aguardando');
+      const escAttr = t => String(t==null?'':t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      const bolinha = css => `<span style="display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;box-sizing:border-box;font-size:9px;font-weight:700;color:#fff;${css}"></span>`;
+      let nPassou = 0;
+      const pontosHtml = OPS_PONTOS.map(op=>{
+        const botao = (inner,onclick,titulo)=>`<button type="button" class="ordDot" onclick="${onclick}" title="${escAttr(titulo)}" aria-label="${escAttr(op+': '+titulo)}">${inner}</button>`;
         if(op==='Terceirizado'){
           const ativo = st==='terceirizado';
           const foiTerceirizado = !ativo && !!(o.terceirizado_nome||o.terceirizado_data);
           const nome = (o.terceirizado_nome||'').trim();
-          const nomeEsc = nome.replace(/"/g,'&quot;');
           if(ativo){
-            // Mesmo esquema de cores/dias do selo de idade da ordem (Nº), aplicado
-            // aqui: quantos dias está terceirizado, mudando de cor a cada 5 dias.
             const diasTerc = _centralDiasDesde(o.terceirizado_data);
-            const badgeDiasTerc = diasTerc!==null
-              ? `<span title="${diasTerc} dia${diasTerc===1?'':'s'} terceirizado" style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 3px;border-radius:4px;background:${_corIdadeOrdem(diasTerc)};color:#fff;font-size:8px;font-weight:700;border:1px solid rgba(255,255,255,.7);vertical-align:middle;margin-right:3px">${diasTerc}</span>`
-              : '';
-            // Nome do terceirizado embaixo do caminhão — direto no HTML da célula,
-            // sem observar a página (evita o loop que travava o sistema antes).
-            const rotulo = `<div>${badgeDiasTerc}🚚</div>${nome?`<div style="font-size:9px;font-weight:700;color:#fff;line-height:1.15;margin-top:2px;max-width:56px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:${nomeEsc.includes(' + ')?3:2};-webkit-box-orient:vertical;white-space:normal">${nomeEsc.split(' + ').join('<br>')}</div>`:''}`;
-            return `<td onclick="retornarTerceirizado('${o.id}')"
-              style="background:${COR_OPERACAO['Terceirizado']};color:#fff;border:1px solid ${COR_OPERACAO['Terceirizado']};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-              title="Terceirizado com ${nomeEsc||'—'} — ${diasTerc!==null?diasTerc+' dia(s) — ':''}clique para registrar retorno" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${rotulo}</td>`;
+            return botao(bolinha(`background:#fff;border:4px solid ${COR_OPERACAO['Terceirizado']}`),`retornarTerceirizado('${o.id}')`,`Terceirizado com ${nome||'—'}${diasTerc!==null?' — '+diasTerc+' dia(s)':''} — clique para registrar retorno`);
           }
           if(foiTerceirizado){
-            // Já foi terceirizado e voltou — mostra ✓ igual às outras operações
-            // concluídas, em vez de ficar em branco como se nunca tivesse saído.
+            nPassou++;
             const dataEnvio = o.terceirizado_data?new Date(o.terceirizado_data+'T12:00').toLocaleDateString('pt-BR'):'—';
             const dataRetorno = o.terceirizado_retorno?new Date(o.terceirizado_retorno+'T12:00').toLocaleDateString('pt-BR'):null;
-            return `<td onclick="terceirizarOrdem('${o.id}')"
-              style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-              title="Terceirizado com ${nomeEsc||'—'} — enviado ${dataEnvio}${dataRetorno?' · voltou '+dataRetorno:''}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">✓</td>`;
+            return botao(bolinha('background:#2e7d32'),`terceirizarOrdem('${o.id}')`,`Terceirizado com ${nome||'—'} — enviado ${dataEnvio}${dataRetorno?' · voltou '+dataRetorno:''}`);
           }
-          return `<td onclick="terceirizarOrdem('${o.id}')"
-            style="background:#fff;color:#ef6c00;border:1px solid #b0bec5;text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-            title="Enviar para terceirizado" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'"></td>`;
+          return botao(bolinha('background:#dbe4de'),`terceirizarOrdem('${o.id}')`,'Enviar para terceirizado');
         }
         const tempo = temposDaOrdem.find(t=>t.operacao===op&&temposReais(t)&&!t.dt_hr_final);
         const concluidasOp = temposDaOrdem.filter(t=>t.operacao===op&&temposReais(t)&&t.dt_hr_final);
-        let bg='#fff', txt='', borda='#b0bec5', titulo='Clique para iniciar';
-        if(tempo){ bg=COR_OPERACAO[op]||'#1565c0'; txt='▶'; borda=bg; titulo='Em andamento — '+(tempo.operador||''); }
-        else if(concluidasOp.length>1){ bg='#e8f5e9'; txt=concluidasOp.length+'x'; borda='#a5d6a7'; titulo=concluidasOp.length+' passagens concluídas — clique para ver'; }
-        else if(concluidasOp.length===1){ bg='#e8f5e9'; txt='✓'; borda='#a5d6a7'; titulo='Concluído'; }
-        return `<td onclick="abrirMenuEtapaOrdem(event,'${o.id}','${op.replace(/'/g,"\\'")}')"
-          style="background:${bg};color:${tempo?'#fff':'#2e7d32'};border:1px solid ${borda};text-align:center;font-weight:700;font-size:12px;cursor:pointer;padding:6px 2px;transition:filter 0.15s"
-          title="${titulo}" onmouseover="this.style.filter='brightness(0.93)'" onmouseout="this.style.filter='none'">${txt}</td>`;
+        const clique = `abrirMenuEtapaOrdem(event,'${o.id}','${op.replace(/'/g,"\\'")}')`;
+        if(tempo) return botao(bolinha(`background:#fff;border:4px solid ${COR_OPERACAO[op]||'#1565c0'}`),clique,`Em andamento${tempo.operador?' — '+tempo.operador:''}`);
+        if(concluidasOp.length>1){ nPassou++; return botao(`<span style="display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#2e7d32;color:#fff;font-size:9px;font-weight:700">${concluidasOp.length}</span>`,clique,`${concluidasOp.length} passagens concluídas — clique para ver`); }
+        if(concluidasOp.length===1){ nPassou++; return botao(bolinha('background:#2e7d32'),clique,'Concluída'); }
+        return botao(bolinha('background:#dbe4de'),clique,'Clique para iniciar');
       }).join('');
 
-      return `<tr style="border-bottom:1px solid #b0bec5${st==='concluido'?';background:#eef7ee' : ''}">
+      let pillSituacao;
+      const pillBase = 'display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;border-radius:12px;padding:5px 12px;font-size:12px;font-weight:600;border:0;cursor:pointer;text-align:left;font-family:inherit;line-height:1.25';
+      if(st==='concluido'){
+        pillSituacao = `<span style="${pillBase};background:#e0f0e5;color:#1b4d38;cursor:default">✓ Concluído</span>`;
+      } else if(st==='terceirizado'){
+        const nomeT=(o.terceirizado_nome||'').trim(); const diasT=_centralDiasDesde(o.terceirizado_data);
+        pillSituacao = `<button type="button" onclick="retornarTerceirizado('${o.id}')" title="Clique para registrar o retorno" style="${pillBase};background:#fff0dc;color:#8a4300">🚚 Terceirizado${nomeT||diasT!==null?`<span style="font-weight:500;font-size:11px">${escAttr(nomeT)}${nomeT&&diasT!==null?' · ':''}${diasT!==null?diasT+' dia'+(diasT===1?'':'s'):''}</span>`:''}</button>`;
+      } else if(st==='andamento'){
+        const ativoT = temposDaOrdem.find(t=>temposReais(t)&&!t.dt_hr_final);
+        const opA = ativoT?.operacao||'—';
+        pillSituacao = `<button type="button" onclick="abrirMenuEtapaOrdem(event,'${o.id}','${opA.replace(/'/g,"\\'")}')" title="Clique para concluir ou pausar" style="${pillBase};background:${COR_OPERACAO[opA]||'#1565c0'}1f;color:#1f2a24"><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${COR_OPERACAO[opA]||'#1565c0'}"></span>Em ${escAttr(opA.toLowerCase())}</span>${ativoT?.operador?`<span style="font-weight:500;font-size:11px;color:#46564d">${escAttr(ativoT.operador)}</span>`:''}</button>`;
+      } else {
+        pillSituacao = `<button type="button" onclick="abrirEscolherEtapaMobile(event,'${o.id}')" title="Clique para iniciar uma etapa" style="${pillBase};background:#fff3dc;color:#8a5200">⏳ ${nPassou>0?'Aguardando próxima etapa':'Aguardando início'}</button>`;
+      }
+
+      return `<tr style="border-bottom:1px solid #edf2ee${st==='concluido'?';background:#f4faf5' : ''}">
         <td style="padding:8px 6px;text-align:center;min-width:60px;width:60px">
           ${o.tem_foto_desenho
             ? _miniaturaOrdemHtml(o)
@@ -9529,7 +9529,8 @@ function renderOrdens(){
           ${_origemChipHtml(o)}
         </td>
         <td style="padding:8px 4px;text-align:center;font-weight:700;color:#37474f">${o.quantidade||1}</td>
-        ${celulas}
+        <td style="padding:8px 6px">${pillSituacao}</td>
+        <td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:2px">${pontosHtml}</div></td>
         <td style="padding:6px 4px;text-align:center"><div style="display:grid;grid-template-columns:repeat(3,28px);gap:4px;justify-content:center;align-items:center" class="ordAcoes">
           ${st!=='concluido'?`<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="finalizarOrdemForcado('${o.id}')" title="Finalizar forçado — fecha a ordem e qualquer etapa em aberto, mesmo sem o tempo registrado certinho">✅</button>`:''}
           ${st==='concluido'?`<button class="btn btn-sm" style="background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="reverterOrdemConcluida('${o.id}')" title="Reverter conclusão">↩️</button>`:''}
@@ -9581,7 +9582,7 @@ function renderOrdens(){
       </div>`;
     }).join('');
 
-    return `<div class="ord-wrap" style="margin-bottom:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px">
+    return `<div class="ord-wrap" style="margin-bottom:20px;background:#fff;border:1px solid #e1e9e4;border-radius:16px;box-shadow:0 1px 3px rgba(20,50,35,.06)">
       <div style="background:#f5f5f5;padding:10px 14px;font-weight:700;font-size:13px;color:#37474f;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <span>📋 ${pdvLabel}${pdv?.equipamento?' · '+pdv.equipamento:''}</span>
         <span style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;min-width:220px">
@@ -9594,14 +9595,13 @@ function renderOrdens(){
         </span>
       </div>
       ${isMobile ? `<div style="padding:10px">${cardsMobile}</div>` : `<div class="ord-scroll">
-<table style="width:100%;min-width:${62+96+84+156+80+COLS_FIXAS.length*72+100}px;border-collapse:collapse;font-size:12px;table-layout:fixed">
+<table style="width:100%;min-width:${62+110+96+240+70+170+((COLS_FIXAS.length-1)*22+20)+100}px;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
-            <col style="width:62px"><col style="width:96px"><col style="width:84px"><col style="width:156px"><col style="width:80px">
-${COLS_FIXAS.map(()=>'<col style="width:72px">').join('')}
+            <col style="width:62px"><col style="width:110px"><col style="width:96px"><col><col style="width:70px"><col style="width:170px"><col style="width:${(COLS_FIXAS.length-1)*22+20}px">
             <col style="width:100px">
           </colgroup>
           <thead>
-            <tr style="background:#fafafa;border-bottom:2px solid #cfd8dc">
+            <tr style="background:#f7faf8;border-bottom:1px solid #edf2ee">
               <th style="width:60px;min-width:60px;padding:8px 6px;text-align:center;color:#546e7a;font-size:13px" title="Foto do desenho anexada?">📷</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase;user-select:none">
                 <span onclick="toggleOrdemProd('numero')" style="cursor:pointer" title="Ordenar por número da ordem">Ordem${estOrdemProdCampo==='numero'?(estOrdemProdDir===1?' ▲':' ▼'):''}</span>
@@ -9609,13 +9609,23 @@ ${COLS_FIXAS.map(()=>'<col style="width:72px">').join('')}
               </th>
               <th onclick="toggleOrdemProd('desenho')" style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase;cursor:pointer;user-select:none" title="Ordenar por número do desenho">Desenho${estOrdemProdCampo==='desenho'?(estOrdemProdDir===1?' ▲':' ▼'):''}</th>
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
-              <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Quantidade</th>
-${COLS_FIXAS.map(op=>`<th style="height:42px;padding:6px;text-align:center;vertical-align:middle;color:#546e7a;font-size:9px;font-weight:700;letter-spacing:0;text-transform:uppercase;line-height:1.25;white-space:normal;word-break:keep-all;overflow:visible;text-overflow:clip;padding-left:2px;padding-right:2px">${op}</th>`).join('')}
+              <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Qtd</th>
+              <th style="padding:8px 6px;text-align:left;color:#56665d;font-size:11px;text-transform:uppercase;letter-spacing:.05em">Situação</th>
+              <th style="padding:8px 6px;text-align:left;color:#56665d;font-size:11px;text-transform:uppercase;letter-spacing:.05em">Andamento</th>
               <th style="width:100px"></th>
             </tr></thead><tbody>
             ${linhas}
           </tbody>
         </table>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:#56665d;padding:10px 16px;border-top:1px solid #edf2ee;background:#fbfcfb">
+        <span style="font-weight:600;color:#3a4a41">Andamento, em ordem:</span>
+        ${COLS_FIXAS.filter(c=>c!=='Aguardando').map(c=>`<span>${c}</span>`).join('')}
+        <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:50%;background:#2e7d32"></span>Já passou</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid #1565c0;box-sizing:border-box"></span>Em andamento (cor da máquina)</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:50%;background:#dbe4de"></span>Não passou</span>
+        </span>
       </div>`}
     </div>`;
   };
