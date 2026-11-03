@@ -2359,6 +2359,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div class="form-group"><label>Nº da nota fiscal</label><input id="rom_nf" placeholder="Ex: 1234" autocomplete="off"></div>
         <div class="form-group"><label>Transportadora <a href="javascript:void(0)" onclick="expNovaTransp()" style="font-weight:600;font-size:11px;margin-left:6px">+ cadastrar nova</a></label><select id="rom_transp"></select></div>
       </div>
+      <div style="margin:12px 0 6px"><span style="font-size:12px;font-weight:700;color:#37474f">✅ Itens deste romaneio</span> <span style="font-size:11px;color:#78909c">— desmarque o que não vai agora, ou diminua a quantidade (envio parcial)</span></div>
+      <div id="rom_sel" style="border:1px solid #e0e6e2;border-radius:8px;padding:4px 10px"></div>
       <div style="display:flex;align-items:center;gap:10px;margin:12px 0 6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:#37474f">📦 Volumes / embalagens</span><label style="font-size:12px;color:#546e7a;display:flex;align-items:center;gap:6px">Quantidade de volumes <input id="rom_nvol" type="number" min="0" max="60" inputmode="numeric" onchange="_romVolN(this.value)" style="width:64px;padding:5px 7px;border:1px solid #cfd8dc;border-radius:6px"></label></div>
       <div id="rom_vols"></div>
       <button class="btn btn-sm" onclick="_romVolAdd()" style="margin-top:6px">+ Adicionar volume</button>
@@ -2781,6 +2783,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 Expedição</h2>
         <div style="font-size:12px;color:var(--gray);margin-top:2px">Assim que um Pedido de Venda é aprovado ou entra em produção, ele aparece aqui sozinho — não precisa cadastrar nada à parte.</div>
       </div>
+      <button class="btn btn-sm" onclick="expNovoCarregamento()" title="Criar um carregamento direto de um PDV, sem Pedido de Venda">➕ Novo carregamento</button>
       <button class="btn btn-sm" id="expSelBtn" onclick="_expSelAlternar()" title="Marcar vários pedidos como enviados de uma vez">☑️ Marcar como enviados</button>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#546e7a;cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="expedMostrarEnviados" onchange="renderExpedicao()" style="width:15px;height:15px;cursor:pointer"> Mostrar enviados
@@ -5513,7 +5516,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 419';
+const APP_BUILD='2026-11-03 · build 420';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25282,6 +25285,31 @@ async function _expCarregarFotos(c){
     c.carregamento_fotos.forEach(f=>{ if(!f.foto_base64) f.foto_base64=m.get(f.id)||''; });
   }catch(e){ console.warn('[expedicao] fotos', e); }
 }
+function expNovoCarregamento(){
+  document.getElementById('modalNovoCarreg')?.remove();
+  const usados=new Set((carregamentos||[]).filter(c=>c.status!=='Enviado').map(c=>c.pdv_id).filter(Boolean));
+  const lista=(pdvs||[]).slice().sort((a,b)=>(parseInt(String(b.numero).replace(/\D/g,''))||0)-(parseInt(String(a.numero).replace(/\D/g,''))||0));
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal-bg open" id="modalNovoCarreg" style="display:flex"><div class="modal" style="width:480px;max-width:96vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font-size:16px">➕ Novo carregamento</h3><button class="modal-header-btn" onclick="document.getElementById('modalNovoCarreg').remove()">✕</button></div>
+    <div style="padding:14px 16px"><div style="font-size:12px;color:#546e7a;margin-bottom:8px">Use quando o PDV ainda não tem Pedido de Venda aprovado. Os itens vêm das Ordens de Produção do PDV.</div>
+    <div class="form-group"><label>PDV</label><select id="ncPdv" style="width:100%">${lista.map(p=>`<option value="${p.id}">${esc(rotuloPDV(p,true))}${usados.has(p.id)?' (já tem carregamento aberto)':''}</option>`).join('')}</select></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn" onclick="document.getElementById('modalNovoCarreg').remove()">Cancelar</button><button class="btn primary" id="ncBtn" onclick="expCriarCarregamentoPdv()">Criar</button></div></div></div></div>`);
+}
+async function expCriarCarregamentoPdv(){
+  const id=document.getElementById('ncPdv')?.value; const pdv=(pdvs||[]).find(p=>p.id===id); if(!pdv) return;
+  const btn=document.getElementById('ncBtn'); if(btn){ btn.disabled=true; btn.textContent='Criando...'; }
+  try{
+    const maxNum=carregamentos.length?Math.max(...carregamentos.map(c=>c.numero||0)):0;
+    const [novo]=await api('POST','carregamentos',{numero:maxNum+1,pedido_venda_id:null,pdv_id:pdv.id,pdv_numero:rotuloPDV(pdv),cliente_nome:pdv.cliente||'',status:'Aguardando Fotos',criado_por:'Manual (sem Pedido de Venda)'});
+    const itens=_itensDeProducaoParaCarregamento(novo.id,pdv.id,null);
+    novo.carregamento_itens=itens.length?await api('POST','carregamento_itens',itens):[];
+    novo.carregamento_fotos=[]; carregamentos.unshift(novo);
+    document.getElementById('modalNovoCarreg')?.remove();
+    showToast(itens.length?'✅ Carregamento criado':'Carregamento criado, mas o PDV ainda não tem ordens de produção','ok');
+    renderExpedicao();
+  }catch(e){ showToast('Erro ao criar: '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Criar'; } }
+}
 async function abrirDetalheCarregamento(id){
   _carregamentoSelecionadoId=id;
   await _expCarregarFotos(carregamentos.find(x=>x.id===id));
@@ -25713,8 +25741,15 @@ async function toggleTransportadora(id){
 // ===== ROMANEIO =====
 let _romVol=[];
 function _romNum(v){ const n=pesosNum(String(v==null?'':v).trim()); return (n==null||isNaN(n))?0:n; }
-function _expPesoLiquido(c){
-  return (c.carregamento_itens||[]).reduce((a,it)=>{ const o=it.ordem_producao_id&&ordens.find(x=>x.id===it.ordem_producao_id); const pr=o&&o._pronto; const pu=o?((pr&&pr.peso_pronto!=null)?Number(pr.peso_pronto):null):(it.peso_unit!=null?Number(it.peso_unit):null); return a+(pu!=null?pu*(Number(it.qtd)||0):0); },0);
+// Itens que entram no romaneio: se houver seleção salva (envio parcial), só esses, nas quantidades escolhidas.
+function _expItensRomaneio(c, sel){
+  const s=sel!==undefined?sel:c.romaneio_itens;
+  const todos=c.carregamento_itens||[];
+  if(!s||typeof s!=='object') return todos;
+  return todos.filter(it=>Number(s[it.id])>0).map(it=>({...it,qtd:Number(s[it.id])}));
+}
+function _expPesoLiquido(c, sel){
+  return _expItensRomaneio(c,sel).reduce((a,it)=>{ const o=it.ordem_producao_id&&ordens.find(x=>x.id===it.ordem_producao_id); const pr=o&&o._pronto; const pu=o?((pr&&pr.peso_pronto!=null)?Number(pr.peso_pronto):null):(it.peso_unit!=null?Number(it.peso_unit):null); return a+(pu!=null?pu*(Number(it.qtd)||0):0); },0);
 }
 const _kgF=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
 let _romItensCar=[];
@@ -25784,21 +25819,41 @@ function _romTranspSelect(atual){
   if(atual && !nomes.includes(atual)) h+='<option value="'+_stEsc(atual)+'">'+_stEsc(atual)+' (não cadastrada)</option>';
   sel.innerHTML=h; sel.value=atual||'';
 }
+let _romSel={}, _romTodosItens=[];
+function _romSelRender(){
+  const el=document.getElementById('rom_sel'); if(!el) return;
+  el.innerHTML=_romTodosItens.map(it=>{
+    const q=Number(_romSel[it.id])||0, on=q>0;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #eef2ee;${on?'':'opacity:.55'}"><input type="checkbox" ${on?'checked':''} onchange="_romSelToggle('${it.id}',this.checked)" style="width:auto"><div style="flex:1;min-width:0;font-size:12px;color:#37474f">${_stEsc(_romItemLabel(it))}</div><span style="font-size:11px;color:#78909c">de ${Number(it.qtd)||0}</span><input type="number" min="0" max="${Number(it.qtd)||0}" step="1" value="${q}" onchange="_romSelQtd('${it.id}',this.value)" style="width:64px;padding:3px 5px;text-align:center"></div>`;
+  }).join('')||'<div style="font-size:12px;color:#90a4ae;padding:6px 0">Este carregamento não tem itens.</div>';
+}
+function _romSelAplicar(){
+  const c=carregamentos.find(x=>x.id===document.getElementById('rom_id')?.value); if(!c) return;
+  _romItensCar=_romTodosItens.filter(it=>Number(_romSel[it.id])>0).map(it=>({id:it.id,numero_ordem:it.numero_ordem,descricao:it.descricao,qtd:Number(_romSel[it.id]),ordem_producao_id:it.ordem_producao_id}));
+  // tira dos volumes o que saiu da seleção ou passou da quantidade escolhida
+  _romVol.forEach(v=>{ Object.keys(v.itens||{}).forEach(k=>{ const q=Number(_romSel[k])||0; if(!q) delete v.itens[k]; else if(Number(v.itens[k])>q) v.itens[k]=q; }); });
+  _romSelRender(); _romVolRender(); _romLiq=_expPesoLiquido(c,_romSel); _romCalc();
+}
+function _romSelToggle(id,on){ const it=_romTodosItens.find(x=>x.id===id); _romSel[id]=on?(Number(it?.qtd)||1):0; _romSelAplicar(); }
+function _romSelQtd(id,v){ const it=_romTodosItens.find(x=>x.id===id); const m=Number(it?.qtd)||0; _romSel[id]=Math.max(0,Math.min(m,Number(v)||0)); _romSelAplicar(); }
 async function abrirRomaneio(id){
   const c=carregamentos.find(x=>x.id===id); if(!c) return;
   const set=(k,v)=>{ const e=document.getElementById(k); if(e) e.value=v==null?'':v; };
   set('rom_id',id); set('rom_nf',c.numero_nf); set('rom_obs',c.romaneio_obs);
   set('rom_bruto',c.peso_bruto!=null?String(c.peso_bruto).replace('.',','):'');
   _romTranspSelect(c.transportadora);
-  _romItensCar=_expOrdenarItens(c).map(it=>({id:it.id,numero_ordem:it.numero_ordem,descricao:it.descricao,qtd:it.qtd,ordem_producao_id:it.ordem_producao_id}));
+  _romTodosItens=_expOrdenarItens(c);
+  _romSel={}; _romTodosItens.forEach(it=>{ _romSel[it.id]=(c.romaneio_itens&&typeof c.romaneio_itens==='object')?(Number(c.romaneio_itens[it.id])||0):(Number(it.qtd)||0); });
+  _romItensCar=_romTodosItens.filter(it=>Number(_romSel[it.id])>0).map(it=>({id:it.id,numero_ordem:it.numero_ordem,descricao:it.descricao,qtd:Number(_romSel[it.id]),ordem_producao_id:it.ordem_producao_id}));
+  _romSelRender();
   _romVol=[]; (Array.isArray(c.volumes)?c.volumes:[]).forEach(v=>{
     const n=Math.max(1,Math.round(Number(v.qtd)||1)); const itens={}; (Array.isArray(v.itens)?v.itens:[]).forEach(x=>{ if(x&&x.item_id&&Number(x.qtd)>0) itens[x.item_id]=Number(x.qtd); });
     for(let k=0;k<n;k++) _romVol.push({descricao:v.descricao||'',qtd:'1',c:v.c||'',l:v.l||'',a:v.a||'',peso:v.peso||'',itens:k===0?itens:{}});
   });
-  _romVolRender(); _romLiq=_expPesoLiquido(c); _romCalc();
+  _romVolRender(); _romLiq=_expPesoLiquido(c,_romSel); _romCalc();
   abrirModal('modalRomaneio');
   setTimeout(()=>document.getElementById('rom_nf')?.focus(),80);
-  _expGarantirProntos(c).then(()=>{ _romLiq=_expPesoLiquido(c); _romCalc(); }).catch(()=>{});
+  _expGarantirProntos(c).then(()=>{ _romLiq=_expPesoLiquido(c,_romSel); _romCalc(); }).catch(()=>{});
 }
 // número sequencial do romaneio (como uma nota): gerado uma vez e mantido nas edições
 const _romFmt=n=>n?String(n).padStart(4,'0'):'';
@@ -25817,7 +25872,9 @@ async function gerarRomaneio(){
   const vols=_romVol.filter(v=>String(v.descricao||'').trim()||_romNum(v.c)||_romNum(v.l)||_romNum(v.a)||_romNum(v.peso)||_temAloc(v)).map(v=>({descricao:String(v.descricao||'').trim(),qtd:1,c:_romNum(v.c),l:_romNum(v.l),a:_romNum(v.a),peso:_romNum(v.peso),itens:Object.entries(v.itens||{}).filter(([k,q])=>Number(q)>0).map(([k,q])=>({item_id:k,qtd:Number(q)}))}));
   if(_romVol.some(_temAloc) && _romItensCar.some(it=>_romRestante(it.id)!==0) && !confirm('Há itens que ainda não foram colocados em nenhum volume (ou com quantidade diferente). Gerar o romaneio mesmo assim?')){ if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } return; }
   const manual=g('rom_bruto');
-  const dados={numero_nf:g('rom_nf')||null,transportadora:nomeT||null,transportadora_id:tr?tr.id:null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
+  const _tudo=_romTodosItens.every(it=>Number(_romSel[it.id])===(Number(it.qtd)||0));
+  if(!_romTodosItens.some(it=>Number(_romSel[it.id])>0)){ showToast('Selecione pelo menos um item para o romaneio','err'); if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } return; }
+  const dados={romaneio_itens:_tudo?null:Object.fromEntries(_romTodosItens.filter(it=>Number(_romSel[it.id])>0).map(it=>[it.id,Number(_romSel[it.id])])),numero_nf:g('rom_nf')||null,transportadora:nomeT||null,transportadora_id:tr?tr.id:null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
   const comFotos=document.getElementById('rom_fotos')?.checked!==false;
   const w=window.open('','_blank'); // abre já no clique (senão o navegador bloqueia)
   try{ if(w){ w.document.write('<body style="font-family:sans-serif;padding:40px;color:#37474f"><h3>Preparando o romaneio…</h3><p>Reduzindo as fotos para o PDF ficar leve. Pode levar alguns segundos.</p></body>'); } }catch(e){}
@@ -25860,7 +25917,8 @@ async function _romaneioMontar(c,comFotos,w){
   const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id)||{};
   await _expCarregarFotos(c);
   const fotosArr=c.carregamento_fotos||[];
-  const itens=_expOrdenarItens(c).map(it=>{
+  const _selR=c.romaneio_itens&&typeof c.romaneio_itens==='object'?c.romaneio_itens:null;
+  const itens=_expOrdenarItens(c).filter(it=>!_selR||Number(_selR[it.id])>0).map(it=>_selR?{...it,qtd:Number(_selR[it.id])}:it).map(it=>{
     const o=it.ordem_producao_id?ordens.find(x=>x.id===it.ordem_producao_id):null; const pr=o&&o._pronto?o._pronto:{};
     const foto=pr.foto_pronto||(fotosArr.find(f=>f.item_id===it.id&&f.etapa==='item_pronto')||{}).foto_base64||null;
     const peso=o?(pr.peso_pronto!=null?Number(pr.peso_pronto):null):(it.peso_unit!=null?Number(it.peso_unit):null);
