@@ -938,7 +938,7 @@ thead th{position:sticky;top:70px;z-index:2;background:linear-gradient(180deg,#f
    sobrepunha a primeira ordem ao rolar; aqui ele permanece no fluxo normal. */
 #tab5 #listaOrdens thead th{position:static!important;top:auto!important;z-index:auto!important}
 .ord-wrap{overflow:hidden}.ord-scroll{overflow-x:auto}
-.ordDot{width:22px;height:22px;padding:0;border:0;background:transparent;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}.ordDot:hover{transform:scale(1.25)}.ordDot:focus-visible{outline:2px solid #1b4d38;outline-offset:1px}
+.ordDot{width:34px;height:30px;padding:0;border:0;background:transparent;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}.ordDot:hover{transform:scale(1.25)}.ordDot:focus-visible{outline:2px solid #1b4d38;outline-offset:1px}
 /* Telas largas (a grade cabe sem rolagem lateral): o cabeçalho das colunas fica fixo abaixo da barra
    superior ao rolar a página, para saber qual coluna preencher. overflow:clip não cria rolagem própria,
    então o sticky acompanha a página. */
@@ -5516,7 +5516,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 421';
+const APP_BUILD='2026-11-03 · build 422';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9481,7 +9481,7 @@ function renderOrdens(){
       // Cada ponto mantém exatamente o mesmo clique da antiga célula da máquina.
       const OPS_PONTOS = COLS_FIXAS.filter(c=>c!=='Aguardando');
       const escAttr = t => String(t==null?'':t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-      const bolinha = css => `<span style="display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;box-sizing:border-box;font-size:9px;font-weight:700;color:#fff;${css}"></span>`;
+      const bolinha = css => `<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;box-sizing:border-box;font-size:11px;font-weight:700;color:#fff;${css}"></span>`;
       let nPassou = 0;
       const pontosHtml = OPS_PONTOS.map(op=>{
         const botao = (inner,onclick,titulo)=>`<button type="button" class="ordDot" onclick="${onclick}" title="${escAttr(titulo)}" aria-label="${escAttr(op+': '+titulo)}">${inner}</button>`;
@@ -9507,7 +9507,7 @@ function renderOrdens(){
         if(tempo) return botao(bolinha(`background:#fff;border:4px solid ${tempo.retrabalho?'#c62828':(COR_OPERACAO[op]||'#1565c0')}`),clique,`Em andamento${tempo.retrabalho?' (retrabalho)':''}${tempo.operador?' — '+tempo.operador:''}`);
         const comRetrab = concluidasOp.some(t=>t.retrabalho);
         const anelRetrab = comRetrab ? ';box-shadow:0 0 0 2px #fff,0 0 0 4px #c62828' : '';
-        if(concluidasOp.length>1){ nPassou++; return botao(`<span style="display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#2e7d32;color:#fff;font-size:9px;font-weight:700${anelRetrab}">${concluidasOp.length}</span>`,clique,`${concluidasOp.length} passagens concluídas${comRetrab?' (inclui retrabalho)':''} — clique para ver`); }
+        if(concluidasOp.length>1){ nPassou++; return botao(`<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#2e7d32;color:#fff;font-size:11px;font-weight:700${anelRetrab}">${concluidasOp.length}</span>`,clique,`${concluidasOp.length} passagens concluídas${comRetrab?' (inclui retrabalho)':''} — clique para ver`); }
         if(concluidasOp.length===1){ nPassou++; return botao(bolinha('background:#2e7d32'+anelRetrab),clique,comRetrab?'Concluída (retrabalho)':'Concluída'); }
         return botao(bolinha('background:#dbe4de'),clique,'Clique para iniciar');
       }).join('');
@@ -9615,9 +9615,9 @@ function renderOrdens(){
         </span>
       </div>
       ${isMobile ? `<div style="padding:10px">${cardsMobile}</div>` : `<div class="ord-scroll">
-<table style="width:100%;min-width:${62+110+96+240+70+170+((COLS_FIXAS.length-1)*22+20)+100}px;border-collapse:collapse;font-size:12px;table-layout:fixed">
+<table style="width:100%;min-width:${62+110+96+240+70+170+((COLS_FIXAS.length-1)*34+20)+100}px;border-collapse:collapse;font-size:12px;table-layout:fixed">
           <colgroup>
-            <col style="width:62px"><col style="width:110px"><col style="width:96px"><col><col style="width:70px"><col style="width:170px"><col style="width:${(COLS_FIXAS.length-1)*22+20}px">
+            <col style="width:62px"><col style="width:110px"><col style="width:96px"><col><col style="width:70px"><col style="width:170px"><col style="width:${(COLS_FIXAS.length-1)*34+20}px">
             <col style="width:100px">
           </colgroup>
           <thead>
@@ -9631,7 +9631,7 @@ function renderOrdens(){
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
               <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Qtd</th>
               <th style="padding:8px 6px;text-align:left;color:#56665d;font-size:11px;text-transform:uppercase;letter-spacing:.05em">Situação</th>
-              <th style="padding:6px 6px 8px;text-align:left;vertical-align:bottom;height:96px"><div style="display:flex;align-items:flex-end;gap:2px">${COLS_FIXAS.filter(c=>c!=='Aguardando').map(c=>`<span title="${c}" style="width:22px;display:flex;justify-content:center"><span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#56665d;white-space:nowrap">${c==='Centro de Usinagem'?'C. Usinagem':c}</span></span>`).join('')}</div></th>
+              <th style="padding:6px 6px 8px;text-align:left;vertical-align:bottom;height:96px"><div style="display:flex;align-items:flex-end;gap:0">${COLS_FIXAS.filter(c=>c!=='Aguardando').map(c=>`<span title="${c}" style="width:34px;display:flex;justify-content:center"><span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#56665d;white-space:nowrap">${c==='Centro de Usinagem'?'C. Usinagem':c}</span></span>`).join('')}</div></th>
               <th style="width:100px"></th>
             </tr></thead><tbody>
             ${linhas}
