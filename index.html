@@ -5498,7 +5498,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 416';
+const APP_BUILD='2026-11-03 · build 417';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9611,7 +9611,7 @@ function renderOrdens(){
               <th style="padding:8px 10px;text-align:left;color:#546e7a;font-size:11px;text-transform:uppercase">Peça</th>
               <th style="padding:8px 4px;text-align:center;color:#546e7a;font-size:11px;text-transform:uppercase">Qtd</th>
               <th style="padding:8px 6px;text-align:left;color:#56665d;font-size:11px;text-transform:uppercase;letter-spacing:.05em">Situação</th>
-              <th style="padding:8px 6px;text-align:left;color:#56665d;font-size:11px;text-transform:uppercase;letter-spacing:.05em">Andamento</th>
+              <th style="padding:6px 6px 8px;text-align:left;vertical-align:bottom;height:96px"><div style="display:flex;align-items:flex-end;gap:2px">${COLS_FIXAS.filter(c=>c!=='Aguardando').map(c=>`<span title="${c}" style="width:22px;display:flex;justify-content:center"><span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#56665d;white-space:nowrap">${c==='Centro de Usinagem'?'C. Usinagem':c}</span></span>`).join('')}</div></th>
               <th style="width:100px"></th>
             </tr></thead><tbody>
             ${linhas}
@@ -9619,8 +9619,7 @@ function renderOrdens(){
         </table>
       </div>
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:#56665d;padding:10px 16px;border-top:1px solid #edf2ee;background:#fbfcfb">
-        <span style="font-weight:600;color:#3a4a41">Andamento, em ordem:</span>
-        ${COLS_FIXAS.filter(c=>c!=='Aguardando').map(c=>`<span>${c}</span>`).join('')}
+        <span style="font-weight:600;color:#3a4a41">Cada bolinha é uma máquina (nome no topo da coluna).</span>
         <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:50%;background:#2e7d32"></span>Já passou</span>
           <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid #1565c0;box-sizing:border-box"></span>Em andamento (cor da máquina)</span>
