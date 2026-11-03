@@ -4552,7 +4552,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     </div>
     <div class="form-group"><label>Unidade</label>
       <select id="est_und">
-        <option>PC</option><option>KG</option><option>UN</option><option>MT</option><option>M2</option><option>PAR</option><option>JG</option><option>CX</option>
+        <option>PC</option><option>KG</option><option>UN</option><option>MT</option><option>M2</option><option>PAR</option><option>JG</option><option>CX</option><option>TB</option><option>LT</option><option>GL</option><option>FR</option><option>RL</option><option>BARRA</option><option>METRO</option>
       </select>
     </div>
 
@@ -5497,7 +5497,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-02 · build 413';
+const APP_BUILD='2026-11-03 · build 414';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -15620,9 +15620,16 @@ function renderNFeModal(){
           <div class="form-group"><label style="font-size:11px">Medidas (Esp × Med1 × Med2)</label><input id="nfe_med1_${idx}" value="" placeholder='Ex: Ø1/2" ou 10 × 150' style="font-size:12px"></div>
           <div class="form-group"><label style="font-size:11px">Unidade</label>
             <select id="nfe_und_${idx}" style="font-size:12px;padding:6px">
-              <option ${it.uCom==='KG'?'selected':''}>KG</option>
-              <option ${it.uCom==='PC'||it.uCom==='UN'?'selected':''}>PC</option>
-              <option>METRO</option><option>BARRA</option><option>UN</option><option>CX</option>
+              ${(()=>{
+                // Unidade da NF (uCom) manda: TB, LT, GL, FR, RL... não existem na lista fixa e antes
+                // caíam em "KG" (primeira opção). Agora a unidade da nota entra como opção já selecionada.
+                const mapa={PÇ:'PC',PCS:'PC',MT:'METRO',M:'METRO',L:'LT',LTS:'LT',UND:'UN',UNID:'UN',BR:'BARRA'};
+                const raw=String(it.uCom||'').toUpperCase().trim(); const u=mapa[raw]||raw;
+                const fixas=['KG','PC','METRO','BARRA','UN','CX'];
+                const lista=(u&&!fixas.includes(u))?[u,...fixas]:fixas;
+                const sel=u||'KG';
+                return lista.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join('');
+              })()}
             </select>
           </div>
         </div>
