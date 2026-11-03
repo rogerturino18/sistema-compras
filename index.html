@@ -5516,7 +5516,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 423';
+const APP_BUILD='2026-11-03 · build 424';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12912,6 +12912,7 @@ async function imprimirFichaProduto(id){
   <style>
     @page{ size:A4; margin:0; }
     *{ box-sizing:border-box; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     html,body{ background:#e9eeeb; margin:0; padding:0; }
     body{ font-family:Arial,Helvetica,sans-serif; font-size:11.5px; color:#263238; }
     .folha{ max-width:210mm; margin:18px auto; background:#fff; padding:16mm 14mm; box-shadow:0 2px 14px rgba(38,50,56,.12); border-radius:6px; }
@@ -18500,6 +18501,7 @@ function imprimirPV(id){
   <style>
     @page{ size:A4; margin:0; }
     *{ box-sizing:border-box; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     html,body{ background:#e9eeeb; margin:0; padding:0; }
     body{ font-family:Arial,Helvetica,sans-serif; font-size:11.5px; color:#263238; }
     .folha{ max-width:210mm; margin:18px auto; background:#fff; padding:16mm 14mm; box-shadow:0 2px 14px rgba(38,50,56,.12); border-radius:6px; }
@@ -25954,6 +25956,7 @@ async function _romaneioMontar(c,comFotos,w){
   <style>
     @page{ size:A4; margin:10mm; }
     *{ box-sizing:border-box; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     html,body{ background:#e9eeeb; margin:0; padding:0; }
     body{ font-family:Arial,Helvetica,sans-serif; font-size:11.5px; color:#263238; }
     .folha{ max-width:210mm; margin:18px auto; background:#fff; padding:14mm 13mm; box-shadow:0 2px 14px rgba(38,50,56,.12); border-radius:6px; }
@@ -25980,7 +25983,7 @@ async function _romaneioMontar(c,comFotos,w){
     .ct{ padding:6px 8px; font-size:10.5px; line-height:1.4; }
     .assin{ display:flex; gap:22px; margin-top:26px; page-break-inside:avoid; } .assin div{ flex:1; border-top:1px solid #455a64; padding-top:4px; text-align:center; font-size:10px; color:#546e7a; }
     .rodape{ margin-top:16px; padding-top:8px; border-top:1px solid #eceeed; font-size:9.5px; color:#90a4ae; text-align:center; }
-    .nova{ page-break-before:always; }
+    .nova{ margin-top:6mm; }
     .barra-acoes{position:sticky;top:0;z-index:50;display:flex;gap:8px;justify-content:center;padding:8px;background:#1b5e20;box-shadow:0 2px 8px rgba(0,0,0,.25)} .barra-acoes button{font:700 13px Arial,sans-serif;padding:8px 18px;border:0;border-radius:8px;cursor:pointer;background:#fff;color:#1b5e20} .barra-acoes button.sec{background:transparent;color:#fff;border:1px solid #fff}
     @media print{ html,body{ background:#fff; } .folha{ margin:0; padding:0; box-shadow:none; border-radius:0; max-width:none; } .barra-acoes{ display:none; } }
     @media (max-width:640px){ .folha{ margin:0; padding:12px; border-radius:0; } .cabecalho{ flex-direction:column; align-items:flex-start; } .empresa{ text-align:left; } .info{ flex-direction:column; } .grade{ grid-template-columns:repeat(2,1fr); } td.fotoc{ width:16mm; } td.fotoc img{ width:15mm; height:15mm; } }
