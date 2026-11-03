@@ -5516,7 +5516,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 420';
+const APP_BUILD='2026-11-03 · build 421';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25260,7 +25260,8 @@ function renderExpedicao(){
   }
 
   const ORDEM_STATUS={'Aguardando Fotos':0,'Pronto p/ Envio':1,'Enviado':2};
-  lista.sort((a,b)=>(ORDEM_STATUS[a.status]??9)-(ORDEM_STATUS[b.status]??9) || (b.numero||0)-(a.numero||0));
+  const _numPdv=c=>{ const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id); const n=parseInt(String(c.pdv_numero||(pv?.numero)||'').replace(/\D/g,''),10); return isNaN(n)?1e9+(c.numero||0):n; };
+  lista.sort((a,b)=>(ORDEM_STATUS[a.status]??9)-(ORDEM_STATUS[b.status]??9) || _numPdv(a)-_numPdv(b));
 
   // Grade única, tudo numa tela só, sem colunas e sem rolagem lateral —
   // igual à grade de PDVs da aba Produção.
