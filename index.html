@@ -5516,7 +5516,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 424';
+const APP_BUILD='2026-11-03 · build 425';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -24977,7 +24977,7 @@ async function _expAutoProntos(){
   await api('PATCH','carregamento_itens',{pronto:true,pronto_em:agora,pronto_por:'Ficha de produto (automático)'},`?id=in.(${alvo.map(x=>x.i.id).join(',')})`);
   alvo.forEach(x=>{ x.i.pronto=true; });
   for(const c of new Set(alvo.map(x=>x.c))){
-    const it=c.carregamento_itens||[];
+    const it=_expItensVis(c);
     if(c.status==='Aguardando Fotos' && it.length && it.every(i=>i.pronto)){
       try{ await api('PATCH','carregamentos',{status:'Pronto p/ Envio',itens_prontos_em:agora},`?id=eq.${c.id}`); c.status='Pronto p/ Envio'; c.itens_prontos_em=agora; showToast('📦 Carregamento Nº '+(c.numero||'')+' está Pronto p/ Envio (fotos vieram das fichas)'); }catch(e){}
     }
@@ -25032,8 +25032,44 @@ function _resolverPdvDoPV(pv){
 // Ordena os itens do carregamento na mesma sequência dos itens do Pedido de Venda.
 // A ordem de produção é ligada ao item do PV pelo nº do desenho ("DES. 301" na descrição do PV);
 // sem desenho em comum, tenta pela descrição (+ quantidade). O que não casar vai para o fim, por nº da ordem.
+// CONJUNTOS: uma montagem que tem Ordem de Produção própria (ex.: CONJ. ENGRENAGEM ESTICADORA) sai da
+// fábrica como UMA peça só. As peças que estão dentro dela (e as submontagens) não aparecem separadas
+// na Expedição nem no romaneio: ficam como "composto por" dentro do conjunto.
+let _expConjMemo=null;
+function _expMapaConjuntos(){
+  const M=montagensRecebidas||[], I=itensDesenhoRecebido||[];
+  if(_expConjMemo&&_expConjMemo.M===M&&_expConjMemo.I===I&&_expConjMemo.nm===M.length&&_expConjMemo.ni===I.length) return _expConjMemo;
+  const mPorId=new Map(M.map(m=>[m.id,m])), iPorId=new Map(I.map(i=>[i.id,i]));
+  const filhas=new Map(); M.forEach(m=>{ if(m.montagem_pai_id){ if(!filhas.has(m.montagem_pai_id)) filhas.set(m.montagem_pai_id,[]); filhas.get(m.montagem_pai_id).push(m); } });
+  const itensDe=new Map(); I.forEach(i=>{ if(i.montagem_id){ if(!itensDe.has(i.montagem_id)) itensDe.set(i.montagem_id,[]); itensDe.get(i.montagem_id).push(i); } });
+  const filhosDeItem=new Map(); I.forEach(i=>{ if(i.item_pai_id){ if(!filhosDeItem.has(i.item_pai_id)) filhosDeItem.set(i.item_pai_id,[]); filhosDeItem.get(i.item_pai_id).push(i); } });
+  const temAncestralComOP=m=>{ let p=m.montagem_pai_id, g=0; while(p&&g++<30){ const pm=mPorId.get(p); if(!pm) return false; if(pm.ordem_id) return true; p=pm.montagem_pai_id; } return false; };
+  const porOrdem=new Map(), porItemDes=new Map();
+  M.filter(m=>m.ordem_id&&!temAncestralComOP(m)).forEach(top=>{
+    const marcar=(ordemId,itemId)=>{ if(ordemId&&ordemId!==top.ordem_id) porOrdem.set(ordemId,top.ordem_id); if(itemId) porItemDes.set(itemId,top.ordem_id); };
+    const visItem=it=>{ marcar(it.ordem_id,it.id); (filhosDeItem.get(it.id)||[]).forEach(visItem); };
+    const visMont=(m,raiz)=>{ if(!raiz) marcar(m.ordem_id,null); (itensDe.get(m.id)||[]).forEach(visItem); (filhas.get(m.id)||[]).forEach(f=>visMont(f,false)); };
+    visMont(top,true);
+  });
+  _expConjMemo={M,I,nm:M.length,ni:I.length,porOrdem,porItemDes};
+  return _expConjMemo;
+}
+// itens do carregamento que realmente aparecem (sem as peças absorvidas por um conjunto que também está no carregamento)
+function _expItensVis(c){
+  const todos=c.carregamento_itens||[]; const mp=_expMapaConjuntos();
+  if(!mp.porOrdem.size&&!mp.porItemDes.size) return todos;
+  const presentes=new Map(); todos.forEach(it=>{ if(it.ordem_producao_id) presentes.set(it.ordem_producao_id,it); });
+  todos.forEach(it=>{ it._inclui=null; });
+  const vis=[];
+  todos.forEach(it=>{
+    const topo=(it.ordem_producao_id&&mp.porOrdem.get(it.ordem_producao_id))||(it.item_desenho_id&&mp.porItemDes.get(it.item_desenho_id))||null;
+    const conj=topo&&presentes.get(topo);
+    if(conj&&conj!==it){ (conj._inclui=conj._inclui||[]).push(it); } else vis.push(it);
+  });
+  return vis;
+}
 function _expOrdenarItens(c){
-  const lista=(c.carregamento_itens||[]).slice();
+  const lista=_expItensVis(c).slice();
   const porNumero=(a,b)=>(a.numero_ordem||0)-(b.numero_ordem||0)||(a.criado_em||'').localeCompare(b.criado_em||'');
   const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id); const itensPV=Array.isArray(pv?.itens)?pv.itens:[];
   if(!itensPV.length) return lista.sort(porNumero);
@@ -25208,7 +25244,7 @@ function expedStatusBadge(st){
 }
 
 function _cardExpedicao(c){
-  const itensArr=c.carregamento_itens||[];
+  const itensArr=_expItensVis(c);
   const prontos=itensArr.filter(i=>i.pronto).length;
   const pct=itensArr.length?Math.round(prontos/itensArr.length*100):0;
   const _pvDoCard=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id);
@@ -25381,6 +25417,7 @@ function renderExpedicaoDetalhe(){
           <input type="checkbox" ${it.pronto?'checked':''} onchange="marcarItemCarregamentoPronto('${it.id}',this.checked)" style="width:18px;height:18px;cursor:pointer;margin-top:1px;flex-shrink:0">
           <span style="font-weight:600;font-size:12.5px;line-height:1.3">${rotuloItem.replace(/</g,'&lt;')}</span>
         </label>
+        ${it._inclui&&it._inclui.length?`<div style="font-size:11px;color:#6a4c93;background:#f3ecfb;border-radius:6px;padding:4px 8px;line-height:1.4">🔩 <b>Conjunto</b> — sai como 1 peça. Composto por: ${it._inclui.map(x=>(x.numero_ordem?'Ordem '+x.numero_ordem+' ':'')+(x.descricao||'')).join(' · ').replace(/</g,'&lt;')}</div>`:''}
         <div style="font-size:11.5px;color:#455a64">${pesoLinha}</div>
         ${fotos.length>(pr&&pr.foto_pronto?0:1)?`<div style="display:flex;gap:5px;flex-wrap:wrap">${fotos.slice(pr&&pr.foto_pronto?0:1).map(f=>`
           <div style="position:relative">
@@ -25747,7 +25784,7 @@ function _romNum(v){ const n=pesosNum(String(v==null?'':v).trim()); return (n==n
 // Itens que entram no romaneio: se houver seleção salva (envio parcial), só esses, nas quantidades escolhidas.
 function _expItensRomaneio(c, sel){
   const s=sel!==undefined?sel:c.romaneio_itens;
-  const todos=c.carregamento_itens||[];
+  const todos=_expItensVis(c);
   if(!s||typeof s!=='object') return todos;
   return todos.filter(it=>Number(s[it.id])>0).map(it=>({...it,qtd:Number(s[it.id])}));
 }
@@ -25948,7 +25985,7 @@ async function _romaneioMontar(c,comFotos,w){
   const cidade=[pv.cliente_endereco,pv.cliente_cidade].filter(Boolean).join(' — ');
   const linhasTab=itens.map((x,i)=>`<tr><td class="center">${i+1}</td>
     <td class="fotoc">${x.foto?`<img src="${x.thumb||x.foto}">`:'<span class="sf">sem foto</span>'}</td>
-    <td><b>${esc(x.it.descricao||'—')}</b><div class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem):''}${x.it.desenho?(x.it.numero_ordem?' · ':'')+'Desenho '+esc(x.it.desenho):''}</div></td>
+    <td><b>${esc(x.it.descricao||'—')}</b><div class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem):''}${x.it.desenho?(x.it.numero_ordem?' · ':'')+'Desenho '+esc(x.it.desenho):''}</div>${x.it._inclui&&x.it._inclui.length?`<div class="mut">Conjunto composto por: ${x.it._inclui.map(y=>esc((y.numero_ordem?'Ordem '+y.numero_ordem+' ':'')+(y.descricao||''))).join(' · ')}</div>`:''}</td>
     <td class="center"><b>${x.qtd}</b> un</td>${temAloc?`<td class="center">${(volDoItem[x.it.id]||[]).map(y=>y.n+(y.q!==x.qtd?' ('+y.q+')':'')).join(', ')||'—'}</td>`:''}<td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td></tr>`).join('');
   const cards=comFotos?itens.filter(x=>x.foto).map(x=>`<div class="card"><div class="cf"><img src="${x.foto}"></div><div class="ct"><b>${esc(x.it.descricao||'—')}</b><br><span class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem)+' · ':''}${x.qtd} un${x.peso!=null?' · '+kg(x.peso)+' kg/un':''}</span></div></div>`).join(''):'';
   const fCarreg=comFotos?fotosCarregReduzidas.map(f=>`<div class="card"><div class="cf"><img src="${f.foto_base64}"></div><div class="ct"><span class="mut">Carregamento</span></div></div>`).join(''):'';
@@ -26031,7 +26068,7 @@ async function marcarItemCarregamentoPronto(itemId, pronto){
     // Mágica: quando o último item ganha foto, o carregamento avança sozinho
     // pra "Pronto p/ Envio" — ninguém precisa lembrar de clicar em nada.
     if(pronto && carregamentoDoItem && carregamentoDoItem.status==='Aguardando Fotos'){
-      const itensArr=carregamentoDoItem.carregamento_itens||[];
+      const itensArr=_expItensVis(carregamentoDoItem);
       if(itensArr.length && itensArr.every(i=>i.pronto)){
         await avancarParaProntoEnvio(carregamentoDoItem.id, true);
         return;
