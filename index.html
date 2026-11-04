@@ -5525,7 +5525,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-04 · build 431';
+const APP_BUILD='2026-11-04 · build 432';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9198,6 +9198,7 @@ function _abrirDetalhePdvOrdens(pdvId){
 }
 function _voltarListaPdvOrdens(){
   _pdvOrdemSelecionado = null;
+  { const fs=document.getElementById('filtroOrdemPDV'); if(fs) fs.style.display=''; }
   renderOrdens();
 }
 
@@ -9350,6 +9351,7 @@ function renderOrdens(){
 
   if(!todasFiltradas.length){
     _pdvOrdemSelecionado = null;
+    { const fs=document.getElementById('filtroOrdemPDV'); if(fs) fs.style.display=''; }
     div.innerHTML=`<div class="empty" style="padding:32px;text-align:center">
       <div style="font-size:32px;margin-bottom:8px">🔧</div>
       <div style="font-weight:600;margin-bottom:8px">Nenhuma ordem de produção</div>
@@ -9666,6 +9668,7 @@ function renderOrdens(){
 
   // ---- MODO DETALHE: um PDV específico, aberto pelo clique no cartão ----
   const grupoSelecionado = _pdvOrdemSelecionado ? gruposOrdenados.find(([id])=>id===_pdvOrdemSelecionado) : null;
+  { const fs=document.getElementById('filtroOrdemPDV'); if(fs) fs.style.display=grupoSelecionado?'none':''; } // dentro de um PDV o filtro de PDV não serve
   if(grupoSelecionado){
     div.innerHTML = `<button class="btn btn-sm" onclick="_voltarListaPdvOrdens()" style="margin-bottom:12px">← Voltar aos PDVs</button>
     <div data-scroll-ordens="${_pdvOrdemSelecionado}">${renderBlocoPdvOrdens(grupoSelecionado)}</div>`;
