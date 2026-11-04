@@ -2374,6 +2374,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div style="font-size:11px;color:#90a4ae;margin-top:6px">O peso das embalagens vem da soma do peso vazio dos volumes acima. Se você digitar o peso bruto total, ele vale no lugar da soma.</div>
       </div>
       <div class="form-group" style="margin-top:10px"><label>Observações (saem no romaneio)</label><textarea id="rom_obs" rows="2"></textarea></div>
+      <label id="rom_novo_lbl" style="display:none;gap:8px;align-items:center;font-size:13px;margin-top:6px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:7px 10px"><input type="checkbox" id="rom_novo" style="width:auto"> <span>Gerar como <b>novo romaneio</b> (outro envio deste mesmo carregamento — ganha um número novo e o anterior fica guardado)</span></label>
       <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px"><input type="checkbox" id="rom_fotos" checked style="width:auto"> Incluir as fotos das peças e do carregamento (no final do romaneio)</label>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
         <button class="btn" onclick="fecharModal('modalRomaneio')">Cancelar</button>
@@ -2778,6 +2779,11 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 <!-- TAB 36: EXPEDIÇÃO -->
 <div class="panel" id="tab36">
   <div id="expedListaWrap">
+    <div id="expSubabas" style="display:flex;gap:6px;margin-bottom:12px;border-bottom:2px solid #e0e6e2">
+      <button type="button" id="expSubCar" onclick="_expSubaba('car')" style="border:0;background:none;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:3px solid #2e7d32;margin-bottom:-2px;color:#1b4d38">📦 Carregamentos</button>
+      <button type="button" id="expSubRom" onclick="_expSubaba('rom')" style="border:0;background:none;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;color:#607d6b">📄 Romaneios</button>
+    </div>
+    <div id="expedCarWrap">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
       <div>
         <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📦 Expedição</h2>
@@ -2792,6 +2798,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <input type="search" id="buscaExped" placeholder="🔍 Buscar cliente ou nº do pedido..." oninput="renderExpedicao()" style="width:100%;max-width:340px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;margin:10px 0 14px">
     <div id="expSelBarra" style="display:none;position:sticky;top:0;z-index:5;background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:10px 14px;margin-bottom:12px;align-items:center;gap:10px;flex-wrap:wrap"></div>
     <div id="expedKanban"></div>
+    </div>
+    <div id="expedRomWrap" style="display:none"></div>
   </div>
   <div id="expedDetalheWrap" style="display:none"></div>
 </div>
@@ -5516,7 +5524,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-03 · build 425';
+const APP_BUILD='2026-11-04 · build 426';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25880,6 +25888,7 @@ async function abrirRomaneio(id){
   const c=carregamentos.find(x=>x.id===id); if(!c) return;
   const set=(k,v)=>{ const e=document.getElementById(k); if(e) e.value=v==null?'':v; };
   set('rom_id',id); set('rom_nf',c.numero_nf); set('rom_obs',c.romaneio_obs);
+  { const nl=document.getElementById('rom_novo_lbl'), nk=document.getElementById('rom_novo'); if(nk) nk.checked=false; if(nl) nl.style.display=c.romaneio_numero?'flex':'none'; }
   set('rom_bruto',c.peso_bruto!=null?String(c.peso_bruto).replace('.',','):'');
   _romTranspSelect(c.transportadora);
   _romTodosItens=_expOrdenarItens(c);
@@ -25898,9 +25907,9 @@ async function abrirRomaneio(id){
 }
 // número sequencial do romaneio (como uma nota): gerado uma vez e mantido nas edições
 const _romFmt=n=>n?String(n).padStart(4,'0'):'';
-async function _romNumerar(id){
-  const c=carregamentos.find(x=>x.id===id); if(c&&c.romaneio_numero) return c.romaneio_numero;
-  const r=await fetch(`${SB_URL}/rest/v1/rpc/numerar_romaneio`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({p_id:id})});
+async function _romNumerar(id,forcarNovo){
+  const c=carregamentos.find(x=>x.id===id); if(c&&c.romaneio_numero&&!forcarNovo) return c.romaneio_numero;
+  const r=await fetch(`${SB_URL}/rest/v1/rpc/${forcarNovo?'novo_numero_romaneio':'numerar_romaneio'}`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({p_id:id})});
   const t=await r.text(); if(!r.ok) throw new Error(t);
   return JSON.parse(t);
 }
@@ -25922,13 +25931,94 @@ async function gerarRomaneio(){
   try{
     await api('PATCH','carregamentos',dados,`?id=eq.${id}&select=id`);
     Object.assign(c,dados);
-    c.romaneio_numero=await _romNumerar(id);
+    c.romaneio_numero=await _romNumerar(id,!!document.getElementById('rom_novo')?.checked);
     await _expGarantirProntos(c);
+    await _romSalvarHistorico(c,dados);
     await _romaneioMontar(c,comFotos,w);
     fecharModal('modalRomaneio');
     if(_carregamentoSelecionadoId===id) renderExpedicaoDetalhe();
   }catch(e){ if(w) w.close(); showToast('Erro ao gerar o romaneio: '+e.message,'err'); }
   finally{ if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } }
+}
+// ===== ROMANEIOS SALVOS =====
+async function _romSalvarHistorico(c,dados){
+  try{
+    const itens=_expItensRomaneio(c); const qtd=itens.reduce((a,x)=>a+(Number(x.qtd)||0),0);
+    const emb=Number(dados.peso_embalagens)||0; const bruto=dados.peso_bruto!=null&&Number(dados.peso_bruto)>0?Number(dados.peso_bruto):(Number(_romLiq)||0)+emb;
+    const snap={...dados,itens:(c.carregamento_itens||[]).map(i=>({id:i.id,ordem_producao_id:i.ordem_producao_id,numero_ordem:i.numero_ordem,desenho:i.desenho,descricao:i.descricao,qtd:i.qtd,item_desenho_id:i.item_desenho_id,peso_unit:i.peso_unit,pronto:i.pronto}))};
+    const linha={numero:c.romaneio_numero,carregamento_id:c.id,pdv_numero:c.pdv_numero||null,cliente_nome:c.cliente_nome||null,numero_nf:dados.numero_nf,transportadora:dados.transportadora,resumo:{itens:itens.length,qtd,peso_bruto:Math.round(bruto*1000)/1000},dados:snap,criado_por:usuarioLogado?.nome||null,atualizado_em:new Date().toISOString()};
+    const ex=await api('GET','romaneios','',`?numero=eq.${c.romaneio_numero}&select=id`);
+    if(ex&&ex[0]){ const {criado_por,...resto}=linha; await api('PATCH','romaneios',resto,`?id=eq.${ex[0].id}&select=id`); }
+    else await api('POST','romaneios',linha);
+    _romLista=null;
+  }catch(e){ console.warn('[romaneios] não consegui guardar no histórico', e); showToast('Romaneio gerado, mas não consegui guardá-lo na lista: '+e.message,'err'); }
+}
+let _romLista=null, _romOrdemDesc=true;
+function _expSubaba(qual){
+  const car=qual==='car';
+  const sh=(id,on)=>{ const e=document.getElementById(id); if(e) e.style.display=on?'':'none'; };
+  sh('expedCarWrap',car); sh('expedRomWrap',!car);
+  const est=(id,on)=>{ const b=document.getElementById(id); if(!b) return; b.style.borderBottomColor=on?'#2e7d32':'transparent'; b.style.color=on?'#1b4d38':'#607d6b'; b.style.fontWeight=on?'700':'600'; };
+  est('expSubCar',car); est('expSubRom',!car);
+  if(!car) _romRenderLista();
+}
+async function _romRenderLista(forcar){
+  const wrap=document.getElementById('expedRomWrap'); if(!wrap) return;
+  if(forcar||!_romLista){
+    wrap.innerHTML='<div style="padding:24px;color:#78909c;font-size:13px">⏳ Carregando romaneios…</div>';
+    try{ _romLista=await api('GET','romaneios','','?select=id,numero,carregamento_id,pdv_numero,cliente_nome,numero_nf,transportadora,resumo,criado_por,criado_em,atualizado_em&order=numero.desc')||[]; }
+    catch(e){ wrap.innerHTML='<div style="padding:24px;color:#c62828">Não consegui carregar os romaneios: '+_stEsc(e.message)+'</div>'; return; }
+  }
+  const b=(document.getElementById('buscaRom')?.value||'').toLowerCase();
+  let lista=_romLista.slice();
+  if(b) lista=lista.filter(r=>[r.numero,_romFmt(r.numero),r.pdv_numero,r.cliente_nome,r.numero_nf,r.transportadora].filter(x=>x!=null).join(' | ').toLowerCase().includes(b));
+  lista.sort((a,b2)=>_romOrdemDesc?b2.numero-a.numero:a.numero-b2.numero);
+  const kg=v=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
+  const fd=t=>t?new Date(t).toLocaleDateString('pt-BR'):'—';
+  const linhas=lista.map(r=>{
+    const c=carregamentos.find(x=>x.id===r.carregamento_id); const rs=r.resumo||{};
+    return `<tr style="border-bottom:1px solid #edf2ee">
+      <td style="padding:10px 10px;font-weight:800;color:#1b4d38;white-space:nowrap">Nº ${_romFmt(r.numero)}</td>
+      <td style="padding:10px 8px;white-space:nowrap;color:#546e7a">${fd(r.atualizado_em||r.criado_em)}</td>
+      <td style="padding:10px 8px;font-weight:700;white-space:nowrap">${_stEsc(r.pdv_numero||'—')}</td>
+      <td style="padding:10px 8px">${_stEsc(r.cliente_nome||'—')}</td>
+      <td style="padding:10px 8px;white-space:nowrap">${r.numero_nf?'NF '+_stEsc(r.numero_nf):'<span style="color:#b0bec5">sem NF</span>'}</td>
+      <td style="padding:10px 8px;color:#546e7a">${_stEsc(r.transportadora||'—')}</td>
+      <td style="padding:10px 8px;text-align:center;white-space:nowrap">${rs.itens!=null?rs.itens+' item(ns) · '+rs.qtd+' un':'—'}</td>
+      <td style="padding:10px 8px;text-align:right;white-space:nowrap">${rs.peso_bruto?kg(rs.peso_bruto)+' kg':'—'}</td>
+      <td style="padding:10px 8px;white-space:nowrap">${c?expedStatusBadge(c.status):'<span style="color:#b0bec5;font-size:11px">carregamento removido</span>'}</td>
+      <td style="padding:10px 8px;white-space:nowrap;text-align:right"><button class="btn btn-sm primary" onclick="abrirRomaneioSalvo('${r.id}')" title="Abrir o romaneio pronto para imprimir ou salvar em PDF">📄 Abrir</button>${c?` <button class="btn btn-sm" onclick="_expSubaba('car');abrirDetalheCarregamento('${c.id}')" title="Ir para o carregamento">📦</button>`:''}</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">📄 Romaneios gerados</h2>
+      <span style="font-size:12px;color:#78909c">${_romLista.length} no total</span>
+      <input type="search" id="buscaRom" value="${(b||'').replace(/"/g,'&quot;')}" placeholder="🔍 Buscar nº, PDV, cliente, NF…" oninput="_romRenderLista()" style="flex:1;min-width:200px;max-width:340px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px">
+      <button class="btn btn-sm" onclick="_romOrdemDesc=!_romOrdemDesc;_romRenderLista()" title="Inverter a ordem">${_romOrdemDesc?'↓ Mais novos primeiro':'↑ Mais antigos primeiro'}</button>
+      <button class="btn btn-sm" onclick="_romRenderLista(true)" title="Atualizar a lista">🔄</button>
+    </div>
+    <div style="background:#fff;border:1px solid #e1e9e4;border-radius:12px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:860px">
+        <thead><tr style="background:#f3f7f4;color:#546e7a;font-size:11px;text-transform:uppercase;text-align:left"><th style="padding:9px 10px">Romaneio</th><th style="padding:9px 8px">Data</th><th style="padding:9px 8px">PDV</th><th style="padding:9px 8px">Cliente</th><th style="padding:9px 8px">NF</th><th style="padding:9px 8px">Transportadora</th><th style="padding:9px 8px;text-align:center">Itens</th><th style="padding:9px 8px;text-align:right">Peso bruto</th><th style="padding:9px 8px">Situação</th><th></th></tr></thead>
+        <tbody>${linhas||'<tr><td colspan="10" style="padding:28px;text-align:center;color:#9e9e9e">Nenhum romaneio encontrado.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+async function abrirRomaneioSalvo(id){
+  const w=window.open('','_blank');
+  try{ if(w) w.document.write('<body style="font-family:sans-serif;padding:40px;color:#37474f"><h3>Abrindo o romaneio…</h3></body>'); }catch(e){}
+  try{
+    const [r]=await api('GET','romaneios','',`?id=eq.${id}&select=*`); if(!r) throw new Error('romaneio não encontrado');
+    const live=carregamentos.find(x=>x.id===r.carregamento_id);
+    const base=live||{id:r.carregamento_id,carregamento_fotos:[],carregamento_itens:[],pdv_numero:r.pdv_numero,cliente_nome:r.cliente_nome};
+    const d=r.dados||{};
+    const c={...base,...d,romaneio_numero:r.numero,_emitidoEm:r.criado_em,_emitidoPor:r.criado_por&&r.criado_por!=='Importado'?r.criado_por:''};
+    c.carregamento_itens=Array.isArray(d.itens)&&d.itens.length?d.itens.map(i=>({...i})):(live?live.carregamento_itens:[]);
+    delete c.itens;
+    if(!d.itens&&live) c.romaneio_itens=live.romaneio_itens; // romaneio antigo: usa a seleção atual do carregamento
+    await _expGarantirProntos(c);
+    await _romaneioMontar(c,true,w);
+  }catch(e){ if(w) w.close(); showToast('Erro ao abrir o romaneio: '+e.message,'err'); }
 }
 // espera a ficha (foto/peso) de todas as ordens do carregamento estar carregada
 async function _expGarantirProntos(c){
@@ -25980,7 +26070,8 @@ async function _romaneioMontar(c,comFotos,w){
   const trCad=_transpLista().find(t=>t.id===c.transportadora_id)||_transpLista().find(t=>t.nome===c.transportadora)||{};
   const cubTot=vols.reduce((a,v)=>a+(Number(v.qtd)||1)*(Number(v.c)||0)*(Number(v.l)||0)*(Number(v.a)||0)/1e6,0);
   const semPeso=itens.filter(x=>x.peso==null).length;
-  const hoje=new Date().toLocaleDateString('pt-BR');
+  const hoje=(c._emitidoEm?new Date(c._emitidoEm):new Date()).toLocaleDateString('pt-BR');
+  const _emitPor=c._emitidoEm?(c._emitidoPor||''):(usuarioLogado?.nome||'');
   const linha=(r,v)=>v?`<div style="margin-bottom:3px"><b style="color:#607d6b">${r}:</b> ${esc(v)}</div>`:'';
   const cidade=[pv.cliente_endereco,pv.cliente_cidade].filter(Boolean).join(' — ');
   const linhasTab=itens.map((x,i)=>`<tr><td class="center">${i+1}</td>
@@ -26026,7 +26117,7 @@ async function _romaneioMontar(c,comFotos,w){
     @media (max-width:640px){ .folha{ margin:0; padding:12px; border-radius:0; } .cabecalho{ flex-direction:column; align-items:flex-start; } .empresa{ text-align:left; } .info{ flex-direction:column; } .grade{ grid-template-columns:repeat(2,1fr); } td.fotoc{ width:16mm; } td.fotoc img{ width:15mm; height:15mm; } }
   </style></head><body><div class="barra-acoes"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button><button class="sec" onclick="window.close()">Fechar</button></div><div class="folha">
     <div class="cabecalho">
-      <div class="marca"><img src="${LOGO_SL_OLEOS}" alt="SL Óleos"><div><div class="titulo">Romaneio de Expedição Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}</div><div class="subtitulo">${esc(c.pdv_numero||'')}${pv.numero?' · Pedido de Venda Nº '+esc(pv.numero):''} · Emitido em ${hoje}${usuarioLogado?.nome?' por '+esc(usuarioLogado.nome):''}</div></div></div>
+      <div class="marca"><img src="${LOGO_SL_OLEOS}" alt="SL Óleos"><div><div class="titulo">Romaneio de Expedição Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}</div><div class="subtitulo">${esc(c.pdv_numero||'')}${pv.numero?' · Pedido de Venda Nº '+esc(pv.numero):''} · Emitido em ${hoje}${_emitPor?' por '+esc(_emitPor):''}</div></div></div>
       <div class="empresa"><b>M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</b><br>CNPJ: 08.363.498/0001-69 · IE: 401.187.491.112<br>Rua Francisco Jose Caseiro, 190 · Jardim Bela Vista<br>Jaú - SP · CEP: 17206-445 · (14) 3626-1777</div>
     </div>
     <div class="info">
