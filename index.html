@@ -5525,7 +5525,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-06 · build 435';
+const APP_BUILD='2026-11-06 · build 436';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -15875,8 +15875,17 @@ async function confirmarImportNFe(){
 
   // Verifica duplicata na lista de entradas
   const chaveNFe=chave||null;
-  if(chaveNFe&&entradasNFe.some(n=>n.chave_nfe===chaveNFe)){
-    if(!confirm(`⚠️ Esta NF-e (chave: ...${chaveNFe.slice(-6)}) já existe na lista de entradas. Importar novamente?`)) return;
+  // Trava: nota já importada não entra de novo (evita estoque e financeiro em dobro).
+  // Confere na lista carregada e também direto no banco (outra pessoa pode ter importado agora há pouco).
+  if(chaveNFe){
+    let jaExiste=entradasNFe.some(n=>n.chave_nfe===chaveNFe);
+    if(!jaExiste){
+      try{ const r=await api('GET','entradas_nfe',null,`?chave_nfe=eq.${encodeURIComponent(chaveNFe)}&select=id&limit=1`); jaExiste=Array.isArray(r)&&r.length>0; }catch(e){ console.warn('[nfe dup]',e); }
+    }
+    if(jaExiste){
+      showToast(`🚫 A NF-e ${nNF} já foi importada — não é possível importar de novo. Se precisar corrigir, apague a entrada anterior em Entradas NF-e.`,'err',9000);
+      return;
+    }
   }
 
   for(let idx=0;idx<itensNF.length;idx++){
