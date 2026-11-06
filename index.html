@@ -5525,7 +5525,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-06 · build 436';
+const APP_BUILD='2026-11-06 · build 437';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -15512,7 +15512,7 @@ function lerNFe(input){
   const file=input.files[0];
   if(!file){return;}
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
       const parser=new DOMParser();
       const xml=parser.parseFromString(e.target.result,'application/xml');
@@ -15543,6 +15543,19 @@ function lerNFe(input){
       }
 
       const chave=xml.getElementsByTagName('infNFe')[0]?.getAttribute('Id')?.replace('NFe','')||g(xml,'chNFe')||'';
+
+      // Trava logo na leitura: nota já importada não chega nem na tela de vincular itens.
+      if(chave){
+        let jaExiste=(entradasNFe||[]).some(n=>n.chave_nfe===chave);
+        if(!jaExiste){
+          try{ const r=await api('GET','entradas_nfe',null,`?chave_nfe=eq.${encodeURIComponent(chave)}&select=id&limit=1`); jaExiste=Array.isArray(r)&&r.length>0; }catch(er){ console.warn('[nfe dup]',er); }
+        }
+        if(jaExiste){
+          showToast(`🚫 A NF-e ${nNF} já foi importada — não é possível importar de novo. Se precisar corrigir, apague a entrada anterior em Entradas NF-e.`,'err',9000);
+          input.value='';
+          return;
+        }
+      }
 
       // Extrai parcelas de cobrança (cobr > dup)
       const cobrEl=xml.getElementsByTagNameNS(ns,'cobr')[0]||xml.getElementsByTagName('cobr')[0];
@@ -15605,7 +15618,7 @@ function renderNFeModal(){
     // ao item errado por acaso de uma palavra em comum.
     const defaultExistente=melhorScore>=LIMIAR_MATCH_FORTE;
 
-    const acaoInicial = defaultExistente ? 'existente' : 'novo';
+    const acaoInicial = defaultExistente ? 'existente' : 'pendente';
     const itemIdInicial = defaultExistente ? candidatos[0].item.id : '';
     const nomeInicial = defaultExistente ? (candidatos[0].item.tipo_peca||candidatos[0].item.descricao||'') : '';
 
@@ -15647,6 +15660,7 @@ function renderNFeModal(){
         <div id="nfe_selecionado_${idx}" style="font-size:11px;color:#2e7d32;margin-top:4px;${itemIdInicial?'':'display:none'}">✅ Vinculado a: <b>${nomeInicial}</b></div>
       </div>
 
+      <div id="nfe_pend_${idx}" style="font-size:11px;color:#e65100;margin:-2px 0 8px;${acaoInicial==='pendente'?'':'display:none'}">👆 Busque e escolha o item no estoque. Só se não existir, clique em "Não encontrei — criar item novo".</div>
       <div style="display:flex;gap:16px;font-size:11px;margin-bottom:10px">
         <a href="#" onclick="event.preventDefault();alternarNovoItemNFe(${idx})" style="color:#2e7d32;font-weight:600">➕ Não encontrei — criar item novo</a>
         <a href="#" onclick="event.preventDefault();marcarIgnorarNFe(${idx})" style="color:#9e9e9e">⏭ Ignorar este item</a>
@@ -15844,6 +15858,7 @@ function selecionarItemNFe(idx, itemId){
   if(sel){ sel.style.display='block'; sel.innerHTML=`✅ Vinculado a: <b>${nome}</b>${item.localizacao?' ('+item.localizacao+')':''}`; }
   const card=document.getElementById(`nfeItem_${idx}`);
   if(card) card.dataset.acao='existente';
+  const _pd=document.getElementById(`nfe_pend_${idx}`); if(_pd) _pd.style.display='none';
   const pn=document.getElementById(`painelNovo_${idx}`); if(pn) pn.style.display='none';
   const pi=document.getElementById(`painelIgn_${idx}`); if(pi) pi.style.display='none';
 }
@@ -15851,6 +15866,7 @@ function selecionarItemNFe(idx, itemId){
 function alternarNovoItemNFe(idx){
   const card=document.getElementById(`nfeItem_${idx}`);
   if(card) card.dataset.acao='novo';
+  const _pd=document.getElementById(`nfe_pend_${idx}`); if(_pd) _pd.style.display='none';
   document.getElementById(`nfe_itemId_${idx}`).value='';
   const sel=document.getElementById(`nfe_selecionado_${idx}`); if(sel) sel.style.display='none';
   const pn=document.getElementById(`painelNovo_${idx}`); if(pn) pn.style.display='block';
@@ -15860,6 +15876,7 @@ function alternarNovoItemNFe(idx){
 function marcarIgnorarNFe(idx){
   const card=document.getElementById(`nfeItem_${idx}`);
   if(card) card.dataset.acao='ignorar';
+  const _pd=document.getElementById(`nfe_pend_${idx}`); if(_pd) _pd.style.display='none';
   const pn=document.getElementById(`painelNovo_${idx}`); if(pn) pn.style.display='none';
   const pi=document.getElementById(`painelIgn_${idx}`); if(pi) pi.style.display='block';
 }
@@ -15884,6 +15901,16 @@ async function confirmarImportNFe(){
     }
     if(jaExiste){
       showToast(`🚫 A NF-e ${nNF} já foi importada — não é possível importar de novo. Se precisar corrigir, apague a entrada anterior em Entradas NF-e.`,'err',9000);
+      return;
+    }
+  }
+
+  // Todo item precisa de uma decisão: vincular a um item do estoque, criar novo ou ignorar.
+  if(!prontas){
+    const pend=itensNF.map((_,i)=>i).filter(i=>(document.getElementById(`nfeItem_${i}`)?.dataset.acao||'novo')==='pendente');
+    if(pend.length){
+      showToast(`Falta definir ${pend.length} item(ns): busque no estoque, ou clique em "Não encontrei — criar item novo" / "Ignorar".`,'err',7000);
+      document.getElementById(`nfeItem_${pend[0]}`)?.scrollIntoView({behavior:'smooth',block:'center'});
       return;
     }
   }
