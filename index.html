@@ -5525,7 +5525,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-04 · build 434';
+const APP_BUILD='2026-11-06 · build 435';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -15580,11 +15580,18 @@ function renderNFeModal(){
   // Pontua a força da correspondência (fração de palavras significativas do item
   // do estoque que aparecem na descrição do XML), pra saber quando já existe um
   // item cadastrado e evitar criar duplicata por padrão.
+  const _nfeNums=t=>(String(t).match(/\d+(?:[.,]\d+)?(?:\/\d+)?/g)||[]).map(n=>n.replace(',','.'));
   const _nfeMatchScore=(itemEstoque,xpLower)=>{
     const desc=(itemEstoque.tipo_peca||itemEstoque.descricao||'').toLowerCase();
-    const palavras=desc.split(/\s+/).filter(w=>w.length>3);
+    // Medidas (7", 4.1/2, 1/4...) são o que distingue um item do outro: se o item do estoque
+    // tem medida e ela não aparece na NF, não é o mesmo produto — descarta.
+    const nEst=_nfeNums(desc), nXml=_nfeNums(xpLower);
+    if(nEst.length && !nEst.every(n=>nXml.includes(n))) return 0;
+    const palavras=desc.split(/[^a-z0-9\u00c0-\u00ff]+/).filter(w=>w.length>3&&!/^\d/.test(w));
     if(!palavras.length) return 0;
-    const bate=palavras.filter(w=>xpLower.includes(w)).length;
+    const tokXml=xpLower.split(/[^a-z0-9\u00c0-\u00ff]+/).filter(Boolean);
+    // aceita abreviação da NF ("desb" = "desbaste")
+    const bate=palavras.filter(w=>xpLower.includes(w)||tokXml.some(t=>t.length>=3&&w.startsWith(t))).length;
     return bate/palavras.length;
   };
   const LIMIAR_MATCH_FORTE=0.6;
