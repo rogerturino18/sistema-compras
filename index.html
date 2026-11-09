@@ -5525,7 +5525,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-09 · build 440';
+const APP_BUILD='2026-11-09 · build 441';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11147,10 +11147,10 @@ function criarOPdoItemDesenho(itemId, forcarNova){
   const item = itensDesenhoRecebido.find(i=>i.id===itemId);
   if(!item) return;
   // "Nova OP" explícita (ex.: pedido adicional da mesma peça): o usuário já decidiu, sem perguntar de novo.
-  if(forcarNova){ _abrirModalOrdemDoItemDesenho(itemId); return; }
+  if(forcarNova){ _abrirModalOrdemDoItemDesenho(itemId,true); return; }
   _checarDesenhoDuplicadoEProsseguir(item.desenho_peca, itemId, ()=>_abrirModalOrdemDoItemDesenho(itemId), {pdvId:_equipamentoDoItem(item)?.pdv_id||null, descricao:item.denominacao, vincular:{tipo:'item',id:itemId}});
 }
-function _abrirModalOrdemDoItemDesenho(itemId){
+function _abrirModalOrdemDoItemDesenho(itemId, forcarNova){
   const item = itensDesenhoRecebido.find(i=>i.id===itemId);
   if(!item) return;
   const desenho = _equipamentoDoItem(item);
@@ -11165,6 +11165,7 @@ function _abrirModalOrdemDoItemDesenho(itemId){
     document.getElementById('ord_material').value = item.material||'';
     document.getElementById('ord_qtd').value = item.quantidade||1;
     document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId = itemId; _dupJaConfirmadoPara = itemId+'|'+_normDesenho(item.desenho_peca);
+    if(forcarNova) document.getElementById('modalOrdem').dataset.forcarNovaOP = itemId;
   }, 150);
 }
 
@@ -12101,6 +12102,7 @@ async function _removerFotoOrdemLista(ordemId){
 async function abrirModalOrdem(id){
   editOrdemId = id || null;
   delete document.getElementById('modalOrdem').dataset.itemDesenhoOrigemId;
+  delete document.getElementById('modalOrdem').dataset.forcarNovaOP;
   _dupJaConfirmadoPara=null;
   delete document.getElementById('modalOrdem').dataset.montagemOrigemId;
   const o = id ? ordens.find(x=>x.id===id) : null;
@@ -12471,7 +12473,9 @@ async function salvarOrdem(){
   // é o item/montagem que já deu origem a ESTA ordem (se veio do "Criar OP"),
   // senão nenhum item é excluído da checagem.
   const jaConfirmado=(itemDesenhoOrigemId||montagemOrigemId) && _dupJaConfirmadoPara===((itemDesenhoOrigemId||montagemOrigemId)+'|'+_normDesenho(obj.desenho));
-  if(!editOrdemId){
+  // "➕ Nova OP" escolhida de propósito (ex.: pedido adicional da mesma peça): não bloqueia nem pergunta de novo.
+  const forcadoNova=!!itemDesenhoOrigemId && document.getElementById('modalOrdem').dataset.forcarNovaOP===itemDesenhoOrigemId;
+  if(!editOrdemId && !forcadoNova){
     const duplicou=(obj.desenho && _normDesenho(obj.desenho)) || _ordensMesmaPeca({desenho:obj.desenho,pdv_id:obj.pdv_id,descricao:obj.descricao}).length;
     if(duplicou){
       const vinc=itemDesenhoOrigemId?{tipo:'item',id:itemDesenhoOrigemId}:(montagemOrigemId?{tipo:'montagem',id:montagemOrigemId}:null);
