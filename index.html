@@ -5525,7 +5525,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-09 · build 438';
+const APP_BUILD='2026-11-09 · build 439';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10315,12 +10315,13 @@ function abrirEdicaoRapida(noId, tipo){
 
 // O número do desenho da peça (estrutura) é o mesmo da O.P. vinculada: ao mudar
 // na estrutura, a O.P. acompanha. Só propaga valor preenchido (apagar o número
-// na estrutura não apaga o da O.P.) e não mexe em O.P. concluída.
+// na estrutura não apaga o da O.P.). Vale também para O.P. concluída: o número
+// é só identificação da peça, não altera produção nem custo.
 async function sincronizarDesenhoOPVinculada(ordemId, novoDesenho){
   const d = String(novoDesenho||'').trim();
   if(!ordemId || !d) return false;
   const ordem = ordens.find(o=>o.id===ordemId);
-  if(!ordem || ordem.status==='concluido' || String(ordem.desenho||'').trim()===d) return false;
+  if(!ordem || String(ordem.desenho||'').trim()===d) return false;
   await api('PATCH','ordens_producao',{desenho:d},`?id=eq.${ordem.id}`);
   ordem.desenho = d;
   return true;
