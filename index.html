@@ -1180,6 +1180,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="abrirScannerOrdem()">📷 Escanear QR da Ordem</div>
     <div class="sbi" onclick="sbGo(27,'Histórico de Tempos')">⏱️ Histórico de Tempos</div>
     <div class="sbi" onclick="sbGo(31,'Custo de Produto')">💰 Custo de Produto</div>
+    <div class="sbi" id="sbi_retrabalho" style="display:none" onclick="sbGo(38,'Análise de Retrabalho')">🔁 Análise de Retrabalho</div>
     <div class="sbi" onclick="sbGo(32,'Pesos de Itens')">⚖️ Pesos de Itens</div>
     <div class="sbi" onclick="sbGo(34,'Operadores e Terceirizados')">👷 Operadores e Terceirizados</div>
   </div>
@@ -2511,6 +2512,22 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 </div>
 
 <!-- TAB 32: PESOS DE ITENS -->
+<div class="panel" id="tab38">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🔁 Análise de Retrabalho</h2>
+      <div style="font-size:12px;color:var(--gray);margin-top:2px">Lê todos os tempos marcados como ↻ Retrabalho, agrupa por máquina e calcula o custo com o valor da M.O. (R$/hora) que você informar.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label style="font-size:12px;color:var(--gray)">De <input type="date" id="rtDe" onchange="renderRetrabalhoAnalise()" style="padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px"></label>
+      <label style="font-size:12px;color:var(--gray)">Até <input type="date" id="rtAte" onchange="renderRetrabalhoAnalise()" style="padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px"></label>
+      <button class="btn" onclick="document.getElementById('rtDe').value='';document.getElementById('rtAte').value='';renderRetrabalhoAnalise()">Limpar</button>
+      <button class="btn" onclick="rtExportarExcel()">📊 Excel</button>
+    </div>
+  </div>
+  <div id="rtConteudo"></div>
+</div>
+
 <div class="panel" id="tab32">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <div>
@@ -5525,7 +5542,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-09 · build 442';
+const APP_BUILD='2026-11-09 · build 443';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -16764,6 +16781,7 @@ function renderConteudoAba(n){
   if(n===24) {if(typeof renderEntradaNFe==='function') renderEntradaNFe(); nfeAtualizarStatus('','',''); setTimeout(nfeVerificarBackend,200);}
   if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
   if(n===31) { if(typeof custoProdInit==='function') custoProdInit(); }
+  if(n===38) { renderRetrabalhoAnalise(); }
   if(n===32) { if(typeof pesosInit==='function') pesosInit(); }
   if(n===35) { if(typeof fundidosInit==='function') fundidosInit(); }
   if(n===34) { if(typeof renderOperadoresTerceirizados==='function') renderOperadoresTerceirizados(); }
@@ -16772,6 +16790,7 @@ function renderConteudoAba(n){
 }
 
 function showTab(n){
+  if(n===38 && !ehRogerRetrabalho()){ showToast('Sem permissão para acessar este módulo','err'); return; }
   if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
     showToast('Sem permissão para acessar este módulo','err');
     return;
@@ -17048,6 +17067,7 @@ const TAB_GRUPO_SIDEBAR = {
 
 // Aplica permissões na UI — oculta ícones, sidebar items, cards e bloqueia tabs
 function aplicarPermissoes(){
+  { const _sr=document.getElementById('sbi_retrabalho'); if(_sr) _sr.style.display=ehRogerRetrabalho()?'':'none'; }
   if(!usuarioLogado){ atualizarAcessoCentralPendencias(); return; }
   atualizarAcessoCentralPendencias();
 
@@ -23543,6 +23563,112 @@ async function salvarTempoManual(){
   }
 }
 // ===== FIM HISTÓRICO DE TEMPOS =====
+// ===== ANÁLISE DE RETRABALHO (módulo restrito ao Roger) =====
+function ehRogerRetrabalho(){
+  const em=(usuarioLogado?.email||'').trim().toLowerCase();
+  return em==='adm.geral@sloleos.com.br' || em==='roger@sloleos.com.br';
+}
+const RT_LS_KEY='rt_mo_hora_v1';
+function _rtMoSalvas(){ try{ return JSON.parse(localStorage.getItem(RT_LS_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function _rtMoGravar(chave,valor){ try{ const o=_rtMoSalvas(); if(valor>0) o[chave]=valor; else delete o[chave]; localStorage.setItem(RT_LS_KEY,JSON.stringify(o)); }catch(e){} }
+let _rtDados=null;
+function _rtMinutos(t){
+  if(Number(t.duracao_minutos)>0) return Number(t.duracao_minutos);
+  if(t.dt_hr_inicial && t.dt_hr_final){ const m=(new Date(t.dt_hr_final)-new Date(t.dt_hr_inicial))/60000; return m>0?Math.round(m):0; }
+  return 0;
+}
+function _rtColetar(){
+  const de=document.getElementById('rtDe')?.value||'', ate=document.getElementById('rtAte')?.value||'';
+  const linhas=[];
+  (temposOP||[]).forEach(t=>{
+    if(!t.retrabalho || !t.operacao || t.operacao==='REPROCESSAR') return;
+    const min=_rtMinutos(t);
+    if(!t.dt_hr_final && !(Number(t.duracao_minutos)>0)) return; // em andamento: ainda sem duração
+    const dia=String(t.dt_hr_inicial||t.created_at||'').slice(0,10);
+    if(de && dia && dia<de) return;
+    if(ate && dia && dia>ate) return;
+    const o=(ordens||[]).find(x=>x.id===t.ordem_id)||{};
+    const pdv=(pdvs||[]).find(p=>p.id===o.pdv_id);
+    const op=String(t.operacao).trim();
+    linhas.push({chave:op.toUpperCase(),maquina:op,min,dia,ordem:o.numero||'—',peca:o.descricao||'—',desenho:o.desenho||'',pdv:pdv?(pdv.numero||''):'',operador:t.operador||'—'});
+  });
+  return linhas;
+}
+function _rtTaxaInicial(chave,nome){
+  const salva=_rtMoSalvas()[chave]; if(salva>0) return salva;
+  try{ const v=getTaxaMaq(nome); if(v>0) return v; }catch(e){}
+  return 0;
+}
+async function renderRetrabalhoAnalise(){
+  const div=document.getElementById('rtConteudo'); if(!div) return;
+  if(!ehRogerRetrabalho()){ div.innerHTML=''; return; }
+  if(!(custoTaxasMaq||[]).length && typeof custoCarregarDados==='function'){ try{ await custoCarregarDados(); }catch(e){} }
+  const linhas=_rtColetar();
+  const porMaq={};
+  linhas.forEach(l=>{ const g=porMaq[l.chave]||(porMaq[l.chave]={chave:l.chave,maquina:l.maquina,min:0,n:0}); g.min+=l.min; g.n++; });
+  const maqs=Object.values(porMaq).sort((a,b)=>b.min-a.min);
+  _rtDados={linhas,maqs};
+  if(!linhas.length){
+    div.innerHTML='<div class="empty" style="padding:32px;text-align:center;color:var(--gray)">Nenhum tempo de retrabalho encontrado neste período.<br><span style="font-size:12px">Marque ↻ Retrabalho ao lançar ou editar o tempo de uma operação.</span></div>';
+    return;
+  }
+  const inp='width:100px;padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;text-align:right';
+  const th='padding:9px 10px;text-align:left;font-size:11px;color:#546e7a;text-transform:uppercase;border-bottom:2px solid #e0e0e0;background:#fff;position:static';
+  div.innerHTML=`
+  <div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:6px 6px 2px;margin-bottom:16px;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;min-width:520px">
+      <thead><tr><th style="${th}">Máquina</th><th style="${th};text-align:right">Nº de tempos</th><th style="${th};text-align:right">Tempo total</th><th style="${th};text-align:right">M.O. (R$/hora)</th><th style="${th};text-align:right">Custo</th></tr></thead>
+      <tbody>${maqs.map((m,i)=>`<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:8px 10px;font-weight:600">${m.maquina}</td>
+        <td style="padding:8px 10px;text-align:right">${m.n}</td>
+        <td style="padding:8px 10px;text-align:right">${custoFmtMin(m.min)}</td>
+        <td style="padding:8px 10px;text-align:right"><input class="rt-mo" data-i="${i}" value="${_rtTaxaInicial(m.chave,m.maquina)||''}" placeholder="0,00" oninput="rtRecalc()" style="${inp}"></td>
+        <td class="rt-custo" data-i="${i}" style="padding:8px 10px;text-align:right;font-weight:700;color:#c62828">—</td></tr>`).join('')}</tbody>
+      <tfoot><tr style="background:#fbe9e7"><td style="padding:10px;font-weight:700">TOTAL DE RETRABALHO</td><td style="padding:10px;text-align:right;font-weight:700">${linhas.length}</td><td id="rtTotMin" style="padding:10px;text-align:right;font-weight:700"></td><td></td><td id="rtTotCusto" style="padding:10px;text-align:right;font-weight:800;font-size:16px;color:#c62828"></td></tr></tfoot>
+    </table>
+  </div>
+  <div style="font-size:11px;color:var(--gray);margin:-8px 0 16px">O valor da M.O. é sugerido pela taxa da máquina em Custo de Produto (se existir) e o que você digitar aqui fica guardado neste navegador. Só tempos já finalizados entram na conta.</div>
+  <div style="font-weight:700;font-size:13px;margin:6px 0 8px;color:#263238">Lançamentos de retrabalho</div>
+  <div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:6px 6px 2px;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;min-width:720px">
+      <thead><tr><th style="${th}">Data</th><th style="${th}">Ordem</th><th style="${th}">Peça</th><th style="${th}">PDV</th><th style="${th}">Máquina</th><th style="${th}">Operador</th><th style="${th};text-align:right">Tempo</th><th style="${th};text-align:right">Custo</th></tr></thead>
+      <tbody>${linhas.slice().sort((a,b)=>String(b.dia).localeCompare(String(a.dia))).map(l=>`<tr class="rt-lin" data-k="${l.chave.replace(/"/g,'&quot;')}" data-min="${l.min}" style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:7px 10px">${l.dia?l.dia.split('-').reverse().join('/'):'—'}</td><td style="padding:7px 10px;font-weight:600">#${l.ordem}</td><td style="padding:7px 10px">${l.peca}${l.desenho?` <span style="color:var(--gray);font-size:11px">· ${l.desenho}</span>`:''}</td><td style="padding:7px 10px">${l.pdv||'—'}</td><td style="padding:7px 10px">${l.maquina}</td><td style="padding:7px 10px">${l.operador}</td><td style="padding:7px 10px;text-align:right">${custoFmtMin(l.min)}</td><td class="rt-lin-custo" style="padding:7px 10px;text-align:right">—</td></tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+  rtRecalc();
+}
+function rtRecalc(){
+  if(!_rtDados) return;
+  const taxas={};
+  document.querySelectorAll('.rt-mo').forEach(inp=>{
+    const m=_rtDados.maqs[+inp.dataset.i]; if(!m) return;
+    const v=custoNum(inp.value); taxas[m.chave]=v; _rtMoGravar(m.chave,v);
+  });
+  let totMin=0,totCusto=0;
+  _rtDados.maqs.forEach((m,i)=>{
+    const c=(m.min/60)*(taxas[m.chave]||0); totMin+=m.min; totCusto+=c;
+    const td=document.querySelector(`.rt-custo[data-i="${i}"]`); if(td) td.textContent=custoBRL(c);
+  });
+  document.querySelectorAll('.rt-lin').forEach(tr=>{
+    const td=tr.querySelector('.rt-lin-custo'); if(td) td.textContent=custoBRL((Number(tr.dataset.min)/60)*(taxas[tr.dataset.k]||0));
+  });
+  const a=document.getElementById('rtTotMin'); if(a) a.textContent=custoFmtMin(totMin);
+  const b=document.getElementById('rtTotCusto'); if(b) b.textContent=custoBRL(totCusto);
+  _rtDados.taxas=taxas; _rtDados.totCusto=totCusto;
+}
+function rtExportarExcel(){
+  if(!_rtDados||!_rtDados.linhas.length){ showToast('Nada para exportar','err'); return; }
+  const tx=_rtDados.taxas||{};
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const rows=[['Máquina','Nº de tempos','Minutos','M.O. R$/hora','Custo R$']];
+  _rtDados.maqs.forEach(m=>rows.push([m.maquina,m.n,m.min,(tx[m.chave]||0).toFixed(2).replace('.',','),((m.min/60)*(tx[m.chave]||0)).toFixed(2).replace('.',',')]));
+  rows.push(['TOTAL',_rtDados.linhas.length,_rtDados.maqs.reduce((s,m)=>s+m.min,0),'',(_rtDados.totCusto||0).toFixed(2).replace('.',',')],[],['Data','Ordem','Peça','PDV','Máquina','Operador','Minutos']);
+  _rtDados.linhas.forEach(l=>rows.push([l.dia,l.ordem,l.peca,l.pdv,l.maquina,l.operador,l.min]));
+  const csv='\ufeff'+rows.map(r=>r.map(q).join(';')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='retrabalho.csv'; a.click();
+}
+// ===== FIM ANÁLISE DE RETRABALHO =====
 // ===== CUSTO DE PRODUTO =====
 let custoTaxasMaq=[], custosProduto=[], custoAtual=null, custoProdTabelasOk=true;
 
