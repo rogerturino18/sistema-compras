@@ -5543,7 +5543,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-11 · build 447';
+const APP_BUILD='2026-11-11 · build 448';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25626,7 +25626,7 @@ function renderExpedicaoDetalhe(){
         </label>
         ${it._inclui&&it._inclui.length?`<div style="font-size:11px;color:#6a4c93;background:#f3ecfb;border-radius:6px;padding:4px 8px;line-height:1.4">🔩 <b>Conjunto</b> — sai como 1 peça. Composto por: ${it._inclui.map(x=>(x.numero_ordem?'Ordem '+x.numero_ordem+' ':'')+(x.descricao||'')).join(' · ').replace(/</g,'&lt;')}</div>`:''}
         <div style="font-size:11.5px;color:#455a64">${pesoLinha}</div>
-        ${_expEhManual(c)&&c.status!=='Enviado'?`<a href="javascript:void(0)" style="font-size:11px;color:#c62828" onclick="expRemoverItemManual('${c.id}','${it.id}')">🗑️ remover item</a>`:''}
+        ${_expEhManual(c)&&c.status!=='Enviado'?`<span style="display:flex;gap:12px;flex-wrap:wrap"><a href="javascript:void(0)" style="font-size:11px;color:#1565c0" onclick="expEditarItemManual('${c.id}','${it.id}')">✏️ editar item</a><a href="javascript:void(0)" style="font-size:11px;color:#c62828" onclick="expRemoverItemManual('${c.id}','${it.id}')">🗑️ remover item</a></span>`:''}
         ${fotos.length>(pr&&pr.foto_pronto?0:1)?`<div style="display:flex;gap:5px;flex-wrap:wrap">${fotos.slice(pr&&pr.foto_pronto?0:1).map(f=>`
           <div style="position:relative">
             ${f.foto_base64?`<img src="${f.foto_base64}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0;cursor:zoom-in" onclick="_lightboxFoto(this.src)">`:'<div style="width:44px;height:44px;border-radius:6px;background:#eceff1"></div>'}
@@ -26073,6 +26073,46 @@ async function expSalvarItensManual(carId){
     showToast('✅ '+itens.length+' item(ns) adicionado(s)','ok');
     renderExpedicaoDetalhe();
   }catch(e){ showToast('Erro ao adicionar: '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Adicionar'; } }
+}
+function expEditarItemManual(carId,itemId){
+  const c=carregamentos.find(x=>x.id===carId); const it=(c?.carregamento_itens||[]).find(x=>x.id===itemId); if(!c||!it) return;
+  document.getElementById('modalItemManual')?.remove();
+  const v=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const st='padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;width:100%;box-sizing:border-box';
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal-bg open" id="modalItemManual" style="display:flex"><div class="modal" style="width:520px;max-width:96vw">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font-size:16px">✏️ Editar item</h3><button class="modal-header-btn" onclick="document.getElementById('modalItemManual').remove()">✕</button></div>
+    <div style="padding:14px 16px">
+      <div class="form-group"><label>Descrição *</label><input id="eiDesc" value="${v(it.descricao)}" oninput="_romUp(this)" style="${st};text-transform:uppercase"></div>
+      <div style="display:grid;grid-template-columns:1.4fr .7fr 1fr;gap:10px">
+        <div class="form-group"><label>Nº do desenho</label><input id="eiDes" value="${v(it.desenho)}" oninput="_romUp(this)" style="${st};text-transform:uppercase"></div>
+        <div class="form-group"><label>Qtd *</label><input id="eiQtd" value="${v(it.qtd)}" inputmode="decimal" style="${st};text-align:right"></div>
+        <div class="form-group"><label>Peso un. (kg)</label><input id="eiPeso" value="${it.peso_unit!=null?v(String(it.peso_unit).replace('.',',')):''}" inputmode="decimal" style="${st};text-align:right"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" onclick="document.getElementById('modalItemManual').remove()">Cancelar</button><button class="btn primary" id="eiBtn" onclick="expSalvarEdicaoItemManual('${carId}','${itemId}')">Salvar</button></div>
+    </div></div></div>`);
+  setTimeout(()=>document.getElementById('eiDesc')?.focus(),80);
+}
+async function expSalvarEdicaoItemManual(carId,itemId){
+  const c=carregamentos.find(x=>x.id===carId); const it=(c?.carregamento_itens||[]).find(x=>x.id===itemId); if(!c||!it) return;
+  const g=id=>(document.getElementById(id)?.value||'').trim();
+  const descricao=g('eiDesc').toUpperCase(), desenho=g('eiDes').toUpperCase()||null, qtd=_romNum(g('eiQtd')), peso=_romNum(g('eiPeso'));
+  if(!descricao){ showToast('Informe a descrição','err'); return; }
+  if(!(qtd>0)){ showToast('Informe a quantidade','err'); return; }
+  const btn=document.getElementById('eiBtn'); if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
+  try{
+    const obj={descricao,desenho,qtd,peso_unit:peso>0?peso:null};
+    await api('PATCH','carregamento_itens',obj,`?id=eq.${itemId}&select=id`);
+    const qtdMudou=Number(it.qtd)!==qtd;
+    Object.assign(it,obj);
+    const patch={};
+    if(qtdMudou&&c.romaneio_itens&&typeof c.romaneio_itens==='object'&&itemId in c.romaneio_itens){ patch.romaneio_itens={...c.romaneio_itens,[itemId]:qtd}; }
+    let soltou=false;
+    if(qtdMudou&&Array.isArray(c.volumes)&&c.volumes.some(vl=>(vl.itens||[]).some(x=>x.item_id===itemId))){ patch.volumes=c.volumes.map(vl=>({...vl,itens:(vl.itens||[]).filter(x=>x.item_id!==itemId)})); soltou=true; }
+    if(Object.keys(patch).length){ await api('PATCH','carregamentos',patch,`?id=eq.${c.id}&select=id`); Object.assign(c,patch); }
+    document.getElementById('modalItemManual')?.remove();
+    showToast(soltou?'✅ Item atualizado — como a quantidade mudou, distribua-o de novo nos volumes':'✅ Item atualizado','ok');
+    renderExpedicaoDetalhe();
+  }catch(e){ showToast('Erro ao salvar: '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Salvar'; } }
 }
 async function expRemoverItemManual(carId,itemId){
   const c=carregamentos.find(x=>x.id===carId); const it=(c?.carregamento_itens||[]).find(x=>x.id===itemId); if(!c||!it) return;
