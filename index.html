@@ -5544,7 +5544,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-11 · build 451';
+const APP_BUILD='2026-11-11 · build 452';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25999,10 +25999,16 @@ function expRomaneioManual(){
     <div style="padding:14px 16px">
       <div style="font-size:12px;color:#546e7a;margin-bottom:10px">Preencha tudo à mão, sem precisar de ordem de produção. Depois de criar, você coloca fotos, volumes e transportadora e gera o romaneio igual ao de sempre.</div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
-        <div class="form-group"><label>Cliente *</label><input id="rmCliente" placeholder="Nome do cliente" oninput="_romUp(this)" style="width:100%;text-transform:uppercase"></div>
+        <div class="form-group"><label>Cliente * <span style="font-weight:400;color:#78909c">— digite e escolha um cadastrado</span></label><input id="rmCliente" list="rmClientesList" autocomplete="off" placeholder="Nome do cliente" oninput="_romUp(this);rmPuxarCliente()" onchange="rmPuxarCliente()" style="width:100%;text-transform:uppercase"><datalist id="rmClientesList">${(clientes||[]).map(c=>`<option value="${String(c.nome||'').toUpperCase().replace(/"/g,'&quot;')}">${String(c.cnpj_cpf||'').replace(/</g,'&lt;')}</option>`).join('')}</datalist></div>
         <div class="form-group"><label>PDV / Referência</label><input id="rmRef" placeholder="Ex.: PDV 95 ou Avulso" oninput="_romUp(this)" style="width:100%;text-transform:uppercase"></div>
         <div class="form-group"><label>Nº da NF</label><input id="rmNf" style="width:100%"></div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:10px">
+        <div class="form-group"><label>CNPJ / CPF</label><input id="rmCnpj" style="width:100%"></div>
+        <div class="form-group"><label>Endereço / cidade</label><input id="rmEnd" oninput="_romUp(this)" style="width:100%;text-transform:uppercase"></div>
+        <div class="form-group"><label>Telefone</label><input id="rmTel" style="width:100%"></div>
+      </div>
+      <div style="font-size:11px;color:#78909c;margin:-4px 0 8px">Ao escolher um cliente cadastrado, estes campos são preenchidos sozinhos (e saem no romaneio). Dá para ajustar.</div>
       <div class="form-group" style="max-width:220px"><label>Quantidade de volumes</label><input id="rmVol" type="number" min="0" max="60" inputmode="numeric" placeholder="Ex.: 6" style="width:100%"><div style="font-size:11px;color:#78909c;margin-top:3px">Independe da lista de itens. Dá para ajustar medidas e peso depois.</div></div>
       <div style="font-weight:700;font-size:12px;margin:6px 0">Itens</div>
       <div id="rmItens"></div>
@@ -26011,6 +26017,14 @@ function expRomaneioManual(){
     </div></div>`);
   rmAddLinha(); rmAddLinha();
   setTimeout(()=>document.getElementById('rmCliente')?.focus(),80);
+}
+function rmPuxarCliente(){
+  const nome=(document.getElementById('rmCliente')?.value||'').trim().toUpperCase(); if(!nome) return;
+  const c=(clientes||[]).find(x=>String(x.nome||'').trim().toUpperCase()===nome); if(!c) return;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v||''; };
+  set('rmCnpj',c.cnpj_cpf);
+  set('rmEnd',[c.endereco,[c.cidade,c.uf].filter(Boolean).join('/')].filter(Boolean).join(' — ').replace(/\s+/g,' ').toUpperCase());
+  set('rmTel',c.telefone);
 }
 function rmAddLinha(boxId){
   const box=document.getElementById(typeof boxId==='string'?boxId:'rmItens'); if(!box) return;
@@ -26037,7 +26051,7 @@ async function rmCriar(){
   const btn=document.getElementById('rmBtn'); if(btn){ btn.disabled=true; btn.textContent='Criando...'; }
   try{
     const maxNum=carregamentos.length?Math.max(...carregamentos.map(c=>c.numero||0)):0;
-    const [novo]=await api('POST','carregamentos',{numero:maxNum+1,pedido_venda_id:null,pdv_id:null,pdv_numero:g('rmRef').toUpperCase()||'AVULSO',cliente_nome:cliente,numero_nf:g('rmNf')||null,status:'Pronto p/ Envio',itens_prontos_em:new Date().toISOString(),criado_por:'Romaneio manual ('+(usuarioLogado?.nome||'—')+')'});
+    const [novo]=await api('POST','carregamentos',{numero:maxNum+1,pedido_venda_id:null,pdv_id:null,cliente_dados:(g('rmCnpj')||g('rmEnd')||g('rmTel'))?{cnpj:g('rmCnpj')||null,endereco:g('rmEnd').toUpperCase()||null,telefone:g('rmTel')||null}:null,pdv_numero:g('rmRef').toUpperCase()||'AVULSO',cliente_nome:cliente,numero_nf:g('rmNf')||null,status:'Pronto p/ Envio',itens_prontos_em:new Date().toISOString(),criado_por:'Romaneio manual ('+(usuarioLogado?.nome||'—')+')'});
     novo.carregamento_itens=await api('POST','carregamento_itens',itens.map(x=>({carregamento_id:novo.id,descricao:x.descricao,desenho:x.desenho,qtd:x.qtd,peso_unit:x.peso>0?x.peso:null,pronto:true,pronto_em:new Date().toISOString(),pronto_por:'Romaneio manual',carregado:false})));
     if(nVol>0){ const volumes=Array.from({length:nVol},()=>({descricao:'',qtd:1,c:0,l:0,a:0,peso:0,itens:[]})); await api('PATCH','carregamentos',{volumes},`?id=eq.${novo.id}&select=id`); novo.volumes=volumes; }
     novo.carregamento_fotos=[]; carregamentos.unshift(novo);
@@ -26290,7 +26304,7 @@ async function _romSalvarHistorico(c,dados){
   try{
     const itens=_expItensRomaneio(c); const qtd=itens.reduce((a,x)=>a+(Number(x.qtd)||0),0);
     const emb=Number(dados.peso_embalagens)||0; const bruto=dados.peso_bruto!=null&&Number(dados.peso_bruto)>0?Number(dados.peso_bruto):(Number(_romLiq)||0)+emb;
-    const snap={...dados,itens:(c.carregamento_itens||[]).map(i=>({id:i.id,ordem_producao_id:i.ordem_producao_id,numero_ordem:i.numero_ordem,desenho:i.desenho,descricao:i.descricao,qtd:i.qtd,item_desenho_id:i.item_desenho_id,peso_unit:i.peso_unit,pronto:i.pronto}))};
+    const snap={...dados,cliente_dados:c.cliente_dados||null,itens:(c.carregamento_itens||[]).map(i=>({id:i.id,ordem_producao_id:i.ordem_producao_id,numero_ordem:i.numero_ordem,desenho:i.desenho,descricao:i.descricao,qtd:i.qtd,item_desenho_id:i.item_desenho_id,peso_unit:i.peso_unit,pronto:i.pronto}))};
     const linha={numero:c.romaneio_numero,carregamento_id:c.id,pdv_numero:c.pdv_numero||null,cliente_nome:c.cliente_nome||null,numero_nf:dados.numero_nf,transportadora:dados.transportadora,resumo:{itens:itens.length,qtd,peso_bruto:Math.round(bruto*1000)/1000},dados:snap,criado_por:usuarioLogado?.nome||null,atualizado_em:new Date().toISOString()};
     const ex=await api('GET','romaneios','',`?numero=eq.${c.romaneio_numero}&select=id`);
     if(ex&&ex[0]){ const {criado_por,...resto}=linha; await api('PATCH','romaneios',resto,`?id=eq.${ex[0].id}&select=id`); }
@@ -26422,7 +26436,8 @@ async function _romaneioMontar(c,comFotos,w){
   const hoje=(c._emitidoEm?new Date(c._emitidoEm):new Date()).toLocaleDateString('pt-BR');
   const _emitPor=c._emitidoEm?(c._emitidoPor||''):(usuarioLogado?.nome||'');
   const linha=(r,v)=>v?`<div style="margin-bottom:3px"><b style="color:#607d6b">${r}:</b> ${esc(v)}</div>`:'';
-  const cidade=[pv.cliente_endereco,pv.cliente_cidade].filter(Boolean).join(' — ');
+  const cdm=c.cliente_dados||{};
+  const cidade=[pv.cliente_endereco,pv.cliente_cidade].filter(Boolean).join(' — ')||cdm.endereco||'';
   const ocP=!!c.romaneio_ocultar_peso_itens;
   const linhasTab=itens.map((x,i)=>`<tr><td class="center">${i+1}</td>
     <td class="fotoc">${x.foto?`<img src="${x.thumb||x.foto}">`:'<span class="sf">sem foto</span>'}</td>
@@ -26471,7 +26486,7 @@ async function _romaneioMontar(c,comFotos,w){
       <div class="empresa"><b>M.E. MASSUFARO ENGENHARIA INDUSTRIAL LTDA</b><br>CNPJ: 08.363.498/0001-69 · IE: 401.187.491.112<br>Rua Francisco Jose Caseiro, 190 · Jardim Bela Vista<br>Jaú - SP · CEP: 17206-445 · (14) 3626-1777</div>
     </div>
     <div class="info">
-      <div class="box"><div class="razao">${esc(c.cliente_nome||pv.cliente_nome||'—')}</div>${linha('CNPJ/CPF',pv.cliente_cnpj)}${linha('Endereço',cidade)}${linha('Telefone',pv.cliente_tel)}</div>
+      <div class="box"><div class="razao">${esc(c.cliente_nome||pv.cliente_nome||'—')}</div>${linha('CNPJ/CPF',pv.cliente_cnpj||cdm.cnpj)}${linha('Endereço',cidade)}${linha('Telefone',pv.cliente_tel||cdm.telefone)}</div>
       <div class="box nf"><div style="font-size:10px;color:#607d6b;text-transform:uppercase;font-weight:700">Nota fiscal</div><div class="n">${c.numero_nf?esc(c.numero_nf):'—'}</div><div style="margin-top:8px">${linha('Transportadora',c.transportadora)}${linha('CNPJ transp.',trCad.cnpj)}${linha('Tel. transp.',trCad.telefone)}</div></div>
     </div>
     <div class="secao">Itens do carregamento</div>
