@@ -5543,7 +5543,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-11 · build 445';
+const APP_BUILD='2026-11-11 · build 446';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25626,6 +25626,7 @@ function renderExpedicaoDetalhe(){
         </label>
         ${it._inclui&&it._inclui.length?`<div style="font-size:11px;color:#6a4c93;background:#f3ecfb;border-radius:6px;padding:4px 8px;line-height:1.4">🔩 <b>Conjunto</b> — sai como 1 peça. Composto por: ${it._inclui.map(x=>(x.numero_ordem?'Ordem '+x.numero_ordem+' ':'')+(x.descricao||'')).join(' · ').replace(/</g,'&lt;')}</div>`:''}
         <div style="font-size:11.5px;color:#455a64">${pesoLinha}</div>
+        ${_expEhManual(c)&&c.status!=='Enviado'?`<a href="javascript:void(0)" style="font-size:11px;color:#c62828" onclick="expRemoverItemManual('${c.id}','${it.id}')">🗑️ remover item</a>`:''}
         ${fotos.length>(pr&&pr.foto_pronto?0:1)?`<div style="display:flex;gap:5px;flex-wrap:wrap">${fotos.slice(pr&&pr.foto_pronto?0:1).map(f=>`
           <div style="position:relative">
             ${f.foto_base64?`<img src="${f.foto_base64}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0;cursor:zoom-in" onclick="_lightboxFoto(this.src)">`:'<div style="width:44px;height:44px;border-radius:6px;background:#eceff1"></div>'}
@@ -25645,7 +25646,7 @@ function renderExpedicaoDetalhe(){
     </div>
     <div style="font-size:12px;color:var(--gray);margin-bottom:16px">${nComFoto}/${itensArr.length} itens com foto · ${itensArr.filter(i=>i.pronto).length}/${itensArr.length} conferidos${pesoTotalPed>0?` · ⚖️ peso total conferido: <b>${pesoTotalPed.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} kg</b>`:''}</div>
 
-    <h3 style="font-size:14px;font-weight:700;margin:0 0 8px">✅ Checklist de itens prontos</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:0 0 8px"><h3 style="font-size:14px;font-weight:700;margin:0">✅ Checklist de itens prontos</h3>${_expEhManual(c)&&c.status!=='Enviado'?`<button class="btn btn-sm" onclick="expAddItemManual('${c.id}')">➕ Adicionar item</button>`:''}</div>
     ${linhasItens?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px">${linhasItens}</div>`:'<div style="color:#9e9e9e;font-size:13px">Nenhum item neste pedido.</div>'}
     ${c.status==='Aguardando Fotos'?`<div style="font-size:11px;color:#9e9e9e;margin-top:6px">Assim que todos os itens tiverem foto, isto avança para "Pronto p/ Envio" sozinho.</div>`:''}
     ${c.status==='Aguardando Fotos'&&itensArr.length?`<button class="btn" style="margin-top:8px" ${todosProntos?'':'disabled'} onclick="avancarParaProntoEnvio('${c.id}')">Avançar agora →</button>`:''}
@@ -26008,8 +26009,8 @@ function expRomaneioManual(){
   rmAddLinha(); rmAddLinha();
   setTimeout(()=>document.getElementById('rmCliente')?.focus(),80);
 }
-function rmAddLinha(){
-  const box=document.getElementById('rmItens'); if(!box) return;
+function rmAddLinha(boxId){
+  const box=document.getElementById(typeof boxId==='string'?boxId:'rmItens'); if(!box) return;
   const st='padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;min-width:0';
   box.insertAdjacentHTML('beforeend',`<div class="rm-lin" style="display:grid;grid-template-columns:2.4fr 1.1fr .6fr .9fr auto;gap:6px;margin-bottom:6px;align-items:center">
     <input class="rm-desc" placeholder="Descrição da peça *" style="${st}">
@@ -26041,6 +26042,49 @@ async function rmCriar(){
     showToast('✅ Romaneio manual criado — adicione fotos/volumes e gere o romaneio','ok');
     renderExpedicao(); abrirDetalheCarregamento(novo.id);
   }catch(e){ showToast('Erro ao criar: '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Criar e continuar'; } }
+}
+const _expEhManual=c=>!!c&&!c.pedido_venda_id&&!c.pdv_id&&String(c.criado_por||'').startsWith('Romaneio manual');
+function expAddItemManual(carId){
+  document.getElementById('modalItemManual')?.remove();
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal-bg open" id="modalItemManual" style="display:flex"><div class="modal" style="width:760px;max-width:96vw;max-height:92vh;overflow:auto">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font-size:16px">➕ Adicionar itens ao romaneio</h3><button class="modal-header-btn" onclick="document.getElementById('modalItemManual').remove()">✕</button></div>
+    <div style="padding:14px 16px"><div id="rmItens2"></div>
+      <button class="btn btn-sm" onclick="rmAddLinha('rmItens2')" style="margin-top:6px">➕ Mais uma linha</button>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" onclick="document.getElementById('modalItemManual').remove()">Cancelar</button><button class="btn primary" id="rmBtn2" onclick="expSalvarItensManual('${carId}')">Adicionar</button></div></div></div></div>`);
+  rmAddLinha('rmItens2'); rmAddLinha('rmItens2');
+  setTimeout(()=>document.querySelector('#rmItens2 .rm-desc')?.focus(),80);
+}
+async function expSalvarItensManual(carId){
+  const c=carregamentos.find(x=>x.id===carId); if(!c) return;
+  const itens=[...document.querySelectorAll('#rmItens2 .rm-lin')].map(l=>({descricao:l.querySelector('.rm-desc').value.trim(),desenho:l.querySelector('.rm-des').value.trim()||null,qtd:_romNum(l.querySelector('.rm-qtd').value),peso:_romNum(l.querySelector('.rm-peso').value)})).filter(x=>x.descricao||x.desenho);
+  if(!itens.length){ showToast('Preencha pelo menos um item','err'); return; }
+  if(itens.some(x=>!x.descricao)){ showToast('Todo item precisa de descrição','err'); return; }
+  const sq=itens.find(x=>!(x.qtd>0)); if(sq){ showToast('Informe a quantidade de "'+sq.descricao+'"','err'); return; }
+  const btn=document.getElementById('rmBtn2'); if(btn){ btn.disabled=true; btn.textContent='Adicionando...'; }
+  try{
+    const agora=new Date().toISOString();
+    const novos=await api('POST','carregamento_itens',itens.map(x=>({carregamento_id:c.id,descricao:x.descricao,desenho:x.desenho,qtd:x.qtd,peso_unit:x.peso>0?x.peso:null,pronto:true,pronto_em:agora,pronto_por:'Romaneio manual',carregado:false})));
+    c.carregamento_itens=(c.carregamento_itens||[]).concat(novos||[]);
+    // envio parcial salvo: os itens novos entram no romaneio também
+    if(c.romaneio_itens&&typeof c.romaneio_itens==='object'){ const sel={...c.romaneio_itens}; (novos||[]).forEach(n=>{ sel[n.id]=Number(n.qtd)||1; }); await api('PATCH','carregamentos',{romaneio_itens:sel},`?id=eq.${c.id}&select=id`); c.romaneio_itens=sel; }
+    document.getElementById('modalItemManual')?.remove();
+    showToast('✅ '+itens.length+' item(ns) adicionado(s)','ok');
+    renderExpedicaoDetalhe();
+  }catch(e){ showToast('Erro ao adicionar: '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Adicionar'; } }
+}
+async function expRemoverItemManual(carId,itemId){
+  const c=carregamentos.find(x=>x.id===carId); const it=(c?.carregamento_itens||[]).find(x=>x.id===itemId); if(!c||!it) return;
+  if(!confirm('Remover "'+(it.descricao||'item')+'" deste romaneio?')) return;
+  try{
+    await api('DELETE','carregamento_itens',null,`?id=eq.${itemId}`);
+    c.carregamento_itens=c.carregamento_itens.filter(x=>x.id!==itemId);
+    // limpa o item de volumes e de seleção parcial, se estiver lá
+    const patch={};
+    if(Array.isArray(c.volumes)&&c.volumes.some(v=>(v.itens||[]).some(x=>x.item_id===itemId))) patch.volumes=c.volumes.map(v=>({...v,itens:(v.itens||[]).filter(x=>x.item_id!==itemId)}));
+    if(c.romaneio_itens&&typeof c.romaneio_itens==='object'&&itemId in c.romaneio_itens){ const sel={...c.romaneio_itens}; delete sel[itemId]; patch.romaneio_itens=sel; }
+    if(Object.keys(patch).length){ await api('PATCH','carregamentos',patch,`?id=eq.${c.id}&select=id`); Object.assign(c,patch); }
+    renderExpedicaoDetalhe();
+  }catch(e){ showToast('Erro ao remover: '+e.message,'err'); }
 }
 // ===== FIM ROMANEIO MANUAL =====
 // ===== ROMANEIO =====
