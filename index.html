@@ -2365,7 +2365,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
       <div id="rom_sel" style="border:1px solid #e0e6e2;border-radius:8px;padding:4px 10px"></div>
       <div style="display:flex;align-items:center;gap:10px;margin:12px 0 6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:#37474f">📦 Volumes / embalagens</span><label style="font-size:12px;color:#546e7a;display:flex;align-items:center;gap:6px">Quantidade de volumes <input id="rom_nvol" type="number" min="0" max="60" inputmode="numeric" onchange="_romVolN(this.value)" style="width:64px;padding:5px 7px;border:1px solid #cfd8dc;border-radius:6px"></label></div>
       <div id="rom_vols"></div>
-      <button class="btn btn-sm" id="rom_vol_add" onclick="_romVolAdd()" style="margin-top:6px">+ Adicionar volume</button><div id="rom_vol_man" style="display:none;font-size:11px;color:#78909c;margin-top:4px">Romaneio manual: informe só a quantidade de volumes. Não precisa separar o que vai em cada um.</div>
+      <button class="btn btn-sm" id="rom_vol_add" onclick="_romVolAdd()" style="margin-top:6px">+ Adicionar volume</button><label id="rom_ocp_lbl" style="display:none;align-items:center;gap:8px;font-size:12px;color:#37474f;margin-top:10px;cursor:pointer"><input type="checkbox" id="rom_ocp" style="width:16px;height:16px"> Ocultar os pesos individuais dos itens no romaneio <span style="color:#90a4ae">(mostra só os totais)</span></label>
+      <div id="rom_vol_man" style="display:none;font-size:11px;color:#78909c;margin-top:4px">Romaneio manual: informe só a quantidade de volumes. Não precisa separar o que vai em cada um.</div>
       <div style="background:#f3f7f4;border:1px solid #dce8e0;border-radius:8px;padding:10px 12px;margin-top:12px">
         <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
           <div style="font-size:12px;color:#546e7a">Peso líquido (peças)<div id="rom_liq" style="font-size:16px;font-weight:800;color:#37474f">…</div></div>
@@ -5543,7 +5544,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-11 · build 449';
+const APP_BUILD='2026-11-11 · build 450';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -26244,7 +26245,7 @@ async function abrirRomaneio(id){
     for(let k=0;k<n;k++) _romVol.push({descricao:v.descricao||'',qtd:'1',c:v.c||'',l:v.l||'',a:v.a||'',peso:v.peso||'',itens:k===0?itens:{}});
   });
   _romVolRender(); _romLiq=_expPesoLiquido(c,_romSel); _romCalc();
-  { const man=_expEhManual(c); const sh=(id,on)=>{ const e=document.getElementById(id); if(e) e.style.display=on?'':'none'; }; sh('rom_vols',!man); sh('rom_vol_add',!man); sh('rom_vol_man',man); }
+  { const man=_expEhManual(c); const sh=(id,on)=>{ const e=document.getElementById(id); if(e) e.style.display=on?'':'none'; }; sh('rom_vols',!man); sh('rom_vol_add',!man); sh('rom_vol_man',man); const l=document.getElementById('rom_ocp_lbl'); if(l) l.style.display=man?'flex':'none'; const k=document.getElementById('rom_ocp'); if(k) k.checked=!!(man&&c.romaneio_ocultar_peso_itens); }
   abrirModal('modalRomaneio');
   setTimeout(()=>document.getElementById('rom_nf')?.focus(),80);
   _expGarantirProntos(c).then(()=>{ _romLiq=_expPesoLiquido(c,_romSel); _romCalc(); }).catch(()=>{});
@@ -26268,7 +26269,7 @@ async function gerarRomaneio(){
   const manual=g('rom_bruto');
   const _tudo=_romTodosItens.every(it=>Number(_romSel[it.id])===(Number(it.qtd)||0));
   if(!_romTodosItens.some(it=>Number(_romSel[it.id])>0)){ showToast('Selecione pelo menos um item para o romaneio','err'); if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } return; }
-  const dados={romaneio_itens:_tudo?null:Object.fromEntries(_romTodosItens.filter(it=>Number(_romSel[it.id])>0).map(it=>[it.id,Number(_romSel[it.id])])),numero_nf:g('rom_nf')||null,transportadora:nomeT||null,transportadora_id:tr?tr.id:null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
+  const dados={romaneio_itens:_tudo?null:Object.fromEntries(_romTodosItens.filter(it=>Number(_romSel[it.id])>0).map(it=>[it.id,Number(_romSel[it.id])])),numero_nf:g('rom_nf')||null,romaneio_ocultar_peso_itens:!!(_expEhManual(c)&&document.getElementById('rom_ocp')?.checked),transportadora:nomeT||null,transportadora_id:tr?tr.id:null,romaneio_obs:g('rom_obs')||null,volumes:vols,peso_embalagens:vols.length?Math.round(vols.reduce((a,v)=>a+v.qtd*v.peso,0)*1000)/1000:null,peso_bruto:manual?_romNum(manual):null,romaneio_gerado_em:new Date().toISOString()};
   const comFotos=document.getElementById('rom_fotos')?.checked!==false;
   const w=window.open('','_blank'); // abre já no clique (senão o navegador bloqueia)
   try{ if(w){ w.document.write('<body style="font-family:sans-serif;padding:40px;color:#37474f"><h3>Preparando o romaneio…</h3><p>Reduzindo as fotos para o PDF ficar leve. Pode levar alguns segundos.</p></body>'); } }catch(e){}
@@ -26419,11 +26420,12 @@ async function _romaneioMontar(c,comFotos,w){
   const _emitPor=c._emitidoEm?(c._emitidoPor||''):(usuarioLogado?.nome||'');
   const linha=(r,v)=>v?`<div style="margin-bottom:3px"><b style="color:#607d6b">${r}:</b> ${esc(v)}</div>`:'';
   const cidade=[pv.cliente_endereco,pv.cliente_cidade].filter(Boolean).join(' — ');
+  const ocP=!!c.romaneio_ocultar_peso_itens;
   const linhasTab=itens.map((x,i)=>`<tr><td class="center">${i+1}</td>
     <td class="fotoc">${x.foto?`<img src="${x.thumb||x.foto}">`:'<span class="sf">sem foto</span>'}</td>
     <td><b>${esc(x.it.descricao||'—')}</b><div class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem):''}${x.it.desenho?(x.it.numero_ordem?' · ':'')+'Desenho '+esc(x.it.desenho):''}</div>${x.it._inclui&&x.it._inclui.length?`<div class="mut">Conjunto composto por: ${x.it._inclui.map(y=>esc((y.numero_ordem?'Ordem '+y.numero_ordem+' ':'')+(y.descricao||''))).join(' · ')}</div>`:''}</td>
-    <td class="center"><b>${x.qtd}</b> un</td>${temAloc?`<td class="center">${(volDoItem[x.it.id]||[]).map(y=>y.n+(y.q!==x.qtd?' ('+y.q+')':'')).join(', ')||'—'}</td>`:''}<td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td></tr>`).join('');
-  const cards=comFotos?itens.filter(x=>x.foto).map(x=>`<div class="card"><div class="cf"><img src="${x.foto}"></div><div class="ct"><b>${esc(x.it.descricao||'—')}</b><br><span class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem)+' · ':''}${x.qtd} un${x.peso!=null?' · '+kg(x.peso)+' kg/un':''}</span></div></div>`).join(''):'';
+    <td class="center"><b>${x.qtd}</b> un</td>${temAloc?`<td class="center">${(volDoItem[x.it.id]||[]).map(y=>y.n+(y.q!==x.qtd?' ('+y.q+')':'')).join(', ')||'—'}</td>`:''}${ocP?'':`<td class="num">${x.peso!=null?kg(x.peso):'—'}</td><td class="num">${x.peso!=null?kg(x.peso*x.qtd):'—'}</td>`}</tr>`).join('');
+  const cards=comFotos?itens.filter(x=>x.foto).map(x=>`<div class="card"><div class="cf"><img src="${x.foto}"></div><div class="ct"><b>${esc(x.it.descricao||'—')}</b><br><span class="mut">${x.it.numero_ordem?'Ordem Nº '+esc(x.it.numero_ordem)+' · ':''}${x.qtd} un${(!ocP&&x.peso!=null)?' · '+kg(x.peso)+' kg/un':''}</span></div></div>`).join(''):'';
   const fCarreg=comFotos?fotosCarregReduzidas.map(f=>`<div class="card"><div class="cf"><img src="${f.foto_base64}"></div><div class="ct"><span class="mut">Carregamento</span></div></div>`).join(''):'';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio Nº ${esc(_romFmt(c.romaneio_numero)||c.numero||'')}${c.numero_nf?' — NF '+esc(c.numero_nf):''}</title>
   <style>
@@ -26470,10 +26472,10 @@ async function _romaneioMontar(c,comFotos,w){
       <div class="box nf"><div style="font-size:10px;color:#607d6b;text-transform:uppercase;font-weight:700">Nota fiscal</div><div class="n">${c.numero_nf?esc(c.numero_nf):'—'}</div><div style="margin-top:8px">${linha('Transportadora',c.transportadora)}${linha('CNPJ transp.',trCad.cnpj)}${linha('Tel. transp.',trCad.telefone)}</div></div>
     </div>
     <div class="secao">Itens do carregamento</div>
-    <table class="itens"><thead><tr><th class="center">#</th><th>Foto</th><th>Produto</th><th class="center">Qtd.</th>${temAloc?'<th class="center">Volume</th>':''}<th class="num">Peso un.<br><span class="un">(kg)</span></th><th class="num">Peso total<br><span class="un">(kg)</span></th></tr></thead><tbody>${linhasTab}</tbody></table>
+    <table class="itens"><thead><tr><th class="center">#</th><th>Foto</th><th>Produto</th><th class="center">Qtd.</th>${temAloc?'<th class="center">Volume</th>':''}${ocP?'':'<th class="num">Peso un.<br><span class="un">(kg)</span></th><th class="num">Peso total<br><span class="un">(kg)</span></th>'}</tr></thead><tbody>${linhasTab}</tbody></table>
     <div class="totais"><div><div class="l">Itens</div><div class="v">${itens.length}</div></div><div><div class="l">Quantidade total</div><div class="v">${totQtd}</div></div><div><div class="l">Peso líquido</div><div class="v">${totPeso>0?kg(totPeso)+' kg':'—'}</div></div>${(vols.length||c.peso_bruto)?`<div><div class="l">Embalagens</div><div class="v">${kg(taraKg)} kg</div></div><div><div class="l">Peso bruto</div><div class="v">${kg(brutoKg)} kg</div></div>`:''}</div>
     ${vols.length?`<div class="secao">Volumes / embalagens (${vols.reduce((a,v)=>a+(Number(v.qtd)||1),0)})</div><table class="itens"><thead><tr><th class="center">Vol.</th><th>Embalagem</th><th class="center">Dimensões<br><span class="un">comp. × larg. × alt. (cm)</span></th>${temAloc?'<th class="num">Peso líq.<br><span class="un">(kg)</span></th>':''}<th class="num">Peso bruto<br><span class="un">(kg)</span></th><th class="num">Cubagem<br><span class="un">(m³)</span></th></tr></thead><tbody>${vols.map((v,k)=>{ const liq=(v.itens||[]).reduce((a,x)=>{ const f=itemInfo(x.item_id); return a+((f&&f.peso!=null)?f.peso*x.qtd:0); },0); const q=Number(v.qtd)||1; return `<tr><td class="center"><b>${k+1}</b></td><td>${esc(v.descricao||'Embalagem')}${q>1?' ('+q+'×)':''}</td><td class="center">${(v.c||v.l||v.a)?esc(v.c||0)+' × '+esc(v.l||0)+' × '+esc(v.a||0):'—'}</td>${temAloc?`<td class="num">${liq>0?kg(liq):'—'}</td>`:''}<td class="num">${(liq>0||v.peso)?kg(liq+q*(Number(v.peso)||0)):'—'}</td><td class="num">${(v.c&&v.l&&v.a)?(q*v.c*v.l*v.a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3}):'—'}</td></tr>`; }).join('')}</tbody></table>${cubTot>0?`<div class="mut" style="text-align:right;margin-top:3px">Cubagem total: ${cubTot.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} m³</div>`:''}`:''}
-    ${semPeso&&totPeso>0?`<div class="mut" style="text-align:right;margin-top:3px">Peso total soma só os itens com peso conferido (${semPeso} item(ns) sem peso).</div>`:''}
+    ${!ocP&&semPeso&&totPeso>0?`<div class="mut" style="text-align:right;margin-top:3px">Peso total soma só os itens com peso conferido (${semPeso} item(ns) sem peso).</div>`:''}
     ${c.romaneio_obs?`<div class="obs"><b>Observações:</b> ${esc(c.romaneio_obs)}</div>`:''}
     <div class="assin"><div>Expedição / Separação</div><div>Transportador</div><div>Recebido por (nome e data)</div></div>
     ${cards||fCarreg?`<div class="nova"></div>${cards?`<div class="secao" style="margin-top:0">Registro fotográfico</div>`:''}${cards?`<div class="grade">${cards}</div>`:''}${fCarreg?`<div class="secao" style="${cards?'':'margin-top:0'}">Fotos do carregamento</div><div class="grade">${fCarreg}</div>`:''}`:''}
