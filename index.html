@@ -2808,6 +2808,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div style="font-size:12px;color:var(--gray);margin-top:2px">Assim que um Pedido de Venda é aprovado ou entra em produção, ele aparece aqui sozinho — não precisa cadastrar nada à parte.</div>
       </div>
       <button class="btn btn-sm" onclick="expNovoCarregamento()" title="Criar um carregamento direto de um PDV, sem Pedido de Venda">➕ Novo carregamento</button>
+      <button class="btn btn-sm" onclick="expRomaneioManual()" title="Montar um romaneio digitando tudo à mão, sem ordens de produção">📝 Romaneio manual</button>
       <button class="btn btn-sm" id="expSelBtn" onclick="_expSelAlternar()" title="Marcar vários pedidos como enviados de uma vez">☑️ Marcar como enviados</button>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#546e7a;cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="expedMostrarEnviados" onchange="renderExpedicao()" style="width:15px;height:15px;cursor:pointer"> Mostrar enviados
@@ -5542,7 +5543,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-09 · build 443';
+const APP_BUILD='2026-11-11 · build 444';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25984,6 +25985,61 @@ async function toggleTransportadora(id){
 }
 // ===== FIM TRANSPORTADORAS =====
 
+// ===== ROMANEIO MANUAL (sem ordens de produção) =====
+// Cria um carregamento avulso com itens digitados à mão e abre o mesmo fluxo do romaneio normal
+// (fotos por item, volumes, transportadora, PDF e lista de Romaneios salvos).
+function expRomaneioManual(){
+  document.getElementById('modalRomManual')?.remove();
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal-bg open" id="modalRomManual" style="display:flex"><div class="modal" style="width:760px;max-width:96vw;max-height:92vh;overflow:auto">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font-size:16px">📝 Romaneio manual</h3><button class="modal-header-btn" onclick="document.getElementById('modalRomManual').remove()">✕</button></div>
+    <div style="padding:14px 16px">
+      <div style="font-size:12px;color:#546e7a;margin-bottom:10px">Preencha tudo à mão, sem precisar de ordem de produção. Depois de criar, você coloca fotos, volumes e transportadora e gera o romaneio igual ao de sempre.</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+        <div class="form-group"><label>Cliente *</label><input id="rmCliente" placeholder="Nome do cliente" style="width:100%"></div>
+        <div class="form-group"><label>PDV / Referência</label><input id="rmRef" placeholder="Ex.: PDV 95 ou Avulso" style="width:100%"></div>
+        <div class="form-group"><label>Nº da NF</label><input id="rmNf" style="width:100%"></div>
+      </div>
+      <div style="font-weight:700;font-size:12px;margin:6px 0">Itens</div>
+      <div id="rmItens"></div>
+      <button class="btn btn-sm" onclick="rmAddLinha()" style="margin-top:6px">➕ Adicionar item</button>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" onclick="document.getElementById('modalRomManual').remove()">Cancelar</button><button class="btn primary" id="rmBtn" onclick="rmCriar()">Criar e continuar</button></div>
+    </div></div>`);
+  rmAddLinha(); rmAddLinha();
+  setTimeout(()=>document.getElementById('rmCliente')?.focus(),80);
+}
+function rmAddLinha(){
+  const box=document.getElementById('rmItens'); if(!box) return;
+  const st='padding:6px 8px;border:1px solid #e0e0e0;border-radius:7px;font-size:13px;min-width:0';
+  box.insertAdjacentHTML('beforeend',`<div class="rm-lin" style="display:grid;grid-template-columns:2.4fr 1.1fr .6fr .9fr auto;gap:6px;margin-bottom:6px;align-items:center">
+    <input class="rm-desc" placeholder="Descrição da peça *" style="${st}">
+    <input class="rm-des" placeholder="Nº do desenho" style="${st}">
+    <input class="rm-qtd" placeholder="Qtd" inputmode="decimal" value="1" style="${st};text-align:right">
+    <input class="rm-peso" placeholder="Peso un. (kg)" inputmode="decimal" style="${st};text-align:right">
+    <button class="btn btn-sm" onclick="this.closest('.rm-lin').remove()" title="Remover linha" style="color:#c62828">✕</button></div>`);
+}
+async function rmCriar(){
+  const g=id=>(document.getElementById(id)?.value||'').trim();
+  const cliente=g('rmCliente');
+  if(!cliente){ showToast('Informe o cliente','err'); document.getElementById('rmCliente')?.focus(); return; }
+  const itens=[...document.querySelectorAll('#rmItens .rm-lin')].map(l=>({
+    descricao:l.querySelector('.rm-desc').value.trim(), desenho:l.querySelector('.rm-des').value.trim()||null,
+    qtd:_romNum(l.querySelector('.rm-qtd').value), peso:_romNum(l.querySelector('.rm-peso').value)
+  })).filter(x=>x.descricao||x.desenho);
+  if(!itens.length){ showToast('Adicione pelo menos um item','err'); return; }
+  const semDesc=itens.find(x=>!x.descricao); if(semDesc){ showToast('Todo item precisa de descrição','err'); return; }
+  const semQtd=itens.find(x=>!(x.qtd>0)); if(semQtd){ showToast('Informe a quantidade de "'+semQtd.descricao+'"','err'); return; }
+  const btn=document.getElementById('rmBtn'); if(btn){ btn.disabled=true; btn.textContent='Criando...'; }
+  try{
+    const maxNum=carregamentos.length?Math.max(...carregamentos.map(c=>c.numero||0)):0;
+    const [novo]=await api('POST','carregamentos',{numero:maxNum+1,pedido_venda_id:null,pdv_id:null,pdv_numero:g('rmRef')||'Avulso',cliente_nome:cliente,numero_nf:g('rmNf')||null,status:'Pronto p/ Envio',itens_prontos_em:new Date().toISOString(),criado_por:'Romaneio manual ('+(usuarioLogado?.nome||'—')+')'});
+    novo.carregamento_itens=await api('POST','carregamento_itens',itens.map(x=>({carregamento_id:novo.id,descricao:x.descricao,desenho:x.desenho,qtd:x.qtd,peso_unit:x.peso>0?x.peso:null,pronto:true,pronto_em:new Date().toISOString(),pronto_por:'Romaneio manual',carregado:false})));
+    novo.carregamento_fotos=[]; carregamentos.unshift(novo);
+    document.getElementById('modalRomManual')?.remove();
+    showToast('✅ Romaneio manual criado — adicione fotos/volumes e gere o romaneio','ok');
+    renderExpedicao(); abrirDetalheCarregamento(novo.id);
+  }catch(e){ showToast('Erro ao criar: '+e.message,'err'); if(btn){ btn.disabled=false; btn.textContent='Criar e continuar'; } }
+}
+// ===== FIM ROMANEIO MANUAL =====
 // ===== ROMANEIO =====
 let _romVol=[];
 function _romNum(v){ const n=pesosNum(String(v==null?'':v).trim()); return (n==null||isNaN(n))?0:n; }
