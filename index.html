@@ -2858,7 +2858,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <select id="des_pdv_sel" onchange="_desPdvMudou()"><option value="">Selecione o PDV...</option></select>
       </div>
       <div class="form-group"><label>Data Recebimento *</label><input type="date" id="des_data"></div>
-      <div class="form-group"><label>Nome do Equipamento</label><input id="des_nome_equip" placeholder="Ex: Alimentador TRH800"></div>
+      <div class="form-group"><label>Nome do Equipamento *</label><input id="des_nome_equip" placeholder="Ex: Alimentador TRH800"></div>
       <div class="form-group"><label>Nº Desenho Geral</label><input id="des_numero_geral" placeholder="Ex: 1-18961"></div>
     </div>
     <div class="form-group full" style="margin-top:6px"><label>Observação</label><input id="des_obs" placeholder="Opcional"></div>
@@ -5544,7 +5544,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-11 · build 452';
+const APP_BUILD='2026-11-12 · build 453';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10745,11 +10745,7 @@ function _desPdvMudou(){
     return;
   }
   sel.dataset.lastValue = sel.value;
-  // Ao escolher o PDV, sugere o nome do equipamento já cadastrado nele (se houver) —
-  // só preenche se o campo ainda estiver vazio, pra não sobrescrever edição manual.
-  const pdv = pdvs.find(p=>p.id===sel.value);
-  const campoEquip = document.getElementById('des_nome_equip');
-  if(pdv?.equipamento && !campoEquip.value) campoEquip.value = pdv.equipamento;
+  // Nome do equipamento NÃO é preenchido automaticamente: deve ser digitado manualmente.
 }
 
 // Reconstrói recursivamente, a partir dos dados salvos no banco, a árvore completa de
@@ -10880,6 +10876,8 @@ async function salvarDesenhoRecebido(){
   if(!pdvId){ showToast('Selecione o PDV — se ainda não existe, use "+ Criar novo PDV..." no próprio select','err',5000); _salvandoDesenhoRecebido=false; if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent=textoOriginalBtn;} return; }
   const data = document.getElementById('des_data').value;
   if(!data){ showToast('Informe a data de recebimento','err'); _salvandoDesenhoRecebido=false; if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent=textoOriginalBtn;} return; }
+
+  if(!document.getElementById('des_nome_equip').value.trim()){ showToast('Informe o nome do equipamento','err'); document.getElementById('des_nome_equip').focus(); _salvandoDesenhoRecebido=false; if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent=textoOriginalBtn;} return; }
 
   const editId = document.getElementById('modalDesenhoRecebido').dataset.editId;
   let assumiuLock = false;
