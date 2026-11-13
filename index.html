@@ -5544,7 +5544,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-12 · build 453';
+const APP_BUILD='2026-11-13 · build 454';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10336,13 +10336,21 @@ function abrirEdicaoRapida(noId, tipo){
 // na estrutura, a O.P. acompanha. Só propaga valor preenchido (apagar o número
 // na estrutura não apaga o da O.P.). Vale também para O.P. concluída: o número
 // é só identificação da peça, não altera produção nem custo.
-async function sincronizarDesenhoOPVinculada(ordemId, novoDesenho){
-  const d = String(novoDesenho||'').trim();
-  if(!ordemId || !d) return false;
+async function sincronizarDesenhoOPVinculada(ordemId, novoDesenho, extra){
   const ordem = ordens.find(o=>o.id===ordemId);
-  if(!ordem || String(ordem.desenho||'').trim()===d) return false;
-  await api('PATCH','ordens_producao',{desenho:d},`?id=eq.${ordem.id}`);
-  ordem.desenho = d;
+  if(!ordemId || !ordem) return false;
+  // Identificação da peça (nº do desenho, nome e material) acompanha a estrutura.
+  // Só propaga valor preenchido e que realmente mudou.
+  const d = String(novoDesenho||'').trim();
+  const patch = {};
+  if(d && String(ordem.desenho||'').trim()!==d) patch.desenho = d;
+  const nm = String(extra?.nome||'').trim();
+  if(nm && String(ordem.descricao||'').trim()!==nm) patch.descricao = nm;
+  const mt = String(extra?.material||'').trim();
+  if(mt && String(ordem.material||'').trim()!==mt) patch.material = mt;
+  if(!Object.keys(patch).length) return false;
+  await api('PATCH','ordens_producao',patch,`?id=eq.${ordem.id}`);
+  Object.assign(ordem, patch);
   return true;
 }
 
@@ -10454,7 +10462,7 @@ async function salvarEdicaoRapida(){
       if(no){
         Object.assign(no, obj);
         await sincronizarQuantidadeOPVinculada(no,obj.quantidade,quantidadeAnterior);
-        if(await sincronizarDesenhoOPVinculada(no.ordem_id,obj.numero_desenho)) showToast(`Nº do desenho atualizado também na OP nº ${ordens.find(o=>o.id===no.ordem_id)?.numero||''}.`);
+        if(await sincronizarDesenhoOPVinculada(no.ordem_id,obj.numero_desenho,{nome:obj.nome_montagem,material:obj.material})) showToast(`Dados atualizados também na OP nº ${ordens.find(o=>o.id===no.ordem_id)?.numero||''}.`);
       }
     } else {
       const obj = {
@@ -10470,7 +10478,7 @@ async function salvarEdicaoRapida(){
       if(no){
         Object.assign(no, obj);
         await sincronizarQuantidadeOPVinculada(no,obj.quantidade,quantidadeAnterior);
-        if(await sincronizarDesenhoOPVinculada(no.ordem_id,obj.desenho_peca)) showToast(`Nº do desenho atualizado também na OP nº ${ordens.find(o=>o.id===no.ordem_id)?.numero||''}.`);
+        if(await sincronizarDesenhoOPVinculada(no.ordem_id,obj.desenho_peca,{nome:obj.denominacao,material:obj.material})) showToast(`Dados atualizados também na OP nº ${ordens.find(o=>o.id===no.ordem_id)?.numero||''}.`);
       }
     }
     showToast('Salvo!');
@@ -10980,7 +10988,9 @@ async function salvarDesenhoRecebido(){
           ordem_id: antigo.ordem_id,
           quantidadeAnterior: antigo.quantidade,
           novaQuantidade: no.quantidade,
-          novoDesenho: no.tipo==='montagem' ? no.numero_desenho : no.desenho_peca
+          novoDesenho: no.tipo==='montagem' ? no.numero_desenho : no.desenho_peca,
+          novoNome: no.tipo==='montagem' ? no.nome_montagem : no.denominacao,
+          novoMaterial: no.material
         } : null;
       }).filter(Boolean);
       const gruposAntiga = _agruparPorProfundidade(arvoreAntiga);
@@ -11093,7 +11103,7 @@ async function salvarDesenhoRecebido(){
     }
 
     await sincronizarQuantidadesOPDaEstrutura(alteracoesQuantidadeOP);
-    { let _nd=0; for(const a of alteracoesQuantidadeOP){ try{ if(await sincronizarDesenhoOPVinculada(a.ordem_id,a.novoDesenho)) _nd++; }catch(e){ console.warn('[desenho OP]',e); } } if(_nd) showToast(`Nº do desenho atualizado também em ${_nd} O.P.`); }
+    { let _nd=0; for(const a of alteracoesQuantidadeOP){ try{ if(await sincronizarDesenhoOPVinculada(a.ordem_id,a.novoDesenho,{nome:a.novoNome,material:a.novoMaterial})) _nd++; }catch(e){ console.warn('[desenho OP]',e); } } if(_nd) showToast(`Dados atualizados também em ${_nd} O.P.`); }
 
     // A árvore foi apagada e recriada com ids novos: mantém o usuário no mesmo nível
     // (senão a navegação aponta pra um id que não existe mais e a lista aparece vazia).
