@@ -5559,7 +5559,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-16 · build 458';
+const APP_BUILD='2026-11-16 · build 459';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -23728,18 +23728,26 @@ async function pontoProcessar(){
     const abas=wb.worksheets.map(w=>w.name);
     validos.forEach(f=>{ f.aba=pontoAcharAba(f.nome,abas); });
     const todos=validos.flatMap(f=>f.dias);
-    const mes=todos[0].mes, ano=todos[0].ano;
-    const de=Math.min(...todos.map(d=>d.dia));
-    _pontoEst={funcs:validos,abas,bufXls,mes,ano,limparTudo:de<=3};
+    // Meses que aparecem no PDF (um PDF pode cruzar dois meses, ex.: 16/11 a 15/12).
+    const cont={}; todos.forEach(d=>{ const k=d.ano*100+d.mes; cont[k]=(cont[k]||0)+1; });
+    const meses=Object.keys(cont).map(Number).sort((x,y)=>x-y);
+    const ref=meses.slice().sort((x,y)=>cont[y]-cont[x]||x-y)[0];
+    _pontoEst={funcs:validos,abas,bufXls,meses,mes:ref%100,ano:Math.floor(ref/100),limparTudo:true};
+    _pontoAjustarModo();
     pontoRender();
   }catch(e){ console.error('[ponto]',e); showToast('Não consegui ler os arquivos: '+(e.message||e),'err',7000); }
   finally{ btn.disabled=false; btn.textContent=txt; }
 }
+function _pontoDiasRef(fn){ const E=_pontoEst; return fn.dias.filter(d=>d.mes===E.mes&&d.ano===E.ano); }
+// Começo de mês (PDF a partir do dia 1–3) limpa os dois períodos; senão, continua o mês.
+function _pontoAjustarModo(){ const E=_pontoEst; const t=E.funcs.flatMap(_pontoDiasRef); if(t.length) E.limparTudo=Math.min(...t.map(d=>d.dia))<=3; }
+function pontoMudarRef(v){ const E=_pontoEst; E.ano=Math.floor(+v/100); E.mes=+v%100; _pontoAjustarModo(); pontoRender(); }
 function pontoRender(){
   const el=document.getElementById('pontoConteudo'); const E=_pontoEst; if(!el||!E) return;
   const f=v=>v==null?'':_pHM(v);
   const cards=E.funcs.map((fn,ix)=>{
-    const linhas=fn.dias.map(d=>{
+    const diasRef=_pontoDiasRef(fn);
+    const linhas=diasRef.map(d=>{
       const dt=String(d.dia).padStart(2,'0')+'/'+String(d.mes).padStart(2,'0')+' '+PONTO_DOW[d.dow].charAt(0)+PONTO_DOW[d.dow].slice(1).toLowerCase();
       if(d.status!=='ok') return `<tr style="color:#9e9e9e"><td>${dt}</td><td colspan="2">${d.status==='falta'?'Falta':d.status==='folga'?'Folga':'Sem marcação'}</td></tr>`;
       const r=pontoRegras(d.dow,d.pontos);
@@ -23749,7 +23757,7 @@ function pontoRender(){
       return `<tr style="${d.dow===0?'background:#c8e6c9':''}"><td>${dt}${d.dow===0?' <b style="color:#2e7d32">· domingo</b>':''}</td><td style="color:#78909c">${real.map(v=>v||'—').join(' ')}</td><td>${lanHtml}${r.avisos.length?` <span style="color:#e65100;font-size:11px">⚠ ${_pEsc(r.avisos.join('; '))}</span>`:''}</td></tr>`;
     }).join('');
     const opts=['<option value="">— não lançar —</option>'].concat(E.abas.map(a=>`<option value="${_pEsc(a)}" ${a===fn.aba?'selected':''}>${_pEsc(a.trim())}</option>`)).join('');
-    const nOk=fn.dias.filter(d=>d.status==='ok').length;
+    const nOk=diasRef.filter(d=>d.status==='ok').length;
     return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div><b>${_pEsc(fn.nome)}</b> <span style="color:#78909c;font-size:12px">· ${nOk} dia(s) com marcação</span></div>
@@ -23763,7 +23771,12 @@ function pontoRender(){
   }).join('');
   const usadas=E.funcs.map(f=>f.aba).filter(Boolean);
   const dup=usadas.length!==new Set(usadas).size;
-  el.innerHTML=`<div style="margin:12px 0;font-size:13px;color:#37474f">Período: <b>${PONTO_MESES[E.mes-1]}/${E.ano}</b> · ${E.funcs.length} funcionário(s) no PDF</div>
+  const optsRef=E.meses.map(k=>`<option value="${k}" ${k===E.ano*100+E.mes?'selected':''}>${PONTO_MESES[k%100-1]}/${Math.floor(k/100)}</option>`).join('');
+  const fora=E.funcs.reduce((n,f)=>n+f.dias.length-_pontoDiasRef(f).length,0);
+  el.innerHTML=`<div style="margin:12px 0;font-size:13px;color:#37474f;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <label>Mês de referência <select onchange="pontoMudarRef(this.value)" style="padding:5px 8px;border:1px solid #e0e0e0;border-radius:7px;font-weight:700">${optsRef}</select></label>
+      <span>· ${E.funcs.length} funcionário(s) no PDF</span>
+      ${fora?`<span style="color:#e65100;font-size:12px">⚠ ${fora} dia(s) do PDF são de outro mês e não serão lançados — escolha o outro mês para lançá-los (baixe uma planilha por mês).</span>`:''}</div>
     <div style="margin:8px 0 12px;font-size:12px;color:#37474f">
       <label style="display:block;margin-bottom:4px"><input type="radio" name="pontoModo" ${E.limparTudo?'checked':''} onchange="_pontoEst.limparTudo=true"> Começando o mês: apagar os horários antigos dos dois períodos e preencher</label>
       <label style="display:block"><input type="radio" name="pontoModo" ${E.limparTudo?'':'checked'} onchange="_pontoEst.limparTudo=false"> Continuando o mês: reescrever só os dias que estão no PDF (o resto da planilha fica como está)</label>
@@ -23778,7 +23791,7 @@ async function pontoBaixar(){
     await _carregarExcelJS();
     const wb=new window.ExcelJS.Workbook(); await wb.xlsx.load(E.bufXls.slice(0));
     let n=0;
-    E.funcs.forEach(fn=>{ if(!fn.aba) return; const ws=wb.getWorksheet(fn.aba); if(!ws) return; pontoPreencherAba(ws,fn.dias,E.mes,E.ano,{limparTudo:E.limparTudo}); n++; });
+    E.funcs.forEach(fn=>{ if(!fn.aba) return; const ws=wb.getWorksheet(fn.aba); if(!ws) return; const dr=_pontoDiasRef(fn); if(!dr.length) return; pontoPreencherAba(ws,dr,E.mes,E.ano,{limparTudo:E.limparTudo}); n++; });
     if(!n){ showToast('Nenhum funcionário ligado a uma aba','err'); return; }
     wb.calcProperties={fullCalcOnLoad:true};
     const buf=await wb.xlsx.writeBuffer();
