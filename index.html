@@ -2540,7 +2540,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <label style="font-size:12px;color:#546e7a;display:block">2. Planilha de HH (Excel)<br><input type="file" id="pontoXlsx" accept=".xlsx"></label>
     <button class="btn primary" id="pontoBtnProc" onclick="pontoProcessar()">Ler e conferir</button>
   </div>
-  <div style="font-size:11px;color:#78909c;margin:8px 2px">Regras: entrada antes das 07:00 (ou 13:00) vale 07:00 (13:00), depois disso vale o horário real · saída do almoço entre 12:00 e 12:59 vale 12:00 · última saída até 15 min depois do horário padrão (seg–qui 17:00, sex–sáb 16:00) vale o padrão; passou disso ou saiu antes, vale o real · domingo vale o real.</div>
+  <div style="font-size:11px;color:#78909c;margin:8px 2px">Regras: entrada antes das 07:00 (ou 13:00) vale 07:00 (13:00), depois disso vale o horário real · saída do almoço entre 12:00 e 12:59 vale 12:00 · última saída até 15 min depois das 16:00 ou das 17:00 vale 16:00 ou 17:00; passou disso ou saiu antes, vale o real.</div>
   <div id="pontoConteudo"></div>
 </div>
 
@@ -5559,7 +5559,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-16 · build 455';
+const APP_BUILD='2026-11-16 · build 456';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -23596,8 +23596,8 @@ async function salvarTempoManual(){
 // navegador: o PDF e a planilha não são enviados a nenhum servidor.
 const PONTO_MESES=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 const PONTO_DOW=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
-// Horário padrão de saída por dia da semana (minutos). Domingo não tem padrão.
-const PONTO_SAIDA_PADRAO={1:17*60,2:17*60,3:17*60,4:17*60,5:16*60,6:16*60};
+// Horários de saída da empresa (minutos): 16:00 e 17:00, em qualquer dia da semana.
+const PONTO_SAIDAS_REF=[16*60,17*60];
 const PONTO_TOLERANCIA_SAIDA=15;
 function _pHM(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
 function _pMin(s){ const m=/(\d{1,2}):(\d{2})/.exec(s||''); return m?(+m[1])*60+(+m[2]):null; }
@@ -23643,10 +23643,10 @@ function pontoRegras(dow,pontos){
   if(real[1]!==null){ lanc[1]=(real[1]>=12*60&&real[1]<13*60)?12*60:real[1]; if(real[1]<12*60) avisos.push('saída do almoço antes das 12:00 ('+_pHM(real[1])+')'); if(real[1]>=13*60) avisos.push('saída do almoço às '+_pHM(real[1])); }
   // Entrada da tarde: antes das 13:00 vale 13:00; depois, horário real.
   if(real[2]!==null) lanc[2]=Math.max(real[2],13*60);
-  // Última saída: dentro de 15 min do horário padrão vale o padrão; passou disso ou saiu antes, vale o real.
+  // Última saída: até 15 min depois de um horário de saída (16:00 ou 17:00) vale esse horário; passou disso, vale o real.
   if(real[3]!==null){
-    const pad=PONTO_SAIDA_PADRAO[dow];
-    if(pad && real[3]>=pad && real[3]-pad<=PONTO_TOLERANCIA_SAIDA) lanc[3]=pad; else lanc[3]=real[3];
+    const ref=PONTO_SAIDAS_REF.find(h=>real[3]>=h && real[3]-h<=PONTO_TOLERANCIA_SAIDA);
+    lanc[3]=(ref!==undefined)?ref:real[3];
   }
   if(real.slice(4).some(v=>v!==null)) avisos.push('mais de 4 marcações — só as 4 primeiras foram lançadas, confira');
   if(marcados>0 && marcados<4 && real.slice(4).every(v=>v===null)) avisos.push('marcações incompletas');
