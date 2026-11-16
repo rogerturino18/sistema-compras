@@ -2531,16 +2531,90 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
 </div>
 
 <div class="panel" id="tab39">
-  <div style="margin-bottom:14px">
+<style>
+#tab39 .pt-drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+#tab39 .pt-drop{display:block;border:2px dashed var(--border);border-radius:12px;padding:22px 16px;text-align:center;cursor:pointer;background:#fafcfa;transition:all .15s}
+#tab39 .pt-drop:hover,#tab39 .pt-drop.over{border-color:var(--green-light);background:var(--green-pale)}
+#tab39 .pt-drop.ok{border-style:solid;border-color:var(--green-light);background:var(--green-pale)}
+#tab39 .pt-drop input{display:none}
+#tab39 .pt-drop .ic{font-size:30px;line-height:1}
+#tab39 .pt-drop b{display:block;margin-top:8px;font-size:14px;color:var(--dark)}
+#tab39 .pt-drop small{display:block;color:var(--gray);font-size:12px;margin-top:2px}
+#tab39 .pt-drop .fn{margin-top:10px;font-size:12px;font-weight:600;color:var(--green-dark);word-break:break-all}
+#tab39 .pt-step{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;font-size:12px;font-weight:700;align-items:center;justify-content:center;margin-right:8px}
+#tab39 .pt-h{font-size:14px;font-weight:700;color:var(--dark);margin:0 0 12px;display:flex;align-items:center}
+#tab39 .pt-rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:12px}
+#tab39 .pt-rule{background:#f6f9f6;border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--dark);line-height:1.45}
+#tab39 .pt-rule b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:3px}
+#tab39 .pt-bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+#tab39 .pt-bar label.l{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);font-weight:600;display:block;margin-bottom:4px}
+#tab39 .pt-sel{padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:13px;color:var(--dark)}
+#tab39 .pt-seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+#tab39 .pt-seg button{padding:8px 13px;border:0;background:#fff;font-size:12px;cursor:pointer;color:var(--gray)}
+#tab39 .pt-seg button.on{background:var(--green);color:#fff;font-weight:600}
+#tab39 .pt-emp{background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden}
+#tab39 .pt-eh{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px}
+#tab39 .pt-who{display:flex;align-items:center;gap:12px;min-width:0}
+#tab39 .pt-av{width:40px;height:40px;border-radius:50%;background:var(--green-pale);color:var(--green-dark);font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#tab39 .pt-nm{font-weight:700;font-size:14px}
+#tab39 .pt-bd{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+#tab39 .pt-b{font-size:11px;padding:2px 9px;border-radius:20px;background:#eceff1;color:#455a64;font-weight:600}
+#tab39 .pt-b.ok{background:var(--green-pale);color:var(--green-dark)}
+#tab39 .pt-b.adj{background:#e3f2fd;color:#0d47a1}
+#tab39 .pt-b.warn{background:#fff3e0;color:#e65100}
+#tab39 .pt-emp details>summary{cursor:pointer;padding:9px 16px;font-size:12px;color:var(--green-dark);font-weight:600;border-top:1px solid #edf1ed;background:#fafcfa;list-style:none}
+#tab39 .pt-emp details>summary::-webkit-details-marker{display:none}
+#tab39 .pt-emp details>summary::before{content:"▸ ";}
+#tab39 .pt-emp details[open]>summary::before{content:"▾ ";}
+#tab39 .pt-tb{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+#tab39 .pt-tb th{background:#f6f9f6;color:var(--gray);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;text-align:left;font-weight:600}
+#tab39 .pt-tb td{padding:7px 12px;border-top:1px solid #edf1ed;vertical-align:middle}
+#tab39 .pt-tb tr.dom td{background:#e8f5e9}
+#tab39 .pt-tb tr.mut td{color:#9aa7ad}
+#tab39 .pt-real{color:#78909c}
+#tab39 .pt-tm{display:inline-block;min-width:44px;text-align:center;padding:1px 4px;border-radius:5px;margin-right:2px}
+#tab39 .pt-tm.adj{background:#e3f2fd;color:#0d47a1;font-weight:700}
+#tab39 .pt-tm.fs{background:#fff176}
+#tab39 .pt-tm.adj.fs{background:#fff176;color:#0d47a1;box-shadow:inset 0 0 0 1px #1565c0}
+#tab39 .pt-leg{display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--gray);padding:10px 16px}
+#tab39 .pt-leg i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+#tab39 .pt-aw{color:#e65100;font-size:11px;margin-left:6px}
+#tab39 .pt-foot{position:sticky;bottom:0;padding-right:170px !important;background:rgba(255,255,255,.97);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:14px;box-shadow:0 -2px 10px rgba(0,0,0,.07)}
+</style>
+  <div style="margin-bottom:16px">
     <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🕒 Fechamento de Ponto</h2>
-    <div style="font-size:12px;color:var(--gray);margin-top:2px">Lê o espelho de ponto (PDF) e preenche a planilha de HH aplicando as regras de arredondamento. Os arquivos são lidos no seu navegador e não são enviados a lugar nenhum.</div>
+    <div style="font-size:12px;color:var(--gray);margin-top:2px">Converte o espelho de ponto em PDF na planilha de HH, já com as regras de arredondamento. Os arquivos são processados no seu navegador.</div>
   </div>
-  <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 14px">
-    <label style="font-size:12px;color:#546e7a;display:block">1. Espelho de ponto (PDF)<br><input type="file" id="pontoPdf" accept=".pdf,application/pdf"></label>
-    <label style="font-size:12px;color:#546e7a;display:block">2. Planilha de HH (Excel)<br><input type="file" id="pontoXlsx" accept=".xlsx"></label>
-    <button class="btn primary" id="pontoBtnProc" onclick="pontoProcessar()">Ler e conferir</button>
+
+  <div class="card">
+    <div class="pt-drops">
+      <label class="pt-drop" id="ptDropPdf" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="pontoSoltar(event,'Pdf')">
+        <input type="file" id="pontoPdf" accept=".pdf,application/pdf" onchange="pontoArquivo('Pdf')">
+        <div class="ic">📄</div><b><span class="pt-step">1</span>Espelho de ponto</b><small>Arquivo PDF do relógio de ponto</small>
+        <div class="fn" id="ptFnPdf">Clique ou arraste o arquivo aqui</div>
+      </label>
+      <label class="pt-drop" id="ptDropXlsx" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="pontoSoltar(event,'Xlsx')">
+        <input type="file" id="pontoXlsx" accept=".xlsx" onchange="pontoArquivo('Xlsx')">
+        <div class="ic">📊</div><b><span class="pt-step">2</span>Planilha de HH</b><small>Arquivo Excel com uma aba por funcionário</small>
+        <div class="fn" id="ptFnXlsx">Clique ou arraste o arquivo aqui</div>
+      </label>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn primary" id="pontoBtnProc" onclick="pontoProcessar()" disabled style="padding:9px 20px;font-size:14px">Ler e conferir</button>
+      <span style="font-size:12px;color:var(--gray)">Você confere tudo antes de baixar a planilha.</span>
+    </div>
   </div>
-  <div style="font-size:11px;color:#78909c;margin:8px 2px">Regras: entrada antes das 07:00 (ou 13:00) vale 07:00 (13:00), depois disso vale o horário real · saída do almoço entre 12:00 e 12:59 vale 12:00 · última saída até 15 min depois das 16:00 ou das 17:00 vale 16:00 ou 17:00; passou disso ou saiu antes, vale o real.</div>
+
+  <details class="card" style="padding:14px 18px">
+    <summary style="cursor:pointer;font-weight:700;font-size:14px;color:var(--dark)">📋 Regras de arredondamento aplicadas</summary>
+    <div class="pt-rules">
+      <div class="pt-rule"><b>Entrada da manhã e da tarde</b>Antes das 07:00 (ou 13:00) vale 07:00 (ou 13:00). Depois disso, vale o horário real.</div>
+      <div class="pt-rule"><b>Saída do almoço</b>Entre 12:00 e 12:59 vale 12:00.</div>
+      <div class="pt-rule"><b>Última saída</b>Até 15 minutos depois das 16:00 ou das 17:00 vale 16:00 ou 17:00. Passou disso, ou saiu antes, vale o horário real.</div>
+      <div class="pt-rule"><b>Faltas e folgas</b>Ficam em branco na planilha. Marcações incompletas aparecem com aviso.</div>
+    </div>
+  </details>
+
   <div id="pontoConteudo"></div>
 </div>
 
@@ -5559,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-16 · build 459';
+const APP_BUILD='2026-11-16 · build 460';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -23742,48 +23816,79 @@ function _pontoDiasRef(fn){ const E=_pontoEst; return fn.dias.filter(d=>d.mes===
 // Começo de mês (PDF a partir do dia 1–3) limpa os dois períodos; senão, continua o mês.
 function _pontoAjustarModo(){ const E=_pontoEst; const t=E.funcs.flatMap(_pontoDiasRef); if(t.length) E.limparTudo=Math.min(...t.map(d=>d.dia))<=3; }
 function pontoMudarRef(v){ const E=_pontoEst; E.ano=Math.floor(+v/100); E.mes=+v%100; _pontoAjustarModo(); pontoRender(); }
+function pontoArquivo(t){
+  const inp=document.getElementById('ponto'+t), box=document.getElementById('ptDrop'+t), fn=document.getElementById('ptFn'+t);
+  const f=inp.files&&inp.files[0];
+  box.classList.remove('over'); box.classList.toggle('ok',!!f);
+  fn.textContent=f?('✓ '+f.name):'Clique ou arraste o arquivo aqui';
+  const ok=!!(document.getElementById('pontoPdf').files[0]&&document.getElementById('pontoXlsx').files[0]);
+  document.getElementById('pontoBtnProc').disabled=!ok;
+}
+function pontoSoltar(ev,t){
+  ev.preventDefault();
+  const f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0]; if(!f) return;
+  const inp=document.getElementById('ponto'+t);
+  const dt=new DataTransfer(); dt.items.add(f); inp.files=dt.files; pontoArquivo(t);
+}
+function pontoSetModo(b){ _pontoEst.limparTudo=b; pontoRender(); }
 function pontoRender(){
   const el=document.getElementById('pontoConteudo'); const E=_pontoEst; if(!el||!E) return;
   const f=v=>v==null?'':_pHM(v);
+  let totDias=0,totAdj=0,totAv=0;
   const cards=E.funcs.map((fn,ix)=>{
     const diasRef=_pontoDiasRef(fn);
+    let nAdj=0,nAv=0,nDias=0;
     const linhas=diasRef.map(d=>{
-      const dt=String(d.dia).padStart(2,'0')+'/'+String(d.mes).padStart(2,'0')+' '+PONTO_DOW[d.dow].charAt(0)+PONTO_DOW[d.dow].slice(1).toLowerCase();
-      if(d.status!=='ok') return `<tr style="color:#9e9e9e"><td>${dt}</td><td colspan="2">${d.status==='falta'?'Falta':d.status==='folga'?'Folga':'Sem marcação'}</td></tr>`;
+      const dt=String(d.dia).padStart(2,'0')+'/'+String(d.mes).padStart(2,'0');
+      const nomeDia=PONTO_DOW[d.dow].charAt(0)+PONTO_DOW[d.dow].slice(1).toLowerCase();
+      if(d.status!=='ok') return `<tr class="mut"><td>${dt}</td><td>${nomeDia}</td><td colspan="2">${d.status==='falta'?'Falta':d.status==='folga'?'Folga':'Sem marcação'}</td></tr>`;
+      nDias++;
       const r=pontoRegras(d.dow,d.pontos);
       const real=[0,1,2,3].map(i=>d.pontos[i]||'');
       const lan=r.lanc.map(f);
-      const lanHtml=lan.map((v,i)=>`<span style="${i===3&&(d.dow===5||d.dow===6)&&v?'background:#fff176;padding:0 3px;border-radius:3px;':''}${v&&v!==real[i]?'font-weight:700;text-decoration:underline dotted #1565c0;':''}">${v||'—'}</span>`).join(' ');
-      return `<tr style="${d.dow===0?'background:#c8e6c9':''}"><td>${dt}${d.dow===0?' <b style="color:#2e7d32">· domingo</b>':''}</td><td style="color:#78909c">${real.map(v=>v||'—').join(' ')}</td><td>${lanHtml}${r.avisos.length?` <span style="color:#e65100;font-size:11px">⚠ ${_pEsc(r.avisos.join('; '))}</span>`:''}</td></tr>`;
+      nAdj+=lan.filter((v,i)=>v&&real[i]&&v!==real[i]).length; nAv+=r.avisos.length;
+      const lanHtml=lan.map((v,i)=>`<span class="pt-tm${v&&v!==real[i]?' adj':''}${i===3&&(d.dow===5||d.dow===6)&&v?' fs':''}">${v||'—'}</span>`).join('');
+      return `<tr class="${d.dow===0?'dom':''}"><td>${dt}</td><td>${nomeDia}${d.dow===0?' <b style="color:#2e7d32">· domingo</b>':''}</td><td class="pt-real">${real.map(v=>v||'—').join('  ')}</td><td>${lanHtml}${r.avisos.length?`<span class="pt-aw">⚠ ${_pEsc(r.avisos.join('; '))}</span>`:''}</td></tr>`;
     }).join('');
+    totDias+=nDias; totAdj+=nAdj; totAv+=nAv;
     const opts=['<option value="">— não lançar —</option>'].concat(E.abas.map(a=>`<option value="${_pEsc(a)}" ${a===fn.aba?'selected':''}>${_pEsc(a.trim())}</option>`)).join('');
-    const nOk=diasRef.filter(d=>d.status==='ok').length;
-    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff">
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
-        <div><b>${_pEsc(fn.nome)}</b> <span style="color:#78909c;font-size:12px">· ${nOk} dia(s) com marcação</span></div>
-        <label style="font-size:12px;color:#546e7a">Aba da planilha <select onchange="_pontoEst.funcs[${ix}].aba=this.value||null;pontoRender()" style="padding:5px 8px;border:1px solid ${fn.aba?'#e0e0e0':'#ef5350'};border-radius:7px">${opts}</select></label>
+    const ini=_pEsc((fn.nome||'?').trim().charAt(0));
+    return `<div class="pt-emp">
+      <div class="pt-eh">
+        <div class="pt-who"><div class="pt-av">${ini}</div><div style="min-width:0"><div class="pt-nm">${_pEsc(fn.nome)}</div>
+          <div class="pt-bd"><span class="pt-b ok">${nDias} dia(s) com marcação</span>${nAdj?`<span class="pt-b adj">${nAdj} horário(s) ajustado(s)</span>`:''}${nAv?`<span class="pt-b warn">${nAv} aviso(s)</span>`:''}${fn.aba?'':'<span class="pt-b warn">sem aba na planilha</span>'}</div></div></div>
+        <div><label class="l" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);font-weight:600;display:block;margin-bottom:3px">Aba da planilha</label>
+          <select class="pt-sel" style="${fn.aba?'':'border-color:#ef5350'}" onchange="_pontoEst.funcs[${ix}].aba=this.value||null;pontoRender()">${opts}</select></div>
       </div>
-      ${fn.aba?'':'<div style="color:#c62828;font-size:12px;margin-top:6px">Não achei a aba desse funcionário — escolha uma ou ele não será lançado.</div>'}
-      <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:#00695c">Ver dia a dia (marcado → lançado)</summary>
-        <div style="font-size:11px;color:#546e7a;margin-top:6px"><span style="background:#c8e6c9;padding:1px 6px;border-radius:3px">domingo</span> <span style="background:#fff176;padding:1px 6px;border-radius:3px">saída de sexta/sábado</span> <span style="text-decoration:underline dotted #1565c0;font-weight:700">arredondado pela regra</span></div>
-        <table style="width:100%;font-size:12px;margin-top:6px;border-collapse:collapse"><thead><tr style="text-align:left;color:#546e7a"><th>Dia</th><th>Marcado no relógio</th><th>Lançado na planilha</th></tr></thead><tbody>${linhas}</tbody></table>
+      <details><summary>Ver dia a dia (marcado no relógio → lançado na planilha)</summary>
+        <div style="overflow-x:auto"><table class="pt-tb"><thead><tr><th>Data</th><th>Dia</th><th>Marcado no relógio</th><th>Lançado na planilha</th></tr></thead><tbody>${linhas}</tbody></table></div>
+        <div class="pt-leg"><span><i style="background:#e8f5e9;border:1px solid #c8e6c9"></i>domingo</span><span><i style="background:#fff176"></i>saída de sexta/sábado</span><span><i style="background:#e3f2fd;border:1px solid #90caf9"></i>horário arredondado pela regra</span></div>
       </details></div>`;
   }).join('');
   const usadas=E.funcs.map(f=>f.aba).filter(Boolean);
   const dup=usadas.length!==new Set(usadas).size;
-  const optsRef=E.meses.map(k=>`<option value="${k}" ${k===E.ano*100+E.mes?'selected':''}>${PONTO_MESES[k%100-1]}/${Math.floor(k/100)}</option>`).join('');
+  const semAba=E.funcs.filter(f=>!f.aba).length;
+  const optsRef=E.meses.map(k=>`<option value="${k}" ${k===E.ano*100+E.mes?'selected':''}>${PONTO_MESES[k%100-1].charAt(0)+PONTO_MESES[k%100-1].slice(1).toLowerCase()} de ${Math.floor(k/100)}</option>`).join('');
   const fora=E.funcs.reduce((n,f)=>n+f.dias.length-_pontoDiasRef(f).length,0);
-  el.innerHTML=`<div style="margin:12px 0;font-size:13px;color:#37474f;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
-      <label>Mês de referência <select onchange="pontoMudarRef(this.value)" style="padding:5px 8px;border:1px solid #e0e0e0;border-radius:7px;font-weight:700">${optsRef}</select></label>
-      <span>· ${E.funcs.length} funcionário(s) no PDF</span>
-      ${fora?`<span style="color:#e65100;font-size:12px">⚠ ${fora} dia(s) do PDF são de outro mês e não serão lançados — escolha o outro mês para lançá-los (baixe uma planilha por mês).</span>`:''}</div>
-    <div style="margin:8px 0 12px;font-size:12px;color:#37474f">
-      <label style="display:block;margin-bottom:4px"><input type="radio" name="pontoModo" ${E.limparTudo?'checked':''} onchange="_pontoEst.limparTudo=true"> Começando o mês: apagar os horários antigos dos dois períodos e preencher</label>
-      <label style="display:block"><input type="radio" name="pontoModo" ${E.limparTudo?'':'checked'} onchange="_pontoEst.limparTudo=false"> Continuando o mês: reescrever só os dias que estão no PDF (o resto da planilha fica como está)</label>
+  el.innerHTML=`
+    <div class="stat-row" style="margin-top:4px">
+      <div class="stat" style="cursor:default"><div class="stat-label">Funcionários</div><div class="stat-val">${E.funcs.length}</div></div>
+      <div class="stat" style="cursor:default"><div class="stat-label">Dias com marcação</div><div class="stat-val">${totDias}</div></div>
+      <div class="stat yellow" style="cursor:default;border-left-color:#1565c0"><div class="stat-label">Horários ajustados</div><div class="stat-val" style="color:#1565c0">${totAdj}</div></div>
+      <div class="stat yellow" style="cursor:default"><div class="stat-label">Avisos</div><div class="stat-val" style="color:#e65100">${totAv}</div></div>
     </div>
-    ${dup?'<div style="background:#ffebee;color:#c62828;padding:8px 10px;border-radius:8px;font-size:12px;margin-bottom:10px">Duas pessoas estão apontando para a mesma aba — corrija antes de baixar.</div>':''}
+    <div class="card"><div class="pt-bar">
+      <div><label class="l">Mês de referência</label><select class="pt-sel" style="font-weight:700" onchange="pontoMudarRef(this.value)">${optsRef}</select></div>
+      <div><label class="l">Ao preencher</label><div class="pt-seg"><button class="${E.limparTudo?'on':''}" onclick="pontoSetModo(true)">Começando o mês</button><button class="${E.limparTudo?'':'on'}" onclick="pontoSetModo(false)">Continuando o mês</button></div></div>
+      <div style="font-size:12px;color:var(--gray);flex:1;min-width:240px">${E.limparTudo?'Apaga os horários antigos dos dois períodos e preenche com o PDF.':'Reescreve só os dias que estão no PDF; o resto da planilha fica como está.'}</div>
+    </div>
+    ${fora?`<div style="margin-top:10px;background:#fff3e0;color:#e65100;padding:8px 12px;border-radius:8px;font-size:12px">⚠ ${fora} dia(s) do PDF são de outro mês e não serão lançados. Escolha o outro mês para lançá-los (uma planilha por mês).</div>`:''}</div>
+    ${dup?'<div style="background:#ffebee;color:#c62828;padding:9px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px">Duas pessoas estão apontando para a mesma aba. Corrija antes de baixar.</div>':''}
     ${cards}
-    <button class="btn primary" onclick="pontoBaixar()" ${dup?'disabled':''}>⬇️ Baixar planilha preenchida</button>`;
+    <div class="pt-foot">
+      <span style="font-size:12.5px;color:var(--gray)">${semAba?`<b style="color:#c62828">${semAba} funcionário(s) sem aba</b> não serão lançados. `:''}Confira os totais ao abrir a planilha no Excel.</span>
+      <button class="btn primary" onclick="pontoBaixar()" ${dup?'disabled':''} style="padding:9px 20px;font-size:14px">⬇️ Baixar planilha preenchida</button>
+    </div>`;
 }
 async function pontoBaixar(){
   const E=_pontoEst; if(!E||!ehRogerRetrabalho()) return;
