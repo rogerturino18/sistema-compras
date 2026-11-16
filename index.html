@@ -5559,7 +5559,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-16 · build 457';
+const APP_BUILD='2026-11-16 · build 458';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -23661,17 +23661,18 @@ function pontoAcharAba(nomePdf,abas){
   return melhor;
 }
 
-// Preenche uma aba. dias: dias do PDF. opts.limparTudo: apaga os dois períodos antes de preencher;
-// senão, só os dias cobertos pelo PDF são reescritos (dá pra fechar o mês em duas etapas).
+// Preenche uma aba. dias: dias do PDF. opts.limparTudo: apaga os horários dos dois períodos antes de preencher;
+// senão, só os horários dos dias cobertos pelo PDF são reescritos (dá pra fechar o mês em duas etapas).
 function pontoPreencherAba(ws,dias,mes,ano,opts){
   const setT=(addr,min)=>{ ws.getCell(addr).value=(min===null||min===undefined)?null:min/1440; };
   const diasMes=new Date(Date.UTC(ano,mes,0)).getUTCDate();
   const pos=d=> d<=15 ? {r:18+d,c:['B','C','D','E'],lab:'F'} : {r:2+d,c:['K','L','M','N'],lab:'O'};
   const de=Math.min(...dias.map(d=>d.dia)), ate=Math.max(...dias.map(d=>d.dia));
   for(let d=1;d<=31;d++){
-    if(!opts.limparTudo && (d<de||d>ate)) continue;
     const x=pos(d);
-    x.c.forEach(col=>setT(col+x.r,null));
+    // Horários: só mexe nos dias do PDF (ou em tudo, se for começo de mês).
+    // Rótulos SAB/DOM, realces e nº do dia seguem sempre o calendário do mês.
+    if(opts.limparTudo || d>diasMes || (d>=de&&d<=ate)) x.c.forEach(col=>setT(col+x.r,null));
     const lc=ws.getCell(x.lab+x.r);
     if(d<=diasMes){ const dow=new Date(Date.UTC(ano,mes-1,d)).getUTCDay(); lc.value=(dow===6?'SAB':dow===0?'DOM':null); }
     else lc.value=null;
