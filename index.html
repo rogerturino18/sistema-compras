@@ -1181,6 +1181,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="sbGo(27,'Histórico de Tempos')">⏱️ Histórico de Tempos</div>
     <div class="sbi" onclick="sbGo(31,'Custo de Produto')">💰 Custo de Produto</div>
     <div class="sbi" id="sbi_retrabalho" style="display:none" onclick="sbGo(38,'Análise de Retrabalho')">🔁 Análise de Retrabalho</div>
+    <div class="sbi" id="sbi_ponto" style="display:none" onclick="sbGo(39,'Fechamento de Ponto')">🕒 Fechamento de Ponto</div>
     <div class="sbi" onclick="sbGo(32,'Pesos de Itens')">⚖️ Pesos de Itens</div>
     <div class="sbi" onclick="sbGo(34,'Operadores e Terceirizados')">👷 Operadores e Terceirizados</div>
   </div>
@@ -2527,6 +2528,20 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     </div>
   </div>
   <div id="rtConteudo"></div>
+</div>
+
+<div class="panel" id="tab39">
+  <div style="margin-bottom:14px">
+    <h2 style="font-size:18px;font-weight:700;color:#263238;margin:0">🕒 Fechamento de Ponto</h2>
+    <div style="font-size:12px;color:var(--gray);margin-top:2px">Lê o espelho de ponto (PDF) e preenche a planilha de HH aplicando as regras de arredondamento. Os arquivos são lidos no seu navegador e não são enviados a lugar nenhum.</div>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 14px">
+    <label style="font-size:12px;color:#546e7a;display:block">1. Espelho de ponto (PDF)<br><input type="file" id="pontoPdf" accept=".pdf,application/pdf"></label>
+    <label style="font-size:12px;color:#546e7a;display:block">2. Planilha de HH (Excel)<br><input type="file" id="pontoXlsx" accept=".xlsx"></label>
+    <button class="btn primary" id="pontoBtnProc" onclick="pontoProcessar()">Ler e conferir</button>
+  </div>
+  <div style="font-size:11px;color:#78909c;margin:8px 2px">Regras: entrada antes das 07:00 (ou 13:00) vale 07:00 (13:00), depois disso vale o horário real · saída do almoço entre 12:00 e 12:59 vale 12:00 · última saída até 15 min depois do horário padrão (seg–qui 17:00, sex–sáb 16:00) vale o padrão; passou disso ou saiu antes, vale o real · domingo vale o real.</div>
+  <div id="pontoConteudo"></div>
 </div>
 
 <div class="panel" id="tab32">
@@ -5544,7 +5559,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-13 · build 454';
+const APP_BUILD='2026-11-16 · build 455';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -16792,6 +16807,7 @@ function renderConteudoAba(n){
   if(n===27) { if(typeof renderHistoricoTempos==='function') renderHistoricoTempos(); }
   if(n===31) { if(typeof custoProdInit==='function') custoProdInit(); }
   if(n===38) { renderRetrabalhoAnalise(); }
+  if(n===39) { pontoInit(); }
   if(n===32) { if(typeof pesosInit==='function') pesosInit(); }
   if(n===35) { if(typeof fundidosInit==='function') fundidosInit(); }
   if(n===34) { if(typeof renderOperadoresTerceirizados==='function') renderOperadoresTerceirizados(); }
@@ -16800,7 +16816,7 @@ function renderConteudoAba(n){
 }
 
 function showTab(n){
-  if(n===38 && !ehRogerRetrabalho()){ showToast('Sem permissão para acessar este módulo','err'); return; }
+  if((n===38||n===39) && !ehRogerRetrabalho()){ showToast('Sem permissão para acessar este módulo','err'); return; }
   if(n>0 && window._tabsPermitidas && !window._tabsPermitidas.has(n)){
     showToast('Sem permissão para acessar este módulo','err');
     return;
@@ -17078,6 +17094,7 @@ const TAB_GRUPO_SIDEBAR = {
 // Aplica permissões na UI — oculta ícones, sidebar items, cards e bloqueia tabs
 function aplicarPermissoes(){
   { const _sr=document.getElementById('sbi_retrabalho'); if(_sr) _sr.style.display=ehRogerRetrabalho()?'':'none'; }
+  { const _sp=document.getElementById('sbi_ponto'); if(_sp) _sp.style.display=ehRogerRetrabalho()?'':'none'; }
   if(!usuarioLogado){ atualizarAcessoCentralPendencias(); return; }
   atualizarAcessoCentralPendencias();
 
@@ -23573,6 +23590,204 @@ async function salvarTempoManual(){
   }
 }
 // ===== FIM HISTÓRICO DE TEMPOS =====
+// ===== FECHAMENTO DE PONTO (módulo restrito ao Roger) =====
+// Lê o "Espelho de Ponto" (PDF do relógio) e preenche a planilha de HH (uma aba por
+// funcionário) aplicando as regras de arredondamento da empresa. Tudo roda no
+// navegador: o PDF e a planilha não são enviados a nenhum servidor.
+const PONTO_MESES=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const PONTO_DOW=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
+// Horário padrão de saída por dia da semana (minutos). Domingo não tem padrão.
+const PONTO_SAIDA_PADRAO={1:17*60,2:17*60,3:17*60,4:17*60,5:16*60,6:16*60};
+const PONTO_TOLERANCIA_SAIDA=15;
+function _pHM(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function _pMin(s){ const m=/(\d{1,2}):(\d{2})/.exec(s||''); return m?(+m[1])*60+(+m[2]):null; }
+function _pNorm(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z ]/g,' ').replace(/\s+/g,' ').trim(); }
+
+// items: lista de {str,x,y} de uma página do pdf.js. Devolve [{nome,periodo,dias:[...]}]
+function pontoParsePagina(items){
+  const it=items.filter(i=>String(i.str).trim());
+  const out={nome:null,dias:[]};
+  const lab=it.find(i=>/^Funcion[aá]rio:?$/i.test(i.str.trim()));
+  if(lab){ const nm=it.filter(i=>Math.abs(i.y-lab.y)<3 && i.x>lab.x+5 && i.x<lab.x+300).sort((a,b)=>a.x-b.x)[0]; if(nm) out.nome=nm.str.trim(); }
+  const hdr={}; ['Ent 1','Sai 1','Ent 2','Sai 2','Ent 3','Sai 3','Ent 4','Sai 4'].forEach((h,idx)=>{ const f=it.find(i=>i.str.trim()===h); if(f) hdr[idx]=f.x; });
+  const trab=it.find(i=>i.str.trim()==='Trab');
+  if(Object.keys(hdr).length<8||!trab) return out;
+  const limite=trab.x-8;
+  it.filter(i=>/^\d{2}\/\d{2}\/\d{4}\s*-\s*\w{3}/.test(i.str.trim())).forEach(d=>{
+    const m=/^(\d{2})\/(\d{2})\/(\d{4})/.exec(d.str.trim());
+    const linha=it.filter(i=>Math.abs(i.y-d.y)<3 && i.x>d.x+20);
+    const pontos=[]; let status='ok';
+    linha.forEach(i=>{
+      const s=i.str.trim().replace('*','');
+      if(i.x>=limite) return;
+      let slot=-1,best=1e9; for(const k in hdr){ const dist=Math.abs(i.x-hdr[k]); if(dist<best){best=dist;slot=+k;} }
+      if(best>14) return;
+      if(/^\d{2}:\d{2}$/.test(s)) pontos[slot]=s;
+      else if(/falta/i.test(s)) status='falta';
+      else if(/folga/i.test(s)) status='folga';
+    });
+    const dt=new Date(Date.UTC(+m[3],+m[2]-1,+m[1]));
+    out.dias.push({dia:+m[1],mes:+m[2],ano:+m[3],dow:dt.getUTCDay(),pontos,status:(status==='ok'&&!pontos.some(Boolean))?'sem':status});
+  });
+  return out;
+}
+
+// Aplica as regras de arredondamento. pontos = array de 8 posições (strings ou undefined).
+function pontoRegras(dow,pontos){
+  const avisos=[]; const lanc=[null,null,null,null];
+  const real=pontos.map(_pMin);
+  const marcados=real.filter(v=>v!==null).length;
+  // Entrada da manhã: antes das 07:00 vale 07:00; depois, vale o horário real.
+  if(real[0]!==null) lanc[0]=Math.max(real[0],7*60);
+  // Saída do almoço: entre 12:00 e 12:59 vale 12:00 (padrão); fora disso, horário real.
+  if(real[1]!==null){ lanc[1]=(real[1]>=12*60&&real[1]<13*60)?12*60:real[1]; if(real[1]<12*60) avisos.push('saída do almoço antes das 12:00 ('+_pHM(real[1])+')'); if(real[1]>=13*60) avisos.push('saída do almoço às '+_pHM(real[1])); }
+  // Entrada da tarde: antes das 13:00 vale 13:00; depois, horário real.
+  if(real[2]!==null) lanc[2]=Math.max(real[2],13*60);
+  // Última saída: dentro de 15 min do horário padrão vale o padrão; passou disso ou saiu antes, vale o real.
+  if(real[3]!==null){
+    const pad=PONTO_SAIDA_PADRAO[dow];
+    if(pad && real[3]>=pad && real[3]-pad<=PONTO_TOLERANCIA_SAIDA) lanc[3]=pad; else lanc[3]=real[3];
+  }
+  if(real.slice(4).some(v=>v!==null)) avisos.push('mais de 4 marcações — só as 4 primeiras foram lançadas, confira');
+  if(marcados>0 && marcados<4 && real.slice(4).every(v=>v===null)) avisos.push('marcações incompletas');
+  return {lanc,avisos};
+}
+
+// Nome do PDF -> aba da planilha: todas as palavras do nome da aba precisam estar no nome do PDF;
+// vence a aba com mais palavras em comum (EVERTON RAFAEL x EVERTON).
+function pontoAcharAba(nomePdf,abas){
+  const toks=new Set(_pNorm(nomePdf).split(' ')); let melhor=null,pontos=0;
+  abas.forEach(a=>{ const t=_pNorm(a).split(' ').filter(Boolean); if(t.length && t.every(x=>toks.has(x)) && t.length>pontos){ melhor=a; pontos=t.length; } });
+  return melhor;
+}
+
+// Preenche uma aba. dias: dias do PDF. opts.limparTudo: apaga os dois períodos antes de preencher;
+// senão, só os dias cobertos pelo PDF são reescritos (dá pra fechar o mês em duas etapas).
+function pontoPreencherAba(ws,dias,mes,ano,opts){
+  const setT=(addr,min)=>{ ws.getCell(addr).value=(min===null||min===undefined)?null:min/1440; };
+  const diasMes=new Date(Date.UTC(ano,mes,0)).getUTCDate();
+  const pos=d=> d<=15 ? {r:18+d,c:['B','C','D','E'],lab:'F'} : {r:2+d,c:['K','L','M','N'],lab:'O'};
+  const de=Math.min(...dias.map(d=>d.dia)), ate=Math.max(...dias.map(d=>d.dia));
+  for(let d=1;d<=31;d++){
+    if(!opts.limparTudo && (d<de||d>ate)) continue;
+    const x=pos(d);
+    x.c.forEach(col=>setT(col+x.r,null));
+    const lc=ws.getCell(x.lab+x.r);
+    if(d<=diasMes){ const dow=new Date(Date.UTC(ano,mes-1,d)).getUTCDay(); lc.value=(dow===6?'SAB':dow===0?'DOM':null); }
+    else lc.value=null;
+    if(d>15) ws.getCell('J'+x.r).value=(d<=diasMes?d:null);
+    // Realce padrão da planilha: domingo em verde (linha toda); sexta e sábado com a saída em amarelo.
+    const setFill=(col,fill)=>{ const c=ws.getCell(col+x.r); c.style=Object.assign({},c.style,{fill}); };
+    [...x.c,x.lab].forEach(col=>setFill(col,{type:'pattern',pattern:'none'}));
+    if(d<=diasMes){
+      const dow=new Date(Date.UTC(ano,mes-1,d)).getUTCDay();
+      if(dow===0) [...x.c,x.lab].forEach(col=>setFill(col,{type:'pattern',pattern:'solid',fgColor:{argb:'FF92D050'}}));
+      else if(dow===5||dow===6) setFill(x.c[3],{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}});
+    }
+  }
+  dias.forEach(d=>{
+    if(d.status!=='ok') return;
+    const r=pontoRegras(d.dow,d.pontos); const x=pos(d.dia);
+    r.lanc.forEach((m,i)=>setT(x.c[i]+x.r,m));
+  });
+  ws.getCell('A12').value=PONTO_MESES[mes-1]+' ';
+  ws.getCell('E12').value=ano;
+}
+
+// ---- Interface ----
+let _pontoEst=null;
+function _pEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function _carregarExcelJS(){
+  if(window.ExcelJS) return;
+  await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+}
+function pontoInit(){
+  if(!ehRogerRetrabalho()){ const d=document.getElementById('pontoConteudo'); if(d) d.innerHTML=''; return; }
+}
+function _pLer(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsArrayBuffer(file); }); }
+async function pontoProcessar(){
+  if(!ehRogerRetrabalho()){ showToast('Sem permissão para acessar este módulo','err'); return; }
+  const fPdf=document.getElementById('pontoPdf')?.files?.[0], fXls=document.getElementById('pontoXlsx')?.files?.[0];
+  if(!fPdf||!fXls){ showToast('Escolha o PDF do espelho de ponto e a planilha de HH','err'); return; }
+  const btn=document.getElementById('pontoBtnProc'); const txt=btn.textContent; btn.disabled=true; btn.textContent='⏳ Lendo...';
+  try{
+    await _carregarPdfJs(); await _carregarExcelJS();
+    const bufPdf=await _pLer(fPdf), bufXls=await _pLer(fXls);
+    const pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(bufPdf.slice(0))}).promise;
+    const funcs=[];
+    for(let n=1;n<=pdf.numPages;n++){
+      const tc=await (await pdf.getPage(n)).getTextContent();
+      const r=pontoParsePagina(tc.items.map(i=>({str:i.str,x:i.transform[4],y:i.transform[5]})));
+      if(r.nome){ funcs.push({nome:r.nome,dias:r.dias.slice()}); }
+      else if(funcs.length){ funcs[funcs.length-1].dias.push(...r.dias); }
+    }
+    const validos=funcs.filter(f=>f.dias.length);
+    if(!validos.length){ showToast('Não encontrei espelho de ponto nesse PDF','err'); return; }
+    const wb=new window.ExcelJS.Workbook(); await wb.xlsx.load(bufXls.slice(0));
+    const abas=wb.worksheets.map(w=>w.name);
+    validos.forEach(f=>{ f.aba=pontoAcharAba(f.nome,abas); });
+    const todos=validos.flatMap(f=>f.dias);
+    const mes=todos[0].mes, ano=todos[0].ano;
+    const de=Math.min(...todos.map(d=>d.dia));
+    _pontoEst={funcs:validos,abas,bufXls,mes,ano,limparTudo:de<=3};
+    pontoRender();
+  }catch(e){ console.error('[ponto]',e); showToast('Não consegui ler os arquivos: '+(e.message||e),'err',7000); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+function pontoRender(){
+  const el=document.getElementById('pontoConteudo'); const E=_pontoEst; if(!el||!E) return;
+  const f=v=>v==null?'':_pHM(v);
+  const cards=E.funcs.map((fn,ix)=>{
+    const linhas=fn.dias.map(d=>{
+      const dt=String(d.dia).padStart(2,'0')+'/'+String(d.mes).padStart(2,'0')+' '+PONTO_DOW[d.dow].charAt(0)+PONTO_DOW[d.dow].slice(1).toLowerCase();
+      if(d.status!=='ok') return `<tr style="color:#9e9e9e"><td>${dt}</td><td colspan="2">${d.status==='falta'?'Falta':d.status==='folga'?'Folga':'Sem marcação'}</td></tr>`;
+      const r=pontoRegras(d.dow,d.pontos);
+      const real=[0,1,2,3].map(i=>d.pontos[i]||'');
+      const lan=r.lanc.map(f);
+      const lanHtml=lan.map((v,i)=>`<span style="${v&&v!==real[i]?'background:#fff3cd;font-weight:700;padding:0 3px;border-radius:3px':''}">${v||'—'}</span>`).join(' ');
+      return `<tr><td>${dt}</td><td style="color:#78909c">${real.map(v=>v||'—').join(' ')}</td><td>${lanHtml}${r.avisos.length?` <span style="color:#e65100;font-size:11px">⚠ ${_pEsc(r.avisos.join('; '))}</span>`:''}</td></tr>`;
+    }).join('');
+    const opts=['<option value="">— não lançar —</option>'].concat(E.abas.map(a=>`<option value="${_pEsc(a)}" ${a===fn.aba?'selected':''}>${_pEsc(a.trim())}</option>`)).join('');
+    const nOk=fn.dias.filter(d=>d.status==='ok').length;
+    return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+        <div><b>${_pEsc(fn.nome)}</b> <span style="color:#78909c;font-size:12px">· ${nOk} dia(s) com marcação</span></div>
+        <label style="font-size:12px;color:#546e7a">Aba da planilha <select onchange="_pontoEst.funcs[${ix}].aba=this.value||null;pontoRender()" style="padding:5px 8px;border:1px solid ${fn.aba?'#e0e0e0':'#ef5350'};border-radius:7px">${opts}</select></label>
+      </div>
+      ${fn.aba?'':'<div style="color:#c62828;font-size:12px;margin-top:6px">Não achei a aba desse funcionário — escolha uma ou ele não será lançado.</div>'}
+      <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:#00695c">Ver dia a dia (marcado → lançado)</summary>
+        <table style="width:100%;font-size:12px;margin-top:6px;border-collapse:collapse"><thead><tr style="text-align:left;color:#546e7a"><th>Dia</th><th>Marcado no relógio</th><th>Lançado na planilha</th></tr></thead><tbody>${linhas}</tbody></table>
+      </details></div>`;
+  }).join('');
+  const usadas=E.funcs.map(f=>f.aba).filter(Boolean);
+  const dup=usadas.length!==new Set(usadas).size;
+  el.innerHTML=`<div style="margin:12px 0;font-size:13px;color:#37474f">Período: <b>${PONTO_MESES[E.mes-1]}/${E.ano}</b> · ${E.funcs.length} funcionário(s) no PDF</div>
+    <div style="margin:8px 0 12px;font-size:12px;color:#37474f">
+      <label style="display:block;margin-bottom:4px"><input type="radio" name="pontoModo" ${E.limparTudo?'checked':''} onchange="_pontoEst.limparTudo=true"> Começando o mês: apagar os horários antigos dos dois períodos e preencher</label>
+      <label style="display:block"><input type="radio" name="pontoModo" ${E.limparTudo?'':'checked'} onchange="_pontoEst.limparTudo=false"> Continuando o mês: reescrever só os dias que estão no PDF (o resto da planilha fica como está)</label>
+    </div>
+    ${dup?'<div style="background:#ffebee;color:#c62828;padding:8px 10px;border-radius:8px;font-size:12px;margin-bottom:10px">Duas pessoas estão apontando para a mesma aba — corrija antes de baixar.</div>':''}
+    ${cards}
+    <button class="btn primary" onclick="pontoBaixar()" ${dup?'disabled':''}>⬇️ Baixar planilha preenchida</button>`;
+}
+async function pontoBaixar(){
+  const E=_pontoEst; if(!E||!ehRogerRetrabalho()) return;
+  try{
+    await _carregarExcelJS();
+    const wb=new window.ExcelJS.Workbook(); await wb.xlsx.load(E.bufXls.slice(0));
+    let n=0;
+    E.funcs.forEach(fn=>{ if(!fn.aba) return; const ws=wb.getWorksheet(fn.aba); if(!ws) return; pontoPreencherAba(ws,fn.dias,E.mes,E.ano,{limparTudo:E.limparTudo}); n++; });
+    if(!n){ showToast('Nenhum funcionário ligado a uma aba','err'); return; }
+    wb.calcProperties={fullCalcOnLoad:true};
+    const buf=await wb.xlsx.writeBuffer();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    a.download='HH_SL_OLEOS_'+PONTO_MESES[E.mes-1]+'_'+E.ano+'.xlsx'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    showToast(n+' aba(s) preenchida(s). Confira os totais ao abrir no Excel.','ok',6000);
+  }catch(e){ console.error('[ponto]',e); showToast('Erro ao gerar a planilha: '+(e.message||e),'err',7000); }
+}
+// ===== FIM FECHAMENTO DE PONTO =====
 // ===== ANÁLISE DE RETRABALHO (módulo restrito ao Roger) =====
 function ehRogerRetrabalho(){
   const em=(usuarioLogado?.email||'').trim().toLowerCase();
