@@ -5560,7 +5560,7 @@ async function salvarEntregaEPI(){
 }
 
 async function excluirEntregaEPI(id){
-  if(!confirm('Excluir este registro? O estoque NAO sera estornado automaticamente.')) return;
+  if(!await uiConfirm('Excluir este registro? O estoque NAO sera estornado automaticamente.')) return;
   try{ await api('DELETE','epi_entregas','',`?id=eq.${id}`); await carregarDadosEPI(); renderEPI(); showToast('Registro excluido!'); }
   catch(e){ showToast('Não foi possível concluir a operação. Tente novamente.','err'); }
 }
@@ -5602,7 +5602,7 @@ async function salvarFuncEPI(){
 
 async function excluirFuncEPI(id){
   const qtd=epiEntregas.filter(r=>r.funcionario_id===id).length;
-  if(!confirm(`Excluir funcionario? ${qtd>0?'Tem '+qtd+' entrega(s) registrada(s).':''}`)) return;
+  if(!await uiConfirm(`Excluir funcionario? ${qtd>0?'Tem '+qtd+' entrega(s) registrada(s).':''}`)) return;
   try{ await api('DELETE','epi_funcionarios','',`?id=eq.${id}`); await carregarDadosEPI(); renderFuncionariosEPI(); showToast('Funcionario removido!'); }
   catch(e){ showToast('Não foi possível concluir a operação. Tente novamente.','err'); }
 }
@@ -5634,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 468';
+const APP_BUILD='2026-11-23 · build 469';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -6413,7 +6413,7 @@ function renderDashboard(){
 // fora do fluxo normal, dado antigo, etc.) — usado pelo botão "✅ Voltou"
 // direto na lista do dashboard, sem precisar abrir mais nenhuma tela.
 async function _marcarRetornoRapidoDashboard(ordemId, numero){
-  if(!confirm(`Marcar a ordem Nº ${numero} como já retornada do terceirizado?`)) return;
+  if(!await uiConfirm(`Marcar a ordem Nº ${numero} como já retornada do terceirizado?`)) return;
   try{
     // Só muda o status — NÃO apaga terceirizado_nome/terceirizado_data, pra
     // manter o histórico de quem fez essa peça (útil pra buscar depois, tipo
@@ -6564,13 +6564,13 @@ async function testarCentralIA(){
   }
 }
 
-function configurarCentralIA(){
+async function configurarCentralIA(){
   if(!isAprovador()){
     showToast('Somente administradores podem configurar a IA.','err');
     return;
   }
   const atual=getCentralIAUrl();
-  const url=prompt('Cole a URL do Backend IA (Vercel ou Cloudflare Workers). Ex.: https://sl-oleos-backend-ia.rogerturino18.workers.dev',atual);
+  const url=await uiPrompt('Cole a URL do Backend IA (Vercel ou Cloudflare Workers). Ex.: https://sl-oleos-backend-ia.rogerturino18.workers.dev',atual);
   if(url===null) return;
   const limpa=String(url).trim().replace(/\/+$/,'');
   if(!limpa){ localStorage.removeItem('sl_central_ia_url'); atualizarAreaCentralIA(); return; }
@@ -7660,7 +7660,7 @@ async function duplicarItem(id){
 }
 
 async function deletarItem(id){
-  if(!confirm('Remover este item?'))return;
+  if(!await uiConfirm('Remover este item?'))return;
   try{await api('DELETE','cotacoes','',`?item_id=eq.${id}`);await api('DELETE','itens','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -7727,7 +7727,7 @@ async function salvarPDV(){
   const chaveNova=numero.toLowerCase();
   const outroComMesmoNumero=pdvs.find(p=>p.id!==editPDVId && String(p.numero||'').trim().toLowerCase()===chaveNova);
   if(outroComMesmoNumero){
-    const confirmar=confirm(`Já existe um ${rotuloPDV(outroComMesmoNumero, true)} cadastrado.\n\nSalvar assim vai criar um SEGUNDO PDV com o mesmo número — as ordens e peças já existentes desse PDV não vão se juntar automaticamente.\n\nSe a intenção é unificar os dois, cancele aqui e use "🔗 Mesclar PDVs duplicados" em vez disso.\n\nContinuar mesmo assim?`);
+    const confirmar=await uiConfirm(`Já existe um ${rotuloPDV(outroComMesmoNumero, true)} cadastrado.\n\nSalvar assim vai criar um SEGUNDO PDV com o mesmo número — as ordens e peças já existentes desse PDV não vão se juntar automaticamente.\n\nSe a intenção é unificar os dois, cancele aqui e use "🔗 Mesclar PDVs duplicados" em vez disso.\n\nContinuar mesmo assim?`);
     if(!confirmar) return;
   }
   const obj={
@@ -7760,7 +7760,7 @@ async function salvarPDV(){
 }
 
 async function deletarPDV(id){
-  if(!confirm('Remover este PDV?'))return;
+  if(!await uiConfirm('Remover este PDV?'))return;
   try{await api('DELETE','pdvs','',`?id=eq.${id}`);showToast('PDV removido!');await loadAll();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -7841,7 +7841,7 @@ async function _confirmarMesclarPDVs(grupoIdx, idsDoGrupo){
   if(!escolhido){ showToast('Escolha qual PDV é o principal','err'); return; }
   const manterId=escolhido.value;
   const removerIds=idsDoGrupo.filter(id=>id!==manterId);
-  if(!confirm(`Confirma mesclar ${idsDoGrupo.length} PDVs em um só?\n\nTudo que estava ligado aos outros (ordens, peças, movimentações, etc.) passa a ficar ligado ao PDV escolhido, e os registros extras são apagados.\n\nEssa ação não tem como desfazer.`)) return;
+  if(!await uiConfirm(`Confirma mesclar ${idsDoGrupo.length} PDVs em um só?\n\nTudo que estava ligado aos outros (ordens, peças, movimentações, etc.) passa a ficar ligado ao PDV escolhido, e os registros extras são apagados.\n\nEssa ação não tem como desfazer.`)) return;
 
   const conteudo=document.getElementById('mesclarPDVsConteudo');
   if(conteudo) conteudo.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)">Mesclando, um momento...</div>';
@@ -7873,7 +7873,7 @@ async function _confirmarMesclarPDVsManual(){
   if(!manterId||!removerId){ showToast('Escolha os dois PDVs','err'); return; }
   if(manterId===removerId){ showToast('Escolha dois PDVs diferentes','err'); return; }
   const pManter=pdvs.find(p=>p.id===manterId), pRemover=pdvs.find(p=>p.id===removerId);
-  if(!confirm(`Confirma mesclar ${rotuloPDV(pRemover,true)} dentro de ${rotuloPDV(pManter,true)}?\n\nTudo que estava ligado ao primeiro (ordens, peças, movimentações, etc.) passa a ficar ligado ao segundo, e o registro extra é apagado.\n\nEssa ação não tem como desfazer.`)) return;
+  if(!await uiConfirm(`Confirma mesclar ${rotuloPDV(pRemover,true)} dentro de ${rotuloPDV(pManter,true)}?\n\nTudo que estava ligado ao primeiro (ordens, peças, movimentações, etc.) passa a ficar ligado ao segundo, e o registro extra é apagado.\n\nEssa ação não tem como desfazer.`)) return;
 
   const conteudo=document.getElementById('mesclarPDVsConteudo');
   if(conteudo) conteudo.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)">Mesclando, um momento...</div>';
@@ -8074,7 +8074,7 @@ async function salvarForn(){
 }
 
 async function deletarForn(id){
-  if(!confirm('Remover este fornecedor?'))return;
+  if(!await uiConfirm('Remover este fornecedor?'))return;
   try{await api('DELETE','fornecedores','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -8344,7 +8344,7 @@ function renderComparar(){
 }
 
 async function aplicarMelhorPreco(itemId, fornecedor, preco){
-  if(!confirm('Aplicar preço '+fmtMoeda(preco)+' de "'+fornecedor+'" na lista de compras?')) return;
+  if(!await uiConfirm('Aplicar preço '+fmtMoeda(preco)+' de "'+fornecedor+'" na lista de compras?')) return;
   try{
     await api('PATCH','itens',{valor_unitario:preco,fornecedor},'?id=eq.'+itemId);
     showToast('✅ Preço aplicado na lista de compras!');
@@ -8441,7 +8441,7 @@ async function toggleComprado(id,atual){
 async function marcarTodosComprado(){
   const pend=itens.filter(i=>!i.comprado);
   if(!pend.length){showToast('Todos já marcados!');return;}
-  if(!confirm(`Marcar ${pend.length} itens como comprado?`))return;
+  if(!await uiConfirm(`Marcar ${pend.length} itens como comprado?`))return;
   const hoje=new Date().toISOString().substring(0,10);
   try{
     for(const it of pend) await api('PATCH','itens',{comprado:true,dt_compra:hoje},`?id=eq.${it.id}`);
@@ -8855,9 +8855,9 @@ function addCatCI(){
   showToast(`✅ "${nome}" adicionada!`);
 }
 
-function removeCatCI(idx){
+async function removeCatCI(idx){
   const cats = getCatsCI();
-  if(!confirm(`Remover a categoria "${cats[idx]}"?`)) return;
+  if(!await uiConfirm(`Remover a categoria "${cats[idx]}"?`)) return;
   cats.splice(idx,1);
   saveCatsCI(cats);
   _renderCatsCILista();
@@ -9069,7 +9069,7 @@ async function salvarCISimples(){
 }
 
 async function deletarCI(id){
-  if(!confirm('Remover esta solicitação?'))return;
+  if(!await uiConfirm('Remover esta solicitação?'))return;
   try{await api('DELETE','compras_internas','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -9213,7 +9213,7 @@ async function salvarProduto(){
 }
 
 async function deletarProduto(id){
-  if(!confirm('Remover este produto e todas suas etapas?'))return;
+  if(!await uiConfirm('Remover este produto e todas suas etapas?'))return;
   try{
     await api('DELETE','etapas_produto','',`?produto_id=eq.${id}`);
     await api('DELETE','produtos_pdv','',`?id=eq.${id}`);
@@ -9269,7 +9269,7 @@ async function salvarEtapa(){
 }
 
 async function concluirEtapa(id){
-  if(!confirm('Marcar esta etapa como concluída?'))return;
+  if(!await uiConfirm('Marcar esta etapa como concluída?'))return;
   try{
     await api('PATCH','etapas_produto',{
       status:'concluido',
@@ -9328,7 +9328,7 @@ async function incluirMaquinaExtra(){
 async function removerMaquinaExtra(i){
   const m=_maquinasExtras[i]; if(!m) return;
   const emUso=(operadoresMaquina||[]).filter(o=>o.maquina===m.nome).length;
-  if(!confirm('Remover a máquina "'+m.nome+'"?'+(emUso?'\n\n'+emUso+' operador(es) cadastrado(s) nela continuam salvos, mas ela some do quadro e dos botões.':''))) return;
+  if(!await uiConfirm('Remover a máquina "'+m.nome+'"?'+(emUso?'\n\n'+emUso+' operador(es) cadastrado(s) nela continuam salvos, mas ela some do quadro e dos botões.':''))) return;
   try{ _maquinasExtras.splice(i,1); await _salvarMaquinasExtras(); abrirModalMaquinas(); }
   catch(e){ showToast('Erro ao remover: '+e.message,'err'); await carregarMaquinasExtras(); }
 }
@@ -9977,7 +9977,7 @@ async function pausarEtapaOrdem(tempoId){
 
 // Reabrir = limpa o dt_hr_final de uma etapa já concluída, voltando-a para "em andamento"
 async function reabrirEtapaOrdem(tempoId){
-  if(!confirm('Reabrir esta etapa? Ela voltará para "em andamento".')) return;
+  if(!await uiConfirm('Reabrir esta etapa? Ela voltará para "em andamento".')) return;
   try{
     await api('PATCH','tempos_op',{dt_hr_final:null},`?id=eq.${tempoId}`);
     showToast('Etapa reaberta!');
@@ -10424,9 +10424,9 @@ function _scrollAteNoEstrutura(noId){
   }, 30);
 }
 
-function removerNo(nodeId){
+async function removerNo(nodeId){
   const descendentes = _descendentesDe(nodeId);
-  if(descendentes.length && !confirm('Este item tem coisas dentro dele. Remover tudo mesmo assim?')) return;
+  if(descendentes.length && !await uiConfirm('Este item tem coisas dentro dele. Remover tudo mesmo assim?')) return;
   const idsRemover = new Set([nodeId, ...descendentes]);
   _nosTemp = _nosTemp.filter(n=>!idsRemover.has(n.id));
   // Se o nó removido estava no caminho de navegação aberto, recua o caminho até antes dele
@@ -10555,7 +10555,7 @@ async function _converterNoBanco(noId, deTipo, novoSel, d){
     await api('DELETE','montagens_recebidas','',`?id=eq.${noId}`);
   } else {
     const i = itensDesenhoRecebido.find(x=>x.id===noId); if(!i) return false;
-    if(i.item_compra_id && !confirm('Este item já está vinculado a um pedido na Lista de Compras. Convertê-lo em Montagem vai perder esse vínculo. Continuar?')) return false;
+    if(i.item_compra_id && !await uiConfirm('Este item já está vinculado a um pedido na Lista de Compras. Convertê-lo em Montagem vai perder esse vínculo. Continuar?')) return false;
     const [novo] = await api('POST','montagens_recebidas',{
       desenho_id:i.desenho_id||null, montagem_pai_id:i.montagem_id||null, item_pai_id:i.item_pai_id||null,
       nome_montagem:d.nome, numero_desenho:d.desenho, quantidade:d.qtd, ordem_id:i.ordem_id||null
@@ -10625,7 +10625,7 @@ async function salvarEdicaoRapida(){
   finally{ btn.disabled=false; btn.textContent=textoOriginal; }
 }
 
-function converterTipoNo(nodeId){
+async function converterTipoNo(nodeId){
   const no = _nosTemp.find(n=>n.id===nodeId);
   if(!no) return;
   if(no.tipo==='montagem'){
@@ -10636,7 +10636,7 @@ function converterTipoNo(nodeId){
     delete no.nome_montagem;
     delete no.numero_desenho;
   } else {
-    if(no.item_compra_id && !confirm('Este item já está vinculado a um pedido na Lista de Compras. Convertê-lo em Montagem vai perder esse vínculo. Continuar mesmo assim?')) return;
+    if(no.item_compra_id && !await uiConfirm('Este item já está vinculado a um pedido na Lista de Compras. Convertê-lo em Montagem vai perder esse vínculo. Continuar mesmo assim?')) return;
     no.tipo = 'montagem';
     no.nome_montagem = no.denominacao||'';
     no.numero_desenho = no.desenho_peca||'';
@@ -10998,7 +10998,7 @@ async function _sincronizarPdvOrdensDoEquipamento(desenhoId){
     return;
   }
   const pdv=pdvs.find(p=>p.id===d.pdv_id);
-  if(!confirm(`${idsDivergentes.length} ordem(ns) criada(s) a partir deste equipamento estão com um PDV diferente do atual (${pdv?rotuloPDV(pdv,true):'—'}).\n\nAjustar todas pra usar o mesmo PDV do equipamento agora?`)) return;
+  if(!await uiConfirm(`${idsDivergentes.length} ordem(ns) criada(s) a partir deste equipamento estão com um PDV diferente do atual (${pdv?rotuloPDV(pdv,true):'—'}).\n\nAjustar todas pra usar o mesmo PDV do equipamento agora?`)) return;
 
   try{
     await api('PATCH','ordens_producao',{pdv_id:d.pdv_id},`?id=in.(${idsDivergentes.join(',')})`);
@@ -11149,7 +11149,7 @@ async function salvarDesenhoRecebido(){
     // --- Verificação de duplicidade (aviso, não bloqueia) ---
     // Compara os códigos "desenho/padrão" de todos os nós desta árvore (_nosTemp já
     // está restrito ao equipamento que está sendo editado). Ignora código vazio/nulo.
-    (function checarDuplicidadeDesenhoPeca(){
+    (async function checarDuplicidadeDesenhoPeca(){
       const porId = new Map(_nosTemp.map(n=>[String(n.id),n]));
       // Monta o "caminho" do nó (montagem avó > montagem mãe > ... ) pra dar pra achar
       // a peça na árvore sem precisar catar uma por uma — um equipamento pode ter
@@ -11182,7 +11182,7 @@ async function salvarDesenhoRecebido(){
           const ocorrencias = porCodigo[c].map(o => `   - "${o.nome}" (em: ${o.caminho})`).join('\n');
           return `• Código "${c}" está em ${porCodigo[c].length} lugares:\n${ocorrencias}`;
         });
-        alert('Atenção: o que você acabou de incluir/alterar repete código(s) de desenho/padrão que já existia(m) nesta estrutura (cada bloco abaixo é um caso separado, não compare um código com o outro):\n\n' + linhas.join('\n\n') + '\n\nIsso não quer dizer que as peças são iguais — só que o CÓDIGO foi digitado igual em mais de uma. Se você duplicou algum item pra criar uma cópia, confira se esqueceu de trocar o código de desenho dele.\n\nO salvamento vai continuar normalmente.');
+        await uiAlert('Atenção: o que você acabou de incluir/alterar repete código(s) de desenho/padrão que já existia(m) nesta estrutura (cada bloco abaixo é um caso separado, não compare um código com o outro):\n\n' + linhas.join('\n\n') + '\n\nIsso não quer dizer que as peças são iguais — só que o CÓDIGO foi digitado igual em mais de uma. Se você duplicou algum item pra criar uma cópia, confira se esqueceu de trocar o código de desenho dele.\n\nO salvamento vai continuar normalmente.');
       }
     })();
 
@@ -11266,7 +11266,7 @@ async function salvarDesenhoRecebido(){
 }
 
 async function deletarDesenhoRecebido(id){
-  if(!confirm('Excluir este equipamento e toda a estrutura dele (montagens e itens)?')) return;
+  if(!await uiConfirm('Excluir este equipamento e toda a estrutura dele (montagens e itens)?')) return;
   try{
     // Mesma lógica robusta do salvamento: apaga por id, do mais profundo pro mais
     // raso (em paralelo dentro de cada nível), sem depender de qual FK específica liga cada nó.
@@ -12245,7 +12245,7 @@ async function _salvarFotoOrdemLista(input, ordemId){
 }
 
 async function _removerFotoOrdemLista(ordemId){
-  if(!confirm('Remover a foto do desenho desta ordem? Ela ficará marcada como "sem foto" de novo.')) return;
+  if(!await uiConfirm('Remover a foto do desenho desta ordem? Ela ficará marcada como "sem foto" de novo.')) return;
   const conteudo=document.getElementById('fotoOrdemConteudo');
   if(conteudo) conteudo.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)">Removendo foto...</div>';
   try{
@@ -12332,7 +12332,7 @@ async function _forcarConclusaoOrdemSemConfirmar(o){
 async function reverterOrdemConcluida(id, voltaPainel){
   const o=(ordens||[]).find(x=>x.id===id);
   if(!o || o.status!=='concluido') return;
-  if(!confirm(`Reverter a conclusão da Ordem Nº ${o.numero}?\n\nEla volta a aparecer como em produção (não concluída).`)) return;
+  if(!await uiConfirm(`Reverter a conclusão da Ordem Nº ${o.numero}?\n\nEla volta a aparecer como em produção (não concluída).`)) return;
   try{
     const fim=o.concluido_em?new Date(o.concluido_em).getTime():null;
     const fechadasNaConclusao=fim?(temposOP||[]).filter(t=>t.ordem_id===o.id && t.dt_hr_final && Math.abs(new Date(t.dt_hr_final).getTime()-fim)<2000):[];
@@ -12350,7 +12350,7 @@ async function reverterOrdemConcluida(id, voltaPainel){
 async function finalizarOrdemForcado(id){
   const o=(ordens||[]).find(x=>x.id===id);
   if(!o) return;
-  if(!confirm(`Finalizar a ordem Nº ${o.numero} à força?\n\nIsso marca a ordem como concluída e fecha qualquer etapa que ainda esteja em aberto (sem hora de término), mesmo que o tempo não tenha sido registrado certinho. Use só quando tiver certeza que a peça já foi produzida.\n\nEssa ação não tem um "desfazer" automático.`)) return;
+  if(!await uiConfirm(`Finalizar a ordem Nº ${o.numero} à força?\n\nIsso marca a ordem como concluída e fecha qualquer etapa que ainda esteja em aberto (sem hora de término), mesmo que o tempo não tenha sido registrado certinho. Use só quando tiver certeza que a peça já foi produzida.\n\nEssa ação não tem um "desfazer" automático.`)) return;
   try{
     await _forcarConclusaoOrdemSemConfirmar(o);
     showToast('Ordem finalizada!');
@@ -12374,7 +12374,7 @@ async function concluirPDVForcado(desenhoId){
   const msg = ordensAbertas.length
     ? `Concluir este equipamento?\n\nIsso fecha à força ${ordensAbertas.length} ordem(ns) aberta(s) e move o equipamento pra seção "Concluídos" (some da tela inicial). Itens/montagens que ainda não têm OP criada nem foram comprados continuam pendentes, do jeito que estão.\n\nDá pra restaurar depois, na seção Concluídos.`
     : `Mover este equipamento pra seção "Concluídos"?\n\nEle some da tela inicial. Dá pra restaurar depois, na seção Concluídos.`;
-  if(!confirm(msg)) return;
+  if(!await uiConfirm(msg)) return;
 
   try{
     for(const o of ordensAbertas){
@@ -12393,7 +12393,7 @@ async function concluirPDVForcado(desenhoId){
 
 // Tira o equipamento da seção Concluídos, volta pra tela inicial normal.
 async function restaurarPDVConcluido(desenhoId){
-  if(!confirm('Restaurar este equipamento pra tela inicial?')) return;
+  if(!await uiConfirm('Restaurar este equipamento pra tela inicial?')) return;
   try{
     await api('PATCH','desenhos_recebidos',{concluido_manual:false,concluido_em:null,concluido_por:null},`?id=eq.${desenhoId}`);
     showToast('Equipamento restaurado!');
@@ -12404,7 +12404,7 @@ async function restaurarPDVConcluido(desenhoId){
 async function deletarOrdem(id){
   const o = ordens.find(x=>x.id===id);
   const desc = o ? `Ordem Nº ${o.numero} — ${o.descricao||'sem descrição'}` : 'esta ordem de produção';
-  if(!confirm(`Excluir ${desc}?\n\nEla ficará na Lixeira por 30 dias, podendo ser restaurada.`)) return;
+  if(!await uiConfirm(`Excluir ${desc}?\n\nEla ficará na Lixeira por 30 dias, podendo ser restaurada.`)) return;
   try{
     await api('PATCH','ordens_producao',{excluida_em:new Date().toISOString()},`?id=eq.${id}`);
     showToast('Ordem movida para a Lixeira!');
@@ -12423,7 +12423,7 @@ async function restaurarOrdem(id){
 
 async function excluirOrdemPermanente(id){
   const o = ordens.find(x=>x.id===id);
-  if(!confirm(`Excluir definitivamente a Ordem Nº ${o?.numero||''}?\n\nIsso NÃO pode ser desfeito — o histórico de tempos será apagado para sempre.`)) return;
+  if(!await uiConfirm(`Excluir definitivamente a Ordem Nº ${o?.numero||''}?\n\nIsso NÃO pode ser desfeito — o histórico de tempos será apagado para sempre.`)) return;
   try{
     await api('DELETE','tempos_op','',`?ordem_id=eq.${id}`).catch(()=>{});
     await api('DELETE','ordens_producao','',`?id=eq.${id}`);
@@ -12609,7 +12609,7 @@ async function salvarOrdem(){
   // Foto do desenho não é mais obrigatória — só ao CRIAR sem foto, mostra um
   // aviso perguntando se quer continuar assim mesmo, em vez de travar.
   if(!editOrdemId && !_ordemFotoDesenhoBase64){
-    const continuar=confirm('Esta ordem está sendo criada sem a foto do desenho.\n\nDeseja criar mesmo assim?');
+    const continuar=await uiConfirm('Esta ordem está sendo criada sem a foto do desenho.\n\nDeseja criar mesmo assim?');
     if(!continuar){
       const grp=document.getElementById('grp_ord_foto');
       grp.style.outline='2px solid #ef6c00';
@@ -12749,7 +12749,7 @@ async function _prosseguirSalvarOrdem(obj, contexto){
     await loadAll();
     if(res&&res[0]){
       const novaOrdemId=res[0].id;
-      if(confirm('Deseja imprimir a ordem agora?')){
+      if(await uiConfirm('Deseja imprimir a ordem agora?')){
         setTimeout(()=>imprimirOrdem(novaOrdemId),800);
       }
     }
@@ -13620,7 +13620,7 @@ function abrirConcluidosPDV(pdvId){
   abrirModal('modalConcluidosPDV');
 }
 
-function abrirModalPeca_semSetor(pdvId){
+async function abrirModalPeca_semSetor(pdvId){
   const setores=setoresPDV.filter(s=>s.pdv_id===pdvId);
   if(setores.length===0){
     showToast('Crie um setor primeiro','err');
@@ -13633,7 +13633,7 @@ function abrirModalPeca_semSetor(pdvId){
   }
   // Multiple setores — pick first one or show modal with select
   const nomes=setores.map((s,i)=>(i+1)+'. '+s.nome).join('\n');
-  const resp=prompt('Escolha o numero do setor:\n'+nomes);
+  const resp=await uiPrompt('Escolha o numero do setor:\n'+nomes);
   const idx=parseInt(resp)-1;
   if(idx>=0&&idx<setores.length) abrirModalPeca(setores[idx].id);
 }
@@ -13687,7 +13687,7 @@ async function salvarSetor(){
 }
 
 async function deletarSetor(id){
-  if(!confirm('Remover este setor e todas as peças?'))return;
+  if(!await uiConfirm('Remover este setor e todas as peças?'))return;
   try{
     const pecas=pecasProjeto.filter(p=>p.setor_id===id);
     for(const p of pecas){
@@ -13744,7 +13744,7 @@ async function salvarPeca(){
 }
 
 async function deletarPeca(id){
-  if(!confirm('Remover esta peça?'))return;
+  if(!await uiConfirm('Remover esta peça?'))return;
   try{
     await api('DELETE','sessoes_trabalho','',`?peca_id=eq.${id}`);
     await api('DELETE','pecas_projeto','',`?id=eq.${id}`);
@@ -13920,7 +13920,7 @@ function voltarPreenchimento(){
 }
 
 async function finalizarDireto(pecaId){
-  if(!confirm('Finalizar esta peça sem adicionar materiais?')) return;
+  if(!await uiConfirm('Finalizar esta peça sem adicionar materiais?')) return;
   pecaAtual=pecaId;
   fecharModal('modalFinalizarTrabalho');
   await confirmarFinalizarSemMateriais();
@@ -14385,7 +14385,7 @@ function estLimparSelecao(){ estSelecionados.clear(); renderEstoque(); }
 async function estExcluirSelecionados(){
   const ids=[...estSelecionados];
   if(!ids.length) return;
-  if(!confirm(`Mover ${ids.length} item(ns) selecionado(s) para a lixeira? Dá para restaurar depois em ⋮ Mais → Lixeira.`)) return;
+  if(!await uiConfirm(`Mover ${ids.length} item(ns) selecionado(s) para a lixeira? Dá para restaurar depois em ⋮ Mais → Lixeira.`)) return;
   try{
     if(!(await _moverParaLixeira(ids))) return;
     showToast(`${ids.length} item(ns) movido(s) para a lixeira`);
@@ -14498,7 +14498,7 @@ async function restaurarDaLixeira(id){
 }
 async function apagarDefinitivoLixeira(id){
   const it=(estoqueLixeira||[]).find(x=>x.id===id);
-  if(!confirm(`Apagar DE VEZ "${it?.descricao||'este item'}"? Isso apaga também as movimentações dele e não dá para desfazer.`)) return;
+  if(!await uiConfirm(`Apagar DE VEZ "${it?.descricao||'este item'}"? Isso apaga também as movimentações dele e não dá para desfazer.`)) return;
   try{
     await api('DELETE','estoque_movimentacoes','',`?item_id=eq.${id}`);
     await api('DELETE','estoque_itens','',`?id=eq.${id}`);
@@ -14508,7 +14508,7 @@ async function apagarDefinitivoLixeira(id){
 }
 async function esvaziarLixeiraEstoque(){
   const lista=[...(estoqueLixeira||[])]; if(!lista.length) return;
-  if(!confirm(`Apagar DE VEZ os ${lista.length} item(ns) da lixeira, com as movimentações? Não dá para desfazer.`)) return;
+  if(!await uiConfirm(`Apagar DE VEZ os ${lista.length} item(ns) da lixeira, com as movimentações? Não dá para desfazer.`)) return;
   try{
     for(const i of lista){
       await api('DELETE','estoque_movimentacoes','',`?item_id=eq.${i.id}`);
@@ -15211,7 +15211,7 @@ async function codificarItensEmLote() {
     }, {})
   ).map(([cat, n]) => `  • ${cat} (${getPrefixoFamilia(cat)}.XXX): ${n} item(s)`).join('\n');
 
-  if(!confirm(`Codificar ${semCodigo.length} itens sem código?\n\nPrefixos:\n${preview}\n\nProcessado em lotes — pode demorar alguns segundos.`)) return;
+  if(!await uiConfirm(`Codificar ${semCodigo.length} itens sem código?\n\nPrefixos:\n${preview}\n\nProcessado em lotes — pode demorar alguns segundos.`)) return;
 
   // Monta a lista de {id, codigo} a salvar antes de qualquer chamada
   const porCategoria = {};
@@ -15438,7 +15438,7 @@ async function salvarEstoque(){
 }
 
 async function deletarEstoqueItem(id){
-  if(!confirm('Mover este item para a lixeira? Dá para restaurar depois em ⋮ Mais → Lixeira.')) return;
+  if(!await uiConfirm('Mover este item para a lixeira? Dá para restaurar depois em ⋮ Mais → Lixeira.')) return;
   try{
     if(!(await _moverParaLixeira([id]))) return;
     showToast('Item movido para a lixeira');
@@ -15590,9 +15590,9 @@ function adicionarFamiliaEstoque(){
   showToast(`✅ Família criada: ${cat} → ${prefix}.XXX`);
 }
 
-function removerFamiliaEstoque(cat){
+async function removerFamiliaEstoque(cat){
   const map = getFamiliaCodigos();
-  if(!confirm(`Remover o prefixo "${map[cat]}" da categoria "${cat}"?\n\nOs itens já codificados não serão afetados.`)) return;
+  if(!await uiConfirm(`Remover o prefixo "${map[cat]}" da categoria "${cat}"?\n\nOs itens já codificados não serão afetados.`)) return;
   delete map[cat];
   saveFamiliaCodigos(map);
   renderFamiliaLista();
@@ -15653,13 +15653,13 @@ function adicionarCategoriaEstoque(){
   showToast(`✅ Categoria "${nome}" adicionada!`);
 }
 
-function removerCategoriaEstoque(idx){
+async function removerCategoriaEstoque(idx){
   const cats = getCatsEstoque();
   const nome = cats[idx];
   if(!nome) return;
   const usada = estoqueItens.some(item=>(item.categoria||'Matéria Prima')===nome);
   if(usada){ showToast('Não é possível remover: há itens nessa categoria','err'); return; }
-  if(!confirm(`Remover a categoria "${nome}"?`)) return;
+  if(!await uiConfirm(`Remover a categoria "${nome}"?`)) return;
   cats.splice(idx,1);
   saveCatsEstoque(cats);
   renderCatListaGerenciar();
@@ -16300,7 +16300,7 @@ async function registrarSaida(){
   const item=estoqueItens.find(i=>i.id===itemId);
   const mov=estoqueMov.filter(m=>m.item_id===itemId);
   const saldo=mov.reduce((s,m)=>s+(m.tipo==='entrada'?m.quantidade:-m.quantidade),(item?.qtd_inicial||0));
-  if(qtd>saldo&&!confirm(`Saldo disponível é ${saldo} ${item?.unidade||''}. Confirmar saída mesmo assim?`))return;
+  if(qtd>saldo&&!await uiConfirm(`Saldo disponível é ${saldo} ${item?.unidade||''}. Confirmar saída mesmo assim?`))return;
   try{
     await api('POST','estoque_movimentacoes',{
       item_id:itemId,
@@ -16322,7 +16322,7 @@ async function registrarSaida(){
 }
 
 async function deletarMovEstoque(id){
-  if(!confirm('Excluir esta movimentação?'))return;
+  if(!await uiConfirm('Excluir esta movimentação?'))return;
   try{
     await api('DELETE','estoque_movimentacoes','',`?id=eq.${id}`);
     showToast('Movimentação excluída!');
@@ -16668,7 +16668,7 @@ function usarClienteNFe(id){
 // Emissão NF-e
 async function emitirNFe(){
   if(!FOCUS_NFE_TOKEN){
-    const token=prompt('Informe sua API Key do Focus NFe:');
+    const token=await uiPrompt('Informe sua API Key do Focus NFe:');
     if(!token) return;
     FOCUS_NFE_TOKEN=token.trim();
   }
@@ -16825,7 +16825,7 @@ function renderNotasEmitidas(){
 }
 
 async function consultarNFe(ref,id){
-  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+  if(!FOCUS_NFE_TOKEN){const t=await uiPrompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
   try{
     const resp=await fetch(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}`,{
       headers:{'Authorization':'Token token='+FOCUS_NFE_TOKEN}
@@ -16838,20 +16838,20 @@ async function consultarNFe(ref,id){
   }catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
-function baixarDANFE(ref){
-  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+async function baixarDANFE(ref){
+  if(!FOCUS_NFE_TOKEN){const t=await uiPrompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
   window.open(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}.pdf?token=${FOCUS_NFE_TOKEN}`,'_blank');
 }
 
-function baixarXML(ref){
-  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+async function baixarXML(ref){
+  if(!FOCUS_NFE_TOKEN){const t=await uiPrompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
   window.open(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}.xml?token=${FOCUS_NFE_TOKEN}`,'_blank');
 }
 
 async function cancelarNFe(ref,id){
-  if(!confirm('Cancelar esta NF-e? Esta ação não pode ser desfeita!')) return;
-  if(!FOCUS_NFE_TOKEN){const t=prompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
-  const just=prompt('Informe a justificativa do cancelamento (mínimo 15 caracteres):');
+  if(!await uiConfirm('Cancelar esta NF-e? Esta ação não pode ser desfeita!')) return;
+  if(!FOCUS_NFE_TOKEN){const t=await uiPrompt('API Key Focus NFe:');if(!t)return;FOCUS_NFE_TOKEN=t.trim();}
+  const just=await uiPrompt('Informe a justificativa do cancelamento (mínimo 15 caracteres):');
   if(!just||just.length<15){showToast('Justificativa muito curta (mínimo 15 caracteres)','err');return;}
   try{
     const resp=await fetch(`${FOCUS_NFE_HOMOLOG?FOCUS_NFE_URL_HOMOLOG:FOCUS_NFE_URL}/v2/nfe/${ref}`,{
@@ -17011,7 +17011,7 @@ async function dispararEmailBemVindo(){
     {nome:'PCP', email:'pcp@sloleos.com.br', senha:'(removida)', cargo:'PCP'},
     {nome:'Álvaro', email:'expedicao@sloleos.com.br', senha:'(removida)', cargo:'Expedição'}
   ];
-  if(!confirm(`Enviar e-mail de boas-vindas para ${usuarios_lista.length} usuários?`)) return;
+  if(!await uiConfirm(`Enviar e-mail de boas-vindas para ${usuarios_lista.length} usuários?`)) return;
   showToast('Enviando e-mails...');
   let ok=0, fail=0;
   for(const u of usuarios_lista){
@@ -17640,6 +17640,48 @@ window.addEventListener('load',()=>{
   }catch(_){}
 });
 
+// ══ Diálogos padrão do sistema (substituem confirm/alert/prompt nativos do navegador) ══
+let _uiDlgSeq=0;
+function _uiEsc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _uiDialog({tipo='info',msg='',titulo='',input=null,okTxt='',cancelTxt='Cancelar',mostrarCancelar=true}){
+  return new Promise(resolve=>{
+    const id='uiDlg'+(++_uiDlgSeq);
+    const partes=String(msg||'').split('\n'); 
+    let tit=titulo, corpo='';
+    if(!tit){ tit=(partes.shift()||'').trim(); corpo=partes.join('\n').trim(); } else corpo=String(msg||'').trim();
+    if(tit.length>90 && !corpo){ corpo=tit; tit=tipo==='perigo'?'Confirme a ação':tipo==='aviso'?'Atenção':'Confirmação'; }
+    const cfg={perigo:['⚠','#c62828','#ffebee'],aviso:['!','#ef6c00','#fff3e0'],info:['i','#1565c0','#e3f2fd'],pergunta:['?','#2e7d32','#e8f5e9']}[tipo]||['i','#1565c0','#e3f2fd'];
+    const corBtn=tipo==='perigo'?'#c62828':'var(--green,#2e7d32)';
+    const ov=document.createElement('div'); ov.id=id;
+    ov.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,20,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:uiDlgIn .12s ease-out';
+    ov.innerHTML=`<style>@keyframes uiDlgIn{from{opacity:0}to{opacity:1}}@keyframes uiDlgUp{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}</style>
+      <div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;width:100%;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.3);overflow:hidden;animation:uiDlgUp .15s ease-out">
+        <div style="display:flex;gap:14px;padding:22px 22px 8px">
+          <div style="flex:none;width:40px;height:40px;border-radius:50%;background:${cfg[2]};color:${cfg[1]};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px">${cfg[0]}</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:16px;font-weight:700;color:#1b2a22;line-height:1.3;word-break:break-word">${_uiEsc(tit)}</div>
+            ${corpo?`<div style="margin-top:6px;font-size:13.5px;color:#4b5b53;line-height:1.5;white-space:pre-line;word-break:break-word">${_uiEsc(corpo)}</div>`:''}
+            ${input?`<input id="${id}_in" type="${input.type||'text'}" value="${_uiEsc(input.valor||'')}" placeholder="${_uiEsc(input.placeholder||'')}" style="margin-top:12px;width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">`:''}
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 22px 20px">
+          ${mostrarCancelar?`<button type="button" data-r="0" style="padding:9px 18px;border:1px solid #cfd8d3;border-radius:8px;background:#fff;color:#37474f;font-size:13.5px;font-weight:600;cursor:pointer">${_uiEsc(cancelTxt)}</button>`:''}
+          <button type="button" data-r="1" style="padding:9px 20px;border:0;border-radius:8px;background:${corBtn};color:#fff;font-size:13.5px;font-weight:700;cursor:pointer">${_uiEsc(okTxt||(input?'Confirmar':mostrarCancelar?'Confirmar':'Entendi'))}</button>
+        </div>
+      </div>`;
+    const fim=(ok)=>{ const v=input?document.getElementById(id+'_in')?.value:null; document.removeEventListener('keydown',tecla,true); ov.remove(); resolve(input?(ok?v:null):!!ok); };
+    const tecla=e=>{ if(e.key==='Escape'){ e.stopPropagation(); fim(false); } else if(e.key==='Enter' && document.activeElement?.tagName!=='BUTTON'){ e.preventDefault(); fim(true); } };
+    ov.addEventListener('click',e=>{ if(e.target===ov && mostrarCancelar) fim(false); const b=e.target.closest('button[data-r]'); if(b) fim(b.dataset.r==='1'); });
+    document.addEventListener('keydown',tecla,true);
+    document.body.appendChild(ov);
+    setTimeout(()=>{ const el=document.getElementById(id+'_in')||ov.querySelector('button[data-r="1"]'); el?.focus(); if(el&&el.select&&input) el.select(); },30);
+  });
+}
+function _uiTipoDe(msg){ return /\b(exclu|remov|apag|delet|zerar|cancelar|lixeira|desfaz|reinicia|substitu|sobrescrev|irrevers)/i.test(String(msg))?'perigo':'pergunta'; }
+function uiConfirm(msg,opts){ return _uiDialog({tipo:(opts&&opts.tipo)||_uiTipoDe(msg),msg,...(opts||{})}); }
+function uiAlert(msg,opts){ return _uiDialog({tipo:(opts&&opts.tipo)||'aviso',msg,mostrarCancelar:false,...(opts||{})}); }
+function uiPrompt(msg,valor,opts){ return _uiDialog({tipo:'info',msg,input:{valor:valor||'',...((opts&&opts.input)||{})},...(opts||{})}); }
+
 function showToast(msg,type='ok',duracao=3000){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.background=type==='err'?'#c62828':'var(--green)';
@@ -17954,7 +17996,7 @@ async function salvarPV(){
 }
 
 async function deletarPV(id){
-  if(!confirm('Excluir?'))return;
+  if(!await uiConfirm('Excluir?'))return;
   try{await api('DELETE','pedidos_venda','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
@@ -18367,7 +18409,7 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
   }
   if(!concluida){
     botoes.push(`<button class="btn" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px" onclick="fecharModal('modalAcoesOrdemScan');adicionarOperacaoNaOrdem('${o.id}');_tempoDiretoVoltaParaScan='${o.id}';">⏱️ Registrar tempo manual</button>`);
-    botoes.push(`<button class="btn" style="width:100%;padding:14px;font-size:14px;background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="if(confirm('Finalizar esta ordem?')){fecharModal('modalAcoesOrdemScan');finalizarOrdemForcado('${o.id}');}">✅ Finalizar ordem</button>`);
+    botoes.push(`<button class="btn" style="width:100%;padding:14px;font-size:14px;background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="uiConfirm('Finalizar esta ordem?').then(ok=>{if(ok){fecharModal('modalAcoesOrdemScan');finalizarOrdemForcado('${o.id}');}})">✅ Finalizar ordem</button>`);
   }
 
   if(_seq!==_osSeq) return; // outra atualização mais nova já está em andamento — não sobrescrever com dados velhos
@@ -19007,7 +19049,7 @@ async function salvarCliente(){
 }
 
 async function deletarCliente(id){
-  if(!confirm('Excluir?'))return;
+  if(!await uiConfirm('Excluir?'))return;
   try{await api('DELETE','clientes','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
 
@@ -19229,7 +19271,7 @@ async function salvarPC(){
 }
 
 async function deletarPC(id){
-  if(!confirm('Excluir este pedido de compra?'))return;
+  if(!await uiConfirm('Excluir este pedido de compra?'))return;
   try{await api('DELETE','pedidos_compra','',`?id=eq.${id}`);showToast('PC removido!');await loadAll();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -19324,7 +19366,7 @@ function renderRelatoriosGrupo(pdvId){
 
 async function reprocessarOrdem(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
-  if(!confirm(`Reprocessar Ordem Nº ${o?.numero} — ${o?.descricao}?\n\nEla voltará para "Aguardando" no Kanban.\nOs tempos já registrados serão mantidos.`)) return;
+  if(!await uiConfirm(`Reprocessar Ordem Nº ${o?.numero} — ${o?.descricao}?\n\nEla voltará para "Aguardando" no Kanban.\nOs tempos já registrados serão mantidos.`)) return;
   try{
     // Lógica de conclusão: ordem concluída = todos os tempos têm dt_hr_final
     // Para voltar ao Aguardando: adicionar novo tempo sem dt_hr_inicial e sem dt_hr_final
@@ -19353,7 +19395,7 @@ async function transferirBarracao(itemId, origem, saldoOrigem){
   const destino = origem === 'Barracão 1' ? 'Barracão 2' : 'Barracão 1';
   const nome = item.tipo_peca||item.descricao||'item';
   const max = Number(saldoOrigem)||0;
-  const resp = prompt(`Transferir quantos de "${nome}"\nde ${origem||'sem local'} → ${destino}?\n(disponível: ${max})`, max>0?String(max):'');
+  const resp = await uiPrompt(`Transferir quantos de "${nome}"\nde ${origem||'sem local'} → ${destino}?\n(disponível: ${max})`, max>0?String(max):'');
   if(resp===null) return;
   const qtd = parseFloat(String(resp).replace(',','.'));
   if(!qtd || qtd<=0){ showToast('Quantidade inválida','err'); return; }
@@ -19414,7 +19456,7 @@ async function excluirMov(id){
   const nome=item?.tipo_peca||item?.descricao||'Item removido';
   const tipoTxt=m.tipo==='entrada'?'Entrada':'Saída';
   // Confirmação mostrando exatamente o que será removido e o efeito no saldo.
-  if(!confirm(`Excluir esta movimentação?\n\n${nome}\n${tipoTxt} de ${m.quantidade||0} ${m.unidade_saida||item?.unidade||''}\n\nO saldo do item será recalculado. Esta ação não pode ser desfeita.`)) return;
+  if(!await uiConfirm(`Excluir esta movimentação?\n\n${nome}\n${tipoTxt} de ${m.quantidade||0} ${m.unidade_saida||item?.unidade||''}\n\nO saldo do item será recalculado. Esta ação não pode ser desfeita.`)) return;
   try{
     await api('DELETE','estoque_movimentacoes','',`?id=eq.${id}`);
     showToast('Movimentação excluída — saldo recalculado');
@@ -19772,7 +19814,7 @@ async function salvarRequisicao(){
     }
     if(it.qtd<=0){showToast(`Quantidade inválida: ${it.descricao}`,'err');return;}
     if(it.qtd>it.saldo_atual&&it.saldo_atual>=0){
-      if(!confirm(`⚠️ ${it.descricao}: saldo atual ${it.saldo_atual} ${it.unidade}, você quer retirar ${it.qtd}. Continuar mesmo assim?`)) return;
+      if(!await uiConfirm(`⚠️ ${it.descricao}: saldo atual ${it.saldo_atual} ${it.unidade}, você quer retirar ${it.qtd}. Continuar mesmo assim?`)) return;
     }
   }
   const pdvId=pvDestId||null;
@@ -19838,7 +19880,7 @@ async function salvarRequisicao(){
 }
 
 async function cancelarRequisicao(id){
-  if(!confirm('Cancelar esta requisição? O estoque NÃO será estornado automaticamente.'))return;
+  if(!await uiConfirm('Cancelar esta requisição? O estoque NÃO será estornado automaticamente.'))return;
   try{
     await api('PATCH','requisicoes_material',{status:'Cancelada'},`?id=eq.${id}`);
     showToast('Requisição cancelada!');
@@ -19853,7 +19895,7 @@ async function excluirRequisicao(id){
     showToast('Esta requisição já movimentou o estoque e não pode ser excluída. Para corrigir, faça uma nova movimentação de estoque; assim o histórico permanece correto.','err',6500);
     return;
   }
-  if(!confirm(`Excluir definitivamente a requisição Nº ${r.numero||'—'}? Esta ação não movimenta o estoque.`))return;
+  if(!await uiConfirm(`Excluir definitivamente a requisição Nº ${r.numero||'—'}? Esta ação não movimenta o estoque.`))return;
   try{
     await api('DELETE','requisicoes_material','',`?id=eq.${id}`);
     showToast(`Requisição Nº ${r.numero||'—'} excluída.`);
@@ -20160,7 +20202,7 @@ async function salvarDepartamento(){
 }
 
 async function deletarDepartamento(id){
-  if(!confirm('Excluir este departamento?'))return;
+  if(!await uiConfirm('Excluir este departamento?'))return;
   try{
     await api('DELETE','departamentos','',`?id=eq.${id}`);
     showToast('Removido!');
@@ -20449,7 +20491,7 @@ async function definirValorMaterialCC(key){
   });
   if(!alvo.length){ showToast(soDoEstoque?'Esses materiais vêm do estoque — preencha o valor no cadastro do item (Estoque → editar).':'Nada a definir nesse material', soDoEstoque?'err':undefined, 6000); return; }
   const atual=Number((alvo[0].r.itens[alvo[0].idxs[0]]||{}).valor_unit)||'';
-  const txt=prompt(`Valor unitário (R$) de:\n${nomeExib}\n\nVai valer para ${alvo.reduce((n,a)=>n+a.idxs.length,0)} retirada(s) neste material.`, atual?String(atual).replace('.',','):'');
+  const txt=await uiPrompt(`Valor unitário (R$) de:\n${nomeExib}\n\nVai valer para ${alvo.reduce((n,a)=>n+a.idxs.length,0)} retirada(s) neste material.`, atual?String(atual).replace('.',','):'');
   if(txt===null) return;
   const v=parseFloat(String(txt).replace(/\./g,'').replace(',','.'));
   if(!(v>0)){ showToast('Informe um valor maior que zero','err'); return; }
@@ -20780,7 +20822,7 @@ function gerarConteudoRelatorio(ordemId){
 
 
 async function deletarTempoOp(tempoId){
-  if(!confirm('Excluir este registro de operação?')) return;
+  if(!await uiConfirm('Excluir este registro de operação?')) return;
   const registro = (temposOP||[]).find(t=>t.id===tempoId);
   const ordemId = registro?.ordem_id;
   try{
@@ -22114,7 +22156,7 @@ function auditarDuplicatas(){
 }
 
 async function _excluirDuplicata(tipo, idOuIdx, modalId){
-  if(!confirm('Excluir este lançamento duplicado?')) return;
+  if(!await uiConfirm('Excluir este lançamento duplicado?')) return;
   try{
     if(tipo==='CP'){
       await api('DELETE','contas_pagar','',`?id=eq.${idOuIdx}`);
@@ -22143,7 +22185,7 @@ async function _excluirDuplicata(tipo, idOuIdx, modalId){
 async function desfazerPagamentoCP(id){
   const c = contasPagar.find(x=>x.id===id);
   if(!c) return;
-  if(!confirm(`Desfazer pagamento de "${c.descricao}"?\n\nA conta voltará para status Aberta.\nO lançamento correspondente será removido do Fluxo de Caixa.`)) return;
+  if(!await uiConfirm(`Desfazer pagamento de "${c.descricao}"?\n\nA conta voltará para status Aberta.\nO lançamento correspondente será removido do Fluxo de Caixa.`)) return;
   try{
     await api('PATCH','contas_pagar',{
       status:'Aberta', dt_pagamento:null, valor_pago:null,
@@ -22171,7 +22213,7 @@ async function desfazerPagamentoCP(id){
 async function desfazerRecebimentoCR(id){
   const c = contasReceber.find(x=>x.id===id);
   if(!c) return;
-  if(!confirm(`Desfazer recebimento de "${c.descricao}"?\n\nA conta voltará para status Aberta.\nO lançamento correspondente será removido do Fluxo de Caixa.`)) return;
+  if(!await uiConfirm(`Desfazer recebimento de "${c.descricao}"?\n\nA conta voltará para status Aberta.\nO lançamento correspondente será removido do Fluxo de Caixa.`)) return;
   try{
     await api('PATCH','contas_receber',{
       status:'Aberta', dt_recebimento:null, valor_recebido:null, forma_pagamento:null
@@ -22253,7 +22295,7 @@ async function religarGrupoReq(idx){
   if(txt){ const f=(estoqueItens||[]).find(i=>rotulo(i)===txt||String(i.descricao||'').trim()===txt); if(!f){ showToast('Item não encontrado — escolha da lista','err'); return; } id=f.id; }
   if(!id){ showToast('Escolha o item do estoque','err'); return; }
   const alvo=(estoqueItens||[]).find(i=>i.id===id); if(!alvo) return;
-  if(!confirm(`Religar "${g.desc}" (${g.linhas} linha(s)) ao item:\n\n${rotulo(alvo)}\n\nConfirmar?`)) return;
+  if(!await uiConfirm(`Religar "${g.desc}" (${g.linhas} linha(s)) ao item:\n\n${rotulo(alvo)}\n\nConfirmar?`)) return;
   await _aplicarReligarReq(g,id);
 }
 async function criarItemEReligarReq(idx){
@@ -22261,8 +22303,8 @@ async function criarItemEReligarReq(idx){
   const ex=g.exemplo||{};
   const desc=String(g.desc||'').trim().toUpperCase();
   const ja=(estoqueItens||[]).find(i=>String(i.descricao||'').trim().toUpperCase()===desc);
-  if(ja){ if(!confirm(`Já existe "${ja.descricao}" no estoque. Religar a ele em vez de criar outro?`)) return; await _aplicarReligarReq(g,ja.id); return; }
-  if(!confirm(`Criar o item no estoque e religar as ${g.linhas} linha(s)?\n\nNovo item: ${desc}\nUnidade: ${ex.unidade||'PC'} · Valor unitário: ${ex.valor_unit!=null?ex.valor_unit:'—'}\nSaldo inicial: 0\n\nO item novo nasce com saldo zero. Se a requisição já deu baixa de ${g.qtd} e o saldo aparecer negativo, registre a entrada correspondente no Estoque.`)) return;
+  if(ja){ if(!await uiConfirm(`Já existe "${ja.descricao}" no estoque. Religar a ele em vez de criar outro?`)) return; await _aplicarReligarReq(g,ja.id); return; }
+  if(!await uiConfirm(`Criar o item no estoque e religar as ${g.linhas} linha(s)?\n\nNovo item: ${desc}\nUnidade: ${ex.unidade||'PC'} · Valor unitário: ${ex.valor_unit!=null?ex.valor_unit:'—'}\nSaldo inicial: 0\n\nO item novo nasce com saldo zero. Se a requisição já deu baixa de ${g.qtd} e o saldo aparecer negativo, registre a entrada correspondente no Estoque.`)) return;
   try{
     const novo={tipo:'materia_prima',descricao:desc,unidade:ex.unidade||'PC',qtd_inicial:0,
       valor_unitario:ex.valor_unit!=null?ex.valor_unit:null,localizacao:ex.barracao||null,
@@ -22627,7 +22669,7 @@ async function stSalvar(outro){
   if(!_stEdId){
     if(_stOrdemId) rec.ordem_id=_stOrdemId;
     const dup=servicosTerc.find(s=>String(s.data).slice(0,10)===data && Math.abs((Number(s.valor)||0)-rec.valor)<0.005 && _stNorm(s.descricao)===_stNorm(desc) && _stNorm(s.terceirizado)===_stNorm(terc));
-    if(dup && !confirm('Já existe um lançamento igual (mesma data, peça, terceirizado e valor).\n\nLançar mesmo assim?')) return;
+    if(dup && !await uiConfirm('Já existe um lançamento igual (mesma data, peça, terceirizado e valor).\n\nLançar mesmo assim?')) return;
   }
   try{
     if(_stEdId) await api('PATCH','servicos_terceirizados',rec,`?id=eq.${_stEdId}`);
@@ -22643,7 +22685,7 @@ async function stSalvar(outro){
 }
 async function stExcluir(id){
   const s=servicosTerc.find(x=>x.id===id); if(!s) return;
-  if(!confirm('Excluir este lançamento?\n\n'+s.descricao+' — '+(s.terceirizado||'')+' — '+_stBRL(s.valor)+'\n\nEsta ação não pode ser desfeita.')) return;
+  if(!await uiConfirm('Excluir este lançamento?\n\n'+s.descricao+' — '+(s.terceirizado||'')+' — '+_stBRL(s.valor)+'\n\nEsta ação não pode ser desfeita.')) return;
   try{ await api('DELETE','servicos_terceirizados','',`?id=eq.${id}`); await stCarregar(); renderServTerc(); showToast('Lançamento excluído.'); }
   catch(e){ showToast('Erro ao excluir','err'); console.error(e); }
 }
@@ -22914,9 +22956,9 @@ async function dupMandarLixeira(idLixo,idMantida){
     if(x.tempos.length) tem.push('tem '+_dupHm(x.minutos)+' de tempo apontado');
     if(x.temTerc && o.status!=='terceirizado') tem.push('passou pelo terceiro'+(o.terceirizado_nome?' ('+o.terceirizado_nome+')':''));
     if(o.tem_foto_desenho) tem.push('tem foto do desenho');
-    if(!confirm(`ATENÇÃO — a Ordem Nº ${o.numero} ${tem.join(', ')||'já foi trabalhada'}.\n\nMandar para a Lixeira tira a ordem das listas e dos relatórios. Nada é apagado de vez: dá para restaurar em ⋮ Mais → Lixeira por 30 dias.\n\nFaça isso só se ela foi mesmo lançada em duplicidade (a peça NÃO foi feita duas vezes). Continuar?`)) return;
+    if(!await uiConfirm(`ATENÇÃO — a Ordem Nº ${o.numero} ${tem.join(', ')||'já foi trabalhada'}.\n\nMandar para a Lixeira tira a ordem das listas e dos relatórios. Nada é apagado de vez: dá para restaurar em ⋮ Mais → Lixeira por 30 dias.\n\nFaça isso só se ela foi mesmo lançada em duplicidade (a peça NÃO foi feita duas vezes). Continuar?`)) return;
   }
-  if(!confirm(`Mandar a Ordem Nº ${o.numero} (${o.descricao||''}) para a Lixeira?\n\nAs linhas da Estrutura ligadas a ela passam a apontar para a Ordem Nº ${m.numero}.\nVocê pode restaurar em ⋮ Mais → Lixeira por 30 dias.`)) return;
+  if(!await uiConfirm(`Mandar a Ordem Nº ${o.numero} (${o.descricao||''}) para a Lixeira?\n\nAs linhas da Estrutura ligadas a ela passam a apontar para a Ordem Nº ${m.numero}.\nVocê pode restaurar em ⋮ Mais → Lixeira por 30 dias.`)) return;
   try{
     await api('PATCH','itens_desenho_recebido',{ordem_id:m.id},`?ordem_id=eq.${o.id}`).catch(()=>{});
     await api('PATCH','montagens_recebidas',{ordem_id:m.id},`?ordem_id=eq.${o.id}`).catch(()=>{});
@@ -22927,9 +22969,9 @@ async function dupMandarLixeira(idLixo,idMantida){
 }
 async function dupApagarLinhaEOrdem(idLinha,idOrdem){
   const i=(itensDesenhoRecebido||[]).find(x=>x.id===idLinha), o=(ordens||[]).find(x=>x.id===idOrdem); if(!i||!o) return;
-  if(!_dupPodeLixeira(o)){ alert('Essa OP já tem trabalho registrado; não dá para mandar para a Lixeira por aqui.'); return; }
-  if((itensDesenhoRecebido||[]).some(x=>x.item_pai_id===idLinha)){ alert('Esta linha tem peças dentro dela. Remova ou mova as peças filhas primeiro.'); return; }
-  if(!confirm(`Apagar a linha “${i.denominacao||''}” da Estrutura E mandar a OP Nº ${o.numero} para a Lixeira?\n\nA OP não foi iniciada e não tem tempo nem terceiro. Dá para restaurar a OP em ⋮ Mais → Lixeira por 30 dias.`)) return;
+  if(!_dupPodeLixeira(o)){ await uiAlert('Essa OP já tem trabalho registrado; não dá para mandar para a Lixeira por aqui.'); return; }
+  if((itensDesenhoRecebido||[]).some(x=>x.item_pai_id===idLinha)){ await uiAlert('Esta linha tem peças dentro dela. Remova ou mova as peças filhas primeiro.'); return; }
+  if(!await uiConfirm(`Apagar a linha “${i.denominacao||''}” da Estrutura E mandar a OP Nº ${o.numero} para a Lixeira?\n\nA OP não foi iniciada e não tem tempo nem terceiro. Dá para restaurar a OP em ⋮ Mais → Lixeira por 30 dias.`)) return;
   try{
     await api('DELETE','itens_desenho_recebido','',`?id=eq.${idLinha}`);
     await api('PATCH','ordens_producao',{excluida_em:new Date().toISOString()},`?id=eq.${idOrdem}`);
@@ -22939,10 +22981,10 @@ async function dupApagarLinhaEOrdem(idLinha,idOrdem){
 }
 async function dupApagarLinha(id){
   const i=(itensDesenhoRecebido||[]).find(x=>x.id===id); if(!i) return;
-  if((itensDesenhoRecebido||[]).some(x=>x.item_pai_id===id)){ alert('Esta linha tem peças dentro dela. Remova ou mova as peças filhas primeiro (na Estrutura de Equipamentos).'); return; }
-  if(i.item_compra_id && !confirm('Esta linha já tem um item de compra ligado. Apagar mesmo assim?\n\n(O item de compra NÃO é apagado, só a linha da Estrutura.)')) return;
+  if((itensDesenhoRecebido||[]).some(x=>x.item_pai_id===id)){ await uiAlert('Esta linha tem peças dentro dela. Remova ou mova as peças filhas primeiro (na Estrutura de Equipamentos).'); return; }
+  if(i.item_compra_id && !await uiConfirm('Esta linha já tem um item de compra ligado. Apagar mesmo assim?\n\n(O item de compra NÃO é apagado, só a linha da Estrutura.)')) return;
   const _oL=i.ordem_id?(ordens||[]).find(o=>o.id===i.ordem_id):null;
-  if(!confirm(`Apagar a linha “${i.denominacao||''}” (${i.desenho_peca||''}) da Estrutura de Equipamentos?\n\n`+(_oL?`A OP Nº ${_oL.numero} (${_oL.status==='concluido'?'concluída':_oL.status}) NÃO é apagada: continua no histórico, com tempos e fotos, só deixa de estar ligada a esta linha.`:'Não há OP ligada a esta linha.'))) return;
+  if(!await uiConfirm(`Apagar a linha “${i.denominacao||''}” (${i.desenho_peca||''}) da Estrutura de Equipamentos?\n\n`+(_oL?`A OP Nº ${_oL.numero} (${_oL.status==='concluido'?'concluída':_oL.status}) NÃO é apagada: continua no histórico, com tempos e fotos, só deixa de estar ligada a esta linha.`:'Não há OP ligada a esta linha.'))) return;
   try{
     await api('DELETE','itens_desenho_recebido','',`?id=eq.${id}`);
     showToast('Linha repetida apagada.');
@@ -23019,14 +23061,16 @@ function terceirizarOrdem(id,editar){
     const _hist=_tercPassagens(o);
     if(_temAnterior && !_edicao){
       _bn.style.display='block';
-      _bn.innerHTML=`<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#2e7d32;margin:6px 0">
-        <b>✓ Já passou por terceirizado</b> — o histórico fica guardado e este envio será uma <b>nova passagem</b>.
-        <div style="margin-top:4px;color:#37474f">${_hist.map(x=>`${x.nome}${x.qtd?` (${x.qtd})`:''}: ${_fd(x.envio)} → ${x.retorno?_fd(x.retorno):'em andamento'}`).join('<br>')}</div>
-        <a href="#" style="display:inline-block;margin-top:6px;font-weight:700;color:#1565c0" onclick="event.preventDefault();terceirizarOrdem('${o.id}',true)">✏️ Corrigir dados da última passagem</a></div>`;
+      _bn.innerHTML=`<div style="border:1px solid #e3e8e5;border-radius:10px;margin:10px 0 14px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f6f8f7;font-size:11px;font-weight:700;letter-spacing:.4px;color:#5f6f67;text-transform:uppercase">
+          <span>Passagens anteriores</span>
+          <a href="#" style="font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;color:#1565c0;text-decoration:none" onclick="event.preventDefault();terceirizarOrdem('${o.id}',true)">Corrigir última</a></div>
+        ${_hist.map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid #eef1ef;font-size:13px;color:#263238"><span style="font-weight:600">${x.nome}${x.qtd?` <span style="font-weight:400;color:#78909c">· ${x.qtd} pç</span>`:''}</span><span style="color:#546e7a;white-space:nowrap">${_fd(x.envio)} → ${x.retorno?_fd(x.retorno):'em andamento'}${x.dias!=null?` · ${x.dias}d`:''}</span></div>`).join('')}</div>`;
     } else if(_edicao){
       _bn.style.display='block';
-      _bn.innerHTML=`<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#8d6e00;margin:6px 0">
-        ✏️ Você está <b>corrigindo a última passagem</b>. Para mandar a outro terceirizado, <a href="#" style="font-weight:700;color:#1565c0" onclick="event.preventDefault();terceirizarOrdem('${o.id}')">registre um novo envio</a>.</div>`;
+      _bn.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid #e3e8e5;border-radius:10px;padding:8px 12px;margin:10px 0 2px;background:#f6f8f7;font-size:12.5px;color:#455a64">
+        <span>Corrigindo a <b>última passagem</b></span>
+        <a href="#" style="font-weight:600;color:#1565c0;text-decoration:none" onclick="event.preventDefault();terceirizarOrdem('${o.id}')">Registrar novo envio</a></div>`;
     } else { _bn.style.display='none'; _bn.innerHTML=''; }
   }
   const _d10=v=>v?String(v).slice(0,10):'';
@@ -23297,7 +23341,7 @@ function cancelarEnvioTercDaTela(id){ _tercOrdemId=id; _tercVoltaParaScan=id; ca
 // Desfaz um envio ao terceirizado feito por engano: a ordem volta para "Aguardando" como se nunca tivesse saído.
 async function cancelarEnvioTerceirizado(){
   const o=ordens.find(x=>x.id===_tercOrdemId); if(!o) return;
-  if(!confirm(`Cancelar o envio da Ordem Nº ${o.numero} para ${o.terceirizado_nome||'o terceirizado'}?\n\nA ordem volta para "Aguardando" e o envio é removido do histórico.`)) return;
+  if(!await uiConfirm(`Cancelar o envio da Ordem Nº ${o.numero} para ${o.terceirizado_nome||'o terceirizado'}?\n\nA ordem volta para "Aguardando" e o envio é removido do histórico.`)) return;
   try{
     await api('PATCH','ordens_producao',{status:'aguardando',terceirizado_nome:null,terceirizado_data:null,terceirizado_prazo:null,terceirizado_obs:null,terceirizado_retorno:null},`?id=eq.${_tercOrdemId}`);
     if(_tercEnviosOk) await api('DELETE','ordem_envios_terc','',`?ordem_id=eq.${_tercOrdemId}&data_retorno=is.null`).catch(e=>console.warn(e));
@@ -23311,10 +23355,10 @@ async function cancelarEnvioTerceirizado(){
 // Apaga de vez a passagem pelo terceirizado de uma ordem que já voltou (teste ou clique errado).
 async function apagarHistoricoTerceirizado(){
   const o=ordens.find(x=>x.id===_tercOrdemId); if(!o) return;
-  if(!confirm(`Excluir o histórico de terceirizado da Ordem Nº ${o.numero} (${o.terceirizado_nome||'—'})?\n\nO ✓ verde some da coluna Terceirizado.`)) return;
+  if(!await uiConfirm(`Excluir o histórico de terceirizado da Ordem Nº ${o.numero} (${o.terceirizado_nome||'—'})?\n\nO ✓ verde some da coluna Terceirizado.`)) return;
   const patch={terceirizado_nome:null,terceirizado_data:null,terceirizado_prazo:null,terceirizado_obs:null,terceirizado_retorno:null};
   let reabriu=false;
-  if(o.status==='concluido' && confirm(`A Ordem Nº ${o.numero} está CONCLUÍDA.\n\nReabrir como "Aguardando"?\n\nOK = reabrir · Cancelar = manter concluída`)){ patch.status='aguardando'; reabriu=true; }
+  if(o.status==='concluido' && await uiConfirm(`A Ordem Nº ${o.numero} está CONCLUÍDA.\n\nReabrir como "Aguardando"?\n\nOK = reabrir · Cancelar = manter concluída`)){ patch.status='aguardando'; reabriu=true; }
   try{
     await api('PATCH','ordens_producao',patch,`?id=eq.${_tercOrdemId}`);
     if(_tercEnviosOk) await api('DELETE','ordem_envios_terc','',`?ordem_id=eq.${_tercOrdemId}`).catch(e=>console.warn(e));
@@ -24486,7 +24530,7 @@ function custoAbrirSalvo(id){
   setTimeout(custoRenderForm,60);
 }
 async function custoDelSalvo(id){
-  if(!confirm('Excluir este cálculo salvo?')) return;
+  if(!await uiConfirm('Excluir este cálculo salvo?')) return;
   try{
     await api('DELETE','custos_produto','',`?id=eq.${id}`);
     custosProduto=custosProduto.filter(x=>x.id!==id);
@@ -24599,7 +24643,7 @@ async function salvarOperadorMaquina(){
 }
 
 async function deletarOperadorMaquina(id){
-  if(!confirm('Remover este operador?'))return;
+  if(!await uiConfirm('Remover este operador?'))return;
   try{await api('DELETE','operadores_maquina','',`?id=eq.${id}`);showToast('Removido!');await loadAll();renderOperadoresTerceirizados();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -24630,7 +24674,7 @@ async function salvarTerceirizadoCadastro(){
 }
 
 async function deletarTerceirizadoCadastro(id){
-  if(!confirm('Remover este terceirizado?'))return;
+  if(!await uiConfirm('Remover este terceirizado?'))return;
   try{await api('DELETE','terceirizados_cadastro','',`?id=eq.${id}`);showToast('Removido!');await loadAll();renderOperadoresTerceirizados();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -24781,8 +24825,8 @@ async function pesoSalvar(){
 async function pesosZerarLista(){
   if(!pesosTabelaOk){ showToast('A tabela de pesos ainda não existe','err'); return; }
   if(!pesosItens.length){ showToast('A lista já está vazia'); return; }
-  if(!confirm(`Zerar a lista de pesos?\n\nIsso apaga os ${pesosItens.length} itens cadastrados e não pode ser desfeito.\n\nDica: use o botão "📊 Excel" antes para guardar uma cópia.`)) return;
-  const txt=prompt('Para confirmar, digite ZERAR:');
+  if(!await uiConfirm(`Zerar a lista de pesos?\n\nIsso apaga os ${pesosItens.length} itens cadastrados e não pode ser desfeito.\n\nDica: use o botão "📊 Excel" antes para guardar uma cópia.`)) return;
+  const txt=await uiPrompt('Para confirmar, digite ZERAR:');
   if(String(txt||'').trim().toUpperCase()!=='ZERAR'){ showToast('Operação cancelada'); return; }
   try{
     await api('DELETE','pesos_itens','',`?id=not.is.null`);
@@ -24897,7 +24941,7 @@ async function _prontoSalvar(id,doFoto){
 
 async function pesoDeletar(id){
   const p=pesosItens.find(x=>x.id===id); if(!p) return;
-  if(!confirm(`Excluir "${p.nome_peca}"?`)) return;
+  if(!await uiConfirm(`Excluir "${p.nome_peca}"?`)) return;
   try{
     await api('DELETE','pesos_itens','',`?id=eq.${id}`);
     pesosItens=pesosItens.filter(x=>x.id!==id);
@@ -25208,7 +25252,7 @@ async function importarPesos(input){
       });
     }
     if(!registros.length){ showToast('Nenhuma linha válida encontrada','err'); return; }
-    const substituir=pesosItens.length>0 && confirm(`Encontrados ${registros.length} itens na planilha.\n\nHá ${pesosItens.length} itens já cadastrados.\n\n• OK = APAGAR os atuais e importar os novos\n• Cancelar = ADICIONAR aos existentes (mantém os atuais)`);
+    const substituir=pesosItens.length>0 && await uiConfirm(`Encontrados ${registros.length} itens na planilha.\n\nHá ${pesosItens.length} itens já cadastrados.\n\n• OK = APAGAR os atuais e importar os novos\n• Cancelar = ADICIONAR aos existentes (mantém os atuais)`);
     if(substituir){
       showToast('⏳ Apagando itens atuais...');
       await api('DELETE','pesos_itens','',`?id=not.is.null`);
@@ -25574,7 +25618,7 @@ async function fundidoIntegrarEstoque(fundido){
 
 async function fundidoDeletar(id){
   const p=fundidosItens.find(x=>x.id===id); if(!p) return;
-  if(!confirm(`Excluir "${p.descricao}"?`)) return;
+  if(!await uiConfirm(`Excluir "${p.descricao}"?`)) return;
   try{
     await api('DELETE','estoque_fundidos','',`?id=eq.${id}`);
     fundidosItens=fundidosItens.filter(x=>x.id!==id);
@@ -26236,7 +26280,7 @@ async function _ooSalvar(){
   if(qc>0&&!g('oo_forn')){ showToast('Informe o fornecedor da compra','err'); return; }
   if(qe>0&&!g('oo_item')){ showToast('Escolha o item do estoque','err'); return; }
   const itemId=g('oo_item')||null; const baixa=!!document.getElementById('oo_baixa')?.checked;
-  if(qe>0&&baixa&&itemId){ const sd=_saldoEstoque(itemId); const jaBaixou=o.estoque_mov_id&&o.estoque_item_id===itemId?Number(o.qtd_estoque)||0:0; if(qe>sd+jaBaixou && !confirm('O saldo desse item é '+sd+'. Dar baixa de '+qe+' mesmo assim?')) return; }
+  if(qe>0&&baixa&&itemId){ const sd=_saldoEstoque(itemId); const jaBaixou=o.estoque_mov_id&&o.estoque_item_id===itemId?Number(o.qtd_estoque)||0:0; if(qe>sd+jaBaixou && !await uiConfirm('O saldo desse item é '+sd+'. Dar baixa de '+qe+' mesmo assim?')) return; }
   const btn=document.getElementById('oo_btn'); if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
   try{
     await _aplicarOrigemOrdem(o,{qc,forn:g('oo_forn'),nf:g('oo_nf'),nfdata:g('oo_nfdata'),vu:g('oo_vu')?pesosNum(g('oo_vu')):null,qe,itemId,baixa,limpaTerc:!!document.getElementById('oo_terc')?.checked});
@@ -26245,7 +26289,7 @@ async function _ooSalvar(){
 }
 async function _ooLimpar(){
   const o=ordens.find(x=>x.id===document.getElementById('oo_id')?.value); if(!o) return;
-  if(!confirm('Voltar esta ordem para “produzido aqui”?'+(o.estoque_mov_id?'\n\nA baixa que foi dada no estoque será desfeita.':''))) return;
+  if(!await uiConfirm('Voltar esta ordem para “produzido aqui”?'+(o.estoque_mov_id?'\n\nA baixa que foi dada no estoque será desfeita.':''))) return;
   try{ await _aplicarOrigemOrdem(o,{qc:0,qe:0,baixa:false}); fecharModal('modalOrigemOrdem'); showToast('Origem removida'); renderOrdens(); }
   catch(e){ showToast('Erro: '+e.message,'err'); }
 }
@@ -26385,7 +26429,7 @@ async function _vincSalvar(){
   }
   if(!tarefas.length&&!comerciais.length){ showToast('Escolha ao menos uma ordem ou item','err'); return; }
   const aviso=tarefas.filter(t=>t.d.limpaTerc).length; const baixas=tarefas.filter(t=>t.d.qe&&t.d.baixa).length;
-  if(!confirm('Vincular '+(tarefas.length+comerciais.length)+' item(ns) da NF?'+(baixas?'\n\n📦 '+baixas+' ordem(ns) terão baixa no estoque.':'')+(aviso?'\n🚚 '+aviso+' ordem(ns) com terceirizado do mesmo fornecedor terão o terceirizado removido.':''))) return;
+  if(!await uiConfirm('Vincular '+(tarefas.length+comerciais.length)+' item(ns) da NF?'+(baixas?'\n\n📦 '+baixas+' ordem(ns) terão baixa no estoque.':'')+(aviso?'\n🚚 '+aviso+' ordem(ns) com terceirizado do mesmo fornecedor terão o terceirizado removido.':''))) return;
   if(btn){ btn.disabled=true; btn.textContent='Vinculando…'; }
   try{
     for(const t of tarefas){ await _aplicarOrigemOrdem(t.o,t.d); feitos++; }
@@ -26414,7 +26458,7 @@ async function _entradaNFeTipo(id,tipo){
     await _processarEntradaNFe(id,n);
     showToast(tipo==='pecas_prontas'?'✅ Entrada realizada — contas a pagar geradas, estoque intocado':'✅ Entrada realizada!');
     await loadAll();
-    if(tipo==='pecas_prontas' && confirm('Vincular os itens desta NF às ordens de produção agora?')) abrirVincularNFe(id);
+    if(tipo==='pecas_prontas' && await uiConfirm('Vincular os itens desta NF às ordens de produção agora?')) abrirVincularNFe(id);
   }catch(e){ showToast('Não foi possível concluir a operação. Tente novamente.','err'); console.error(e); }
 }
 // ===== FIM ORIGEM DA PEÇA =====
@@ -26581,7 +26625,7 @@ async function expSalvarEdicaoItemManual(carId,itemId){
 }
 async function expRemoverItemManual(carId,itemId){
   const c=carregamentos.find(x=>x.id===carId); const it=(c?.carregamento_itens||[]).find(x=>x.id===itemId); if(!c||!it) return;
-  if(!confirm('Remover "'+(it.descricao||'item')+'" deste romaneio?')) return;
+  if(!await uiConfirm('Remover "'+(it.descricao||'item')+'" deste romaneio?')) return;
   try{
     await api('DELETE','carregamento_itens',null,`?id=eq.${itemId}`);
     c.carregamento_itens=c.carregamento_itens.filter(x=>x.id!==itemId);
@@ -26729,7 +26773,7 @@ async function gerarRomaneio(){
   const nomeT=g('rom_transp'); const tr=_transpLista().find(t=>t.nome===nomeT);
   const _temAloc=v=>Object.values(v.itens||{}).some(x=>Number(x)>0);
   const vols=_romVol.map(v=>({descricao:String(v.descricao||'').trim(),qtd:1,c:_romNum(v.c),l:_romNum(v.l),a:_romNum(v.a),peso:_romNum(v.peso),itens:Object.entries(v.itens||{}).filter(([k,q])=>Number(q)>0).map(([k,q])=>({item_id:k,qtd:Number(q)}))}));
-  if(_romVol.some(_temAloc) && _romItensCar.some(it=>_romRestante(it.id)!==0) && !confirm('Há itens que ainda não foram colocados em nenhum volume (ou com quantidade diferente). Gerar o romaneio mesmo assim?')){ if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } return; }
+  if(_romVol.some(_temAloc) && _romItensCar.some(it=>_romRestante(it.id)!==0) && !await uiConfirm('Há itens que ainda não foram colocados em nenhum volume (ou com quantidade diferente). Gerar o romaneio mesmo assim?')){ if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } return; }
   const manual=g('rom_bruto');
   const _tudo=_romTodosItens.every(it=>Number(_romSel[it.id])===(Number(it.qtd)||0));
   if(!_romTodosItens.some(it=>Number(_romSel[it.id])>0)){ showToast('Selecione pelo menos um item para o romaneio','err'); if(btn){ btn.disabled=false; btn.textContent='Gerar romaneio'; } return; }
@@ -27010,7 +27054,7 @@ async function adicionarFotoItemCarregamento(input, carregamentoId, itemId){
 }
 
 async function removerFotoCarregamento(fotoId){
-  if(!confirm('Remover esta foto?')) return;
+  if(!await uiConfirm('Remover esta foto?')) return;
   try{
     await api('DELETE','carregamento_fotos',null,`?id=eq.${fotoId}`);
     for(const c of carregamentos){
@@ -27034,7 +27078,7 @@ async function avancarParaProntoEnvio(id, automatico){
 }
 
 async function finalizarCarregamento(id){
-  if(!confirm('Marcar como enviado? Isso fecha o carregamento.')) return;
+  if(!await uiConfirm('Marcar como enviado? Isso fecha o carregamento.')) return;
   try{
     const c=carregamentos.find(x=>x.id===id);
     if(!c) return;
@@ -27050,7 +27094,7 @@ async function finalizarCarregamento(id){
 }
 
 async function marcarPVEntregue(pvId){
-  if(!confirm('Marcar este Pedido de Venda como "Entregue"?')) return;
+  if(!await uiConfirm('Marcar este Pedido de Venda como "Entregue"?')) return;
   try{
     await api('PATCH','pedidos_venda',{status:'Entregue'},`?id=eq.${pvId}`);
     const pv=pedidosVenda.find(p=>p.id===pvId);
@@ -27129,7 +27173,7 @@ async function _expJaExpedidoSalvar(ids){
 async function excluirCarregamento(id){
   const _c0=carregamentos.find(x=>x.id===id); const _pv0=_c0&&pedidosVenda.find(p=>p.id===_c0.pedido_venda_id);
   const _volta=_pv0&&['Aprovado','Em Produção'].includes(_pv0.status);
-  if(!confirm(_volta?'ATENÇÃO: o Pedido de Venda ainda está '+_pv0.status+', então este carregamento VAI VOLTAR sozinho.\n\nSe o pedido já foi embora, cancele e use "Marcar como Enviado".\n\nExcluir mesmo assim?':'Excluir este carregamento? Essa ação não pode ser desfeita.')) return;
+  if(!await uiConfirm(_volta?'ATENÇÃO: o Pedido de Venda ainda está '+_pv0.status+', então este carregamento VAI VOLTAR sozinho.\n\nSe o pedido já foi embora, cancele e use "Marcar como Enviado".\n\nExcluir mesmo assim?':'Excluir este carregamento? Essa ação não pode ser desfeita.')) return;
   try{
     await api('DELETE','carregamentos',null,`?id=eq.${id}`);
     carregamentos=carregamentos.filter(c=>c.id!==id);
@@ -27455,7 +27499,7 @@ async function vincularMinimoOrfao(chaveAntiga, chaveNova){
 }
 
 async function excluirMinimoGenerico(chave){
-  if(!confirm(`Remover o mínimo de "${chave}"?`)) return;
+  if(!await uiConfirm(`Remover o mínimo de "${chave}"?`)) return;
   try{
     await api('DELETE','minimos_genericos','',`?chave=eq.${encodeURIComponent(chave)}`);
     showToast('Mínimo removido!');
@@ -27565,7 +27609,7 @@ async function _giroSalvar(i){
 async function _giroAplicarSem(){
   const alvo=_giroLista.map((x,i)=>({x,i})).filter(o=>o.x.status==='sem');
   if(!alvo.length) return;
-  if(!confirm('Definir o mínimo sugerido em '+alvo.length+' item(ns) que estão sem mínimo?\n\nOs valores que estão nas caixas serão usados.')) return;
+  if(!await uiConfirm('Definir o mínimo sugerido em '+alvo.length+' item(ns) que estão sem mínimo?\n\nOs valores que estão nas caixas serão usados.')) return;
   try{
     for(const o of alvo){ const v=Number(document.getElementById('giroIn'+o.i)?.value); if(!isNaN(v)&&v>0) await _giroGravar(o.x.chave,v); }
     showToast('Mínimos definidos!'); await loadAll(); _giroRender();
@@ -27744,7 +27788,7 @@ async function importarCPdePlanilha(input){
 
     const red=novos.length-agrupados.length;
     const msgGrupo=red>0?`\n\uD83D\uDD17 ${red} linhas agrupadas por NF (${novos.length} \u2192 ${agrupados.length} contas)`:' (sem agrupamentos por NF)';
-    if(!confirm(`Importar ${agrupados.length} contas a pagar?${msgGrupo}\n\nEx: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
+    if(!await uiConfirm(`Importar ${agrupados.length} contas a pagar?${msgGrupo}\n\nEx: ${agrupados[0].descricao} | ${agrupados[0].vencimento} | R$${agrupados[0].valor.toFixed(2)}`)) return;
 
     let ok=0,err=0;
     for(const c of agrupados){ try{ await api('POST','contas_pagar',c); ok++; }catch(e){ err++; } }
@@ -27801,7 +27845,7 @@ async function importarCRdePlanilha(input){
 
     if(!novos.length){ showToast('Nenhum lançamento válido encontrado','err'); return; }
 
-    if(!confirm(`Importar ${novos.length} contas a receber da planilha?\n\nColunas detectadas:\n- Data: coluna ${ci.data+1}\n- Descrição: coluna ${ci.desc+1}\n- Valor: coluna ${ci.valor+1}`)) return;
+    if(!await uiConfirm(`Importar ${novos.length} contas a receber da planilha?\n\nColunas detectadas:\n- Data: coluna ${ci.data+1}\n- Descrição: coluna ${ci.desc+1}\n- Valor: coluna ${ci.valor+1}`)) return;
 
     let ok=0, err=0;
     for(const c of novos){
@@ -27814,8 +27858,8 @@ async function importarCRdePlanilha(input){
 }
 // ===== FIM IMPORTAR CP/CR =====
 
-function excluirLancFC(idx){
-  if(!confirm('Excluir este lançamento do Fluxo de Caixa?')) return;
+async function excluirLancFC(idx){
+  if(!await uiConfirm('Excluir este lançamento do Fluxo de Caixa?')) return;
   if(idx<0||idx>=fcDados.length) return;
   fcDados.splice(idx,1);
   _salvarFcDados();
@@ -27826,7 +27870,7 @@ function excluirLancFC(idx){
 }
 
 async function deletarCP(id){
-  if(!confirm('Excluir esta conta a pagar?')) return;
+  if(!await uiConfirm('Excluir esta conta a pagar?')) return;
   try{
     await api('DELETE','contas_pagar','',`?id=eq.${id}`);
     showToast('🗑 Conta excluída!');
@@ -27837,7 +27881,7 @@ async function deletarCP(id){
 }
 
 async function deletarCR(id){
-  if(!confirm('Excluir esta conta?'))return;
+  if(!await uiConfirm('Excluir esta conta?'))return;
   try{
     await api('DELETE','contas_receber','',`?id=eq.${id}`);
     showToast('🗑 Conta excluída!');
@@ -27950,25 +27994,25 @@ function salvarLancamentoFC(){
   renderFluxoCaixa();
 }
 
-function excluirLancamentoFC(idx){
+async function excluirLancamentoFC(idx){
   const t = fcDados[idx];
   if(!t) return;
   const desc = (t.fornecedor||'—').substring(0,30);
   const val = fmtMoeda(Math.abs(t.valor));
-  if(!confirm('Excluir lançamento:\n"'+desc+'" — '+val+' ('+t.data+')?')) return;
+  if(!await uiConfirm('Excluir lançamento:\n"'+desc+'" — '+val+' ('+t.data+')?')) return;
   fcDados.splice(idx, 1);
   _salvarFcDados();
   showToast('Lançamento excluído!');
   renderFluxoCaixa();
 }
 
-function excluirFC_grp(id){
+async function excluirFC_grp(id){
   if(!id) return;
   if(String(id).startsWith('grp_')){
     try{
       const key=decodeURIComponent(id.substring(4));
       const [data,fornLower,nfKey]=key.split('|');
-      if(!confirm('Excluir todos os lançamentos deste grupo?')) return;
+      if(!await uiConfirm('Excluir todos os lançamentos deste grupo?')) return;
       const antes=fcDados.length;
       fcDados=fcDados.filter(x=>{
         if(!x.pendente||x.data!==data||x.fornecedor.toLowerCase()!==fornLower) return true;
@@ -27982,10 +28026,10 @@ function excluirFC_grp(id){
   }
 }
 
-function diagnosticoFC(){
+async function diagnosticoFC(){
   let dados;
   try{ dados=JSON.parse(localStorage.getItem('sl_fc_dados')||'[]'); }catch(e){ dados=[]; }
-  if(!dados.length){ alert('fcDados está VAZIO no localStorage.'); return; }
+  if(!dados.length){ await uiAlert('fcDados está VAZIO no localStorage.'); return; }
 
   // Encontra duplicatas
   const contagem={};
@@ -28018,14 +28062,14 @@ function diagnosticoFC(){
     jan1.slice(0,6).forEach(x=>msg+=`  ${x.fornecedor} | ${x.valor.toFixed(2)} | pend=${x.pendente} | fonte=${x._fonte||'omie'}\n`);
   }
 
-  alert(msg);
+  await uiAlert(msg);
   console.log('[FC DIAG] dados completos:', dados);
   console.log('[FC DIAG] duplicatas:', dupes);
 }
 
 async function limparTudoFinanceiro(){
-  if(!confirm('⚠️ ATENÇÃO — LIMPAR TUDO\n\nEsta ação vai apagar:\n• Todos os dados do Fluxo de Caixa\n• Todas as Contas a Pagar\n• Todas as Contas a Receber\n\nIsso afeta TODOS os usuários e NÃO pode ser desfeito.\n\nTem certeza?')) return;
-  if(!confirm('Segunda confirmação: APAGAR TODOS OS DADOS FINANCEIROS?')) return;
+  if(!await uiConfirm('⚠️ ATENÇÃO — LIMPAR TUDO\n\nEsta ação vai apagar:\n• Todos os dados do Fluxo de Caixa\n• Todas as Contas a Pagar\n• Todas as Contas a Receber\n\nIsso afeta TODOS os usuários e NÃO pode ser desfeito.\n\nTem certeza?')) return;
+  if(!await uiConfirm('Segunda confirmação: APAGAR TODOS OS DADOS FINANCEIROS?')) return;
 
   showToast('⏳ Apagando tudo...');
 
@@ -28121,8 +28165,8 @@ function gerenciarLancamentosFC(){
   window.gerenciarLancamentosFC_render=renderLista;
 }
 
-function _excluirFCModal(idx, modalId){
-  if(!confirm('Excluir este lançamento?')) return;
+async function _excluirFCModal(idx, modalId){
+  if(!await uiConfirm('Excluir este lançamento?')) return;
   fcDados.splice(idx,1);
   _salvarFcDados();
   showToast('🗑 Removido!');
@@ -28302,7 +28346,7 @@ function sincronizarCPparaFC(){
 }
 
 async function limparDadosFC(){
-  if(!confirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para TODOS os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
+  if(!await uiConfirm('⚠️ Apagar TODOS os dados do Fluxo de Caixa?\n\nIsso remove todos os lançamentos para TODOS os usuários.\nEsta ação NÃO pode ser desfeita.')) return;
 
   // 1. Zera memória
   fcDados=[];
@@ -28791,7 +28835,7 @@ function fcPreviaMarcarTodos(marcar){
   });
 }
 
-function confirmarImportacaoFC(){
+async function confirmarImportacaoFC(){
   const novos = window._fcPreviaNovos||[];
   const selecionados = novos.filter((_,i)=>{
     const chk=document.getElementById('prev_chk_'+i);
@@ -28835,7 +28879,7 @@ function confirmarImportacaoFC(){
     const qtdNeg=reaisNovos.filter(t=>t.valor<0).length;
     const totalPos=reaisNovos.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0);
     const totalNeg=reaisNovos.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
-    const prosseguir = confirm(
+    const prosseguir = await uiConfirm(
       '⚠️ ATENÇÃO — Mistura de Entradas e Saídas detectada!\n\n'+
       '📗 Entradas (positivos): '+qtdPos+' lançamentos = +'+totalPos.toLocaleString('pt-BR',{minimumFractionDigits:2})+'\n'+
       '📕 Saídas (negativos): '+qtdNeg+' lançamentos = -'+totalNeg.toLocaleString('pt-BR',{minimumFractionDigits:2})+'\n\n'+
@@ -29025,7 +29069,7 @@ async function migrarParaRealizado(id, tipo){
     const gi=parseInt(id.substring(3));
     const g=(window._fcGrupos||[])[gi];
     if(!g){ showToast('Grupo não encontrado — abra o fluxo novamente','err'); return; }
-    if(!confirm('Marcar como '+(tipo==='pagar'?'Pago ✅':'Recebido ✅')+'?')) return;
+    if(!await uiConfirm('Marcar como '+(tipo==='pagar'?'Pago ✅':'Recebido ✅')+'?')) return;
     let count=0;
     fcDados.forEach((x,i)=>{
       if(!x.pendente||x.data!==g.data||x.fornecedor.toLowerCase()!==g.forn) return;
@@ -29047,7 +29091,7 @@ async function migrarParaRealizado(id, tipo){
     return;
   }
   // Rows do Supabase (sistema)
-  if(!confirm('Marcar como '+(tipo==='pagar'?'Pago ✅':'Recebido ✅')+'?')) return;
+  if(!await uiConfirm('Marcar como '+(tipo==='pagar'?'Pago ✅':'Recebido ✅')+'?')) return;
   try{
     const tabela=tipo==='pagar'?'contas_pagar':'contas_receber';
     const dtCampo=tipo==='pagar'?'dt_pagamento':'dt_recebimento';
@@ -29059,7 +29103,7 @@ async function migrarParaRealizado(id, tipo){
   }catch(e){ showToast('Erro: '+e.message,'err'); }
 }
 
-function desfazerRealizadoFC(data, fornParcial, tipo){
+async function desfazerRealizadoFC(data, fornParcial, tipo){
   const fornLower = fornParcial.toLowerCase();
   // Encontra todos os itens realizados que correspondem
   const candidatos = fcDados.reduce((arr,x,i)=>{
@@ -29071,7 +29115,7 @@ function desfazerRealizadoFC(data, fornParcial, tipo){
   },[]);
 
   if(!candidatos.length){ showToast('Lançamento não encontrado','err'); return; }
-  if(!confirm('Voltar '+candidatos.length+' lançamento(s) de "'+fornParcial+'" para '+tipo+'?')) return;
+  if(!await uiConfirm('Voltar '+candidatos.length+' lançamento(s) de "'+fornParcial+'" para '+tipo+'?')) return;
 
   const hoje = new Date().toISOString().split('T')[0];
   candidatos.forEach(i=>{
@@ -29086,7 +29130,7 @@ function desfazerRealizadoFC(data, fornParcial, tipo){
   renderFluxoCaixa();
 }
 
-function excluirRealizadoFC(data, fornParcial){
+async function excluirRealizadoFC(data, fornParcial){
   // Remove TODOS os lançamentos realizados deste fornecedor nesta data
   const candidatos = fcDados.reduce((arr,x,i)=>{
     if(x.pendente) return arr;
@@ -29096,7 +29140,7 @@ function excluirRealizadoFC(data, fornParcial){
     return arr;
   },[]);
   if(!candidatos.length){ showToast('Lançamento não encontrado','err'); return; }
-  if(!confirm('Excluir '+candidatos.length+' lançamento(s) de "'+fornParcial+'" em '+data+'?')) return;
+  if(!await uiConfirm('Excluir '+candidatos.length+' lançamento(s) de "'+fornParcial+'" em '+data+'?')) return;
   // Remove de trás para frente para não deslocar índices
   [...candidatos].reverse().forEach(i=>fcDados.splice(i,1));
   _salvarFcDados();
@@ -29104,8 +29148,8 @@ function excluirRealizadoFC(data, fornParcial){
   renderFluxoCaixa();
 }
 
-function desfazerPagamentoFC(idx){
-  if(!confirm('Desfazer pagamento e mover de volta para A Pagar/Receber?')) return;
+async function desfazerPagamentoFC(idx){
+  if(!await uiConfirm('Desfazer pagamento e mover de volta para A Pagar/Receber?')) return;
   if(fcDados[idx]){
     fcDados[idx].pendente=true;
     delete fcDados[idx]._pagoEm;
@@ -29329,7 +29373,7 @@ async function _enviarPendentesParaCpCr(pendentes){
 async function sincronizarFcParaCpCr(){
   // Se estiver travado, oferece desbloqueio
   if(_sincronizandoFC){
-    if(confirm('⚠️ A sincronização anterior pode ter travado.\n\nClicar OK vai forçar o desbloqueio e abrir o modal novamente.')){
+    if(await uiConfirm('⚠️ A sincronização anterior pode ter travado.\n\nClicar OK vai forçar o desbloqueio e abrir o modal novamente.')){
       _forcarDesbloqueioSinc();
     }
     return;
@@ -29487,14 +29531,14 @@ function _salvarSnapshotImportacao(quantidadeImportada, descricao){
   }catch(e){ console.warn('[FC] Snapshot falhou:', e); }
 }
 
-function desfazerUltimaImportacaoFC(){
+async function desfazerUltimaImportacaoFC(){
   const raw=localStorage.getItem('sl_fc_snapshot');
   if(!raw){ showToast('Nenhuma importação para desfazer','err'); return; }
   try{
     const snap=JSON.parse(raw);
     const tsStr=new Date(snap.ts).toLocaleString('pt-BR');
     const msg=`Desfazer a importação de ${snap.qtd} lançamentos\n"${snap.desc}"\nfeita em ${tsStr}?\n\nOs dados voltarão ao estado anterior.`;
-    if(!confirm(msg)) return;
+    if(!await uiConfirm(msg)) return;
     // Restaura estado anterior
     fcDados = snap.dados;
     localStorage.setItem('sl_fc_dados', JSON.stringify(snap.dados));
@@ -30052,7 +30096,7 @@ async function salvarCC(){
 }
 
 async function deletarCC(id){
-  if(!confirm('Excluir esta conta?'))return;
+  if(!await uiConfirm('Excluir esta conta?'))return;
   try{await api('DELETE','contas_corrente','',`?id=eq.${id}`);showToast('Removido!');await loadAll();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -30205,7 +30249,7 @@ async function recuperarEntradasDoEstoque(){
 
     // Confirma com o usuário
     const lista = novas.map(g=>`  • NF ${g.nota_fiscal} — ${g.fornecedor||'?'} (${g.itens.length} item(s))`).join('\n');
-    if(!confirm(`Foram encontradas ${novas.length} nota(s) nas movimentações que não aparecem na lista:\n\n${lista}\n\nDeseja adicioná-las à lista de Entrada NF-e?`)) return;
+    if(!await uiConfirm(`Foram encontradas ${novas.length} nota(s) nas movimentações que não aparecem na lista:\n\n${lista}\n\nDeseja adicioná-las à lista de Entrada NF-e?`)) return;
 
     let criadas = 0;
     for(const g of novas){
@@ -30557,7 +30601,7 @@ async function _processarEntradaNFe(nfeId, n){
 
 // ── Delete ───────────────────────────────────────────────────────────────
 async function deletarNFe(id){
-  if(!confirm('Excluir esta NF-e?')) return;
+  if(!await uiConfirm('Excluir esta NF-e?')) return;
   try{await api('DELETE','entradas_nfe','',`?id=eq.${id}`);showToast('NF-e removida!');await loadAll();}
   catch(e){showToast('Não foi possível concluir a operação. Tente novamente.','err');}
 }
@@ -30671,7 +30715,7 @@ function imprimirDetalheNFe(){
 async function gerarCPParaNFe(nfeId){
   const n=entradasNFe.find(x=>x.id===nfeId);
   if(!n){showToast('NF-e não encontrada','err');return;}
-  const venc=n.vencimento||prompt('Informe a data de vencimento (AAAA-MM-DD):');
+  const venc=n.vencimento||await uiPrompt('Informe a data de vencimento (AAAA-MM-DD):');
   if(!venc){showToast('Vencimento obrigatório','err');return;}
   try{
     await api('POST','contas_pagar',{
@@ -30763,8 +30807,8 @@ function abrirOpcoesNFe(){
     <div style="padding:18px 20px">
       <p style="margin:0 0 14px;color:#546e7a;font-size:13px">Use estas opções somente quando precisar consultar ou configurar a integração.</p>
       <button id="btnBuscarNovasNfe" onclick="buscarNFeSEFAZ();document.getElementById('modalOpcoesNFe')?.remove()" style="width:100%;padding:11px;margin-bottom:9px;border:0;border-radius:8px;background:#1565c0;color:#fff;font-weight:700;cursor:pointer">🔍 Buscar notas novas</button>
-      <button onclick="if(confirm('Buscar o histórico pode importar várias notas antigas. Deseja continuar?')){document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe()}" style="width:100%;padding:11px;margin-bottom:9px;border:1px solid #ef6c00;border-radius:8px;background:#fff3e0;color:#e65100;font-weight:700;cursor:pointer">📥 Buscar histórico</button>
-      <button onclick="if(confirm('Isso reinicia o ponto de checagem (NSU) e busca TODO o histórico de novo desde o início, mesmo o que já foi trazido antes. Use só se apagou notas e quer trazer tudo de novo. Continuar?')){reiniciarNsuNFe();document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe(true)}" style="width:100%;padding:10px;margin-bottom:9px;border:1px solid #c62828;border-radius:8px;background:#ffebee;color:#c62828;font-weight:700;cursor:pointer" title="Use depois de apagar notas manualmente, pra elas voltarem a aparecer na próxima busca">♻️ Reiniciar histórico do zero</button>
+      <button onclick="uiConfirm('Buscar o histórico pode importar várias notas antigas. Deseja continuar?').then(ok=>{if(ok){document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe()}})" style="width:100%;padding:11px;margin-bottom:9px;border:1px solid #ef6c00;border-radius:8px;background:#fff3e0;color:#e65100;font-weight:700;cursor:pointer">📥 Buscar histórico</button>
+      <button onclick="uiConfirm('Reiniciar a busca de notas?\nIsso reinicia o ponto de checagem (NSU) e busca TODO o histórico de novo desde o início, mesmo o que já foi trazido antes. Use só se apagou notas e quer trazer tudo de novo.').then(ok=>{if(ok){reiniciarNsuNFe();document.getElementById('modalOpcoesNFe')?.remove();buscarTodasNFe(true)}})" style="width:100%;padding:10px;margin-bottom:9px;border:1px solid #c62828;border-radius:8px;background:#ffebee;color:#c62828;font-weight:700;cursor:pointer" title="Use depois de apagar notas manualmente, pra elas voltarem a aparecer na próxima busca">♻️ Reiniciar histórico do zero</button>
       <button onclick="document.getElementById('modalOpcoesNFe')?.remove();abrirModalNFeConfig()" style="width:100%;padding:10px;border:1px solid #cfd8dc;border-radius:8px;background:#fff;color:#37474f;font-weight:700;cursor:pointer">⚙️ Configurar conexão</button>
     </div>
   </div>`;
@@ -30908,7 +30952,7 @@ async function diagnosticoNFeSEFAZ(){
 }
 
 async function buscarPorChaveNFe(){
-  const chave = document.getElementById('nfeChaveInput')?.value.trim() || prompt('Cole a chave de acesso da NF-e (44 dígitos):','');
+  const chave = document.getElementById('nfeChaveInput')?.value.trim() || await uiPrompt('Cole a chave de acesso da NF-e (44 dígitos):','');
   if(!chave) return;
   const chaveLimpa = chave.replace(/\D/g,'');
   if(chaveLimpa.length!==44){ showToast('Chave inválida — deve ter 44 dígitos','err'); return; }
@@ -32085,9 +32129,9 @@ function salvarConfigNFe(){
       */
 
       // Função de arquivo
-      window.handleArquivoCotacao=function(file){
+      window.handleArquivoCotacao=async function(file){
         if(!file) return;
-        if(file.size>5*1024*1024){ alert('Arquivo muito grande. Máximo 5MB.'); return; }
+        if(file.size>5*1024*1024){ await uiAlert('Arquivo muito grande. Máximo 5MB.'); return; }
         const reader=new FileReader();
         reader.onload=function(e){
           window._arquivoCotacaoB64=e.target.result;
