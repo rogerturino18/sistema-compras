@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 464';
+const APP_BUILD='2026-11-23 · build 465';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -6200,7 +6200,8 @@ function _renderDashGraficoEstoqueMin(){
       </div>`;
     }).join('');
   }
-  el.innerHTML=chips+corpo+`<div style="text-align:center;margin-top:4px"><button class="btn btn-sm primary" onclick="abrirAlertaMinimo()">Ver lista completa (${grupos.length})</button></div>`;
+  const filtrado=_dashMinFiltro!==null;
+  el.innerHTML=chips+corpo+`<div style="text-align:center;margin-top:4px"><button class="btn btn-sm primary" onclick="abrirAlertaMinimo(${filtrado?JSON.stringify(_dashMinFiltro).replace(/"/g,'&quot;'):''})">${filtrado?`Ver em lista (${porVend[_dashMinFiltro].length})`:`Ver lista completa (${grupos.length})`}</button></div>`;
 }
 
 // Compras por mês (últimos 6 meses), barras verticais.
@@ -27215,8 +27216,9 @@ function atualizarBadgeMinimo(){
   btn.style.color = n>0 ? '#c62828' : '';
 }
 
-function abrirAlertaMinimo(){
-  const lista=itensAbaixoMinimoGenerico();
+function abrirAlertaMinimo(vendedor){
+  let lista=itensAbaixoMinimoGenerico();
+  if(vendedor!==undefined) lista=lista.filter(l=>(l.vendedor||'')===vendedor);
   const el=document.getElementById('listaAlertaMinimo');
   if(!lista.length){ el.innerHTML='<div style="text-align:center;padding:30px;color:#66bb6a">✅ Nenhuma especificação abaixo do mínimo.</div>'; }
   else{
