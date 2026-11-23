@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 463';
+const APP_BUILD='2026-11-23 · build 464';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -6137,22 +6137,24 @@ function renderAll(){
 // (mínimo − saldo) primeiro, pra mostrar os casos mais urgentes no topo.
 // Usa o mesmo mínimo generalizado por especificação usado no Telegram — já
 // vem agrupado (marcas somadas), não precisa juntar de novo aqui.
-function _renderDashGraficoEstoqueMin(){
-  const el=document.getElementById('dashGraficoEstoqueMin');
-  if(!el) return;
-  if(typeof itensAbaixoMinimoGenerico!=='function'){ el.innerHTML='<div class="empty">Módulo Estoque não disponível</div>'; return; }
-  const grupos=itensAbaixoMinimoGenerico();
-  if(!grupos.length){ el.innerHTML='<div class="empty">Nenhuma especificação abaixo do mínimo ✅</div>'; return; }
-  const comDeficit=grupos.map(g=>({nome:g.nome,saldo:g.saldo,min:g.min,deficit:g.min-g.saldo}))
-    .sort((a,b)=>b.deficit-a.deficit).slice(0,8);
+// Ordem fixa dos vendedores nos agrupamentos (os demais vêm depois, em ordem alfabética;
+// "Sem vendedor" sempre por último).
+const VENDEDORES_MINIMO=['Heitor','Equipe Fer','RB Abrasivos'];
+function _vendOrdem(a,b){
+  const ia=VENDEDORES_MINIMO.indexOf(a), ib=VENDEDORES_MINIMO.indexOf(b);
+  if(!a&&b) return 1; if(a&&!b) return -1;
+  if(ia>=0&&ib>=0) return ia-ib; if(ia>=0) return -1; if(ib>=0) return 1;
+  return String(a).localeCompare(String(b),'pt-BR');
+}
+let _dashMinFiltro=null; // null = todos; senão nome do vendedor ('' = sem vendedor)
+function dashMinFiltrar(v){ _dashMinFiltro=(v===undefined||v==='__todos')?null:v; _renderDashGraficoEstoqueMin(); }
+function _dashCirculoMin(x){
   const CIRC=2*Math.PI*32;
-  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:10px">
-    ${comDeficit.map(x=>{
-      const pct=x.min>0?Math.max(0,Math.min(100,Math.round(x.saldo/x.min*100))):0;
-      // Quanto mais perto de 0%, mais grave a falta — vermelho; perto do mínimo, amarelo.
-      const cor = pct>=70?'#f9a825':pct>=40?'#ef6c00':'#c62828';
-      const offset=(CIRC*(1-pct/100)).toFixed(1);
-      return `<div onclick="irParaEstoqueItem(decodeURIComponent('${encodeURIComponent(x.nome)}'))" title="Clique para ver no Estoque" style="cursor:pointer;text-align:center;background:#fff;border-radius:10px;padding:10px 6px 8px;border:1px solid #edf1ef;transition:box-shadow .15s,border-color .15s" onmouseover="this.style.boxShadow='0 2px 10px rgba(0,0,0,.12)';this.style.borderColor='#a5d6a7'" onmouseout="this.style.boxShadow='';this.style.borderColor='#edf1ef'">
+  const pct=x.min>0?Math.max(0,Math.min(100,Math.round(x.saldo/x.min*100))):0;
+  // Quanto mais perto de 0%, mais grave a falta — vermelho; perto do mínimo, amarelo.
+  const cor = pct>=70?'#f9a825':pct>=40?'#ef6c00':'#c62828';
+  const offset=(CIRC*(1-pct/100)).toFixed(1);
+  return `<div onclick="irParaEstoqueItem(decodeURIComponent('${encodeURIComponent(x.nome)}'))" title="Clique para ver no Estoque" style="cursor:pointer;text-align:center;background:#fff;border-radius:10px;padding:10px 6px 8px;border:1px solid #edf1ef;transition:box-shadow .15s,border-color .15s" onmouseover="this.style.boxShadow='0 2px 10px rgba(0,0,0,.12)';this.style.borderColor='#a5d6a7'" onmouseout="this.style.boxShadow='';this.style.borderColor='#edf1ef'">
         <svg width="76" height="76" viewBox="0 0 76 76">
           <circle cx="38" cy="38" r="32" fill="none" stroke="#eceff1" stroke-width="7"/>
           <circle cx="38" cy="38" r="32" fill="none" stroke="${cor}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset}" transform="rotate(-90 38 38)"/>
@@ -6161,10 +6163,44 @@ function _renderDashGraficoEstoqueMin(){
         </svg>
         <div style="font-size:10px;color:#546e7a;margin-top:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${x.nome.replace(/"/g,'&quot;')}">${x.nome}</div>
       </div>`;
-    }).join('')}
-  </div>
-  <div style="text-align:center;font-size:11px;color:var(--gray);margin-top:10px">${grupos.length>comDeficit.length?`Mostrando as ${comDeficit.length} maiores faltas de ${grupos.length} especificações abaixo do mínimo`:`${grupos.length} especificação(ões) abaixo do mínimo`}</div>
-  ${grupos.length>comDeficit.length?`<div style="text-align:center;margin-top:8px"><button class="btn btn-sm primary" onclick="abrirAlertaMinimo()">Ver todos os ${grupos.length} itens</button></div>`:''}`;
+}
+// Estoque abaixo do mínimo, separado por vendedor (Heitor, Equipe Fer, RB Abrasivos...).
+// Cada círculo = quanto do mínimo já está coberto pelo saldo. Dentro de cada vendedor,
+// o maior déficit (mínimo − saldo) vem primeiro. O vendedor de cada item se define
+// em Estoque → Gerenciar mínimos.
+function _renderDashGraficoEstoqueMin(){
+  const el=document.getElementById('dashGraficoEstoqueMin');
+  if(!el) return;
+  if(typeof itensAbaixoMinimoGenerico!=='function'){ el.innerHTML='<div class="empty">Módulo Estoque não disponível</div>'; return; }
+  const grupos=itensAbaixoMinimoGenerico();
+  if(!grupos.length){ el.innerHTML='<div class="empty">Nenhuma especificação abaixo do mínimo ✅</div>'; return; }
+  const porVend={};
+  grupos.forEach(g=>{ const v=g.vendedor||''; (porVend[v]=porVend[v]||[]).push({nome:g.nome,saldo:g.saldo,min:g.min,deficit:g.min-g.saldo}); });
+  const vends=Object.keys(porVend).sort(_vendOrdem);
+  if(_dashMinFiltro!==null && !porVend[_dashMinFiltro]) _dashMinFiltro=null;
+  vends.forEach(v=>porVend[v].sort((a,b)=>b.deficit-a.deficit));
+  const rot=v=>v||'Sem vendedor';
+  const chip=(v,txt,n)=>{ const on=(_dashMinFiltro===v)||(v==='__todos'&&_dashMinFiltro===null);
+    return `<button onclick="dashMinFiltrar(${v==='__todos'?"'__todos'":JSON.stringify(v).replace(/"/g,'&quot;')})" style="border:1px solid ${on?'var(--green)':'#dfe5e1'};background:${on?'var(--green)':'#fff'};color:${on?'#fff':'#546e7a'};border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:600;cursor:pointer">${txt} <span style="opacity:.85">${n}</span></button>`; };
+  const chips=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${chip('__todos','Todos',grupos.length)}${vends.map(v=>chip(v,rot(v),porVend[v].length)).join('')}</div>`;
+  const grade=l=>`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:10px">${l.map(_dashCirculoMin).join('')}</div>`;
+  let corpo;
+  if(_dashMinFiltro!==null){
+    corpo=grade(porVend[_dashMinFiltro]);
+  } else {
+    corpo=vends.map(v=>{
+      const l=porVend[v], mostra=l.slice(0,3), resto=l.length-mostra.length;
+      return `<div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;padding-bottom:5px;border-bottom:2px solid #e6efe8">
+          <span style="font-size:13px;font-weight:700;color:var(--green-dark)">${rot(v)}</span>
+          <span style="font-size:11px;color:var(--gray)">${l.length} abaixo do mínimo</span>
+        </div>
+        ${grade(mostra)}
+        ${resto>0?`<div style="text-align:right;margin-top:6px"><a href="javascript:void(0)" onclick="dashMinFiltrar(${JSON.stringify(v).replace(/"/g,'&quot;')})" style="font-size:11.5px;font-weight:600;color:#1565c0">+ ${resto} item(ns) de ${rot(v)} →</a></div>`:''}
+      </div>`;
+    }).join('');
+  }
+  el.innerHTML=chips+corpo+`<div style="text-align:center;margin-top:4px"><button class="btn btn-sm primary" onclick="abrirAlertaMinimo()">Ver lista completa (${grupos.length})</button></div>`;
 }
 
 // Compras por mês (últimos 6 meses), barras verticais.
@@ -27166,7 +27202,7 @@ function itensAbaixoMinimoGenerico(){
     .filter(m=>Number(m.minimo)>0)
     .map(m=>{
       const g = grupos[m.chave];
-      return {nome:m.chave, saldo:g?g.saldo:0, min:Number(m.minimo), un:g?.un||''};
+      return {nome:m.chave, saldo:g?g.saldo:0, min:Number(m.minimo), un:g?.un||'', vendedor:(m.vendedor||'').trim()};
     })
     .filter(g=>g.saldo<g.min);
 }
@@ -27186,11 +27222,11 @@ function abrirAlertaMinimo(){
   else{
     el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:#f5f7f5"><th style="text-align:left;padding:6px 10px">Especificação</th><th style="text-align:right;padding:6px 10px">Saldo (todas as marcas)</th><th style="text-align:right;padding:6px 10px">Mínimo</th></tr></thead>
-      <tbody>${lista.map(l=>`<tr onclick="irParaEstoqueItem(decodeURIComponent('${encodeURIComponent(l.nome)}'))" title="Clique para ver no Estoque" style="cursor:pointer;border-bottom:1px solid #f0f0f0;background:#fff5f5">
+      <tbody>${(()=>{ const porV={}; lista.forEach(l=>{ (porV[l.vendedor||'']=porV[l.vendedor||'']||[]).push(l); }); return Object.keys(porV).sort(_vendOrdem).map(v=>`<tr><td colspan="3" style="background:#e8f0ea;padding:7px 10px;font-weight:700;color:var(--green-dark);font-size:12px">${v||'Sem vendedor'} · ${porV[v].length}</td></tr>`+porV[v].map(l=>`<tr onclick="irParaEstoqueItem(decodeURIComponent('${encodeURIComponent(l.nome)}'))" title="Clique para ver no Estoque" style="cursor:pointer;border-bottom:1px solid #f0f0f0;background:#fff5f5">
         <td style="padding:6px 10px;font-weight:600">${l.nome.replace(/</g,'&lt;')}</td>
         <td style="padding:6px 10px;text-align:right;font-weight:700;color:#c62828">${l.saldo} ${l.un||''}</td>
         <td style="padding:6px 10px;text-align:right;color:#546e7a">${l.min}</td>
-      </tr>`).join('')}</tbody></table>
+      </tr>`).join('')).join(''); })()}</tbody></table>
       <div style="margin-top:10px;text-align:right"><button class="btn btn-sm" onclick="fecharModal('modalAlertaMinimo');abrirGerenciarMinimos()">🎯 Gerenciar mínimos</button></div>`;
   }
   abrirModal('modalAlertaMinimo');
@@ -27250,7 +27286,8 @@ function abrirGerenciarMinimos(){
   const semMinimoAinda = Object.keys(grupos).filter(c=>!(minimosGenericos||[]).some(m=>m.chave===c)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(!chaves.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--gray)">Nenhuma especificação encontrada</div>'; }
   else{
-    el.innerHTML = chaves.map(chave=>{
+    const _vs=[...new Set([...VENDEDORES_MINIMO,...(minimosGenericos||[]).map(m=>(m.vendedor||'').trim()).filter(Boolean)])];
+    el.innerHTML = `<datalist id="dlVendedoresMin">${_vs.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">`).join('')}</datalist>` + chaves.map(chave=>{
       const g = grupos[chave];
       const m = (minimosGenericos||[]).find(x=>x.chave===chave);
       const minimoAtual = m?Number(m.minimo):0;
@@ -27265,6 +27302,7 @@ function abrirGerenciarMinimos(){
           ${semMinimoAinda.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('')}
         </select>
         <button class="btn btn-sm primary" onclick="vincularMinimoOrfao('${chaveEsc}',document.getElementById('vincSel_${idSeguro}').value)">Religar</button>`:''}
+        ${m?`<input list="dlVendedoresMin" value="${(m.vendedor||'').replace(/"/g,'&quot;')}" placeholder="Vendedor" title="Vendedor deste item (agrupa o gráfico do Dashboard)" style="width:120px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px" onchange="salvarVendedorMinimo('${chaveEsc}',this.value)">`:''}
         <input type="number" min="0" value="${minimoAtual||''}" placeholder="0" id="minG_${idSeguro}" style="width:75px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px" onkeydown="if(event.key==='Enter')salvarMinimoGenerico('${chaveEsc}',this.value)">
         <button class="btn btn-sm primary" onclick="salvarMinimoGenerico('${chaveEsc}',document.getElementById('minG_${idSeguro}').value)">Salvar</button>
         ${m?`<button class="btn btn-sm danger" onclick="excluirMinimoGenerico('${chaveEsc}')" title="Remove o mínimo dessa especificação">🗑</button>`:''}
@@ -27362,6 +27400,16 @@ async function excluirMinimoGenerico(chave){
     await loadAll();
     abrirGerenciarMinimos();
   }catch(e){ showToast('Erro ao remover mínimo','err'); }
+}
+
+async function salvarVendedorMinimo(chave, valor){
+  const v=String(valor||'').trim();
+  try{
+    await api('PATCH','minimos_genericos',{vendedor:v||null},`?chave=eq.${encodeURIComponent(chave)}`);
+    const m=(minimosGenericos||[]).find(x=>x.chave===chave); if(m) m.vendedor=v||null;
+    showToast(v?'Vendedor: '+v:'Vendedor removido');
+    try{ _renderDashGraficoEstoqueMin(); }catch(e){}
+  }catch(e){ showToast('Erro ao salvar vendedor','err'); }
 }
 
 async function salvarMinimoGenerico(chave, valor){
