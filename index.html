@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 462';
+const APP_BUILD='2026-11-23 · build 463';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9385,6 +9385,9 @@ function rotuloPDV(pdv, comCliente){
   return (comCliente && pdv.cliente) ? `${base} — ${pdv.cliente}` : base;
 }
 
+// Número do PDV para ordenar: no cadastro há números "103" e também "PDV 69".
+// Pega só os dígitos, então todos entram na mesma ordem numérica.
+function _pdvNumOrd(p){ return parseInt(String(p&&p.numero!=null?p.numero:'').replace(/\D/g,''))||0; }
 function renderOrdens(){
   const b=(document.getElementById('buscaOrdem')?.value||'').toLowerCase();
   const filtroPDV=document.getElementById('filtroOrdemPDV')?.value||'';
@@ -9519,7 +9522,7 @@ function renderOrdens(){
   // Ordena os blocos de PDV numericamente pelo número do PDV (68, 70, 75...)
   const gruposOrdenados = Object.entries(porPdv).sort(([idA],[idB])=>{
     const pdvA = pdvs.find(p=>p.id===idA), pdvB = pdvs.find(p=>p.id===idB);
-    const numA = parseFloat(pdvA?.numero) || 0, numB = parseFloat(pdvB?.numero) || 0;
+    const numA = _pdvNumOrd(pdvA), numB = _pdvNumOrd(pdvB);
     if(numA !== numB) return numA - numB;
     return (pdvA?.numero||'').localeCompare(pdvB?.numero||'', 'pt-BR', {numeric:true});
   });
@@ -9794,7 +9797,7 @@ function renderOrdens(){
     if(!pdvA&&!pdvB) return 0;
     if(!pdvA) return 1;  // "Sem PDV" sempre por último
     if(!pdvB) return -1;
-    return String(pdvA.numero||'').localeCompare(String(pdvB.numero||''),'pt-BR',{numeric:true,sensitivity:'base'});
+    return (_pdvNumOrd(pdvA)-_pdvNumOrd(pdvB)) || String(pdvA.numero||'').localeCompare(String(pdvB.numero||''),'pt-BR',{numeric:true,sensitivity:'base'});
   });
 
   div.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
@@ -14916,7 +14919,7 @@ function abrirEstMovRapido(itemId, tipo){
   const pdvSel = document.getElementById('estMovPdvSel');
   if(pdvSel){
     pdvSel.innerHTML='<option value="">— Selecione o PDV —</option>';
-    [...pdvs].sort((a,b)=>(b.numero||0)-(a.numero||0)).forEach(p=>{
+    [...pdvs].sort((a,b)=>_pdvNumOrd(b)-_pdvNumOrd(a)).forEach(p=>{
       const o=document.createElement('option');
       o.value=p.id;
       o.textContent=`${rotuloPDV(p)}${p.cliente?' — '+p.cliente.substring(0,30):''}`;
@@ -17784,7 +17787,7 @@ function abrirModalPV(id){
     const fixos=['INDUSTRIA','ADMINISTRATIVO','COMERCIAL','MANUTENCAO','EXPEDICAO'];
     let html='<option value="">Selecionar...</option>';
     // PDVs cadastrados no sistema
-    const pdvsOrd=(pdvs||[]).slice().sort((a,b)=>(parseInt(a.numero)||0)-(parseInt(b.numero)||0));
+    const pdvsOrd=(pdvs||[]).slice().sort((a,b)=>_pdvNumOrd(a)-_pdvNumOrd(b));
     if(pdvsOrd.length){
       html+='<optgroup label="PDVs cadastrados">';
       pdvsOrd.forEach(pd=>{ const nome=rotuloPDV(pd,true); html+=`<option value="${nome.replace(/"/g,'&quot;')}">${nome}</option>`; });
@@ -19585,7 +19588,7 @@ function abrirModalReq(id){
     if(optGroup){
       optGroup.innerHTML='';
       // Usa array pdvs (projetos cadastrados), ordenados do mais recente para o mais antigo
-      const pdvsOrdenados=[...pdvs].sort((a,b)=>(b.numero||0)-(a.numero||0));
+      const pdvsOrdenados=[...pdvs].sort((a,b)=>_pdvNumOrd(b)-_pdvNumOrd(a));
       pdvsOrdenados.forEach(p=>{
         const o=document.createElement('option');
         o.value='pdv:'+p.id;
@@ -25220,7 +25223,7 @@ function fundidosPopularFiltros(){
   const selP=document.getElementById('filtroFundidoPdv');
   if(selP){
     const atual=selP.value;
-    selP.innerHTML='<option value="">Todos os PDVs</option>'+[...pdvs].sort((a,b)=>(b.numero||0)-(a.numero||0)).map(p=>`<option value="${p.id}">${rotuloPDV(p,true)}</option>`).join('');
+    selP.innerHTML='<option value="">Todos os PDVs</option>'+[...pdvs].sort((a,b)=>_pdvNumOrd(b)-_pdvNumOrd(a)).map(p=>`<option value="${p.id}">${rotuloPDV(p,true)}</option>`).join('');
     selP.value=atual;
   }
 }
@@ -25352,7 +25355,7 @@ function fundidoAbrirModal(id){
 
   fundidosPopularFiltros();
   const selPdv=document.getElementById('fund_pdv_sel');
-  selPdv.innerHTML='<option value="">— Nenhum —</option>'+[...pdvs].sort((a,b)=>(b.numero||0)-(a.numero||0)).map(x=>`<option value="${x.id}">${rotuloPDV(x,true)}</option>`).join('');
+  selPdv.innerHTML='<option value="">— Nenhum —</option>'+[...pdvs].sort((a,b)=>_pdvNumOrd(b)-_pdvNumOrd(a)).map(x=>`<option value="${x.id}">${rotuloPDV(x,true)}</option>`).join('');
   selPdv.value=p?.pdv_id||'';
 
   _fundFotoBase64=p?.foto||null;
@@ -26211,7 +26214,7 @@ function abrirVincularNFe(nfeId){
   // PDV: o da NF, senão o que mais casa com os itens
   let pdvId=n.pdv_id||''; if(!pdvId){ const cont={}; itens.forEach(it=>{ pdvs.forEach(p=>{ if(_nfeOrdemSugeridaNum(it.descricao,ativas.filter(o=>o.pdv_id===p.id))) cont[p.id]=(cont[p.id]||0)+1; }); }); pdvId=Object.keys(cont).sort((a,b)=>cont[b]-cont[a])[0]||''; }
   window._vincNfe={n,itens};
-  const pdvOpts='<option value="">— escolha o PDV —</option>'+pdvs.slice().sort((a,b)=>(Number(b.numero)||0)-(Number(a.numero)||0)).map(p=>'<option value="'+p.id+'"'+(p.id===pdvId?' selected':'')+'>PDV '+_stEsc(p.numero)+(p.cliente?' — '+_stEsc(p.cliente):'')+'</option>').join('');
+  const pdvOpts='<option value="">— escolha o PDV —</option>'+pdvs.slice().sort((a,b)=>_pdvNumOrd(b)-_pdvNumOrd(a)).map(p=>'<option value="'+p.id+'"'+(p.id===pdvId?' selected':'')+'>PDV '+_stEsc(p.numero)+(p.cliente?' — '+_stEsc(p.cliente):'')+'</option>').join('');
   _modalDin('modalVincularNFe',{titulo:'<h3 style="margin:0;font-size:16px">🔗 Vincular NF '+_stEsc(n.numero_nfe)+' às ordens de produção</h3>',corpo:
     '<div style="font-size:12.5px;color:#546e7a;margin-bottom:8px">'+_stEsc(n.fornecedor||'')+' · '+_oBRL(n.valor_total)+'. Para cada item da nota, escolha a ordem. Se a nota não cobre toda a quantidade da ordem, diga de onde vem o resto.</div>'+
     '<div class="form-group" style="max-width:420px"><label>PDV</label><select id="vn_pdv" onchange="_vincRender()">'+pdvOpts+'</select></div><div id="vn_lista"></div>'+
