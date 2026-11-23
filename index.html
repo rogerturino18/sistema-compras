@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-17 · build 461';
+const APP_BUILD='2026-11-23 · build 462';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -6163,7 +6163,8 @@ function _renderDashGraficoEstoqueMin(){
       </div>`;
     }).join('')}
   </div>
-  <div style="text-align:center;font-size:11px;color:var(--gray);margin-top:8px">${grupos.length} especificação(ões) abaixo do mínimo</div>`;
+  <div style="text-align:center;font-size:11px;color:var(--gray);margin-top:10px">${grupos.length>comDeficit.length?`Mostrando as ${comDeficit.length} maiores faltas de ${grupos.length} especificações abaixo do mínimo`:`${grupos.length} especificação(ões) abaixo do mínimo`}</div>
+  ${grupos.length>comDeficit.length?`<div style="text-align:center;margin-top:8px"><button class="btn btn-sm primary" onclick="abrirAlertaMinimo()">Ver todos os ${grupos.length} itens</button></div>`:''}`;
 }
 
 // Compras por mês (últimos 6 meses), barras verticais.
