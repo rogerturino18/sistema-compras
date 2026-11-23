@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 466';
+const APP_BUILD='2026-11-23 · build 467';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -20819,7 +20819,22 @@ async function editarTempoOp(tempoId){
       </div>
       <div style="margin-bottom:12px">
         <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Operador</label>
-        <input id="editTempoOper" type="text" value="${t.operador||''}" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
+        ${(()=>{
+          const esc=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+          const todos=(typeof operadoresMaquina!=='undefined'?operadoresMaquina:[]);
+          const daMaq=[...new Set(todos.filter(o=>o.maquina===t.operacao).map(o=>o.nome))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+          const outros=[...new Set(todos.filter(o=>o.maquina!==t.operacao).map(o=>o.nome))].filter(n=>!daMaq.includes(n)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+          const atual=(t.operador||'').trim();
+          const foraLista=atual && !daMaq.includes(atual) && !outros.includes(atual);
+          const sel=n=>n===atual?' selected':'';
+          return `<select id="editTempoOperSel" onchange="(function(s){const i=document.getElementById('editTempoOper'); if(s.value==='__outro'){i.style.display='block';i.value='';i.focus();}else{i.style.display='none';i.value=s.value;}})(this)" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px;background:#fff">
+            ${foraLista?`<option value="${esc(atual)}" selected>${esc(atual)} (atual)</option>`:''}
+            ${daMaq.length?`<optgroup label="Operadores — ${esc(t.operacao||'')}">${daMaq.map(n=>`<option value="${esc(n)}"${sel(n)}>${esc(n)}</option>`).join('')}</optgroup>`:''}
+            ${outros.length?`<optgroup label="Outros operadores">${outros.map(n=>`<option value="${esc(n)}"${sel(n)}>${esc(n)}</option>`).join('')}</optgroup>`:''}
+            <option value="__outro">Outro (digitar nome)…</option>
+          </select>
+          <input id="editTempoOper" type="text" value="${esc(atual)}" placeholder="Nome do operador" style="display:none;width:100%;margin-top:6px;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">`;
+        })()}
       </div>
       <div style="margin-bottom:16px">
         <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Observação</label>
