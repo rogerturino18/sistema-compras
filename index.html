@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 465';
+const APP_BUILD='2026-11-23 · build 466';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -18352,6 +18352,7 @@ async function abrirAcoesOrdemPorScan(ordemId, consulta){
   const botoes=[];
   if(terceirizada){
     botoes.push(`<button class="btn primary" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px" onclick="fecharModal('modalAcoesOrdemScan');retornarTerceirizado('${o.id}');_tercVoltaParaScan='${o.id}';">📥 Registrar retorno do terceirizado</button>`);
+    botoes.push(`<button class="btn" style="width:100%;margin-bottom:10px;padding:12px;font-size:13px;background:#fff3e0;color:#ef6c00;border-color:#ffcc80" onclick="cancelarEnvioTercDaTela('${o.id}')">↩️ Cancelar envio (voltar para Aguardando)</button>`);
   } else if(tempoAtivo){
     botoes.push(`<button class="btn primary" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px" onclick="fecharModal('modalAcoesOrdemScan');abrirFinalizarOp('${tempoAtivo.id}')">✅ Concluir etapa em andamento (${tempoAtivo.operacao})</button>`);
     botoes.push(`<button class="btn" style="width:100%;margin-bottom:10px;padding:14px;font-size:14px" onclick="fecharModal('modalAcoesOrdemScan');pausarEtapaOrdem('${tempoAtivo.id}')">⏸ Pausar (voltar para Aguardando)</button>`);
@@ -23234,6 +23235,9 @@ function retornarTerceirizado(id){
   });
   abrirModal('modalRetornoTerc');
 }
+
+// Atalho da tela da ordem: desfaz o envio sem precisar passar pelo "Registrar retorno".
+function cancelarEnvioTercDaTela(id){ _tercOrdemId=id; _tercVoltaParaScan=id; cancelarEnvioTerceirizado(); }
 
 // Desfaz um envio ao terceirizado feito por engano: a ordem volta para "Aguardando" como se nunca tivesse saído.
 async function cancelarEnvioTerceirizado(){
