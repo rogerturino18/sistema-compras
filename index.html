@@ -4169,6 +4169,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     </div>
     <div class="modal-body">
       <div id="terc_info" style="background:#fff3e0;border-radius:10px;padding:12px;font-size:13px;color:#e65100;font-weight:600;margin-bottom:4px"></div>
+      <div id="terc_ult_banner" style="display:none"></div>
       <div class="form-grid">
         <div class="form-group full" id="terc_modo_wrap" style="display:none">
           <label>Para quem vai a ordem?</label>
@@ -5633,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 467';
+const APP_BUILD='2026-11-23 · build 468';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -22975,7 +22976,7 @@ let _tercDividir=false;
 let _tercModoEdicao=false, _tercEdicaoDividida=false;
 
 let _tercVoltaParaScan=null; // se veio do painel do scanner de QR, guarda o id da ordem pra reabrir o painel depois de confirmar
-function terceirizarOrdem(id){
+function terceirizarOrdem(id,editar){
   _tercVoltaParaScan=null; // reset — só volta pro painel do scanner quando o botão de lá marcar de novo, logo abaixo
   const o = ordens.find(x=>x.id===id);
   if(!o) return;
@@ -22985,35 +22986,53 @@ function terceirizarOrdem(id){
   const wrap=document.getElementById('terc_nome_wrap');
   if(terceirizadosCadastro.length){
     const jaTem=o.terceirizado_nome && terceirizadosCadastro.some(t=>t.nome===o.terceirizado_nome);
-    wrap.innerHTML=`<select id="terc_nome">${terceirizadosCadastro.map(t=>`<option value="${t.nome}">${t.nome}</option>`).join('')}</select>
+    const _novoEnvio=!editar && o.status!=='terceirizado' && !!(o.terceirizado_nome||o.terceirizado_data);
+    wrap.innerHTML=`<select id="terc_nome">${_novoEnvio?'<option value="">— escolha o terceirizado —</option>':''}${terceirizadosCadastro.map(t=>`<option value="${t.nome}">${t.nome}</option>`).join('')}</select>
       <div style="font-size:11px;color:var(--gray);margin-top:4px">Não está na lista? <a href="#" onclick="event.preventDefault();document.getElementById('terc_nome_wrap').innerHTML='<input type=&quot;text&quot; id=&quot;terc_nome&quot; placeholder=&quot;Ex: Usinagem Silva, Tornaria João...&quot;>';document.getElementById('terc_nome').focus();">digitar o nome</a></div>`;
-    if(jaTem) document.getElementById('terc_nome').value=o.terceirizado_nome;
+    if(jaTem && (editar || o.status==='terceirizado' || !(o.terceirizado_nome||o.terceirizado_data))) document.getElementById('terc_nome').value=o.terceirizado_nome;
   } else {
-    wrap.innerHTML=`<input type="text" id="terc_nome" placeholder="Ex: Usinagem Silva, Tornaria João..." value="${(o.terceirizado_nome||'').replace(/"/g,'&quot;')}">`;
+    wrap.innerHTML=`<input type="text" id="terc_nome" placeholder="Ex: Usinagem Silva, Tornaria João..." value="${(editar?(o.terceirizado_nome||''):'').replace(/"/g,'&quot;')}">`;
   }
   // Sempre começa com hoje — esse formulário só abre pra mandar a ordem AGORA,
   // nunca pra editar um envio que já está em andamento (isso é outra tela). Um
   // terceirizado_data antigo que tenha sobrado de um ciclo anterior nunca deve
   // ser reaproveitado aqui, senão o contador de dias conta desde a data errada.
   document.getElementById('terc_data').value = hoje();
-  document.getElementById('terc_obs').value = o.terceirizado_obs||'';
+  document.getElementById('terc_obs').value = editar?(o.terceirizado_obs||''):'';
   // Divisão da quantidade entre vários terceirizados (só quando a ordem tem quantidade > 1)
   _tercDividir=false;
   const _box=document.getElementById('terc_dividir_box'); if(_box){ _box.style.display='none'; _box.innerHTML=''; }
   const _wrapN=document.getElementById('terc_nome_wrap'); if(_wrapN) _wrapN.style.display='';
-  const _hw=document.getElementById('terc_apagar_hist_wrap'); if(_hw) _hw.style.display=(o.status!=='terceirizado'&&(o.terceirizado_nome||o.terceirizado_data))?'block':'none';
+  const _hw=document.getElementById('terc_apagar_hist_wrap'); if(_hw) _hw.style.display=(editar&&o.status!=='terceirizado'&&(o.terceirizado_nome||o.terceirizado_data))?'block':'none';
   const _mw=document.getElementById('terc_modo_wrap'); if(_mw) _mw.style.display=(Number(o.quantidade)||0)>1?'':'none';
   tercToggleDividir(false);
   const _lb0=document.getElementById('terc_nome_label'); if(_lb0) _lb0.textContent='Nome do Terceirizado *';
   if(infoEl && (Number(o.quantidade)||0)>0) infoEl.innerHTML += ` <span style="font-weight:700">· ${o.quantidade} peça(s)</span>`;
   // Ordem que já passou por terceirizado e não está lá agora: a janela serve para CORRIGIR as datas (envio/retorno), prazo e serviço.
-  const _passT=_tercPassagens(o);
-  const _edicao=o.status!=='terceirizado' && !!(o.terceirizado_nome||o.terceirizado_data);
+  const _passT=_tercUltimoGrupo(o);
+  const _temAnterior=o.status!=='terceirizado' && !!(o.terceirizado_nome||o.terceirizado_data);
+  const _edicao=!!editar && _temAnterior;
   _tercModoEdicao=_edicao; _tercEdicaoDividida=_passT.length>=2;
+  const _bn=document.getElementById('terc_ult_banner');
+  if(_bn){
+    const _fd=v=>v?new Date(String(v).slice(0,10)+'T12:00').toLocaleDateString('pt-BR'):'—';
+    const _hist=_tercPassagens(o);
+    if(_temAnterior && !_edicao){
+      _bn.style.display='block';
+      _bn.innerHTML=`<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#2e7d32;margin:6px 0">
+        <b>✓ Já passou por terceirizado</b> — o histórico fica guardado e este envio será uma <b>nova passagem</b>.
+        <div style="margin-top:4px;color:#37474f">${_hist.map(x=>`${x.nome}${x.qtd?` (${x.qtd})`:''}: ${_fd(x.envio)} → ${x.retorno?_fd(x.retorno):'em andamento'}`).join('<br>')}</div>
+        <a href="#" style="display:inline-block;margin-top:6px;font-weight:700;color:#1565c0" onclick="event.preventDefault();terceirizarOrdem('${o.id}',true)">✏️ Corrigir dados da última passagem</a></div>`;
+    } else if(_edicao){
+      _bn.style.display='block';
+      _bn.innerHTML=`<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#8d6e00;margin:6px 0">
+        ✏️ Você está <b>corrigindo a última passagem</b>. Para mandar a outro terceirizado, <a href="#" style="font-weight:700;color:#1565c0" onclick="event.preventDefault();terceirizarOrdem('${o.id}')">registre um novo envio</a>.</div>`;
+    } else { _bn.style.display='none'; _bn.innerHTML=''; }
+  }
   const _d10=v=>v?String(v).slice(0,10):'';
   const _show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
-  const _tt=document.getElementById('terc_titulo'); if(_tt) _tt.textContent=_edicao?'🚚 Dados do terceirizado':'🚚 Enviar para Terceirizado';
-  _show('terc_btn_enviar',!_edicao); _show('terc_btn_salvar',_edicao); _show('terc_btn_reenviar',_edicao&&!_tercEdicaoDividida);
+  const _tt=document.getElementById('terc_titulo'); if(_tt) _tt.textContent=_edicao?'🚚 Corrigir última passagem':'🚚 Enviar para Terceirizado';
+  _show('terc_btn_enviar',!_edicao); _show('terc_btn_salvar',_edicao); _show('terc_btn_reenviar',false);
   const _rt=document.getElementById('terc_retorno');
   if(_rt){ _rt.disabled=!_edicao; _rt.value=_edicao?_d10(o.terceirizado_retorno):''; }
   document.getElementById('terc_prazo').value=_edicao?(o.terceirizado_prazo||''):'';
@@ -23097,8 +23116,12 @@ async function salvarEdicaoTerceirizado(){
   }
   try{
     await api('PATCH','ordens_producao',patch,`?id=eq.${_tercOrdemId}`);
-    if(_tercEnviosOk && (ordemEnviosTerc||[]).some(e=>String(e.ordem_id)===String(_tercOrdemId))){
-      await api('PATCH','ordem_envios_terc',{data_envio:envio,data_retorno:retorno,prazo_dias:prazo,obs:obs},`?ordem_id=eq.${_tercOrdemId}`).catch(e=>console.warn(e));
+    const _linhasO=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(_tercOrdemId));
+    if(_tercEnviosOk && _linhasO.length){
+      const maxEnv=_linhasO.map(e=>String(e.data_envio||'').slice(0,10)).sort().pop();
+      const pr={data_envio:envio,data_retorno:retorno,prazo_dias:prazo,obs:obs};
+      if(patch.terceirizado_nome) pr.terceirizado_nome=patch.terceirizado_nome;
+      await api('PATCH','ordem_envios_terc',pr,`?ordem_id=eq.${_tercOrdemId}&data_envio=eq.${maxEnv}`).catch(e=>console.warn(e));
     }
     fecharModal('modalTerceirizar');
     await loadAll(); renderOrdens();
@@ -23130,6 +23153,16 @@ async function confirmarTerceirizar(){
   }
   if(!nome){ showToast('Informe o nome do terceirizado','err'); return; }
   if(!data){ showToast('Informe a data de envio','err'); return; }
+
+  // Guarda a passagem anterior (ex.: já voltou do Ricardo) no histórico ANTES de gravar o novo envio por cima dela
+  const _oAnt=ordens.find(x=>x.id===_tercOrdemId);
+  if(_tercEnviosOk && _oAnt && _oAnt.status!=='terceirizado' && _oAnt.terceirizado_nome && _oAnt.terceirizado_data
+     && !(ordemEnviosTerc||[]).some(e=>String(e.ordem_id)===String(_tercOrdemId))){
+    try{
+      const ant=_tercPassagens(_oAnt).map(x=>({ordem_id:String(_tercOrdemId),terceirizado_nome:x.nome,quantidade:Number(x.qtd)||1,data_envio:String(x.envio).slice(0,10),data_retorno:String(x.retorno||_oAnt.terceirizado_retorno||data).slice(0,10),prazo_dias:x.prazo||null,obs:x.obs||null}));
+      if(ant.length) await api('POST','ordem_envios_terc',ant);
+    }catch(e){ console.error('[hist terc]',e); showToast('❌ Não consegui guardar a passagem anterior no histórico: '+(e.message||e),'err',7000); return; }
+  }
 
   // Monta SQL direto para contornar schema cache do Supabase
   const sql = `
@@ -23178,7 +23211,7 @@ async function confirmarTerceirizar(){
     }
 
     if(_divisao) await _tercSalvarEnvios(_tercOrdemId,_divisao,data,prazo,obs);
-    else if(_tercEnviosOk) api('PATCH','ordem_envios_terc',{data_retorno:data},`?ordem_id=eq.${_tercOrdemId}&data_retorno=is.null`).catch(()=>{});
+    else if(_tercEnviosOk) await _tercSalvarEnvios(_tercOrdemId,[{nome,qtd:Number(_oAnt?.quantidade)||1}],data,prazo,obs);
     fecharModal('modalTerceirizar');
     await loadAll();
     renderOrdens();
@@ -23205,6 +23238,13 @@ function _tercEnviosAbertos(o){
 }
 // Todas as passagens da ordem por terceirizado, prontas para exibir (resumo e ficha).
 // Usa o detalhe por terceirizado (ordem dividida) quando existe; senão, os dados gravados na própria ordem.
+// Passagens do último envio (mesma data de envio): uma só, ou várias quando a ordem foi dividida entre terceirizados.
+function _tercUltimoGrupo(o){
+  const linhas=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(o.id));
+  if(!linhas.length) return _tercPassagens(o);
+  const max=linhas.map(e=>String(e.data_envio||'').slice(0,10)).sort().pop();
+  return _tercPassagens(o).filter(x=>String(x.envio||'').slice(0,10)===max);
+}
 function _tercPassagens(o){
   if(!o) return [];
   const linhas=(ordemEnviosTerc||[]).filter(e=>String(e.ordem_id)===String(o.id));
@@ -23342,6 +23382,7 @@ async function confirmarRetornoTerc(){
       body: JSON.stringify(bodyPatch)
     });
     if(!res.ok){ const err=await res.text(); throw new Error(err); }
+    if(_tercEnviosOk) await api('PATCH','ordem_envios_terc',{data_retorno:dataRetorno},`?ordem_id=eq.${_tercOrdemId}&data_retorno=is.null`).catch(e=>console.warn(e));
     fecharModal('modalRetornoTerc');
     await loadAll();
     renderOrdens();
