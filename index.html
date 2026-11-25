@@ -1072,7 +1072,6 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div class="home-greeting">Olá, <span id="homeNome">—</span>! 👋</div>
         <div class="home-time" id="homeTime"></div>
       </div>
-      <button class="home-enter-btn" onclick="fecharHomeScreen()">Ir para o sistema completo →</button>
     </div>
     <div class="home-tiles" id="homeTiles"></div>
     <div class="home-dots" id="homeDots"></div>
@@ -5634,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-25 · build 473';
+const APP_BUILD='2026-11-25 · build 474';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -14230,6 +14229,8 @@ function atualizarRelogio(){
 
 // ── Grupos da dashboard com sub-abas ────────────────────────────────────
 const DASH_GRUPOS = [
+  {id:'dashboard',  label:'Dashboard',  icon:'📊', color:'linear-gradient(135deg,#37474f,#263238)', directTab:0,
+   subs:[{label:'Dashboard',icon:'📊',tab:0}]},
   {id:'vendas',     label:'Vendas',     icon:'🏷️', color:'linear-gradient(135deg,#6a1b9a,#4a148c)',
    subs:[{label:'Pedidos de Venda',icon:'🧾',tab:13},{label:'Clientes',icon:'👤',tab:14},{label:'Emissão de NF-e',icon:'📄',tab:12},{label:'Projetos',icon:'🎯',tab:3},{label:'Lista de Material',icon:'📝',tab:4}]},
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
@@ -14300,7 +14301,7 @@ function renderHomeTiles(){
   const tilesHtml=grupos.map(g=>`
     <div class="tile tile-md dash-main-tile" id="tile_grp_${g.id}" data-dashboard-group="${g.id}"
       style="background:${g.color};position:relative"
-      onclick="${g.directTab?`fecharHomeScreen();sbGo(${g.directTab},'${g.label}')`:`dashToggleGrupo('${g.id}')`}">
+      onclick="${g.directTab!==undefined?`fecharHomeScreen();sbGo(${g.directTab},'${g.label}')`:`dashToggleGrupo('${g.id}')`}">
       ${bdgGrupo(g)}
       <div class="tile-icon" style="font-size:42px">${g.icon}</div>
       <div class="tile-label" style="font-size:16px;font-weight:800">${g.label}</div>
