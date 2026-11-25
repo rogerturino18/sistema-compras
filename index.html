@@ -5634,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-25 · build 472';
+const APP_BUILD='2026-11-25 · build 473';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -22896,6 +22896,8 @@ function _dupLeituraGrupo(linhas){
   let txt,cor,bg;
   if(ids.length===1 && nComOP>1){ txt=`As ${nComOP} linhas apontam para a <b>mesma OP</b> (Nº ${ords[0]?ords[0].numero:'?'}). Só existe uma ordem, então a linha a mais é <b>repetida</b> e pode ser apagada sem perder produção.`; cor='#c62828'; bg='#ffebee'; }
   else if(!ids.length){ txt='Nenhuma das linhas tem OP ainda. Apague as repetidas agora, <b>antes</b> de criar ordens.'; cor='#c62828'; bg='#ffebee'; }
+  else if(ids.length>1 && somaLinhas===somaOrdens && linhas.every(i=>{ const o=(ordens||[]).find(x=>x.id===i.ordem_id); return o && Number(o.quantidade)===Number(i.quantidade); })){
+    txt=`Cada linha tem sua própria OP (${ords.map(o=>'Nº '+o.numero+' · '+o.quantidade+' pç').join(' e ')}) e as quantidades <b>batem</b> com a Estrutura (${somaLinhas} pç no total). Parece uma peça feita em <b>lotes</b>, e não repetição. Se for isso, use <b>“São peças diferentes”</b>.`; cor='#2e7d32'; bg='#e8f5e9'; }
   else if(ids.length>1){ txt=`Cada linha tem uma OP diferente (${ords.map(o=>'Nº '+o.numero).join(' e ')}). As linhas pedem <b>${somaLinhas} pç</b> no total e as ordens somam <b>${somaOrdens} pç</b>. Se as duas ordens produziram a mesma peça para a mesma necessidade, houve excesso; se são lotes/quantidades diferentes, pode estar certo.`; cor='#ef6c00'; bg='#fff3e0'; }
   else { txt=`Só uma linha tem OP (Nº ${ords[0]?ords[0].numero:'?'}); a(s) outra(s) estão sem ordem — são <b>sobra de cadastro</b>, seguras de apagar.`; cor='#ef6c00'; bg='#fff3e0'; }
   return `<div style="margin:6px 0 8px;padding:6px 10px;background:${bg};border-left:4px solid ${cor};border-radius:6px;font-size:12px">${txt}</div>`;
