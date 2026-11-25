@@ -5634,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-25 · build 470';
+const APP_BUILD='2026-11-25 · build 471';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -11956,12 +11956,34 @@ function _tagFotoDesenho(dataUrl, estiloImg){
 // celular (ou Ctrl+scroll no computador) funciona normal, do jeito que o
 // navegador já sabe fazer, sem eu precisar reinventar nada.
 // Amplia uma foto na própria tela (sem abrir outra aba); clique, toque ou Esc fecham.
-function _lightboxFoto(src,lista,idx){
+// Gira uma imagem (data URL) em 90° múltiplos e devolve outra data URL (JPEG).
+function _girarDataUrl(src,graus){
+  return new Promise((ok,err)=>{
+    const im=new Image();
+    im.onload=()=>{ try{
+      const g=((graus%360)+360)%360, troca=(g===90||g===270);
+      const c=document.createElement('canvas'); c.width=troca?im.naturalHeight:im.naturalWidth; c.height=troca?im.naturalWidth:im.naturalHeight;
+      const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height);
+      x.translate(c.width/2,c.height/2); x.rotate(g*Math.PI/180); x.drawImage(im,-im.naturalWidth/2,-im.naturalHeight/2);
+      ok(c.toDataURL('image/jpeg',0.88));
+    }catch(e){ err(e); } };
+    im.onerror=()=>err(new Error('Não consegui abrir a imagem para girar'));
+    im.src=src;
+  });
+}
+// Salva o desenho da ordem já girado (vale para todo mundo, não só nesta tela).
+async function _salvarGiroOrdem(id,dataUrl){
+  await api('PATCH','ordens_producao',{foto_desenho:dataUrl},`?id=eq.${id}`);
+  const o=ordens.find(x=>x.id===id); if(o){ o.foto_desenho=dataUrl; o.tem_foto_desenho=true; }
+  _miniLimpar(id); if(typeof renderOrdens==='function') renderOrdens();
+}
+function _lightboxFoto(src,lista,idx,opts){
   document.getElementById('lightboxFoto')?.remove();
   const d=document.createElement('div'); d.id='lightboxFoto';
   d.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.92);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none';
   d.innerHTML='<img draggable="false" style="position:absolute;left:50%;top:50%;max-width:96vw;max-height:92vh;transform-origin:50% 50%;border-radius:4px;cursor:grab;will-change:transform">'+
     '<div style="position:absolute;top:12px;right:14px;display:flex;gap:8px;z-index:2">'+
+    ((opts&&opts.salvar)?'<button data-z="rotl" title="Girar para a esquerda (L)" style="width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:20px;cursor:pointer">↺</button><button data-z="rotr" title="Girar para a direita (R)" style="width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:20px;cursor:pointer">↻</button>':'')+
     '<button data-z="in" title="Aproximar" style="width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;cursor:pointer">＋</button>'+
     '<button data-z="out" title="Afastar" style="width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;cursor:pointer">－</button>'+
     '<button data-z="reset" title="Tamanho original da tela" style="height:40px;padding:0 12px;border:none;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-size:13px;cursor:pointer">Ajustar</button>'+
@@ -11983,9 +12005,17 @@ function _lightboxFoto(src,lista,idx){
   const mostrar=()=>{ img.src=galeria?lista[gi]:src; const c=d.querySelector('#lbContador'); if(c) c.textContent='Foto '+(gi+1)+' de '+lista.length; };
   const ir=n=>{ if(!galeria) return; gi=(n+lista.length)%lista.length; mostrar(); };
   mostrar();
+  let _girando=false;
+  const girar=async graus=>{
+    if(!(opts&&opts.salvar)||_girando) return; _girando=true;
+    const bs=d.querySelectorAll('button[data-z="rotl"],button[data-z="rotr"]'); bs.forEach(b=>b.style.opacity='.4');
+    try{ const novo=await _girarDataUrl(img.src,graus); await opts.salvar(novo); src=novo; img.src=novo; showToast('Desenho girado e salvo'); }
+    catch(e){ showToast('Não consegui girar: '+(e.message||e),'err'); }
+    finally{ _girando=false; bs.forEach(b=>b.style.opacity=''); }
+  };
   const fechar=()=>{ d.remove(); document.removeEventListener('keydown',tecla); };
-  const tecla=e=>{ if(e.key==='ArrowLeft') ir(gi-1); else if(e.key==='ArrowRight') ir(gi+1); else if(e.key==='Escape') fechar(); else if(e.key==='+'||e.key==='=') zoomEm(1.4,innerWidth/2,innerHeight/2); else if(e.key==='-') zoomEm(1/1.4,innerWidth/2,innerHeight/2); else if(e.key==='0') ajustar(); };
-  d.querySelectorAll('button').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const z=b.dataset.z; if(b.dataset.g){ ir(gi+(b.dataset.g==='p'?-1:1)); return; } if(z==='close') fechar(); else if(z==='in') zoomEm(1.5,innerWidth/2,innerHeight/2); else if(z==='out') zoomEm(1/1.5,innerWidth/2,innerHeight/2); else ajustar(); });
+  const tecla=e=>{ if(e.key==='ArrowLeft') ir(gi-1); else if(e.key==='ArrowRight') ir(gi+1); else if(e.key==='Escape') fechar(); else if(e.key==='r'||e.key==='R') girar(90); else if(e.key==='l'||e.key==='L') girar(-90); else if(e.key==='+'||e.key==='=') zoomEm(1.4,innerWidth/2,innerHeight/2); else if(e.key==='-') zoomEm(1/1.4,innerWidth/2,innerHeight/2); else if(e.key==='0') ajustar(); };
+  d.querySelectorAll('button').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const z=b.dataset.z; if(b.dataset.g){ ir(gi+(b.dataset.g==='p'?-1:1)); return; } if(z==='close') fechar(); else if(z==='rotl') girar(-90); else if(z==='rotr') girar(90); else if(z==='in') zoomEm(1.5,innerWidth/2,innerHeight/2); else if(z==='out') zoomEm(1/1.5,innerWidth/2,innerHeight/2); else ajustar(); });
   d.addEventListener('wheel',e=>{ e.preventDefault(); zoomEm(e.deltaY<0?1.2:1/1.2,e.clientX,e.clientY); },{passive:false});
   // arrastar (1 dedo/mouse) e pinça (2 dedos)
   const pts=new Map(); let ult=null, dist0=0, sc0=1, moveu=false, downEm=null;
@@ -12011,7 +12041,9 @@ function _abrirImagemTelaCheia(src){
 // (que pode ter centenas de KB) dentro de um atributo onclick no HTML.
 function _abrirImagemTelaCheiaOrdem(ordemId){
   const o=ordens.find(x=>x.id===ordemId);
-  if(o?.foto_desenho) _abrirImagemTelaCheia(o.foto_desenho);
+  if(!o?.foto_desenho) return;
+  if(_ehPdfBase64(o.foto_desenho)) _abrirPdfBase64(o.foto_desenho);
+  else _lightboxFoto(o.foto_desenho,null,0,{salvar:d=>_salvarGiroOrdem(ordemId,d)});
 }
 
 function handleFotoDesenhoOrdem(input){
@@ -12162,7 +12194,7 @@ async function abrirFotoOrdem(id){
   if(o.foto_desenho===null || (o.foto_desenho===undefined && !o.tem_foto_desenho)){ _abrirFotoOrdemModal(id); return; }
   if(o.foto_desenho){ // já carregado: decide na hora
     if(_ehPdfBase64(o.foto_desenho)){ try{ _abrirPdfDataUrl(o.foto_desenho,null); }catch(e){ showToast('Não foi possível abrir o desenho','err'); } }
-    else _lightboxFoto(o.foto_desenho);
+    else _lightboxFoto(o.foto_desenho,null,0,{salvar:d=>_salvarGiroOrdem(id,d)});
     return;
   }
   // só abre a aba logo no clique quando já sabemos que é PDF (evita a aba piscando para imagens)
@@ -12172,7 +12204,7 @@ async function abrirFotoOrdem(id){
     const d=await _buscarFotoOrdem(id);
     if(!d){ if(w) w.close(); _abrirFotoOrdemModal(id); return; }
     _guardarTipoDesenho(id,d);
-    if(!_ehPdfBase64(d)){ if(w) w.close(); _lightboxFoto(d); return; }
+    if(!_ehPdfBase64(d)){ if(w) w.close(); _lightboxFoto(d,null,0,{salvar:x=>_salvarGiroOrdem(id,x)}); return; }
     _abrirPdfDataUrl(d,w);
   }catch(e){ if(w) w.close(); showToast('Não foi possível abrir o desenho','err'); }
 }
