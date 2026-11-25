@@ -5634,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-23 · build 469';
+const APP_BUILD='2026-11-25 · build 470';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -25873,9 +25873,10 @@ async function _sincronizarCarregamentosComPV_(){
       const itens=c.carregamento_itens||[];
       const ordensPdv=ordens.filter(o=>o.pdv_id===c.pdv_id && !o.excluida_em);
       const jaTem=new Set(itens.map(i=>i.ordem_producao_id).filter(Boolean));
-      const novas=ordensPdv.filter(o=>!jaTem.has(o.id)).sort((a,b)=>(a.numero||0)-(b.numero||0));
+      const _env=_expJaEnviadoMap(c); // envio parcial: o que já saiu em outro carregamento deste PDV não volta para o checklist
+      const novas=ordensPdv.filter(o=>!jaTem.has(o.id) && (Number(o.quantidade)||1)-(_env[o.id]||0)>0).sort((a,b)=>(a.numero||0)-(b.numero||0));
       if(novas.length){
-        const criados=await api('POST','carregamento_itens',novas.map(o=>({carregamento_id:c.id,ordem_producao_id:o.id,numero_ordem:o.numero||null,desenho:o.desenho||'',descricao:o.descricao||'',qtd:o.quantidade||1})));
+        const criados=await api('POST','carregamento_itens',novas.map(o=>({carregamento_id:c.id,ordem_producao_id:o.id,numero_ordem:o.numero||null,desenho:o.desenho||'',descricao:o.descricao||'',qtd:(Number(o.quantidade)||1)-(_env[o.id]||0)})));
         c.carregamento_itens=[...itens,...(criados||[])];
         // se já estava "Pronto p/ Envio" mas chegaram itens novos sem foto, volta a aguardar fotos
         if(c.status==='Pronto p/ Envio'){ await api('PATCH','carregamentos',{status:'Aguardando Fotos',itens_prontos_em:null},`?id=eq.${c.id}`); c.status='Aguardando Fotos'; c.itens_prontos_em=null; }
@@ -25883,8 +25884,8 @@ async function _sincronizarCarregamentosComPV_(){
       // quantidade/descrição/desenho alterados na Ordem de Produção acompanham o checklist
       for(const i of (c.carregamento_itens||[])){
         const o=i.ordem_producao_id&&ordensPdv.find(x=>x.id===i.ordem_producao_id); if(!o) continue;
-        const dif={}; const q=o.quantidade||1;
-        if(Number(i.qtd)!==Number(q)) dif.qtd=q;
+        const dif={}; const q=(Number(o.quantidade)||1)-(_env[o.id]||0);
+        if(q>0 && Number(i.qtd)!==Number(q)) dif.qtd=q;
         if((i.descricao||'')!==(o.descricao||'')) dif.descricao=o.descricao||'';
         if((i.desenho||'')!==(o.desenho||'')) dif.desenho=o.desenho||'';
         if((i.numero_ordem||null)!==(o.numero||null)) dif.numero_ordem=o.numero||null;
@@ -25909,9 +25910,9 @@ async function _sincronizarCarregamentosComPV_(){
           if(par){ await api('PATCH','carregamento_itens',{item_desenho_id:par.id},`?id=eq.${i.id}&select=id`); i.item_desenho_id=par.id; ligados.add(par.id); }
         }
         const temCom=new Set((c.carregamento_itens||[]).map(i=>i.item_desenho_id).filter(Boolean));
-        const novosCom=comerciais.filter(i=>!temCom.has(i.id));
+        const novosCom=comerciais.filter(i=>!temCom.has(i.id) && (Number(i.quantidade)||1)-(_env[i.id]||0)>0);
         if(novosCom.length){
-          const criados=await api('POST','carregamento_itens',novosCom.map(i=>_linhaCarregamentoComercial(c.id,i)));
+          const criados=await api('POST','carregamento_itens',novosCom.map(i=>{ const l=_linhaCarregamentoComercial(c.id,i); l.qtd=l.qtd-(_env[i.id]||0); return l; }));
           c.carregamento_itens=[...(c.carregamento_itens||[]),...(criados||[])];
           if(c.status==='Pronto p/ Envio'){ await api('PATCH','carregamentos',{status:'Aguardando Fotos',itens_prontos_em:null},`?id=eq.${c.id}`); c.status='Aguardando Fotos'; c.itens_prontos_em=null; }
         }
@@ -25919,7 +25920,8 @@ async function _sincronizarCarregamentosComPV_(){
           if(!i.item_desenho_id) continue;
           const d=comerciais.find(x=>x.id===i.item_desenho_id); if(!d) continue;
           const alvo=_linhaCarregamentoComercial(c.id,d); const dif={};
-          if(Number(i.qtd)!==Number(alvo.qtd)) dif.qtd=alvo.qtd;
+          const _qa=Number(alvo.qtd)-(_env[d.id]||0);
+          if(_qa>0 && Number(i.qtd)!==_qa) dif.qtd=_qa;
           if((i.descricao||'')!==alvo.descricao) dif.descricao=alvo.descricao;
           if((i.desenho||'')!==alvo.desenho) dif.desenho=alvo.desenho;
           if(Object.keys(dif).length){ await api('PATCH','carregamento_itens',dif,`?id=eq.${i.id}&select=id`); Object.assign(i,dif); }
@@ -26165,7 +26167,7 @@ function renderExpedicaoDetalhe(){
       </div>`).join('')}</div>`:''}
     `:''}
 
-    ${c.status!=='Enviado'?`<div style="margin-top:16px"><button class="btn primary" onclick="expJaExpedido(['${c.id}'])">✅ Marcar como Enviado</button></div>`:''}
+    ${c.status!=='Enviado'?`<div style="margin-top:16px"><button class="btn primary" onclick="expJaExpedido(['${c.id}'])">✅ Marcar como Enviado</button></div>`:((c.carregamento_itens||[]).length>1?`<div style="margin-top:16px"><button class="btn" onclick="expItensFicaram('${c.id}')">↩ Algum item ficou para depois?</button></div>`:'')}
     ${c.status==='Enviado'?`<div style="background:#e8f5e9;border-radius:8px;padding:10px 14px;color:#2e7d32;font-size:13px;font-weight:600;margin-bottom:10px">✓ Enviado em ${c.carregado_em?new Date(c.carregado_em).toLocaleString('pt-BR'):'—'}</div>
     ${c.pedido_venda_id&&(pedidosVenda.find(p=>p.id===c.pedido_venda_id)||{}).status!=='Entregue'?`<button class="btn" onclick="marcarPVEntregue('${c.pedido_venda_id}')">🏷️ Marcar Pedido de Venda como Entregue</button>`:''}`:''}
 
@@ -27131,6 +27133,104 @@ function _expSelTodos(){
   });
   _expSelBarra(); renderExpedicao();
 }
+
+// ── Envio parcial: parte dos itens sai agora e o resto continua na Expedição (em um novo carregamento do mesmo pedido) ──
+function _expJaEnviadoMap(c){
+  const m={};
+  (carregamentos||[]).filter(x=>x.id!==c.id && x.status==='Enviado' && x.pdv_id && x.pdv_id===c.pdv_id).forEach(x=>(x.carregamento_itens||[]).forEach(i=>{
+    if(!i.carregado) return; const k=i.ordem_producao_id||i.item_desenho_id; if(k) m[k]=(m[k]||0)+(Number(i.qtd)||0);
+  }));
+  return m;
+}
+// ship: {idDoItem: quantidade que sai}. Item fora do mapa sai por inteiro. corrigir=true: carregamento já estava Enviado.
+async function _expDividirEnvio(c, ship, quandoIso, resp, corrigir){
+  const itens=[...(c.carregamento_itens||[])];
+  const resta=it=>{ const s=ship[it.id]; if(s===undefined) return 0; return Math.max(0,(Number(it.qtd)||0)-(Number(s)||0)); };
+  const sobras=itens.filter(it=>resta(it)>0);
+  const maxNum=Math.max(0,...carregamentos.map(x=>x.numero||0));
+  const [novo]=await api('POST','carregamentos',{numero:maxNum+1,pedido_venda_id:c.pedido_venda_id||null,pdv_id:c.pdv_id||null,pdv_numero:c.pdv_numero||null,cliente_nome:c.cliente_nome||'',cliente_dados:c.cliente_dados||null,status:'Aguardando Fotos',criado_por:'Envio parcial (restante do Carreg. Nº '+(c.numero||'')+')',observacoes:'Restante do envio parcial do Carreg. Nº '+(c.numero||'')+'.'});
+  novo.carregamento_itens=[]; novo.carregamento_fotos=[];
+  try{
+    for(const it of sobras){
+      const r=resta(it), enviado=(Number(it.qtd)||0)-r;
+      if(enviado<=0){
+        await api('PATCH','carregamento_itens',{carregamento_id:novo.id,carregado:false,carregado_em:null},`?id=eq.${it.id}&select=id`);
+        await api('PATCH','carregamento_fotos',{carregamento_id:novo.id},`?item_id=eq.${it.id}&select=id`).catch(()=>{});
+        const fotos=(c.carregamento_fotos||[]).filter(f=>f.item_id===it.id);
+        fotos.forEach(f=>{ f.carregamento_id=novo.id; });
+        c.carregamento_fotos=(c.carregamento_fotos||[]).filter(f=>f.item_id!==it.id); novo.carregamento_fotos.push(...fotos);
+        c.carregamento_itens=c.carregamento_itens.filter(x=>x.id!==it.id);
+        Object.assign(it,{carregamento_id:novo.id,carregado:false,carregado_em:null}); novo.carregamento_itens.push(it);
+      } else {
+        const [cp]=await api('POST','carregamento_itens',{carregamento_id:novo.id,descricao:it.descricao||'',qtd:r,pronto:false,ordem_producao_id:it.ordem_producao_id||null,numero_ordem:it.numero_ordem||null,desenho:it.desenho||'',item_desenho_id:it.item_desenho_id||null,peso_unit:it.peso_unit==null?null:it.peso_unit});
+        await api('PATCH','carregamento_itens',{qtd:enviado},`?id=eq.${it.id}&select=id`);
+        it.qtd=enviado; novo.carregamento_itens.push(cp);
+      }
+    }
+    const patchC={status:'Enviado'}; if(!corrigir){ patchC.carregado_em=quandoIso; if(resp) patchC.responsavel_carregamento=resp; }
+    patchC.romaneio_itens=Object.fromEntries((c.carregamento_itens||[]).map(i=>[i.id,Number(i.qtd)||0]));
+    await api('PATCH','carregamentos',patchC,`?id=eq.${c.id}&select=id`);
+    if(!corrigir){
+      const ids=(c.carregamento_itens||[]).filter(i=>!i.carregado).map(i=>i.id);
+      if(ids.length) await api('PATCH','carregamento_itens',{carregado:true,carregado_em:quandoIso},`?id=in.(${ids.join(',')})`);
+      (c.carregamento_itens||[]).forEach(i=>{ i.carregado=true; i.carregado_em=quandoIso; });
+    }
+    Object.assign(c,patchC);
+    if(novo.carregamento_itens.length && novo.carregamento_itens.every(i=>i.pronto)){
+      const agora=new Date().toISOString(); await api('PATCH','carregamentos',{status:'Pronto p/ Envio',itens_prontos_em:agora},`?id=eq.${novo.id}&select=id`); novo.status='Pronto p/ Envio'; novo.itens_prontos_em=agora;
+    }
+    // o pedido só fica "Entregue" quando o último item sair; se estava Entregue por engano, volta a aberto
+    const pv=(pedidosVenda||[]).find(p=>p.id===c.pedido_venda_id);
+    if(pv && pv.status==='Entregue'){ await api('PATCH','pedidos_venda',{status:'Em Produção'},`?id=eq.${pv.id}&select=id`); pv.status='Em Produção'; }
+    carregamentos.unshift(novo);
+    return novo;
+  }catch(e){
+    // não deixa um carregamento vazio para trás se algo falhou antes de mover os itens
+    if(!novo.carregamento_itens.length) await api('DELETE','carregamentos',null,`?id=eq.${novo.id}`).catch(()=>{});
+    throw e;
+  }
+}
+// Linhas (item + quantidade) para o formulário de envio parcial
+function _expLinhasEnvio(c, modo){
+  const sel=(c.romaneio_itens&&typeof c.romaneio_itens==='object')?c.romaneio_itens:null;
+  return (c.carregamento_itens||[]).map(it=>{
+    const q=Number(it.qtd)||0; const padrao=modo==='ficaram'?0:(sel?(Number(sel[it.id])||0):q);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #eef1ef;font-size:13px">
+      <span style="flex:1;min-width:0;word-break:break-word">${it.numero_ordem?`<span style="color:#78909c">Ordem ${it.numero_ordem} · </span>`:''}${_stEsc(it.descricao||'—')}</span>
+      <input type="number" class="je-qtd" data-id="${it.id}" data-max="${q}" min="0" max="${q}" step="any" value="${Math.min(q,padrao)}" style="width:76px;padding:6px;border:1px solid #cfd8d3;border-radius:6px;text-align:center;font-size:13px">
+      <span style="font-size:11px;color:#78909c;white-space:nowrap">de ${q}</span></div>`;
+  }).join('');
+}
+function _expLerEnvio(modo){
+  const ship={}; let erro='';
+  document.querySelectorAll('.je-qtd').forEach(inp=>{
+    const max=Number(inp.dataset.max)||0; let v=Number(String(inp.value).replace(',','.')); if(isNaN(v)||v<0) v=0;
+    if(v>max){ erro='A quantidade não pode passar do total do item'; v=max; }
+    ship[inp.dataset.id]=modo==='ficaram'?max-v:v;
+  });
+  return {ship,erro};
+}
+function expItensFicaram(id){
+  const c=carregamentos.find(x=>x.id===id); if(!c) return;
+  _modalDin('modalJaExpedido',{
+    titulo:'<h3 style="margin:0;font-size:16px">↩ Itens que ficaram para depois</h3>',
+    corpo:`<div style="font-size:13px;color:#455a64;margin-bottom:8px">Informe a quantidade de cada item que <b>não foi</b> neste envio. Esses itens saem deste carregamento e viram um novo, que continua na Expedição.</div>
+      <div style="max-height:320px;overflow:auto;margin-bottom:12px">${_expLinhasEnvio(c,'ficaram')}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="fecharModal('modalJaExpedido')">Cancelar</button><button class="btn primary" id="jeOk" onclick="_expFicaramSalvar('${c.id}')">Separar itens</button></div>`
+  },520);
+}
+async function _expFicaramSalvar(id){
+  const c=carregamentos.find(x=>x.id===id); if(!c) return;
+  const {ship,erro}=_expLerEnvio('ficaram'); if(erro) return showToast(erro,'err');
+  if(!(c.carregamento_itens||[]).some(it=>(Number(it.qtd)||0)-(ship[it.id]??Number(it.qtd))>0)) return showToast('Informe a quantidade de pelo menos um item que ficou','err');
+  if(!(c.carregamento_itens||[]).some(it=>(ship[it.id]??Number(it.qtd))>0)) return showToast('Pelo menos um item precisa ter saído neste envio','err');
+  const btn=document.getElementById('jeOk'); if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
+  try{
+    const novo=await _expDividirEnvio(c,ship,c.carregado_em||new Date().toISOString(),null,true);
+    fecharModal('modalJaExpedido'); _voltarListaCarregamentos();
+    showToast('Itens separados no Carregamento Nº '+novo.numero+' (continua na Expedição)');
+  }catch(e){ console.error(e); if(btn){ btn.disabled=false; btn.textContent='Separar itens'; } showToast('Erro: '+(e.message||e),'err',6000); }
+}
 function expJaExpedido(ids){
   const lista=ids.map(id=>carregamentos.find(c=>c.id===id)).filter(c=>c&&c.status!=='Enviado');
   if(!lista.length) return showToast('Nada para marcar','err');
@@ -27140,8 +27240,9 @@ function expJaExpedido(ids){
     titulo:'<h3 style="margin:0;font-size:16px">✅ Marcar como Enviado</h3>',
     corpo:`<div style="font-size:13px;color:#455a64;margin-bottom:10px">${lista.length} pedido${lista.length>1?'s':''} ${lista.length>1?'serão marcados':'será marcado'} como enviado${lista.length>1?'s':''}:</div>
       <div style="font-size:12px;background:#f5f5f5;border-radius:8px;padding:8px 12px;margin-bottom:12px;max-height:150px;overflow:auto">${nomes.map(n=>'• '+n.replace(/</g,'&lt;')).join('<br>')}${lista.length>8?`<br>… e mais ${lista.length-8}`:''}</div>
+      ${lista.length===1&&(lista[0].carregamento_itens||[]).length>1?`<div style="font-size:12px;font-weight:700;color:#455a64;margin:4px 0 2px">O que está indo neste envio (quantidade)</div><div style="max-height:260px;overflow:auto;margin-bottom:10px">${_expLinhasEnvio(lista[0],'enviar')}</div><div style="font-size:11.5px;color:#78909c;margin:-4px 0 10px">Item com quantidade menor ou zero fica na Expedição para o próximo envio.</div>`:''}
       <div class="form-group"><label>Data do envio</label><input type="date" id="jeData" value="${hoje}" max="${hoje}"></div>
-      <div style="font-size:12px;color:#78909c;margin-bottom:12px">O carregamento fica como <b>Enviado</b> (veja em "Mostrar enviados") e o pedido de venda como <b>Entregue</b>. Não volta mais sozinho.</div>
+      <div style="font-size:12px;color:#78909c;margin-bottom:12px" id="jeAviso">O carregamento fica como <b>Enviado</b> (veja em "Mostrar enviados") e o pedido de venda como <b>Entregue</b>. Não volta mais sozinho.</div>
       <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="fecharModal('modalJaExpedido')">Cancelar</button><button class="btn primary" id="jeOk" onclick="_expJaExpedidoSalvar(${JSON.stringify(lista.map(c=>c.id)).replace(/"/g,'&quot;')})">Confirmar</button></div>`
   },420);
 }
@@ -27150,6 +27251,22 @@ async function _expJaExpedidoSalvar(ids){
   const quando=new Date(d+'T12:00:00').toISOString();
   const btn=document.getElementById('jeOk'); if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
   let ok=0, falhas=[];
+  // Envio parcial (um carregamento só, com quantidades diferentes do total)
+  if(ids.length===1 && document.querySelector('.je-qtd')){
+    const c=carregamentos.find(x=>x.id===ids[0]); const {ship,erro}=_expLerEnvio('enviar');
+    const parcial=c&&(c.carregamento_itens||[]).some(it=>(ship[it.id]??Number(it.qtd))<(Number(it.qtd)||0));
+    if(erro){ if(btn){ btn.disabled=false; btn.textContent='Confirmar'; } return showToast(erro,'err'); }
+    if(c && !(c.carregamento_itens||[]).some(it=>(ship[it.id]??Number(it.qtd))>0)){ if(btn){ btn.disabled=false; btn.textContent='Confirmar'; } return showToast('Marque a quantidade de pelo menos um item que está indo','err'); }
+    if(parcial){
+      try{
+        const resp=document.getElementById(`exp_resp_${c.id}`)?.value||null;
+        const novo=await _expDividirEnvio(c,ship,quando,resp,false);
+        fecharModal('modalJaExpedido'); _expSelModo=false; _expSel.clear(); _expSelBarra(); _voltarListaCarregamentos();
+        showToast(`Envio parcial registrado. O restante ficou no Carregamento Nº ${novo.numero}`);
+      }catch(e){ console.error(e); if(btn){ btn.disabled=false; btn.textContent='Confirmar'; } showToast('Erro: '+(e.message||e),'err',6000); }
+      return;
+    }
+  }
   for(const id of ids){
     const c=carregamentos.find(x=>x.id===id); if(!c) continue;
     try{
