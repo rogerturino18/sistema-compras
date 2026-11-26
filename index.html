@@ -1183,6 +1183,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="sbGo(32,'Pesos de Itens')">⚖️ Pesos de Itens</div>
     <div class="sbi" onclick="sbGo(34,'Operadores e Terceirizados')">👷 Operadores e Terceirizados</div>
     <div class="sbi" onclick="sbGo(37,'Serviços Terceirizados')">🔧 Serviços Terceirizados</div>
+    <div class="sbi" onclick="sbCloseAll();abrirFeriados()">📅 Feriados</div>
   </div>
 </div>
 <div id="sbpanel_vendas" style="display:none;position:fixed;left:52px;top:56px;bottom:0;width:260px;overflow-y:auto;background:#fff;border-right:1px solid #e0e0e0;z-index:16;box-shadow:4px 0 16px rgba(0,0,0,0.1)">
@@ -5633,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-26 · build 479';
+const APP_BUILD='2026-11-26 · build 480';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -6080,6 +6081,7 @@ async function loadAll(silencioso, tabelas){
       _loadAllTentativas=0;
     }
     if(!_loadAllFalhas.length && typeof _autoReligarMinimosOrfaos==='function') _autoReligarMinimosOrfaos();
+    if(!_feriadosExtrasOk) carregarFeriadosExtras();
     _iniciarRealtime(); // só faz algo na 1ª vez — depois fica escutando sozinho
     const _tRend0=performance.now();
     _perf.loadAll.push({ms:Math.round(_tRend0-_tLoad0),silencioso:!!silencioso,em:Date.now()}); if(_perf.loadAll.length>30) _perf.loadAll.shift();
@@ -10086,7 +10088,7 @@ const HORA_EXTRA_ADICIONAL = 0.5; // 50%
 function _extraSugerida(ini,fim){
   if(!ini||!fim||fim<=ini) return null;
   if(ini.toDateString()!==fim.toDateString()) return null; // várias datas: a pessoa informa
-  const dow=ini.getDay(); if(dow===0||dow===6) return null;
+  const dow=ini.getDay(); if(dow===0||dow===6||_feriadoDe(ini)) return null;
   const a=ini.getHours()*60+ini.getMinutes(), b=fim.getHours()*60+fim.getMinutes();
   const antes=Math.max(0,Math.min(b,TURNO_MANHA_INI)-a);
   const depois=Math.max(0,b-Math.max(a,TURNO_TARDE_FIM));
@@ -10094,9 +10096,41 @@ function _extraSugerida(ini,fim){
 }
 const MINS_POR_DIA = (TURNO_MANHA_FIM-TURNO_MANHA_INI)+(TURNO_TARDE_FIM-TURNO_TARDE_INI); // 528 min = 8h48
 
+// ── Feriados ──
+// Nacionais (fixos + os que dependem da Páscoa: Carnaval, Paixão de Cristo, Corpus Christi) e o estadual de SP (9 de julho)
+// são calculados para qualquer ano. Municipais, recesso e pontes ficam na tabela feriados_extras (tela 📅 Feriados).
+let feriadosExtras=[], _feriadosExtrasOk=false;
+async function carregarFeriadosExtras(){
+  try{ feriadosExtras=(await api('GET','feriados_extras','','?order=data.asc'))||[]; _feriadosExtrasOk=true; }
+  catch(e){ console.warn('feriados_extras:',e.message); }
+}
+function _pascoa(ano){ // algoritmo de Meeus/Jones/Butcher
+  const a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+        h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+  return new Date(ano,mes-1,dia);
+}
+const _feriadosCache={};
+function _feriadosAno(ano){
+  if(_feriadosCache[ano]) return _feriadosCache[ano];
+  const m={}, add=(d,nome,tipo)=>{ m[_chaveDia(d)]={nome,tipo}; };
+  [[0,1,'Confraternização Universal'],[3,21,'Tiradentes'],[4,1,'Dia do Trabalho'],[8,7,'Independência do Brasil'],[9,12,'Nossa Senhora Aparecida'],[10,2,'Finados'],[10,15,'Proclamação da República'],[10,20,'Consciência Negra'],[11,25,'Natal']]
+    .forEach(([mm,dd,n])=>add(new Date(ano,mm,dd),n,'nacional'));
+  add(new Date(ano,6,9),'Revolução Constitucionalista','estadual');
+  const p=_pascoa(ano), off=n=>new Date(p.getFullYear(),p.getMonth(),p.getDate()+n);
+  add(off(-48),'Carnaval','nacional'); add(off(-47),'Carnaval','nacional'); add(off(-2),'Paixão de Cristo','nacional'); add(off(60),'Corpus Christi','nacional');
+  return _feriadosCache[ano]=m;
+}
+function _feriadoDe(data){
+  const k=_chaveDia(data);
+  const e=(feriadosExtras||[]).find(x=>String(x.data).slice(0,10)===k);
+  if(e) return {nome:e.nome,tipo:'empresa',id:e.id};
+  return _feriadosAno(data.getFullYear())[k]||null;
+}
 function minutosUteisNoDia(data, inicioMin, fimMin){
   // Quanto de minutos úteis entre inicioMin e fimMin neste dia (se for dia útil)
   if(data.getDay()===0||data.getDay()===6) return 0; // fim de semana
+  if(_feriadoDe(data)) return 0; // feriado: não é expediente (se trabalhou, entra como hora extra)
   let total=0;
   // Manhã
   const mIni=Math.max(inicioMin, TURNO_MANHA_INI);
@@ -10120,13 +10154,16 @@ function _fdsNoPeriodo(inicio, fim){
   const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   for(let guard=0; dia<fim && guard<400; guard++){
     const dow=dia.getDay();
-    if(dow===6){ // só sábado (domingo nunca trabalha)
+    const fer=(dow!==0&&dow!==6)?_feriadoDe(dia):null;
+    if(dow===6 || fer){ // sábado ou feriado em dia de semana (domingo nunca trabalha)
       const ini=Math.max(0, dia.toDateString()===inicio.toDateString()? inicio.getHours()*60+inicio.getMinutes():0);
       const fimMin=dia.toDateString()===fim.toDateString()? fim.getHours()*60+fim.getMinutes():24*60;
-      // sábado: só até o meio-dia (07:00–12:00), recortado pelo início/fim informados
-      const m=Math.max(0,Math.min(fimMin,TURNO_MANHA_FIM)-Math.max(ini,TURNO_MANHA_INI));
-      lista.push({key:_chaveDia(dia), rotulo:`${DIAS[dow]} ${String(dia.getDate()).padStart(2,'0')}/${String(dia.getMonth()+1).padStart(2,'0')}`, minPadrao:m,
-        // 'digitado' = o sábado é a data de início ou de fim informada (conta sozinho); 'meio' = o período só passa por ele (pergunta)
+      const clip=(x,y)=>Math.max(0,Math.min(fimMin,y)-Math.max(ini,x));
+      // sábado: só até o meio-dia (07:00–12:00); feriado: turno inteiro. Sempre recortado pelo início/fim informados
+      const m=dow===6 ? clip(TURNO_MANHA_INI,TURNO_MANHA_FIM) : clip(TURNO_MANHA_INI,TURNO_MANHA_FIM)+clip(TURNO_TARDE_INI,TURNO_TARDE_FIM);
+      const dd=`${String(dia.getDate()).padStart(2,'0')}/${String(dia.getMonth()+1).padStart(2,'0')}`;
+      lista.push({key:_chaveDia(dia), rotulo:fer?`Feriado ${dd}`:`${DIAS[dow]} ${dd}`, feriado:fer?fer.nome:null, minPadrao:m,
+        // 'digitado' = o dia é a data de início ou de fim informada (conta sozinho); 'meio' = o período só passa por ele (pergunta)
         tipo:(dia.toDateString()===inicio.toDateString()||dia.toDateString()===fim.toDateString())?'digitado':'meio'});
     }
     dia.setDate(dia.getDate()+1);
@@ -10146,11 +10183,11 @@ function _renderFDS(tela, boxId, inicio, fim, aoMudar){
   if(!lista.length){ box.innerHTML=''; return; }
   lista.forEach(x=>{ if(!st[x.key]) st[x.key]={on:x.tipo==='digitado',min:x.minPadrao,decidido:x.tipo==='digitado'}; });
   box.innerHTML=`<div style="margin-top:8px;border:1px dashed #1565c0;border-radius:10px;padding:10px;background:#f3f8ff">
-    <div style="font-size:12px;font-weight:700;color:#1565c0;margin-bottom:2px">📅 Sábado no período</div>
-    <div style="font-size:11px;color:#546e7a;margin-bottom:6px">Sábado e domingo só contam como hora extra (até 12:00). Se a data informada é um sábado, ele já vem marcado; se o período apenas passa por ele, o sistema pergunta ao salvar.</div>
+    <div style="font-size:12px;font-weight:700;color:#1565c0;margin-bottom:2px">📅 Sábado / feriado no período</div>
+    <div style="font-size:11px;color:#546e7a;margin-bottom:6px">Sábado (até 12:00) e feriado só contam como hora extra. Se a data informada é um sábado ou feriado, já vem marcado; se o período apenas passa por ele, o sistema pergunta ao salvar.</div>
     ${lista.map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
       <input type="checkbox" ${st[x.key].on?'checked':''} onchange="_fdsEstado['${tela}']['${x.key}'].on=this.checked;_fdsEstado['${tela}']['${x.key}'].decidido=true;${aoMudar}" style="width:18px;height:18px;flex:none;padding:0;margin:0;cursor:pointer">
-      <span style="width:84px;font-size:13px;font-weight:600">${x.rotulo}</span>
+      <span style="min-width:92px;font-size:13px;font-weight:600" title="${x.feriado||''}">${x.rotulo}</span>
       <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px;${x.tipo==='digitado'?'background:#e8f5e9;color:#2e7d32':(st[x.key].decidido?'background:#e3f2fd;color:#1565c0':'background:#fff3e0;color:#e65100')}">${x.tipo==='digitado'?'automático':(st[x.key].decidido?'confirmado':'a confirmar')}</span>
       <input type="number" min="0" max="${x.minPadrao}" value="${st[x.key].min}" oninput="_fdsEstado['${tela}']['${x.key}'].min=Math.min(${x.minPadrao},Math.max(0,parseInt(this.value)||0));${aoMudar}" style="width:84px;flex:none;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
       <span style="font-size:12px;color:#78909c">min trabalhados</span></div>`).join('')}
@@ -10164,10 +10201,58 @@ async function _confirmarSabadosMeio(tela, inicio, fim){
     if(!st[x.key]) st[x.key]={on:x.tipo==='digitado',min:x.minPadrao,decidido:x.tipo==='digitado'};
     if(x.tipo==='meio' && !st[x.key].decidido){
       const h=Math.floor(x.minPadrao/60), m=x.minPadrao%60;
-      const sim=await uiConfirm(`O operador trabalhou no sábado ${x.rotulo.split(' ')[1]}?\n\nO período informado passa por esse sábado. Se sim, serão contados até ${h}h${m?String(m).padStart(2,'0'):''} (07:00 às 12:00) como hora extra.`,{tipo:'pergunta',okTxt:'Sim, trabalhou',cancelTxt:'Não trabalhou'});
+      const dd=x.rotulo.split(' ')[1], hh=`${h}h${m?String(m).padStart(2,'0'):''}`;
+      const sim=await uiConfirm(x.feriado
+        ?`O operador trabalhou no feriado ${dd} (${x.feriado})?\n\nO período informado passa por esse feriado. Se sim, serão contados até ${hh} (turno inteiro) como hora extra.`
+        :`O operador trabalhou no sábado ${dd}?\n\nO período informado passa por esse sábado. Se sim, serão contados até ${hh} (07:00 às 12:00) como hora extra.`,
+        {tipo:'pergunta',okTxt:'Sim, trabalhou',cancelTxt:'Não trabalhou'});
       st[x.key].on=!!sim; st[x.key].min=x.minPadrao; st[x.key].decidido=true;
     }
   }
+}
+
+// ── Tela 📅 Feriados ──
+let _ferAno=new Date().getFullYear();
+function abrirFeriados(){
+  document.getElementById('modalFeriadosBg')?.remove();
+  const bg=document.createElement('div'); bg.id='modalFeriadosBg';
+  bg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:12px';
+  bg.onclick=e=>{ if(e.target===bg) bg.remove(); };
+  document.body.appendChild(bg);
+  if(!_feriadosExtrasOk) carregarFeriadosExtras().then(renderFeriados);
+  renderFeriados();
+}
+function renderFeriados(){
+  const bg=document.getElementById('modalFeriadosBg'); if(!bg) return;
+  const DIAS=['dom','seg','ter','qua','qui','sex','sáb'];
+  const ano=_ferAno, lista=[];
+  Object.entries(_feriadosAno(ano)).forEach(([k,v])=>lista.push({k,nome:v.nome,tipo:v.tipo}));
+  (feriadosExtras||[]).filter(x=>String(x.data).slice(0,4)==String(ano)).forEach(x=>lista.push({k:String(x.data).slice(0,10),nome:x.nome,tipo:'empresa',id:x.id}));
+  lista.sort((a,b)=>a.k.localeCompare(b.k));
+  const fd=k=>{ const d=new Date(k+'T12:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} · ${DIAS[d.getDay()]}`; };
+  const tag={nacional:['Nacional','#e8f5e9','#2e7d32'],estadual:['Estadual','#e3f2fd','#1565c0'],empresa:['Da empresa','#fff3e0','#e65100']};
+  bg.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:520px;max-width:96vw;max-height:92vh;overflow:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-size:16px;font-weight:700;color:#263238">📅 Feriados</div><button class="btn btn-sm" onclick="document.getElementById('modalFeriadosBg').remove()">Fechar</button></div>
+    <div style="font-size:12px;color:#546e7a;margin-bottom:12px">Em feriado não há expediente: o tempo não conta como normal. Se o operador trabalhar, entra como hora extra (o sistema pergunta ao salvar). Nacionais e o estadual de SP já vêm prontos; adicione aqui o feriado municipal, recesso ou ponte.</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><button class="btn btn-sm" onclick="_ferAno--;renderFeriados()">‹</button><b style="font-size:15px">${ano}</b><button class="btn btn-sm" onclick="_ferAno++;renderFeriados()">›</button></div>
+    ${lista.map(x=>{const t=tag[x.tipo];return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #eef1ef;font-size:13px"><span style="width:84px;color:#546e7a">${fd(x.k)}</span><span style="flex:1;font-weight:600">${_uiEsc(x.nome)}</span><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${t[1]};color:${t[2]}">${t[0]}</span>${x.id?`<a href="javascript:void(0)" style="color:#c62828" title="Remover" onclick="removerFeriadoExtra('${x.id}')">🗑</a>`:'<span style="width:16px"></span>'}</div>`;}).join('')}
+    <div style="margin-top:14px;padding:10px;background:#f6f8f7;border-radius:10px">
+      <div style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;margin-bottom:6px">Adicionar feriado da empresa</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="date" id="ferData" style="padding:7px;border:1px solid #cfd8d3;border-radius:8px"><input type="text" id="ferNome" placeholder="Ex.: Aniversário de Jaú" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid #cfd8d3;border-radius:8px"><button class="btn primary btn-sm" onclick="adicionarFeriadoExtra()">Adicionar</button></div>
+    </div></div>`;
+}
+async function adicionarFeriadoExtra(){
+  const data=document.getElementById('ferData')?.value, nome=(document.getElementById('ferNome')?.value||'').trim();
+  if(!data||!nome){ showToast('Informe a data e o nome do feriado','err'); return; }
+  if((feriadosExtras||[]).some(x=>String(x.data).slice(0,10)===data)){ showToast('Esse dia já está cadastrado','err'); return; }
+  try{ await api('POST','feriados_extras',{data,nome}); await carregarFeriadosExtras(); _ferAno=Number(data.slice(0,4)); renderFeriados(); showToast('Feriado adicionado'); }
+  catch(e){ showToast('Erro: '+(e.message||e),'err'); }
+}
+async function removerFeriadoExtra(id){
+  const f=(feriadosExtras||[]).find(x=>x.id===id); if(!f) return;
+  if(!await uiConfirm(`Remover o feriado "${f.nome}"?\\n\\nTempos já salvos não mudam.`)) return;
+  try{ await api('DELETE','feriados_extras','',`?id=eq.${id}`); await carregarFeriadosExtras(); renderFeriados(); }
+  catch(e){ showToast('Erro: '+(e.message||e),'err'); }
 }
 function calcularHorasUteis(inicio, fim, extras){
   if(!inicio||!fim||fim<=inicio) return {minutos:0, texto:'—', detalhe:''};
@@ -10188,7 +10273,7 @@ function calcularHorasUteis(inicio, fim, extras){
       24*60 : fimDoDia.getHours()*60+fimDoDia.getMinutes();
     const mins=minutosUteisNoDia(cur, iniMin, Math.min(fimMin,17*60));
     total+=mins;
-    if(cur.getDay()!==0&&cur.getDay()!==6) diasContados++;
+    if(cur.getDay()!==0&&cur.getDay()!==6&&!_feriadoDe(cur)) diasContados++;
     cur.setTime(proximoDia.getTime());
   }
   let extraTotal=0;
