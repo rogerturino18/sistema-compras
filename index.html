@@ -1126,6 +1126,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="sbGo(25,'Pagamentos')">💸 Pagamentos</div>
     <div class="sbi" onclick="sbGo(26,'Recebimentos')">💰 Recebimentos</div>
     <div class="sbi" onclick="sbGo(22,'Contas Correntes')">🏦 Contas Correntes</div>
+    <div class="sbi" id="sbi_ponto" style="display:none" onclick="sbGo(39,'Fechamento de Ponto')">🕒 Fechamento de Ponto</div>
     <div class="sbi" onclick="sbGo(23,'DRE')">📈 DRE</div>
   </div>
 </div>
@@ -1177,9 +1178,8 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
     <div class="sbi" onclick="sbGo(5,'Ordens')">🔧 Ordens de Produção</div>
     <div class="sbi" onclick="abrirScannerOrdem()">📷 Escanear QR da Ordem</div>
     <div class="sbi" onclick="sbGo(27,'Histórico de Tempos')">⏱️ Histórico de Tempos</div>
-    <div class="sbi" onclick="sbGo(31,'Custo de Produto')">💰 Custo de Produto</div>
+    <!-- Custo de Produto desativado por enquanto: <div class="sbi" onclick="sbGo(31,'Custo de Produto')">💰 Custo de Produto</div> -->
     <div class="sbi" id="sbi_retrabalho" style="display:none" onclick="sbGo(38,'Análise de Retrabalho')">🔁 Análise de Retrabalho</div>
-    <div class="sbi" id="sbi_ponto" style="display:none" onclick="sbGo(39,'Fechamento de Ponto')">🕒 Fechamento de Ponto</div>
     <div class="sbi" onclick="sbGo(32,'Pesos de Itens')">⚖️ Pesos de Itens</div>
     <div class="sbi" onclick="sbGo(34,'Operadores e Terceirizados')">👷 Operadores e Terceirizados</div>
     <div class="sbi" onclick="sbGo(37,'Serviços Terceirizados')">🔧 Serviços Terceirizados</div>
@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-26 · build 476';
+const APP_BUILD='2026-11-26 · build 477';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -14236,7 +14236,7 @@ const DASH_GRUPOS = [
   {id:'compras',    label:'Compras',    icon:'🛒', color:'linear-gradient(135deg,#1565c0,#0d47a1)',
    subs:[{label:'Lista de Compras',icon:'📋',tab:1},{label:'Entrada de NF-e',icon:'🧾',tab:24},{label:'Cotações',icon:'💰',tab:6},{label:'Compras Internas',icon:'🛒',tab:9},{label:'Enviar Cotação',icon:'📧',tab:10},{label:'Comparar Orçamentos',icon:'⚖️',tab:7},{label:'Pedido de Compra',icon:'📑',tab:15},{label:'Fornecedores',icon:'🏢',tab:2},{label:'Relatório Contábil',icon:'📊',tab:33}]},
   {id:'producao',   label:'Produção',   icon:'🏭', color:'linear-gradient(135deg,#558b2f,#33691e)',
-   subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico de Tempos',icon:'⏱️',tab:27},{label:'Custo de Produto',icon:'💰',tab:31},{label:'Pesos de Itens',icon:'⚖️',tab:32},{label:'Serviços Terceirizados',icon:'🔧',tab:37}]},
+   subs:[{label:'Estrutura de Equipamentos',icon:'📐',tab:28},{label:'Ordens',icon:'🔧',tab:5},{label:'Histórico de Tempos',icon:'⏱️',tab:27},{label:'Pesos de Itens',icon:'⚖️',tab:32},{label:'Serviços Terceirizados',icon:'🔧',tab:37}]},
   {id:'financeiro', label:'Financeiro', icon:'💰', color:'linear-gradient(135deg,#c62828,#b71c1c)',
    subs:[{label:'Fluxo de Caixa',icon:'📊',tab:21},{label:'Contas a Pagar',icon:'💸',tab:19},{label:'Contas a Receber',icon:'💰',tab:20},{label:'Pagamentos',icon:'✅',tab:25},{label:'Recebimentos',icon:'📥',tab:26},{label:'Contas Correntes',icon:'🏦',tab:22},{label:'DRE',icon:'📈',tab:23}]},
   {id:'estoque',    label:'Estoque',    icon:'📦', color:'linear-gradient(135deg,#00695c,#004d40)',
@@ -17245,7 +17245,7 @@ const TAB_GRUPO_SIDEBAR = {
   12:'vendas',13:'vendas',14:'vendas',
   // sbpanel_financeiro: Contas a Pagar(19), Contas a Receber(20), Fluxo de Caixa(21),
   //                      Pagamentos(25), Recebimentos(26), Contas Correntes(22), DRE(23)
-  19:'financeiro',20:'financeiro',21:'financeiro',22:'financeiro',23:'financeiro',25:'financeiro',26:'financeiro',
+  19:'financeiro',20:'financeiro',21:'financeiro',22:'financeiro',23:'financeiro',25:'financeiro',26:'financeiro',39:'financeiro',
   // sbpanel_estoque: Itens em Estoque(11), Movimentações(16), Distribuição por PDV(30), Requisições(17), Departamentos(18), Peças Fundidas(35), Controle EPI(29)
   11:'estoque',16:'estoque',17:'estoque',18:'estoque',30:'estoque',35:'estoque',29:'estoque',
   // sbpanel_expedicao: Carregamentos(36)
