@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-26 · build 477';
+const APP_BUILD='2026-11-26 · build 478';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -9934,7 +9934,7 @@ function abrirMenuEtapaOrdem(event, ordemId, operacao){
       opts.push(`<div class="user-menu-item" style="flex-direction:row;align-items:center;justify-content:space-between;gap:6px">
         <div style="display:flex;flex-direction:column;gap:2px;cursor:pointer;flex:1;min-width:0" onclick="document.getElementById('menuEtapaOrdem').remove();reabrirEtapaOrdem('${t.id}')" title="Clique para reabrir esta passagem">
           <span style="${t.retrabalho?'color:#8e1c14;':''}">↩️ ${t.operador||'—'}${t.retrabalho?_tagRetrabalho:''}</span>
-          <span style="font-size:10px;color:#9e9e9e;padding-left:22px">${fmtCurto(t.dt_hr_inicial)} → ${fmtCurto(t.dt_hr_final)}${_minPass(t)?` · <b style="color:#1565c0">${_fmtTempo(_minPass(t))}</b>`:''}</span>
+          <span style="font-size:10px;color:#9e9e9e;padding-left:22px">${fmtCurto(t.dt_hr_inicial)} → ${fmtCurto(t.dt_hr_final)}${_minPass(t)?` · <b style="color:#1565c0">${_fmtTempo(_minPass(t))}</b>`:''}${Number(t.hora_extra_min)>0?` · <b style="color:#8d6e00">⏰ ${_fmtTempo(Number(t.hora_extra_min))} extra</b>`:''}</span>
         </div>
         <span style="cursor:pointer;padding:4px 6px;flex-shrink:0" onclick="event.stopPropagation();document.getElementById('menuEtapaOrdem').remove();deletarTempoOp('${t.id}')" title="Excluir este registro">🗑</span>
       </div>`);
@@ -10080,6 +10080,18 @@ const TURNO_MANHA_INI = 7*60;      // 07:00 em minutos
 const TURNO_MANHA_FIM = 12*60;     // 12:00
 const TURNO_TARDE_INI = 13*60+12;  // 13:12
 const TURNO_TARDE_FIM = 17*60;     // 17:00
+// Hora extra em dia de semana (antes das 07:00 ou depois das 17:00): marcada no ajuste da operação.
+// O adicional entra só no CUSTO (minuto extra pesa 1 + adicional); o tempo registrado continua sendo o tempo real trabalhado.
+const HORA_EXTRA_ADICIONAL = 0.5; // 50%
+function _extraSugerida(ini,fim){
+  if(!ini||!fim||fim<=ini) return null;
+  if(ini.toDateString()!==fim.toDateString()) return null; // várias datas: a pessoa informa
+  const dow=ini.getDay(); if(dow===0||dow===6) return null;
+  const a=ini.getHours()*60+ini.getMinutes(), b=fim.getHours()*60+fim.getMinutes();
+  const antes=Math.max(0,Math.min(b,TURNO_MANHA_INI)-a);
+  const depois=Math.max(0,b-Math.max(a,TURNO_TARDE_FIM));
+  return antes+depois;
+}
 const MINS_POR_DIA = (TURNO_MANHA_FIM-TURNO_MANHA_INI)+(TURNO_TARDE_FIM-TURNO_TARDE_INI); // 528 min = 8h48
 
 function minutosUteisNoDia(data, inicioMin, fimMin){
@@ -13134,7 +13146,7 @@ async function imprimirFichaProduto(id){
   if(montOrigem) filhos=(itensDesenhoRecebido||[]).filter(i=>i.montagem_id===montOrigem.id);
   filhos.forEach(i=>mat.push({nome:i.denominacao||'—',cod:i.desenho_peca||'',qtd:i.quantidade,un:i.unidade||'un',material:i.material||'',pu:i.peso!=null?Number(i.peso):null,origem:i.item_tipo==='fabricar'?'Fabricar':(i.item_tipo?'Comprar':'')}));
   const trMat=mat.length?mat.map(m=>`<tr><td>${esc(m.nome)}</td><td>${esc(m.cod)||'—'}</td><td>${esc(m.material)||'—'}</td><td class="center">${esc(m.qtd)} ${esc(m.un)}</td><td class="num">${m.pu!=null?kg(m.pu):'—'}</td><td class="center">${esc(m.origem)||'—'}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;padding:14px;color:#90a4ae">Nenhum material ou componente cadastrado</td></tr>`;
-  const linhasProc=temposOrd.map(t=>`<tr${t.retrabalho?' style="background:#fdecea;color:#8e1c14"':''}><td>${esc(t.operacao)}${t.retrabalho?' <b style="font-size:9.5px">↻ RETRABALHO</b>':''}</td><td>${esc(t.operador||'—')}</td><td class="center">${fDH(t.dt_hr_inicial)}</td><td class="center">${t.dt_hr_final?fDH(t.dt_hr_final):'Em andamento'}</td><td class="center">${fDur(t.duracao_minutos)}${qtd>1&&t.dt_hr_final&&t.duracao_minutos?`<div style="font-size:9.5px;color:#607d6b;font-weight:400">${_fmtTempoPeca(t.duracao_minutos,qtd)}/peça</div>`:''}</td></tr>`);
+  const linhasProc=temposOrd.map(t=>`<tr${t.retrabalho?' style="background:#fdecea;color:#8e1c14"':''}><td>${esc(t.operacao)}${t.retrabalho?' <b style="font-size:9.5px">↻ RETRABALHO</b>':''}</td><td>${esc(t.operador||'—')}</td><td class="center">${fDH(t.dt_hr_inicial)}</td><td class="center">${t.dt_hr_final?fDH(t.dt_hr_final):'Em andamento'}</td><td class="center">${fDur(t.duracao_minutos)}${Number(t.hora_extra_min)>0?`<div style="font-size:9.5px;color:#8d6e00;font-weight:700">⏰ ${fDur(t.hora_extra_min)} extra</div>`:''}${qtd>1&&t.dt_hr_final&&t.duracao_minutos?`<div style="font-size:9.5px;color:#607d6b;font-weight:400">${_fmtTempoPeca(t.duracao_minutos,qtd)}/peça</div>`:''}</td></tr>`);
   _tercPassagens(o).forEach(x=>linhasProc.push(`<tr><td>Terceirizado${x.obs?`<div style="font-size:9.5px;color:#607d6b;font-weight:400">${esc(x.obs)}</div>`:''}</td><td>${esc(x.nome||'—')}${x.qtd?` (${esc(x.qtd)} un)`:''}</td><td class="center">${dBR(x.envio)}</td><td class="center">${x.retorno?dBR(x.retorno):'Em andamento'}</td><td class="center">${x.dias!=null?x.dias+' d':'—'}</td></tr>`));
   const desenhoBox=desenhoFoto?(_ehPdfBase64(desenhoFoto)?`<div class="ph">Desenho em PDF — consulte o arquivo da ordem</div>`:`<img src="${desenhoFoto}" class="img">`):`<div class="ph">Desenho não anexado</div>`;
   const obs=String(o.observacao||'').replace(/\s*\[Finalizada manualmente[^\]]*\]/g,'').trim();
@@ -20922,6 +20934,14 @@ async function editarTempoOp(tempoId){
         <label style="font-size:11px;font-weight:700;color:#546e7a;text-transform:uppercase;display:block;margin-bottom:4px">Observação</label>
         <input id="editTempoObs" type="text" value="${t.observacao||''}" placeholder="Opcional" style="width:100%;padding:7px 10px;border:1px solid #dce4dc;border-radius:8px;font-size:13px">
       </div>
+      <div style="margin-bottom:14px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:9px 11px">
+        <label style="font-size:11px;font-weight:700;color:#8d6e00;text-transform:uppercase;display:block;margin-bottom:4px">⏰ Hora extra (minutos)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="editTempoExtra" type="number" min="0" step="1" value="${Number(t.hora_extra_min)||0}" style="width:100px;padding:7px 10px;border:1px solid #e0cf8a;border-radius:8px;font-size:13px">
+          <button type="button" class="btn btn-sm" onclick="(function(){const i=_valDataHora('editTempoIni'),f=_valDataHora('editTempoFim');const m=(i&&f)?_extraSugerida(parseLocalDate(i),parseLocalDate(f)):null;if(m===null)return showToast('Sugestão só quando início e fim são no mesmo dia útil. Digite os minutos.','err',5000);document.getElementById('editTempoExtra').value=m;})()">Sugerir pelo horário</button>
+        </div>
+        <div style="font-size:11px;color:#8d6e00;margin-top:5px">Trabalho antes das 07:00 ou depois das 17:00 em dia de semana. Conta no tempo e no custo com adicional de ${Math.round(HORA_EXTRA_ADICIONAL*100)}%.</div>
+      </div>
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#8e1c14;margin-bottom:10px;cursor:pointer;background:#fdecea;border:1px solid #f0b8b3;padding:9px 11px;border-radius:8px">
         <input type="checkbox" id="editTempoRetrab" ${t.retrabalho?'checked':''} style="margin-top:2px">
         <span><b>↻ Retrabalho</b></span>
@@ -20957,9 +20977,18 @@ async function confirmarEditarTempoOp(tempoId){
     historico_only: document.getElementById('editTempoHist')?.checked||false,
     retrabalho: !!document.getElementById('editTempoRetrab')?.checked
   };
+  const extraMin=Math.max(0,Math.round(Number(document.getElementById('editTempoExtra')?.value)||0));
+  if(extraMin>1440){showToast('Hora extra não pode passar de 24h','err');return;}
+  obj.hora_extra_min=extraMin;
   if(ini && fim){
     const diffMs = parseLocalDate(fim) - parseLocalDate(ini);
-    if(diffMs > 0) obj.duracao_minutos = Math.round(diffMs/60000);
+    if(diffMs > 0){
+      const bruto=Math.round(diffMs/60000);
+      if(extraMin>0){
+        // tempo = horas úteis do turno + hora extra marcada
+        obj.duracao_minutos = calcularHorasUteis(parseLocalDate(ini),parseLocalDate(fim),{}).minutos + extraMin;
+      } else obj.duracao_minutos = bruto;
+    }
   }
   try{
     await api('PATCH','tempos_op',obj,`?id=eq.${tempoId}`);
@@ -24286,7 +24315,7 @@ function custoBuscarDesenho(){
   (temposOP||[]).forEach(t=>{
     if(!ids.includes(t.ordem_id)) return;
     if(!t.operacao||t.operacao==='REPROCESSAR'||!t.duracao_minutos) return;
-    porMaq[t.operacao]=(porMaq[t.operacao]||0)+(t.duracao_minutos||0);
+    porMaq[t.operacao]=(porMaq[t.operacao]||0)+(t.duracao_minutos||0)+Math.round((Number(t.hora_extra_min)||0)*HORA_EXTRA_ADICIONAL);
   });
   const horas=Object.entries(porMaq).sort((a,b)=>b[1]-a[1]).map(([maquina,minutos])=>({maquina,minutos,valorHora:getTaxaMaq(maquina)}));
   const qtdTot=ords.reduce((s,o)=>s+(Number(o.quantidade)||1),0)||1;
