@@ -5633,7 +5633,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-26 · build 478';
+const APP_BUILD='2026-11-26 · build 479';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -10125,7 +10125,9 @@ function _fdsNoPeriodo(inicio, fim){
       const fimMin=dia.toDateString()===fim.toDateString()? fim.getHours()*60+fim.getMinutes():24*60;
       // sábado: só até o meio-dia (07:00–12:00), recortado pelo início/fim informados
       const m=Math.max(0,Math.min(fimMin,TURNO_MANHA_FIM)-Math.max(ini,TURNO_MANHA_INI));
-      lista.push({key:_chaveDia(dia), rotulo:`${DIAS[dow]} ${String(dia.getDate()).padStart(2,'0')}/${String(dia.getMonth()+1).padStart(2,'0')}`, minPadrao:m});
+      lista.push({key:_chaveDia(dia), rotulo:`${DIAS[dow]} ${String(dia.getDate()).padStart(2,'0')}/${String(dia.getMonth()+1).padStart(2,'0')}`, minPadrao:m,
+        // 'digitado' = o sábado é a data de início ou de fim informada (conta sozinho); 'meio' = o período só passa por ele (pergunta)
+        tipo:(dia.toDateString()===inicio.toDateString()||dia.toDateString()===fim.toDateString())?'digitado':'meio'});
     }
     dia.setDate(dia.getDate()+1);
   }
@@ -10142,18 +10144,31 @@ function _renderFDS(tela, boxId, inicio, fim, aoMudar){
   const st=_fdsEstado[tela]||(_fdsEstado[tela]={});
   Object.keys(st).forEach(k=>{ if(!lista.some(x=>x.key===k)) delete st[k]; });
   if(!lista.length){ box.innerHTML=''; return; }
-  lista.forEach(x=>{ if(!st[x.key]) st[x.key]={on:false,min:x.minPadrao}; });
+  lista.forEach(x=>{ if(!st[x.key]) st[x.key]={on:x.tipo==='digitado',min:x.minPadrao,decidido:x.tipo==='digitado'}; });
   box.innerHTML=`<div style="margin-top:8px;border:1px dashed #1565c0;border-radius:10px;padding:10px;background:#f3f8ff">
     <div style="font-size:12px;font-weight:700;color:#1565c0;margin-bottom:2px">📅 Sábado no período</div>
-    <div style="font-size:11px;color:#546e7a;margin-bottom:6px">Sábado e domingo não contam. Se houve hora extra no sábado (até 12:00), marque o dia e confira os minutos trabalhados.</div>
+    <div style="font-size:11px;color:#546e7a;margin-bottom:6px">Sábado e domingo só contam como hora extra (até 12:00). Se a data informada é um sábado, ele já vem marcado; se o período apenas passa por ele, o sistema pergunta ao salvar.</div>
     ${lista.map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-      <input type="checkbox" ${st[x.key].on?'checked':''} onchange="_fdsEstado['${tela}']['${x.key}'].on=this.checked;${aoMudar}" style="width:18px;height:18px;flex:none;padding:0;margin:0;cursor:pointer">
+      <input type="checkbox" ${st[x.key].on?'checked':''} onchange="_fdsEstado['${tela}']['${x.key}'].on=this.checked;_fdsEstado['${tela}']['${x.key}'].decidido=true;${aoMudar}" style="width:18px;height:18px;flex:none;padding:0;margin:0;cursor:pointer">
       <span style="width:84px;font-size:13px;font-weight:600">${x.rotulo}</span>
+      <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px;${x.tipo==='digitado'?'background:#e8f5e9;color:#2e7d32':(st[x.key].decidido?'background:#e3f2fd;color:#1565c0':'background:#fff3e0;color:#e65100')}">${x.tipo==='digitado'?'automático':(st[x.key].decidido?'confirmado':'a confirmar')}</span>
       <input type="number" min="0" max="${x.minPadrao}" value="${st[x.key].min}" oninput="_fdsEstado['${tela}']['${x.key}'].min=Math.min(${x.minPadrao},Math.max(0,parseInt(this.value)||0));${aoMudar}" style="width:84px;flex:none;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
       <span style="font-size:12px;color:#78909c">min trabalhados</span></div>`).join('')}
   </div>`;
 }
 
+// Sábado que só "passa" pelo período (não é a data de início nem de fim): pergunta se o operador trabalhou.
+async function _confirmarSabadosMeio(tela, inicio, fim){
+  const lista=_fdsNoPeriodo(inicio,fim); const st=_fdsEstado[tela]||(_fdsEstado[tela]={});
+  for(const x of lista){
+    if(!st[x.key]) st[x.key]={on:x.tipo==='digitado',min:x.minPadrao,decidido:x.tipo==='digitado'};
+    if(x.tipo==='meio' && !st[x.key].decidido){
+      const h=Math.floor(x.minPadrao/60), m=x.minPadrao%60;
+      const sim=await uiConfirm(`O operador trabalhou no sábado ${x.rotulo.split(' ')[1]}?\n\nO período informado passa por esse sábado. Se sim, serão contados até ${h}h${m?String(m).padStart(2,'0'):''} (07:00 às 12:00) como hora extra.`,{tipo:'pergunta',okTxt:'Sim, trabalhou',cancelTxt:'Não trabalhou'});
+      st[x.key].on=!!sim; st[x.key].min=x.minPadrao; st[x.key].decidido=true;
+    }
+  }
+}
 function calcularHorasUteis(inicio, fim, extras){
   if(!inicio||!fim||fim<=inicio) return {minutos:0, texto:'—', detalhe:''};
   let total=0;
@@ -10278,6 +10293,7 @@ async function confirmarFinalizarOp(){
   if(!iniVal||!fimVal){showToast('Preencha início e fim','err');return;}
   const ini=parseLocalDate(iniVal), fim=parseLocalDate(fimVal);
   if(fim<=ini){showToast('Fim deve ser após o início','err');return;}
+  await _confirmarSabadosMeio('op',ini,fim);
   const {minutos}=calcularHorasUteis(ini,fim,_fdsExtras('op'));
   // Salva como ISO string no horário local (sem converter para UTC)
   const toISO=d=>{
@@ -20980,14 +20996,17 @@ async function confirmarEditarTempoOp(tempoId){
   const extraMin=Math.max(0,Math.round(Number(document.getElementById('editTempoExtra')?.value)||0));
   if(extraMin>1440){showToast('Hora extra não pode passar de 24h','err');return;}
   obj.hora_extra_min=extraMin;
-  if(ini && fim){
-    const diffMs = parseLocalDate(fim) - parseLocalDate(ini);
-    if(diffMs > 0){
-      const bruto=Math.round(diffMs/60000);
-      if(extraMin>0){
-        // tempo = horas úteis do turno + hora extra marcada
-        obj.duracao_minutos = calcularHorasUteis(parseLocalDate(ini),parseLocalDate(fim),{}).minutos + extraMin;
-      } else obj.duracao_minutos = bruto;
+  const _t0=temposOP.find(x=>x.id===tempoId)||{};
+  const _mudou = ini!==tsParaInput(_t0.dt_hr_inicial) || fim!==tsParaInput(_t0.dt_hr_final) || extraMin!==(Number(_t0.hora_extra_min)||0);
+  if(ini && fim && _mudou){
+    const a=parseLocalDate(ini), b=parseLocalDate(fim);
+    if(b>a){
+      if(_fdsNoPeriodo(a,b).length || extraMin>0){
+        // tempo = horas úteis do turno + sábado trabalhado (automático ou perguntado) + hora extra de semana
+        _fdsEstado.ed={};
+        await _confirmarSabadosMeio('ed',a,b);
+        obj.duracao_minutos = calcularHorasUteis(a,b,_fdsExtras('ed')).minutos + extraMin;
+      } else obj.duracao_minutos = Math.round((b-a)/60000);
     }
   }
   try{
@@ -23794,13 +23813,17 @@ async function salvarTempoManual(){
   const operador=(document.getElementById('at_operador')?.value||'').trim();
   const ini=_valDataHora('at_ini');
   const fim=_valDataHora('at_fim');
-  const minutos=parseInt(document.getElementById('at_minutos')?.value)||0;
+  let minutos=parseInt(document.getElementById('at_minutos')?.value)||0;
   const obs=(document.getElementById('at_obs')?.value||'').trim();
 
   if(!desenho||!descricao||!operacao||!operador){
     showToast('Preencha: Desenho, Descrição, Operação e Operador','err'); return;
   }
   if(!minutos&&!fim){ showToast('Informe o tempo em minutos ou data/hora final','err'); return; }
+  if(ini&&fim){
+    const _a=parseLocalDate(ini), _b=parseLocalDate(fim);
+    if(_b>_a){ await _confirmarSabadosMeio('at',_a,_b); minutos=calcularHorasUteis(_a,_b,_fdsExtras('at')).minutos; }
+  }
 
   _salvandoTempoManual=true;
   const btnSalvar=document.querySelector('#modalAdicionarTempo .modal-actions .btn.primary');
