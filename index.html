@@ -2727,7 +2727,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
         <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
           <label id="fund_foto_label" style="cursor:pointer;border:2px dashed #a5d6a7;border-radius:10px;padding:12px 20px;text-align:center;min-width:140px;background:#fafffe;transition:background 0.2s"
             onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#fafffe'">
-            <input type="file" id="fund_foto_input" accept="image/*" capture="environment" style="display:none" onchange="handleFotoFundido(this)">
+            <input type="file" id="fund_foto_input" accept="image/*" style="display:none" onchange="handleFotoFundido(this)">
             <div id="fund_foto_placeholder">
               <div style="font-size:28px;margin-bottom:4px">📷</div>
               <div style="font-size:12px;color:#546e7a;font-weight:600">Tirar foto ou escolher</div>
@@ -4292,7 +4292,7 @@ table[style*="min-width:1606px"][style*="table-layout:fixed"] td:nth-child(4) * 
           <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
             <label id="ord_foto_label" style="cursor:pointer;border:2px dashed #a5d6a7;border-radius:10px;padding:12px 20px;text-align:center;min-width:140px;background:#fafffe;transition:background 0.2s"
               onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#fafffe'">
-              <input type="file" id="ord_foto_input" accept="image/*,.pdf,application/pdf" capture="environment" style="display:none" onchange="handleFotoDesenhoOrdem(this)">
+              <input type="file" id="ord_foto_input" accept="image/*,.pdf,application/pdf" style="display:none" onchange="handleFotoDesenhoOrdem(this)">
               <div id="ord_foto_placeholder">
                 <div style="font-size:28px;margin-bottom:4px">📷</div>
                 <div style="font-size:12px;color:#546e7a;font-weight:600">Tirar foto ou escolher</div>
@@ -5634,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-26 · build 480';
+const APP_BUILD='2026-11-27 · build 481';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12353,7 +12353,7 @@ function _fotoOrdemConteudoHtml(o){
       ${_tagFotoDesenho(o.foto_desenho, `width:100%;border-radius:10px;border:1px solid #e0e0e0;cursor:pointer" onclick="_abrirImagemTelaCheiaOrdem('${o.id}')" title="Toque para abrir em tela cheia e dar zoom`)}
       ${!ehPdf?`<div style="text-align:center;font-size:11px;color:var(--gray);margin:4px 0 12px">🔍 Toque na imagem pra abrir em tela cheia (dá pra dar zoom lá)</div>`:''}
       <label style="display:block;cursor:pointer;margin-bottom:8px">
-        <input type="file" accept="image/*,.pdf,application/pdf" capture="environment" style="display:none" onchange="_salvarFotoOrdemLista(this,'${o.id}')">
+        <input type="file" accept="image/*,.pdf,application/pdf" style="display:none" onchange="_salvarFotoOrdemLista(this,'${o.id}')">
         <span class="btn" style="width:100%;display:block;text-align:center">🔄 Tirar/escolher outra foto</span>
       </label>
       <button class="btn danger" style="width:100%" onclick="_removerFotoOrdemLista('${o.id}')">🗑️ Remover esta foto</button>`;
@@ -12361,7 +12361,7 @@ function _fotoOrdemConteudoHtml(o){
   return `
     <div style="background:#fff3e0;color:#ef6c00;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:12px">⚠️ Esta ordem ainda não tem foto do desenho anexada.</div>
     <label style="display:block;cursor:pointer;border:2px dashed #a5d6a7;border-radius:10px;padding:22px;text-align:center;background:#fafffe">
-      <input type="file" accept="image/*,.pdf,application/pdf" capture="environment" style="display:none" onchange="_salvarFotoOrdemLista(this,'${o.id}')">
+      <input type="file" accept="image/*,.pdf,application/pdf" style="display:none" onchange="_salvarFotoOrdemLista(this,'${o.id}')">
       <div style="font-size:32px;margin-bottom:6px">📷</div>
       <div style="font-size:13px;color:#546e7a;font-weight:700">Tirar foto, escolher da galeria ou um PDF</div>
     </label>`;
@@ -25043,7 +25043,7 @@ function _prontoSecaoHtml(o,p){
       : `<div style="height:150px;border:1px dashed #b0bec5;border-radius:10px;background:#fafbfa;display:flex;align-items:center;justify-content:center;font-size:12px;color:#90a4ae;text-align:center;padding:6px">Nenhuma foto anexada</div>`}
     <div style="display:flex;gap:8px;margin-top:8px">
       <label class="btn btn-sm" style="flex:1;text-align:center;cursor:pointer;margin:0;font-size:12px">${foto?'Substituir foto':'Anexar foto'}
-        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="_prontoEscolherFoto(this,'${o.id}')"></label>
+        <input type="file" accept="image/*" style="display:none" onchange="_prontoEscolherFoto(this,'${o.id}')"></label>
       ${foto?`<button class="btn btn-sm" style="color:#c62828;border-color:#ef9a9a;font-size:12px" onclick="_prontoRemoverFoto('${o.id}')">Remover</button>`:''}
     </div>
     ${pend&&pend!=='REMOVER'?'<div style="font-size:11px;color:#ef6c00;margin-top:4px">Foto ainda não registrada.</div>':''}
@@ -26291,7 +26291,7 @@ function renderExpedicaoDetalhe(){
         <span style="position:absolute;top:6px;left:6px;font-size:10.5px;font-weight:700;border-radius:10px;padding:2px 8px;${temFoto?'color:#2e7d32;background:rgba(232,245,233,.95)':'color:#e65100;background:rgba(255,243,224,.95)'}">${temFoto?'📷 com foto':'sem foto'}</span>
         <span style="position:absolute;top:6px;right:6px;font-size:11px;font-weight:700;color:#37474f;background:rgba(255,255,255,.92);border-radius:10px;padding:2px 8px">Qtd ${it.qtd||0}</span>
         <label class="btn btn-sm" style="position:absolute;right:6px;bottom:6px;cursor:pointer;background:rgba(255,255,255,.95)">📷 Foto
-          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}','${it.id}')">
+          <input type="file" accept="image/*" style="display:none" onchange="adicionarFotoItemCarregamento(this,'${c.id}','${it.id}')">
         </label>
       </div>
       <div style="padding:8px 10px;display:flex;flex-direction:column;gap:5px">
@@ -27741,11 +27741,16 @@ function _similaridadeMinimo(orfa,cand){
   const A=_tokensMinimo(orfa), B=_tokensMinimo(cand);
   const numA=A.filter(t=>/^\d+$/.test(t)).sort().join(','), numB=B.filter(t=>/^\d+$/.test(t)).sort().join(',');
   if(numA!==numB) return 0; // números diferentes (1200 x 120) = outra coisa
-  let casados=0; const usados=new Set();
+  let casados=0, quaseIgual=false; const usados=new Set();
   A.forEach(t=>{
-    const k=B.findIndex((u,idx)=>!usados.has(idx)&&(u===t||(t.length>=4&&u.length>=4&&_lev1(t,u))));
+    // mesma palavra, plural (disco/discos) ou erro de digitação só em palavra longa — palavras curtas e parecidas
+    // (CORPO x COPO, CANO x CAPO, EIXO x EIXOS) são peças diferentes e não podem ser confundidas
+    const sing=w=>w.length>4&&w.endsWith('S')?w.slice(0,-1):w;
+    const k=B.findIndex((u,idx)=>!usados.has(idx)&&(u===t||sing(t)===sing(u)||(sing(t).length>=7&&sing(u).length>=7&&_lev1(sing(t),sing(u)))));
     if(k>=0){usados.add(k);casados++;}
+    else if(!/\d/.test(t) && B.some((u,idx)=>!usados.has(idx)&&!/\d/.test(u)&&_lev1(t,u))) quaseIgual=true; // palavra curta quase igual e diferente (CORPO x COPO)
   });
+  if(quaseIgual) return 0;
   return casados/Math.max(A.length,B.length,1);
 }
 async function _autoReligarMinimosOrfaos(){
