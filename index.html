@@ -5634,7 +5634,7 @@ let usuarioLogado=null;
 
 // Carimbo de build — usado para conferir rapidamente qual versão está no ar
 // (ver no menu do usuário ou no console). Atualizar a cada deploy relevante.
-const APP_BUILD='2026-11-27 · build 481';
+const APP_BUILD='2026-11-27 · build 482';
 // Módulos ocultos do sistema (dashboard, sidebar, stats e notificações).
 // Financeiro foi reabilitado a pedido do usuário (28/09) — lista vazia = nada oculto.
 const MODULOS_OCULTOS = [];
@@ -12707,6 +12707,7 @@ function _ordensMesmaPeca(ref, ignorarId){
   return (ordens||[]).filter(o=>{
     if(o.id===ref.id || o.id===ignorarId) return false;
     if(nd && _normDesenho(o.desenho)===nd) return true;
+    if(nd && _normDesenho(o.desenho) && _normDesenho(o.desenho)!==nd) return false; // desenhos diferentes = peças diferentes (ex.: COPO 4-19765 x CORPO 3-19770)
     if(ref.pdv_id && o.pdv_id===ref.pdv_id && ref.descricao && o.descricao){
       try{ return _similaridadeMinimo(ref.descricao,o.descricao)>=0.8; }catch(e){ return false; }
     }
